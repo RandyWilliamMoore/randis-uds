@@ -2,6 +2,10 @@
 
 **Randis UDS™ by Randy Moore. This is the original.** Repository: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix
 
+[![Watch the Randis UDS walkthrough video](https://img.youtube.com/vi/VZeMAVmKJrY/maxresdefault.jpg)](https://youtu.be/VZeMAVmKJrY)
+
+**[Watch the walkthrough video](https://youtu.be/VZeMAVmKJrY)**
+
 Copies, clones and derivatives must say so at the very top of their work and link back to the original repository: see `NOTICE.md`.
 
 **Randis UDS™ is a universal software with no fixed purpose. Describe what you need, and the LLM inside it builds that into the app while you're using it. If you can dream it you can build it.**
