@@ -14,7 +14,7 @@ Like it? Support the author: https://ko-fi.com/moorescombinatoricsmatrix
 
 Find real in-game items here: https://www.etsy.com/shop/UberRandis
 
-If you would like to be a sponsor or host your items, goods, and products on my store, contact me.
+If you would like to be a sponsor or host your items, goods, and products on my store, [contact me](#contact).
 
 Join the Discord: https://discord.gg/83RmuHcQTR
 
@@ -29,6 +29,14 @@ YouTube: https://www.youtube.com/@Randis9000 and https://www.youtube.com/@Moores
 - A PDF tab: read, make from text or pictures, merge, rotate, reorder, and add a drawn or typed signature (a picture on the page, not a certificate signature)
 - A snapshot before every Claude Code turn, so each turn can be undone
 - Projects: separate copies of the app for separate work, with changes from Base pushed into them
+
+## Contact
+
+- Leave a comment: https://github.com/RandyWilliamMoore/randis-uds/discussions
+- Discord: https://discord.gg/83RmuHcQTR
+- Ko-fi: https://ko-fi.com/moorescombinatoricsmatrix
+
+Comments here are public, so please leave out anything private.
 
 ## Install
 
