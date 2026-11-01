@@ -1,0 +1,26 @@
+# Randis UDS projects: what each copy keeps to itself (git doesn't carry it between projects)
+__pycache__/
+*.tmp
+data/session.json
+data/snapshots/
+data/claude_code_sessions.json
+data/claude_code_log.jsonl
+data/duck/
+data/project.json
+data/last_push.json
+data/app.lock
+data/pong_leaderboard.json
+data/projects_elsewhere.json
+data/pdf_drafts/
+data/templates_removed/
+data/workspace/
+tests/_test_data/
+tests/_built_pages/
+tests/_last_real_run.txt
+tests/_test_projects/
+tests/_fake_claude_log.jsonl*
+data/launch.log
+data/first_run.json
+data/claude_setup.json
+data/history.md
+.claude/settings.local.json

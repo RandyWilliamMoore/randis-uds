@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<!-- Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Rubber duck</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden;
+               background: radial-gradient(ellipse at 30% 20%, #1b2340 0%, #0b0e1a 60%, #05060c 100%); }
+  #stars { position: fixed; inset: 0; width: 100%; height: 100%; }
+  /* the duck's body: keep this element (id="duck") so "Pop me out" can lift it out of the page */
+  #duck { position: absolute; left: 50%; top: 50%; width: min(42vmin, 260px); height: min(42vmin, 260px);
+          transform: translate(-50%, -50%); animation: float 6s ease-in-out infinite; cursor: pointer; }
+  @keyframes float { 0%, 100% { transform: translate(-50%, -53%) rotate(-4deg); } 50% { transform: translate(-50%, -46%) rotate(4deg); } }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<svg id="duck" viewBox="0 0 200 200" aria-label="Rubber duck">
+  <path d="M40 120 L16 90 L60 106 Z" fill="#F5C518"/>
+  <ellipse cx="98" cy="132" rx="70" ry="44" fill="#FFD43B"/>
+  <ellipse cx="88" cy="134" rx="34" ry="20" fill="#F5C518" transform="rotate(-12 88 134)"/>
+  <circle cx="122" cy="72" r="38" fill="#FFD43B"/>
+  <path d="M152 70 Q182 70 186 80 Q178 92 150 88 Z" fill="#FF8C1A"/>
+  <path d="M152 80 Q172 84 184 81" stroke="#D96A00" stroke-width="2" fill="none"/>
+  <circle id="eye" cx="134" cy="62" r="11" fill="#fff"/>
+  <g id="pupil"><circle cx="134" cy="62" r="5.5" fill="#111"/><circle cx="136" cy="60" r="1.8" fill="#fff"/></g>
+  <circle cx="140" cy="82" r="6" fill="#FFB0A0" opacity=".55"/>
+  <ellipse cx="106" cy="52" rx="10" ry="5" fill="#fff" opacity=".35" transform="rotate(-30 106 52)"/>
+</svg>
+<script>
+  // stars that twinkle
+  const cv = document.getElementById("stars"), cx = cv.getContext("2d");
+  let stars = [];
+  function resize() {
+    cv.width = innerWidth; cv.height = innerHeight;
+    stars = Array.from({ length: Math.round(innerWidth * innerHeight / 5000) },
+      () => ({ x: Math.random() * cv.width, y: Math.random() * cv.height, r: Math.random() * 1.4 + .3, p: Math.random() * 6.3 }));
+  }
+  function draw(t) {
+    cx.clearRect(0, 0, cv.width, cv.height);
+    for (const s of stars) {
+      cx.globalAlpha = .45 + .55 * Math.abs(Math.sin(t / 1400 + s.p));
+      cx.fillStyle = "#fff"; cx.beginPath(); cx.arc(s.x, s.y, s.r, 0, 6.3); cx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  addEventListener("resize", resize); resize(); requestAnimationFrame(draw);
+
+  // the eye looks at you: the pupil follows the pointer, and looks straight out when you're away
+  const eye = document.getElementById("eye"), pupil = document.getElementById("pupil");
+  function look(x, y) {
+    const r = eye.getBoundingClientRect(), ex = r.left + r.width / 2, ey = r.top + r.height / 2;
+    const dx = x - ex, dy = y - ey, d = Math.hypot(dx, dy) || 1, m = Math.min(4.5, d / 30);
+    pupil.setAttribute("transform", `translate(${dx / d * m} ${dy / d * m})`);
+  }
+  addEventListener("mousemove", e => look(e.clientX, e.clientY));
+  document.addEventListener("mouseleave", () => pupil.setAttribute("transform", "translate(-1.5 0.5)"));
+
+  // click for a quack
+  document.getElementById("duck").addEventListener("click", () => {
+    const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain();
+    o.type = "sawtooth"; o.frequency.setValueAtTime(620, a.currentTime); o.frequency.exponentialRampToValueAtTime(260, a.currentTime + .18);
+    g.gain.setValueAtTime(.25, a.currentTime); g.gain.exponentialRampToValueAtTime(.001, a.currentTime + .22);
+    o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + .24);
+  });
+</script>
+</body>
+</html>

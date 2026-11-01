@@ -1,0 +1,228 @@
+<!doctype html>
+<!-- Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Randis UDS</title>
+<link rel="stylesheet" href="vendor/codemirror/codemirror.css">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="vendor/pdfjs/textlayer.css">
+<link rel="stylesheet" href="ext.css">
+</head>
+<body>
+  <header id="origin"><span id="origin-what">Randis UDS™ by Randy Moore</span> · Original: <a id="origin-link" href="#">github.com/RandyWilliamMoore/randis-uds</a> · Support: <a id="origin-support" href="#">ko-fi.com/moorescombinatoricsmatrix</a></header>
+  <div id="tabbar">
+    <img id="app-logo" src="logo/uds-base-mark.png" alt="Randis UDS" title="Randis UDS">
+    <div class="menu-wrap">
+      <button id="mainmenu" title="Menu: turn pages and features on or off, and open them" aria-haspopup="true">&#9776;</button>
+      <div id="main-menu" class="menu" hidden></div>
+    </div>
+    <div id="tabs" role="tablist"></div>
+    <div class="menu-wrap">
+      <button id="newtab" title="New tab (Ctrl+T)" aria-haspopup="true">+</button>
+      <div id="newtab-menu" class="menu" hidden>
+        <button data-kind="chat" data-needs-llm>Chat</button>
+        <button data-kind="ide">IDE</button>
+        <button data-kind="duck" data-needs-llm>Rubber duck</button>
+        <button data-kind="notepad">Notepad</button>
+        <button data-kind="pdf">PDF</button>
+        <div id="built-menu"></div>
+        <div id="tpl-menu"></div>
+        <hr>
+        <button data-kind="add" data-needs-llm>Add new item</button>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="menu-wrap main-only">
+      <button id="projects" class="pill" title="Projects: separate copies of Randis UDS for separate work">Base</button>
+      <div id="projects-menu" class="menu menu-right" hidden></div>
+    </div>
+    <div class="menu-wrap main-only">
+      <button id="addllm" class="pill">+ Add LLM</button>
+      <div id="addllm-menu" class="menu menu-right" hidden>
+        <div id="linked-list"></div>
+        <button data-llm="local">Local LLM (GGUF file)</button>
+        <button data-llm="lmstudio">LM Studio</button>
+        <button data-llm="api">Online account (official API key)</button>
+        <button data-llm="claudecode">Claude Code (this computer)</button>
+        <hr>
+        <button data-llm="add-option">Add option</button>
+      </div>
+    </div>
+  </div>
+  <main id="panes"></main>
+
+  <template id="welcome-tpl">
+    <section class="pane welcome">
+      <div class="welcome-box">
+        <img class="welcome-logo" src="logo/randis-uds-base-logo-on-dark.png" alt="Randis UDS">
+        <p class="muted">Link an LLM to build your own tabs and features by chatting, or open a plain editor.</p>
+        <div class="row">
+          <button class="pill primary" data-act="addllm">+ Add LLM</button>
+          <button class="pill" data-act="notepad">Open Notepad</button>
+          <button class="pill" data-act="editor">Open text editor</button>
+          <button class="pill" data-act="setup-help">Set up Claude Code</button>
+        </div>
+        <p class="muted small">The text editor is the IDE tab without an LLM: files, syntax colors, Run.</p>
+      </div>
+    </section>
+  </template>
+
+  <template id="start-tpl">
+    <section class="pane welcome">
+      <div class="welcome-box start">
+        <h1>What would you like to do?</h1>
+        <div class="composer">
+          <textarea rows="3" placeholder="Ask anything. Enter sends, Shift+Enter makes a new line." aria-label="First message"></textarea>
+          <button class="pill primary" data-act="start-send">Send</button>
+        </div>
+        <p class="muted small">Talking to <span class="llm-name"></span>. Ask for a tab (say "make a tab that…") and open it from the reply, or use + → Add new item.</p>
+      </div>
+    </section>
+  </template>
+
+  <template id="chat-tpl">
+    <section class="pane chat">
+      <aside class="side">
+        <div class="side-head">
+          <button class="pill" data-act="newchat">+ New chat</button>
+          <button class="icon" data-act="collapse" title="Hide panel">&laquo;</button>
+        </div>
+        <div class="side-label">History</div>
+        <div class="history"></div>
+        <div class="side-label">Artifacts</div>
+        <div class="artifacts"></div>
+      </aside>
+      <div class="chat-main">
+        <div class="chat-head">
+          <button class="icon" data-act="expand" title="Show panel" hidden>&raquo;</button>
+          <select class="llm-pick" aria-label="LLM for this chat"></select>
+        </div>
+        <div class="msgs"></div>
+        <div class="composer">
+          <textarea rows="2" placeholder="Message. Enter sends, Shift+Enter makes a new line." aria-label="Message"></textarea>
+          <button class="pill primary" data-act="send">Send</button>
+          <button class="pill" data-act="stop" hidden>Stop</button>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <template id="built-tpl">
+    <section class="pane built">
+      <div class="toolbar built-bar">
+        <input class="modify" type="text" aria-label="Describe a change">
+        <button class="pill primary" data-act="modify">Change</button>
+        <button class="pill" data-act="stop" hidden>Stop</button>
+        <select class="versions" aria-label="Versions" title="Versions: pick one to roll back or forward"></select>
+        <button class="pill" data-act="template" title="Save this version as a template you can start new tabs from">Save as template</button>
+        <span class="status muted"></span>
+      </div>
+      <pre class="build-log" hidden></pre>
+      <iframe sandbox="allow-scripts allow-modals allow-forms" title="Built tab"></iframe>
+    </section>
+  </template>
+
+  <template id="duck-tpl">
+    <section class="pane duck">
+      <div class="duck-stage">
+        <iframe sandbox="allow-scripts" title="Rubber duck"></iframe>
+        <div class="duck-out" hidden>
+          <p>The duck is out on your desktop. Drag him anywhere; double-click him to put him back.</p>
+          <button class="pill" data-act="putback">Put him back</button>
+        </div>
+        <div class="duck-buttons">
+          <button class="pill primary" data-act="modify">Modify me?</button>
+        </div>
+        <button class="pill duck-pop" data-act="popout">Pop me out</button>
+      </div>
+      <aside class="duck-studio" hidden>
+        <div class="studio-head">
+          <strong>Duck studio</strong>
+          <select class="versions" aria-label="Duck versions" title="Versions: pick one to roll back or forward"></select>
+          <button class="icon" data-act="studio-close" title="Close the studio">&times;</button>
+        </div>
+        <div class="studio-log"><p class="muted small">Tell the LLM how to change the duck or his space: a hat, colors, planets, a quack sound, a voice. Every change is a new version you can roll back.</p></div>
+        <div class="composer">
+          <textarea rows="2" placeholder="e.g. give him a pirate hat" aria-label="Change the duck"></textarea>
+          <button class="pill primary" data-act="duck-send">Send</button>
+          <button class="pill" data-act="stop" hidden>Stop</button>
+        </div>
+      </aside>
+    </section>
+  </template>
+
+  <template id="ide-tpl">
+    <section class="pane ide">
+      <div class="toolbar ide-bar">
+        <button data-act="folder" title="Pick the workspace folder">Folder…</button>
+        <button data-act="newfile">New file</button>
+        <button data-act="save" title="Save (Ctrl+S)">Save</button>
+        <button data-act="run" title="Run this file (F5)">▶ Run</button>
+        <button data-act="runstop" hidden>■ Stop</button>
+        <label class="small muted">Editor
+          <select class="editor-pick" aria-label="Editor">
+            <option value="cm">CodeMirror</option>
+            <option value="basic">Basic</option>
+          </select>
+        </label>
+        <button data-act="ask-toggle" title="Ask the linked LLM about this file">Ask LLM</button>
+        <span class="status muted"></span>
+      </div>
+      <div class="ide-body">
+        <aside class="ide-files">
+          <div class="ide-root muted small"></div>
+          <div class="tree"></div>
+        </aside>
+        <div class="ide-center">
+          <div class="editor-host"></div>
+          <div class="ide-out-wrap">
+            <div class="out-head"><span>Output</span><button data-act="clear-out">Clear</button></div>
+            <pre class="ide-out"></pre>
+          </div>
+        </div>
+        <aside class="ide-ask" hidden>
+          <div class="ask-log"><p class="muted small">Ask about the open file, or ask for a change. A reply with code gets a "Use this code" button; Ctrl+Z undoes it.</p></div>
+          <div class="composer">
+            <textarea rows="2" placeholder="e.g. add a function that adds two numbers" aria-label="Ask the LLM"></textarea>
+            <button class="pill primary" data-act="ask-send">Send</button>
+            <button class="pill" data-act="stop" hidden>Stop</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </template>
+
+  <template id="notepad-tpl">
+    <section class="pane notepad">
+      <div class="toolbar">
+        <button data-act="open">Open</button>
+        <button data-act="save">Save</button>
+        <button data-act="saveas">Save as</button>
+        <span class="status muted"></span>
+      </div>
+      <textarea spellcheck="false" aria-label="Notepad text"></textarea>
+    </section>
+  </template>
+
+  <div id="modal" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true">
+      <h2 class="modal-title"></h2>
+      <div class="modal-body"></div>
+      <p class="modal-error" hidden></p>
+      <div class="modal-foot"><button class="pill" data-act="modal-cancel">Cancel</button></div>
+    </div>
+  </div>
+
+  <div id="ctx-menu" class="menu" role="menu" hidden></div>
+  <div id="toast" role="status" hidden></div>
+<script src="boot_watch.js"></script>
+<script src="vendor/codemirror/codemirror.js"></script>
+<script src="pong.js"></script>
+<script src="app.js"></script>
+<script src="boot_guard.js"></script>
+<script src="tabchat.js"></script>
+<script src="pdf.js"></script>
+<script src="ext.js"></script>
+</body>
+</html>
