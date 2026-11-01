@@ -14,6 +14,8 @@ Like it? Support the author: https://ko-fi.com/moorescombinatoricsmatrix
 
 Find real in-game items here: https://www.etsy.com/shop/UberRandis
 
+If you would like to be a sponsor or host your items, goods, and products on my store, contact me.
+
 Join the Discord: https://discord.gg/83RmuHcQTR
 
 YouTube: https://www.youtube.com/@Randis9000 and https://www.youtube.com/@MooresCombinatoricsMatrix
