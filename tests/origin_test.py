@@ -113,7 +113,7 @@ def run(w):
         os.environ["UDS_TEST_HIDDEN"] = "1"
         js("addTab('notepad', {}); popOut(current().id)")
         end = time.time() + 20
-        while time.time() < end and not api._wins:
+        while time.time() < end and not (api._wins and next(iter(api._wins.values()))["window"]):
             time.sleep(0.1)
         pop = next(iter(api._wins.values()))["window"] if api._wins else None
         seen = ""
