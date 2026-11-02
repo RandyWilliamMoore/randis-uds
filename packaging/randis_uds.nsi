@@ -86,6 +86,9 @@ Section "${APP_NAME}" SecMain
   SetOverwrite on
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
+  WriteRegStr HKCU "Software\Classes\randisuds" "" "URL:Randis UDS"
+  WriteRegStr HKCU "Software\Classes\randisuds" "URL Protocol" ""
+  WriteRegStr HKCU "Software\Classes\randisuds\shell\open\command" "" '"$INSTDIR\python\pythonw.exe" "$INSTDIR\app\launch.py" "%1"'
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${Version}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "${APP_NAME}"
@@ -122,6 +125,7 @@ Section "Uninstall"
   RMDir /r "$INSTDIR\python"
   RMDir /r "$INSTDIR\app\__pycache__"
   !include "${Stage}\uninstall_files.nsh"
+  DeleteRegKey HKCU "Software\Classes\randisuds"
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
