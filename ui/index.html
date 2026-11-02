@@ -3,6 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="frame-src 'self'">
 <title>Randis UDS</title>
 <link rel="stylesheet" href="vendor/codemirror/codemirror.css">
 <link rel="stylesheet" href="app.css">
@@ -121,14 +122,14 @@
         <span class="status muted"></span>
       </div>
       <pre class="build-log" hidden></pre>
-      <iframe sandbox="allow-scripts allow-modals allow-forms" title="Built tab"></iframe>
+      <iframe sandbox="allow-scripts allow-modals allow-forms" csp="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'" title="Built tab"></iframe>
     </section>
   </template>
 
   <template id="duck-tpl">
     <section class="pane duck">
       <div class="duck-stage">
-        <iframe sandbox="allow-scripts" title="Rubber duck"></iframe>
+        <iframe sandbox="allow-scripts" csp="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'" title="Rubber duck"></iframe>
         <div class="duck-out" hidden>
           <p>The duck is out on your desktop. Drag him anywhere; double-click him to put him back.</p>
           <button class="pill" data-act="putback">Put him back</button>

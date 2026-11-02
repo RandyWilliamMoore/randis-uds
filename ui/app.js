@@ -969,7 +969,7 @@ function watchShopLinks() {
     const go = el("button", { className: "pill primary" }, "Open it");
     go.dataset.act = "item-open-go"; go.dataset.item = item;
     openModal("Open this from the Randis Shop?", [el("p", {}, `A link asked to open ${item.split("/").pop()} from the shop. Open it as a tab here?`),
-      el("p", { className: "muted" }, "It runs walled off. If you link an LLM to edit it, remember its text could try to mislead the LLM."), go]);
+      el("p", { className: "muted" }, "It runs walled off: no internet and no access to your files. If you link an LLM to edit it, remember its text could try to mislead the LLM."), go]);
   }, 1500);
 }
 
