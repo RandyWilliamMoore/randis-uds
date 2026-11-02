@@ -14,6 +14,8 @@ import subprocess
 import threading
 import uuid
 
+import turn_programs
+
 DEFAULT_MODE = "acceptEdits"
 MODES = {"acceptEdits": "Edit files in the folder (recommended). Commands that need permission are refused",
          "bypassPermissions": "Full access: runs anything on this computer and never asks",
@@ -27,6 +29,8 @@ SYSTEM = (
     "into a new version). This folder may be one of several projects (copies of Randis UDS); a new duck version is copied "
     "to all of them by the app. The app saves a snapshot of this folder before each of your turns and the user can undo "
     "a turn in one click; changes outside this folder can't be undone that way, so say plainly when you make any. "
+    "Anything you start with no visible window is stopped when your turn ends, so test browsers don't pile up; "
+    "if the user needs a server or helper to keep running, tell them it stops and how to start it. "
     "Changes to ui/ files show after a page reload; changes to .py files show after the app restarts. "
     "If a change stops the app from starting, `python restore.py --undo-last` in this folder undoes the last turn. "
     "Answer plainly and briefly.")
@@ -100,7 +104,13 @@ class ClaudeCode:
                 self._turn(messages, job, ctx, ctx.get("session"))
             finally:
                 job.status = "checking what changed"
+                self._end_programs(job)
                 ctx["after"](job)
+
+    def _end_programs(self, job):
+        programs = getattr(job, "programs", None)
+        if programs:
+            job.extra["stopped_programs"] = job.extra.get("stopped_programs", 0) + programs.finish()
 
     def _prompt(self, messages, resumed):
         system = "\n".join(m["content"] for m in messages if m["role"] == "system")
@@ -125,6 +135,9 @@ class ClaudeCode:
         proc = subprocess.Popen(args, cwd=self.cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 env=child_env(), creationflags=NO_WINDOW, encoding="utf-8", errors="replace")
         job.proc = proc
+        self._end_programs(job)                      # a retry starts a new one
+        job.programs = turn_programs.TurnPrograms()
+        job.programs.add(proc)
         err = []
         threading.Thread(target=lambda: err.append(proc.stderr.read()), daemon=True).start()
         proc.stdin.write(prompt)

@@ -36,6 +36,11 @@ known[sid] = known.get(sid, 0) + 1
 json.dump(known, open(known_file, "w"))
 emit({"type": "system", "subtype": "init", "cwd": os.getcwd(), "session_id": sid, "tools": ["Read", "Edit", "Write", "Bash"],
       "permissionMode": arg("--permission-mode"), "apiKeySource": os.environ.get("FAKE_KEY_SOURCE", "ANTHROPIC_API_KEY")})
+if "leave programs" in ask:
+    import subprocess
+    for cmd in json.loads(os.environ.get("FAKE_LEAVE", "[]")):
+        subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NO_WINDOW)
+    time.sleep(6)
 if "fail" in ask:
     print("boom: something broke", file=sys.stderr)
     sys.exit(2)
