@@ -24,7 +24,10 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 import webbrowser
+from html import unescape
 
 import webview
 from wsgiref.simple_server import WSGIServer
@@ -478,6 +481,59 @@ class Api:
             return {"error": "The LLM's answer wasn't a complete page, so nothing was changed. Try again or say it differently."}
         return {"meta": self._tabs().save_version(tab_id, name, html, note, origin_chat)}
 
+    # ---------- one game or app, opened as a tab to play or edit (walled off like every built tab)
+    def _add_item(self, html, name, note):
+        if len(html) > tabs.MAX_ITEM or not re.search(r"<html|<!doctype html", html[:2000], re.I):
+            return {"error": "That isn't a page this app can open."}
+        title = re.search(r"<title[^>]*>(.*?)</title>", html[:20000], re.I | re.S)
+        name = (unescape(title.group(1)).strip() if title else "") or name
+        return {"meta": self._tabs().save_version(None, name[:60], html, note)}
+
+    def item_open_file(self):
+        paths = self._window.create_file_dialog(webview.FileDialog.OPEN, file_types=("Game or app (*.html;*.htm)", "All files (*.*)"))
+        if not paths:
+            return None
+        try:
+            if os.path.getsize(paths[0]) > tabs.MAX_ITEM:
+                return {"error": "That file is too big to open."}
+            with open(paths[0], encoding="utf-8") as f:
+                html = f.read()
+        except (OSError, UnicodeError):
+            return {"error": "That file couldn't be read."}
+        return self._add_item(html, os.path.splitext(os.path.basename(paths[0]))[0], "opened from a file")
+
+    def item_save_into(self, tab_id, html):
+        """A game in a built tab saved itself: its own new version. It can't touch anything else."""
+        if not isinstance(html, str) or len(html) > tabs.MAX_ITEM:
+            return {"error": "That save is too big."}
+        return {"meta": self._tabs().save_version(tab_id, None, html, "saved game")}
+
+    def item_request(self):
+        """What a shop link asked for (launch.py wrote it). Taken once; old ones are dropped."""
+        path = os.path.join(DATA_DIR, "open_request.json")
+        try:
+            with open(path, encoding="utf-8") as f:
+                req = json.load(f)
+            os.remove(path)
+        except (OSError, ValueError):
+            return None
+        item = req.get("item") if isinstance(req, dict) else None
+        fresh = isinstance(req, dict) and time.time() - float(req.get("time", 0)) < 600
+        return item if fresh and isinstance(item, str) and ITEM_ADDRESS.fullmatch(item) else None
+
+    def item_fetch(self, item):
+        """Only from the shop's own address, and only an item's page: a link can't point this anywhere else."""
+        if not isinstance(item, str) or not ITEM_ADDRESS.fullmatch(item):
+            return {"error": "That isn't an item from the shop."}
+        shop = os.environ.get("UDS_SHOP_URL") or SHOP_URL
+        try:
+            with urllib.request.urlopen(f"{shop}{item}/item.html", timeout=30) as r:
+                raw = r.read(tabs.MAX_ITEM + 1)
+            html = raw.decode("utf-8")
+        except (urllib.error.URLError, OSError, UnicodeError, ValueError):
+            return {"error": "The shop couldn't be reached, so nothing was opened."}
+        return self._add_item(html, item.split("/")[-1], "opened from the shop")
+
     def built_list(self):
         return self._tabs().list()
 
@@ -849,6 +905,10 @@ def pid_alive(pid):
     k.GetExitCodeProcess(h, ctypes.byref(code))
     k.CloseHandle(h)
     return code.value == 259                                  # STILL_ACTIVE
+
+
+SHOP_URL = "https://randywilliammoore.github.io/randis-shop/"
+ITEM_ADDRESS = re.compile(r"(games|apps)/[a-z0-9]+(-[a-z0-9]+)*")
 
 
 def lock_alive(root):

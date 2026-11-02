@@ -101,6 +101,7 @@ function buildNotepad(tab) {
 function buildWelcome(tab) {
   const linked = !!activeLlm();
   const pane = $(linked ? "#start-tpl" : "#welcome-tpl").content.firstElementChild.cloneNode(true);
+  pane.addEventListener("click", e => { if (e.target.dataset.act === "open-item") openItemFile(); });
   if (linked) {
     $(".llm-name", pane).textContent = activeLlm().name;
     const ta = $("textarea", pane);
@@ -690,6 +691,12 @@ $("#modal").addEventListener("click", async e => {
   if (t.dataset.act === "lms-connect") tryLink({ kind: "lmstudio", url: $("#modal input.url").value.trim() });
   if (t.dataset.act === "claude-check") claudeCheck();
   if (t.dataset.act === "claude-link") tryLink({ kind: "claude", key: $("#modal input.api-key").value.trim(), model: $("#modal select.claude-model").value });
+  if (t.dataset.act === "item-open-go") {
+    const r = await api().item_fetch(t.dataset.item);
+    closeModal();
+    if (r.error) return toast(r.error);
+    return openItem(r.meta);
+  }
   if (t.dataset.act === "build-go") {
     const req = $("#modal textarea.build-req").value.trim();
     if (!req) return;
@@ -965,6 +972,56 @@ function buildStatus(tab, text, err) {
   s.textContent = text; s.classList.toggle("err", !!err);
 }
 
+function fillVersions(tab, meta, n) {
+  const sel = $(".versions", tab.pane);
+  sel.textContent = "";
+  for (const v of meta.versions.slice().reverse()) {
+    const label = `v${v.n} · ${v.note.length > 36 ? v.note.slice(0, 36) + "…" : v.note}`;
+    sel.appendChild(el("option", { value: v.n, selected: v.n === n }, label));
+  }
+}
+
+// One game or app as a tab: walled off like every built tab.
+async function openItem(meta) {
+  await refreshBuilt();
+  openBuilt(meta.id);
+  toast("Opened: " + meta.name + ". Describe a change at the top of the tab to edit it.");
+}
+
+async function openItemFile() {
+  const r = await api().item_open_file();
+  if (!r) return;
+  if (r.error) return toast(r.error);
+  openItem(r.meta);
+}
+
+// A shop link only leaves a note; nothing opens until the person says so.
+function watchShopLinks() {
+  if (WIN || !api()) return;
+  setInterval(async () => {
+    const a = api(); if (!a || !$("#modal").hidden) return;
+    const item = await a.item_request();
+    if (!item) return;
+    const go = el("button", { className: "pill primary" }, "Open it");
+    go.dataset.act = "item-open-go"; go.dataset.item = item;
+    openModal("Open this from the Randis Shop?", [el("p", {}, `A link asked to open ${item.split("/").pop()} from the shop. Open it as a tab here?`),
+      el("p", { className: "muted" }, "It runs walled off. If you link an LLM to edit it, remember its text could try to mislead the LLM."), go]);
+  }, 1500);
+}
+
+// A game in a tab saves itself as this tab's next version.
+let lastItemSave = 0;
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "save-file" || typeof e.data.text !== "string" || !api()) return;
+  const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
+  if (!tab) return;
+  if (Date.now() - lastItemSave < 2000) return e.source.postMessage({ uds: "saved", note: "Just saved. Try again in a moment." }, "*");
+  lastItemSave = Date.now();
+  const r = await api().item_save_into(tab.builtId, e.data.text);
+  if (!r.error) { fillVersions(tab, r.meta, r.meta.current); buildStatus(tab, `version ${r.meta.current} of ${r.meta.versions.length}`); await refreshBuilt(); }
+  e.source.postMessage({ uds: "saved", note: r.error || `Saved in this tab, as version ${r.meta.current}.` }, "*");
+});
+
 async function loadBuilt(tab) {
   const a = api(); if (!a) return;
   const r = await a.built_load(tab.builtId);
@@ -972,12 +1029,7 @@ async function loadBuilt(tab) {
   $("iframe", tab.pane).srcdoc = r.html;
   $("iframe", tab.pane).hidden = false;
   $(".build-log", tab.pane).hidden = true;
-  const sel = $(".versions", tab.pane);
-  sel.textContent = "";
-  for (const v of r.meta.versions.slice().reverse()) {
-    const label = `v${v.n} · ${v.note.length > 36 ? v.note.slice(0, 36) + "…" : v.note}`;
-    sel.appendChild(el("option", { value: v.n, selected: v.n === r.n }, label));
-  }
+  fillVersions(tab, r.meta, r.n);
   tab.title = r.meta.name;
   buildStatus(tab, `version ${r.n} of ${r.meta.versions.length}`);
   renderTabs();
@@ -1805,6 +1857,7 @@ async function start() {
   }
   tellWatcher();
   maybeFirstRun();
+  watchShopLinks();
 }
 
 // launch.py is waiting to hear the page came up with every script whole. The scripts after this one may still be loading.

@@ -7,6 +7,7 @@ this file still runs if the app's own packages are broken. Every start goes in d
 import ctypes
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -100,7 +101,37 @@ def gui_python():
     return w if os.path.exists(w) else sys.executable
 
 
+def app_running():
+    """Whether this copy's app is already open (it writes data/app.lock with its process id)."""
+    try:
+        with open(os.path.join(HERE, "data", "app.lock"), encoding="utf-8") as f:
+            pid = int(f.read().strip())
+        h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(h)
+        return code.value == 259
+    except (OSError, ValueError):
+        return False
+
+
+def take_open_link(args):
+    """A shop link (randisuds://open?item=games/name) leaves a note for the app, which asks before it opens anything. Returns whether there was one."""
+    for a in args:
+        m = re.fullmatch(r"randisuds://open/?\?item=((?:games|apps)/[a-z0-9]+(?:-[a-z0-9]+)*)/?", a)
+        if m:
+            os.makedirs(os.path.join(HERE, "data"), exist_ok=True)
+            with open(os.path.join(HERE, "data", "open_request.json"), "w", encoding="utf-8") as f:
+                json.dump({"item": m.group(1), "time": time.time()}, f)
+            return True
+    return False
+
+
 def main():
+    if take_open_link(sys.argv[1:]) and app_running():
+        return None                                  # the open window picks it up
     log_file = os.path.join(HERE, "data", "launch.log")
     tries = tuple(float(s) for s in os.environ["UDS_LAUNCH_TRIES"].split(",")) if os.environ.get("UDS_LAUNCH_TRIES") else TRIES
     return watch([gui_python(), os.path.join(HERE, "app.py")], HERE, dict(os.environ), tries, lambda text: write_log(log_file, text))

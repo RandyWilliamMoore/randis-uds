@@ -91,6 +91,10 @@ Section "${APP_NAME}" SecMain
   SetOverwrite on
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
+  ; the shop's "Open With Randis UDS To Edit" link. The app asks before it opens anything.
+  WriteRegStr HKCU "Software\Classes\randisuds" "" "URL:Randis UDS"
+  WriteRegStr HKCU "Software\Classes\randisuds" "URL Protocol" ""
+  WriteRegStr HKCU "Software\Classes\randisuds\shell\open\command" "" '"$INSTDIR\python\pythonw.exe" "$INSTDIR\app\launch.py" "%1"'
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${Version}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "${APP_NAME}"
@@ -131,6 +135,7 @@ Section "Uninstall"
   RMDir /r "$INSTDIR\app\__pycache__"
   ; only the files setup put there, written by build_installer.py: data and anything else the user made stay
   !include "${Stage}\uninstall_files.nsh"
+  DeleteRegKey HKCU "Software\Classes\randisuds"
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"

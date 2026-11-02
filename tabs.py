@@ -38,6 +38,9 @@ def extract_html(text):
     return None
 
 
+MAX_ITEM = 30 * 1024 * 1024    # the most one game or app page may be
+
+
 class TabStore:
     def __init__(self, root):
         self.root = root

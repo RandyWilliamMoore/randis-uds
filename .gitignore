@@ -20,6 +20,7 @@ tests/_last_real_run.txt
 tests/_test_projects/
 tests/_fake_claude_log.jsonl*
 data/launch.log
+data/open_request.json
 data/first_run.json
 data/claude_setup.json
 data/history.md

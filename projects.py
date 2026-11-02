@@ -38,6 +38,7 @@ data/projects_elsewhere.json
 data/pdf_drafts/
 data/templates_removed/
 data/workspace/
+data/open_request.json
 tests/_test_data/
 tests/_built_pages/
 tests/_last_real_run.txt

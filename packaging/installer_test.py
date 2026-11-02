@@ -40,6 +40,14 @@ def key_exists():
         return False
 
 
+def link_command():
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\randisuds\shell\open\command") as k:
+            return winreg.QueryValueEx(k, "")[0]
+    except OSError:
+        return ""
+
+
 def shortcut(path):
     ps = f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{path}'); $s.TargetPath; $s.Arguments; $s.WorkingDirectory"
     return subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True).stdout.split("\n")
@@ -77,6 +85,27 @@ def test_silent():
     data = os.path.join(inst, "app", "data")
     check("silent install: Python and app are in place", all(os.path.exists(os.path.join(inst, p)) for p in (r"python\pythonw.exe", r"app\app.py", r"app\launch.py", r"app\LICENSE", r"app\NOTICE.md", r"app\ui\boot_watch.js", r"app\ui\index.html", "Uninstall.exe")))
     check("silent install: the shipped tabs are in data", os.path.isdir(os.path.join(data, "tabs")) and os.listdir(os.path.join(data, "tabs")))
+    link = link_command()
+    check("silent install: the shop link opens the private Python's launcher", link.lower().startswith(('"' + os.path.join(inst, r"python\pythonw.exe") + '" "' + os.path.join(inst, r"app\launch.py") + '" "%1"').lower()), link)
+    # the registered command itself, as Windows runs it for a link, hidden. The app takes the note the link leaves.
+    note = os.path.join(data, "open_request.json")
+    log = os.path.join(data, "launch.log")
+    env = dict(os.environ, UDS_TEST_HIDDEN="1", UDS_LAUNCH_TRIES="30")
+    env.pop("UDS_BASE", None)
+    proc = subprocess.Popen(link.replace("%1", "randisuds://open?item=games/marble-collector"), env=env)
+    seen = taken = False
+    for _ in range(300):
+        seen = seen or os.path.exists(note)
+        if seen and not os.path.exists(note):
+            taken = True
+            break
+        time.sleep(0.1)
+    check("silent install: a real link starts the app, which takes the note", seen and taken, (seen, taken, open(log).read()[-200:] if os.path.exists(log) else ""))
+    subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+    lock = os.path.join(data, "app.lock")
+    if os.path.exists(lock):
+        subprocess.run(["taskkill", "/F", "/T", "/PID", open(lock).read().strip()], capture_output=True)
+    time.sleep(1)
     check("silent install: tests and packaging stay out", not any(os.path.exists(os.path.join(inst, "app", p)) for p in ("tests", "packaging", "docs")))
     check("silent install: the Start menu shortcut opens the private Python", (s := shortcut(START))[0].strip().lower() == os.path.join(inst, r"python\pythonw.exe").lower() and "launch.py" in s[1] and s[2].strip().lower() == os.path.join(inst, "app").lower(), s)
     check("silent install: the desktop shortcut opens the private Python", os.path.exists(DESK) and shortcut(DESK)[0].strip().lower() == os.path.join(inst, r"python\pythonw.exe").lower())
