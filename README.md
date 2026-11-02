@@ -88,6 +88,7 @@ python tests/ui_test.py --no-real
 
 - Sometimes a page reload doesn't finish loading, and your open tabs don't come back. Automated tests show this now and then on a new install. The cause isn't known yet.
 - Undoing a Claude Code turn puts the whole folder back to how it was before that turn, including any other changes made since then.
+- Tabs can't reach the internet, but when the rubber duck is popped out to its own window, a duck page that sends its window to another address can sometimes get that one request out.
 
 ## License
 
