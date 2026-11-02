@@ -123,6 +123,9 @@ def tests(main, pop, control):
     for page in [many("open")] + list(leaving("open").values()):
         control.evaluate_js("(()=>{const f=document.createElement('iframe');f.setAttribute('sandbox','allow-scripts allow-modals allow-forms');f.srcdoc=%s;document.body.append(f)})()" % json.dumps(page))
     need = ("fetch", "img", "script", "ws", "href", "form", "rtc")
+    if not control.evaluate_js("typeof RTCPeerConnection !== 'undefined'"):
+        need = need[:-1]                       # this web view has no WebRTC even without the wall (Linux), so it can't show here
+        print("  no WebRTC in this web view at all", flush=True)
     end = time.time() + 45                     # a busy computer takes a while to run them all
     while time.time() < end and not all(r in out("open") for r in need):
         time.sleep(0.5)
@@ -207,6 +210,9 @@ real_start = webview.start
 def wrapped_start(func=None, *a, **k):
     """Runs on the windows the real main() made; the unwalled window is added here so it isn't mistaken for them."""
     main, pop = webview.windows[0], webview.windows[1]
+    if os.name != "nt":
+        import linux_wall
+        linux_wall.OPEN_TITLES.add("no wall")
     control = webview.create_window("no wall", html="<!doctype html><body>x</body>", hidden=True)
 
     def run():

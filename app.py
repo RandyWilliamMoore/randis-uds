@@ -20,6 +20,8 @@ import mimetypes
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 import threading
@@ -73,6 +75,7 @@ POP_SCRIPT = """<script>(function () {
   box.addEventListener('dblclick', function () { window.pywebview && window.pywebview.api.close(); });
 })();</script>"""
 BLANK_POP = "<html><body style='background:transparent'></body></html>"
+POP_BASE = {} if os.name == "nt" else {"base_uri": "about:blank"}   # Linux would otherwise give the duck's page this folder (file://) as its address
 # Tabs and the duck hold pages anyone may have written, so they get no internet. ui/index.html carries the same rules on its frames.
 WALL_RULES = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'"
 NO_WEBRTC = "for(const n of ['RTCPeerConnection','webkitRTCPeerConnection','RTCSessionDescription','RTCIceCandidate','RTCDataChannel','RTCRtpSender','RTCRtpReceiver','RTCRtpTransceiver']){try{delete window[n]}catch(e){}}"
@@ -182,7 +185,10 @@ class Api:
 
     def _wall_window(self, window, served=True):
         """Two things a page's rules can't stop: WebRTC, removed from every frame before its page runs, and leaving for another address.
-        served: this window's own page comes from this computer; the duck's window only ever shows a page handed to it."""
+        served: this window's own page comes from this computer; the duck's window only ever shows a page handed to it.
+        On Linux, linux_wall walls every window as it's made."""
+        if os.name != "nt":
+            return
         home = ("about:", "data:") + (SERVED_HERE if served else ())
 
         def setup():
@@ -735,8 +741,15 @@ class Api:
         if which == "pin":
             cli_setup.show_in_explorer(cli_setup.shortcuts()[0])
         elif which == "guide":
-            subprocess.Popen(["notepad.exe", os.path.join(HERE, "CLAUDE_CODE_SETUP.md")])
+            guide = os.path.join(HERE, "CLAUDE_CODE_SETUP.md")
+            subprocess.Popen(["notepad.exe", guide] if os.name == "nt" else ["xdg-open", guide], **({} if os.name == "nt" else {"start_new_session": True}))
         elif which in ("install", "claude"):
+            if os.name != "nt":
+                if which == "install":
+                    sh = "curl -fsSL https://claude.ai/install.sh | bash; echo; echo 'When this has finished, go back to Randis UDS and press Check again.'"
+                else:
+                    sh = shlex.quote(ccode.command()[0])
+                return open_terminal(sh + "; exec bash")
             if which == "install":
                 ps = "irm https://claude.ai/install.ps1 | iex; Write-Host ''; Write-Host 'When this has finished, go back to Randis UDS and press Check again.'"
             else:
@@ -785,7 +798,7 @@ class Api:
             return True
         with open(os.path.join(HERE, "ui", "duck.svg"), "rb") as f:
             fallback = "data:image/svg+xml;base64," + base64.b64encode(f.read()).decode()
-        self._pop_win.load_html(walled(self.duck_load()["html"]) + POP_SCRIPT % fallback)
+        self._pop_win.load_html(walled(self.duck_load()["html"]) + POP_SCRIPT % fallback, **POP_BASE)
         self._pop_win.show()
         self._pop = self._pop_win
         return True
@@ -795,7 +808,7 @@ class Api:
             return True
         self._pop = None
         self._pop_win.hide()
-        self._pop_win.load_html(BLANK_POP)   # stop the duck page's scripts while he's away
+        self._pop_win.load_html(BLANK_POP, **POP_BASE)   # stop the duck page's scripts while he's away
         if self._window is not None:
             self._window.evaluate_js("window.duckBack && duckBack()")
         return True
@@ -806,8 +819,7 @@ class Api:
     def restart_app(self):
         """Starts a fresh copy of Randis UDS (it waits for this one to exit first), then closes this one."""
         env = dict(os.environ, UDS_WAIT_PID=str(os.getpid()))
-        subprocess.Popen([sys.executable, start_file(HERE)], cwd=HERE, env=env,
-                         creationflags=getattr(subprocess, "DETACHED_PROCESS", 0) | ccode.NO_WINDOW)
+        subprocess.Popen([sys.executable, start_file(HERE)], cwd=HERE, env=env, **detached())
         threading.Timer(0.3, self._window.destroy).start()   # after this call's reply reaches the page
         return True
 
@@ -845,8 +857,7 @@ class Api:
             return {"here": True}
         if lock_alive(p["path"]):
             return {"already": True}
-        subprocess.Popen([gui_python(), start_file(p["path"])], cwd=p["path"],
-                         creationflags=getattr(subprocess, "DETACHED_PROCESS", 0) | ccode.NO_WINDOW)
+        subprocess.Popen([gui_python(), start_file(p["path"])], cwd=p["path"], **detached())
         return {"ok": True}
 
     def project_push(self, pids):
@@ -933,8 +944,29 @@ class PopApi:
         return True
 
 
+def detached():
+    """How a started copy is cut loose from this one: no console window on Windows, its own session elsewhere."""
+    if os.name == "nt":
+        return {"creationflags": getattr(subprocess, "DETACHED_PROCESS", 0) | ccode.NO_WINDOW}
+    return {"start_new_session": True}
+
+
+def open_terminal(command):
+    """Linux: runs a shell command in a new terminal window, from whichever terminal is installed."""
+    for term in (["x-terminal-emulator", "-e"], ["gnome-terminal", "--"], ["konsole", "-e"], ["xfce4-terminal", "-x"], ["xterm", "-e"]):
+        if shutil.which(term[0]):
+            subprocess.Popen(term + ["bash", "-lc", command], cwd=HERE, env=ccode.child_env(), start_new_session=True)
+            return True
+    return {"error": "No terminal program found. Open a terminal and run: " + command}
+
+
 def wait_for_exit(pid, timeout=20):
     """A restarted copy waits here until the old one has closed, so both never write data/ at once."""
+    if os.name != "nt":
+        end = time.time() + timeout
+        while pid_alive(pid) and time.time() < end:
+            time.sleep(0.1)
+        return
     if os.name == "nt":
         import ctypes
         k = ctypes.windll.kernel32
@@ -946,7 +978,15 @@ def wait_for_exit(pid, timeout=20):
 
 def pid_alive(pid):
     if os.name != "nt":
-        return False
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        except OSError:
+            return False
+        return True
     import ctypes
     k = ctypes.windll.kernel32
     h = k.OpenProcess(0x1000, False, pid)                     # PROCESS_QUERY_LIMITED_INFORMATION
@@ -1001,6 +1041,9 @@ def main():
         cli_setup.write_hook(HERE)
         if cli_setup.installed_here(HERE):
             threading.Thread(target=cli_setup.stamp_shortcuts, args=("RandisUDS." + re.sub(r"\W+", "", name),), daemon=True).start()
+    if os.name != "nt":
+        import linux_wall
+        linux_wall.install(NO_WEBRTC)
     api = Api()
     window = webview.create_window(
         "Randis UDS" if name == "Base" else f"Randis UDS · {name}",
@@ -1018,7 +1061,11 @@ def main():
     api._wall_window(window)
     window.events.closed += api._main_closed
     api._make_pop_window()
-    webview.start(api._startup, icon=os.path.join(HERE, "ui", "logo", f"uds-{logo}.ico"))
+    icon = os.path.join(HERE, "ui", "logo", f"uds-{logo}.ico")
+    png = os.path.join(HERE, "ui", "logo", f"uds-{logo}-app-icon.png")
+    if os.name != "nt" and os.path.exists(png):
+        icon = png
+    webview.start(api._startup, icon=icon)
 
 
 if __name__ == "__main__":
