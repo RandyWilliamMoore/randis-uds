@@ -858,7 +858,7 @@ function setBusy(tab, status) {
 }
 
 // ---------- tabs built by chat (step 3) ----------
-// A built tab is an HTML page the LLM wrote, shown in a sandboxed frame (no access to the app or files).
+// A built tab is an HTML page the LLM wrote, shown in a sandboxed frame (no access to the app, files or internet).
 // Every change is a new saved version; picking an older one in the dropdown rolls back without deleting anything.
 async function refreshBuilt() { state.built = await api().built_list(); }
 

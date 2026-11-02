@@ -4,7 +4,7 @@
 Each built tab is a folder data/tabs/<id>/ holding v001.html, v002.html, ... and meta.json.
 A change never overwrites an old version; "roll back" only moves the current pointer, so every
 version stays on disk to inspect or return to (contained, inspectable, reversible).
-The page shows a tab in a sandboxed frame with no access to the app or its files.
+The page shows a tab in a sandboxed frame with no access to the app, its files or the internet.
 """
 import json
 import os
