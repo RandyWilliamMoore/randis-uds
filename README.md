@@ -6,6 +6,8 @@
 
 **[Watch the walkthrough video](https://youtu.be/VZeMAVmKJrY)**
 
+**[Play games and apps made with Randis UDS in The Randis Shop](https://randywilliammoore.github.io/randis-shop/)**
+
 Copies, clones and derivatives must say so at the very top of their work and link back to the original repository: see `NOTICE.md`.
 
 **Randis UDS™ is a universal software with no fixed purpose. Describe what you need, and the LLM inside it builds that into the app while you're using it. If you can dream it you can build it.**
