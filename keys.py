@@ -10,7 +10,11 @@ ENTROPY = b"Randis UDS api key"
 
 
 def keys_file():
-    root = os.environ.get("UDS_KEYS_DIR") or os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "RandisUDS")
+    if os.name == "nt":
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    else:
+        base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
+    root = os.environ.get("UDS_KEYS_DIR") or os.path.join(base, "RandisUDS")
     return os.path.join(root, "keys.json")
 
 
@@ -35,8 +39,21 @@ def _crypt(fn, data):
         ctypes.windll.kernel32.LocalFree(out.pbData)
 
 
-_protect = ctypes.windll.crypt32.CryptProtectData
-_unprotect = ctypes.windll.crypt32.CryptUnprotectData
+if os.name == "nt":
+    _protect = ctypes.windll.crypt32.CryptProtectData
+    _unprotect = ctypes.windll.crypt32.CryptUnprotectData
+
+    def _lock(data):
+        return _crypt(_protect, data)
+
+    def _unlock(data):
+        return _crypt(_unprotect, data)
+else:
+    def _lock(data):
+        return data
+
+    def _unlock(data):
+        return data
 
 
 def _load():
@@ -50,6 +67,10 @@ def _load():
 def _write(store):
     path = keys_file()
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    if os.name != "nt":
+        os.chmod(os.path.dirname(path), 0o700)
+        fd = os.open(path + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.close(fd)
     with open(path + ".tmp", "w", encoding="utf-8") as f:
         json.dump(store, f, indent=1)
     for attempt in range(20):
@@ -64,7 +85,7 @@ def _write(store):
 
 def put(key_id, secret):
     store = _load()
-    store[key_id] = base64.b64encode(_crypt(_protect, secret.encode("utf-8"))).decode()
+    store[key_id] = base64.b64encode(_lock(secret.encode("utf-8"))).decode()
     _write(store)
 
 
@@ -72,7 +93,7 @@ def get(key_id):
     enc = _load().get(key_id)
     if enc is None:
         raise ValueError("This link's API key is missing. Unlink it and link it again with your key.")
-    return _crypt(_unprotect, base64.b64decode(enc)).decode("utf-8")
+    return _unlock(base64.b64decode(enc)).decode("utf-8")
 
 
 def drop(key_id):

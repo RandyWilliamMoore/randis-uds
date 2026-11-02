@@ -69,6 +69,21 @@ Optional: Git for Projects, and Claude Code for the Claude Code link.
 
 API keys are stored in `%APPDATA%\RandisUDS`, encrypted with Windows' per-user encryption. They are not stored in this folder.
 
+## Linux
+
+Runs from source; there's no installer yet. Tested on Ubuntu 24.04.
+
+```bash
+sudo apt install python3-venv python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1
+./run_linux.sh
+```
+
+The first run sets up `.venv` in this folder. What's different from Windows:
+
+- **Tabs are not blocked from the internet.** On Windows each tab gets a rule that stops it reaching the internet. The Linux web view ignores that rule, so a tab's page can load from and send to the internet. Only open tabs you trust.
+- API keys are stored in `~/.config/RandisUDS/keys.json`, readable only by your user, but not encrypted.
+- No taskbar pinning help, and the Claude Code setup opens in your terminal instead of PowerShell.
+
 ## Tests
 
 ```powershell
