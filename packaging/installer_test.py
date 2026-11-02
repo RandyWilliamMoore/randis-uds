@@ -2,8 +2,10 @@
 # Run: python packaging/installer_test.py   (after build_installer.py; needs NSIS, Pillow only for the screenshots)
 """Tests the built setup.exe the way a stranger meets it: the WebView2 check both ways, a silent install, the private Python with PATH cut to
 Windows' folders, a reinstall over a user's changes, uninstall, and the real wizard clicked through by its own buttons (moved off screen).
-It installs into a temp folder, but shortcuts and the Apps-list entry are this user's real ones: same-named shortcuts are saved and put back."""
-import ctypes, ctypes.wintypes as wt, glob, os, shutil, subprocess, sys, tempfile, time, winreg
+It installs into a temp folder, but shortcuts, the Apps-list entry and the randisuds:// link are this user's real ones. A real install's
+entries and shortcuts are saved to the test folder first and put back at the end, even after a crash. If the test is killed before that:
+python packaging/installer_test.py --put-back <test folder>"""
+import ctypes, ctypes.wintypes as wt, glob, json, os, shutil, subprocess, sys, tempfile, time, winreg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -14,8 +16,12 @@ MAKENSIS = os.path.join(os.environ["LOCALAPPDATA"], "Programs", "NSIS", "makensi
 KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\RandisUDS"
 START = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Randis UDS.lnk")
 DESK = os.path.join(os.environ["USERPROFILE"], "Desktop", "Randis UDS.lnk")
-OUT = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else tempfile.mkdtemp(prefix="uds_installer_test_")  # NSIS needs backslashes
+DESK2 = DESK.replace("Randis UDS.lnk", "Randis UDS (installed).lnk")
+LINK_KEY = r"Software\Classes\randisuds"
+PUT_BACK = len(sys.argv) > 2 and sys.argv[1] == "--put-back"
+OUT = os.path.abspath(sys.argv[-1]) if len(sys.argv) > 1 else tempfile.mkdtemp(prefix="uds_installer_test_")  # NSIS needs backslashes
 os.makedirs(OUT, exist_ok=True)
+SAVED = os.path.join(OUT, "saved_real_install.json")
 results = []
 
 
@@ -316,16 +322,87 @@ def test_wizard():
     check("uninstall removes the Apps entry", not key_exists())
 
 
-def main():
-    assert os.path.exists(SETUP), SETUP
-    if key_exists():
-        sys.exit("A Randis UDS install is already listed in Apps on this PC. This test would overwrite that entry; uninstall it first.")
-    saved = {}
-    for i, path in enumerate((START, DESK)):
+# ---- the user's real install: saved before the test, put back after ----
+def read_key(path):
+    """A registry key with all its values and subkeys, or None if it isn't there."""
+    try:
+        k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path)
+    except OSError:
+        return None
+    with k:
+        n_keys, n_values, _ = winreg.QueryInfoKey(k)
+        values = []
+        for i in range(n_values):
+            name, data, kind = winreg.EnumValue(k, i)
+            values.append([name, data.hex() if isinstance(data, bytes) else data, kind, isinstance(data, bytes)])
+        subs = [winreg.EnumKey(k, i) for i in range(n_keys)]
+    return {"values": sorted(values), "keys": {s: read_key(path + "\\" + s) for s in subs}}
+
+
+def drop_key(path):
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as k:
+            subs = [winreg.EnumKey(k, i) for i in range(winreg.QueryInfoKey(k)[0])]
+    except OSError:
+        return
+    for s in subs:
+        drop_key(path + "\\" + s)
+    winreg.DeleteKey(winreg.HKEY_CURRENT_USER, path)
+
+
+def write_key(path, tree):
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, path) as k:
+        for name, data, kind, raw in tree["values"]:
+            winreg.SetValueEx(k, name, 0, kind, bytes.fromhex(data) if raw else data)
+    for s, sub in tree["keys"].items():
+        write_key(path + "\\" + s, sub)
+
+
+def save_real():
+    """Writes the real entries down and copies the real shortcuts into the test folder, checks the copies, and only then clears them."""
+    saved = {"keys": {p: read_key(p) for p in (KEY, LINK_KEY)}, "links": {}}
+    for i, path in enumerate((START, DESK, DESK2)):
         if os.path.exists(path):
-            saved[path] = os.path.join(OUT, f"saved_{i}.lnk")
-            shutil.move(path, saved[path])
-    print("saved shortcuts:", list(saved), flush=True)
+            saved["links"][path] = os.path.join(OUT, f"saved_{i}.lnk")
+    with open(SAVED, "w", encoding="utf-8") as f:
+        json.dump(saved, f, indent=1)
+    for path, copy in saved["links"].items():
+        shutil.copy2(path, copy)
+    for path, copy in saved["links"].items():
+        assert open(path, "rb").read() == open(copy, "rb").read(), path
+        os.remove(path)
+    for p in (KEY, LINK_KEY):
+        drop_key(p)
+    print("saved the real install's entries and shortcuts:", [p for p, t in saved["keys"].items() if t] + list(saved["links"]), "in", SAVED, flush=True)
+
+
+def put_back():
+    """Clears what the test made and puts the saved entries and shortcuts back exactly."""
+    if not os.path.exists(SAVED):
+        return True
+    saved = json.load(open(SAVED, encoding="utf-8"))
+    for path in (START, DESK, DESK2):
+        if os.path.exists(path) and path not in saved["links"]:
+            os.remove(path)
+    for path, copy in saved["links"].items():
+        shutil.copy2(copy, path)
+    for p, tree in saved["keys"].items():
+        drop_key(p)
+        if tree:
+            write_key(p, tree)
+    ok = all(read_key(p) == tree for p, tree in saved["keys"].items()) and all(open(p, "rb").read() == open(c, "rb").read() for p, c in saved["links"].items())
+    if ok:
+        os.replace(SAVED, SAVED + ".restored")
+    print("real install's entries and shortcuts put back exactly:", ok, flush=True)
+    return ok
+
+
+def main():
+    if PUT_BACK:
+        sys.exit(0 if put_back() else 1)
+    assert os.path.exists(SETUP), SETUP
+    assert not os.path.exists(SAVED), "this folder holds a saved install that was never put back: run --put-back on it first"
+    save_real()
     try:
         test_webview2_check()
         test_silent()
@@ -333,12 +410,7 @@ def main():
     except Exception as e:
         check("test crashed", False, repr(e))
     finally:
-        for path in (START, DESK, DESK.replace("Randis UDS.lnk", "Randis UDS (installed).lnk")):
-            if os.path.exists(path):
-                os.remove(path)
-        for path, copy in saved.items():
-            shutil.move(copy, path)
-        print("shortcuts restored:", all(os.path.exists(p) for p in saved), flush=True)
+        check("the real install's Apps entry, link and shortcuts are put back exactly", put_back())
     print(f"{sum(r[0] for r in results)}/{len(results)} passed. Folder: {OUT}")
     sys.exit(0 if all(r[0] for r in results) else 1)
 
