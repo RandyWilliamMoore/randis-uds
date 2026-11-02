@@ -72,6 +72,7 @@ POP_SCRIPT = """<script>(function () {
   box.addEventListener('dblclick', function () { window.pywebview && window.pywebview.api.close(); });
 })();</script>"""
 BLANK_POP = "<html><body style='background:transparent'></body></html>"
+POP_BASE = {} if os.name == "nt" else {"base_uri": "about:blank"}   # Linux would otherwise give the duck's page this folder (file://) as its address
 # Tabs and the duck hold pages anyone may have written, so they get no internet. ui/index.html carries the same rules on its frames.
 WALL_RULES = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'"
 NO_WEBRTC = "for(const n of ['RTCPeerConnection','webkitRTCPeerConnection','RTCSessionDescription','RTCIceCandidate','RTCDataChannel','RTCRtpSender','RTCRtpReceiver','RTCRtpTransceiver']){try{delete window[n]}catch(e){}}"
@@ -741,7 +742,7 @@ class Api:
             return True
         with open(os.path.join(HERE, "ui", "duck.svg"), "rb") as f:
             fallback = "data:image/svg+xml;base64," + base64.b64encode(f.read()).decode()
-        self._pop_win.load_html(walled(self.duck_load()["html"]) + POP_SCRIPT % fallback)
+        self._pop_win.load_html(walled(self.duck_load()["html"]) + POP_SCRIPT % fallback, **POP_BASE)
         self._pop_win.show()
         self._pop = self._pop_win
         return True
@@ -751,7 +752,7 @@ class Api:
             return True
         self._pop = None
         self._pop_win.hide()
-        self._pop_win.load_html(BLANK_POP)   # stop the duck page's scripts while he's away
+        self._pop_win.load_html(BLANK_POP, **POP_BASE)   # stop the duck page's scripts while he's away
         if self._window is not None:
             self._window.evaluate_js("window.duckBack && duckBack()")
         return True
