@@ -181,7 +181,10 @@ class Api:
 
     def _wall_window(self, window, served=True):
         """Two things a page's rules can't stop: WebRTC, removed from every frame before its page runs, and leaving for another address.
-        served: this window's own page comes from this computer; the duck's window only ever shows a page handed to it."""
+        served: this window's own page comes from this computer; the duck's window only ever shows a page handed to it.
+        On Linux, linux_wall walls every window as it's made."""
+        if os.name != "nt":
+            return
         home = ("about:", "data:") + (SERVED_HERE if served else ())
 
         def setup():
@@ -977,6 +980,9 @@ def main():
         cli_setup.write_hook(HERE)
         if cli_setup.installed_here(HERE):
             threading.Thread(target=cli_setup.stamp_shortcuts, args=("RandisUDS." + re.sub(r"\W+", "", name),), daemon=True).start()
+    if os.name != "nt":
+        import linux_wall
+        linux_wall.install(NO_WEBRTC)
     api = Api()
     window = webview.create_window(
         "Randis UDS" if name == "Base" else f"Randis UDS · {name}",
