@@ -34,7 +34,15 @@ def free_ram_bytes():
         ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
         return m.ullAvailPhys
     except (AttributeError, OSError):
-        return None
+        pass
+    try:                                    # Linux
+        with open("/proc/meminfo", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
 
 
 def find_gguf_files():

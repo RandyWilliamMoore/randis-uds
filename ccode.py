@@ -36,7 +36,7 @@ def command():
     """The claude command as a list. UDS_CLAUDE_CMD (a JSON list) points tests at a stand-in."""
     if os.environ.get("UDS_CLAUDE_CMD"):
         return json.loads(os.environ["UDS_CLAUDE_CMD"])
-    local = os.path.expanduser("~/.local/bin/claude.exe")
+    local = os.path.expanduser("~/.local/bin/claude.exe" if os.name == "nt" else "~/.local/bin/claude")
     exe = shutil.which("claude") or (local if os.path.exists(local) else None)
     return [exe] if exe else None
 

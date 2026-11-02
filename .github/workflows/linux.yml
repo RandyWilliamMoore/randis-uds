@@ -1,0 +1,51 @@
+name: Linux
+
+on:
+  push:
+    branches: [linux, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install what the app needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 xvfb git
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install -r requirements.txt pillow
+
+      - name: Every file compiles
+        run: .venv/bin/python -m compileall -q -x '(\.venv|packaging)' .
+
+      - name: Restore and Projects tests
+        run: |
+          all_passed() { out=$("$@" 2>&1); echo "$out"; echo "$out" | tail -n 1 | awk -F'[/ ]' '{ exit !($1 == $2 && $1 > 0) }'; }
+          all_passed .venv/bin/python tests/restore_test.py
+          all_passed .venv/bin/python tests/projects_test.py
+
+      - name: API keys file is private to the user
+        run: |
+          .venv/bin/python - <<'EOF'
+          import os, stat, keys
+          keys.put("ci", "secret-123")
+          assert keys.get("ci") == "secret-123"
+          f = keys.keys_file()
+          assert f.startswith(os.path.expanduser("~/.config/RandisUDS")), f
+          assert stat.S_IMODE(os.stat(f).st_mode) == 0o600, oct(os.stat(f).st_mode)
+          assert stat.S_IMODE(os.stat(os.path.dirname(f)).st_mode) == 0o700
+          keys.drop("ci")
+          print("keys ok:", f)
+          EOF
+
+      - name: The app starts and its page comes up
+        run: |
+          export UDS_TEST_HIDDEN=1 UDS_LAUNCH_TRIES=90
+          xvfb-run -a .venv/bin/python launch.py
+          cat data/launch.log
+          grep -q "ready in" data/launch.log

@@ -35,11 +35,32 @@ def write_log(path, text):
 
 
 def kill_tree(pid):
-    subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, creationflags=NO_WINDOW)
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, creationflags=NO_WINDOW)
+        return
+    import signal
+    try:
+        os.killpg(pid, signal.SIGKILL)        # the app runs in its own session, so this ends it and what it started
+    except OSError:
+        pass
 
 
 def message_box(text):
-    ctypes.windll.user32.MessageBoxW(None, text, "Randis UDS", 0x40)
+    if os.name == "nt":
+        ctypes.windll.user32.MessageBoxW(None, text, "Randis UDS", 0x40)
+        return
+    for cmd in (["zenity", "--info", "--title=Randis UDS", "--text=" + text], ["notify-send", "Randis UDS", text]):
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=600)
+            return
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+    print("Randis UDS: " + text, file=sys.stderr)
+
+
+def detached():
+    """How a started copy is cut loose from this one: no console window on Windows, its own session elsewhere."""
+    return {"creationflags": DETACHED | NO_WINDOW} if os.name == "nt" else {"start_new_session": True}
 
 
 def watch(cmd, cwd, env, tries=TRIES, log=lambda text: None, say=message_box, poll=0.1):
@@ -52,7 +73,7 @@ def watch(cmd, cwd, env, tries=TRIES, log=lambda text: None, say=message_box, po
             if os.path.exists(ready):
                 os.remove(ready)
             began = time.time()
-            child = subprocess.Popen(cmd, cwd=cwd, env=dict(env, UDS_READY_FILE=ready), creationflags=DETACHED | NO_WINDOW)
+            child = subprocess.Popen(cmd, cwd=cwd, env=dict(env, UDS_READY_FILE=ready), **detached())
             why = None
             while why is None:
                 time.sleep(poll)
@@ -77,7 +98,7 @@ def watch(cmd, cwd, env, tries=TRIES, log=lambda text: None, say=message_box, po
                     why = f"stopped with code {child.returncode} after {took:.1f} s"
                     if last:
                         log(f"try {number}: {why}; giving up")
-                        say("Randis UDS couldn't start after " + str(len(tries)) + " tries. Try opening it again.\n\nDetails: data\\launch.log")
+                        say("Randis UDS couldn't start after " + str(len(tries)) + " tries. Try opening it again.\n\nDetails: " + os.path.join("data", "launch.log"))
                         return "crashed"
                 elif took > limit:
                     why = f"no word after {limit} s"
