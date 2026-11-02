@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 import webbrowser
 from urllib.parse import urlsplit
 
@@ -62,6 +63,8 @@ def _setup(window, view, no_webrtc):
     if window.title in OPEN_TITLES:
         return
     _home[window.uid] = ((), False)                       # closed until everything below is in place
+    t0 = time.time()
+    _say("setup starts", repr(window.title))
     served = not window.html and window.real_url
     allow = ()
     if served:
@@ -73,7 +76,9 @@ def _setup(window, view, no_webrtc):
         pass                                              # this WebKit has no WebRTC at all
     view.manager.add_script(WebKit2.UserScript.new(no_webrtc, WebKit2.UserContentInjectedFrames.ALL_FRAMES,
                                                    WebKit2.UserScriptInjectionTime.START, None, None))
+    _say("webrtc off and script added after %.2f s" % (time.time() - t0))
     view.manager.add_filter(_filter(allow))
+    _say("filter added after %.2f s" % (time.time() - t0))
     _home[window.uid] = (("about:", "data:") + allow, bool(served))
     _say("walled", repr(window.title), "url", window.real_url, "allow", allow)
     if DEBUG:
