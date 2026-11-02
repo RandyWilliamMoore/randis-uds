@@ -1,5 +1,6 @@
 # Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds
 import json
+import os
 import re
 import sys
 import tempfile
@@ -10,6 +11,12 @@ OPEN_TITLES = set()
 _home = {}
 _filters = {}
 _store = []
+DEBUG = bool(os.environ.get("UDS_WALL_DEBUG"))
+
+
+def _say(*a):
+    if DEBUG:
+        print("[wall]", *a, file=sys.stderr, flush=True)
 
 
 def _rules(allow):
@@ -61,6 +68,9 @@ def _setup(window, view, no_webrtc):
                                                    WebKit2.UserScriptInjectionTime.START, None, None))
     view.manager.add_filter(_filter(allow))
     _home[window.uid] = (("about:", "data:") + allow, bool(served))
+    _say("walled", repr(window.title), "url", window.real_url, "allow", allow)
+    if DEBUG:
+        view.webview.connect("load-failed", lambda v, ev, uri, err: _say("load failed", uri, err.message) and False)
 
 
 def install(no_webrtc):
@@ -91,6 +101,7 @@ def install(no_webrtc):
                 decision.ignore()
                 return True
             if not (home and uri.lower().startswith(home)):
+                _say("refused navigation", uri[:120], "home", home)
                 decision.ignore()
                 return True
         return navigate(self, webview, decision, kind)
