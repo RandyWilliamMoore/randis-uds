@@ -43,6 +43,9 @@ jobs:
           print("keys ok:", f)
           EOF
 
+      - name: Tabs and the duck can't reach the internet
+        run: UDS_TEST_HIDDEN=1 xvfb-run -a .venv/bin/python tests/wall_test.py
+
       - name: The app starts and its page comes up
         run: |
           export UDS_TEST_HIDDEN=1 UDS_LAUNCH_TRIES=90

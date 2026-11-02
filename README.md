@@ -80,7 +80,7 @@ sudo apt install python3-venv python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-
 
 The first run sets up `.venv` in this folder. What's different from Windows:
 
-- **Tabs are not blocked from the internet.** On Windows each tab gets a rule that stops it reaching the internet. The Linux web view ignores that rule, so a tab's page can load from and send to the internet. Only open tabs you trust.
+- Tabs and the duck can't reach the internet here either, but the block is built differently: the Linux web view ignores the rule Windows uses, so each window gets a content filter that refuses every request except to the app's own page, a check that stops any frame leaving for another address, and WebRTC turned off (`linux_wall.py`). `tests/wall_test.py` runs the same attacks on both.
 - API keys are stored in `~/.config/RandisUDS/keys.json`, readable only by your user, but not encrypted.
 - No taskbar pinning help, and the Claude Code setup opens in your terminal instead of PowerShell.
 

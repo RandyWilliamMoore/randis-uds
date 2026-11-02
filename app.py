@@ -148,6 +148,8 @@ class Api:
         window.events.loaded += block
 
     def _wall_window(self, window, served=True):
+        if os.name != "nt":
+            return
         home = ("about:", "data:") + (SERVED_HERE if served else ())
 
         def setup():
@@ -895,6 +897,9 @@ def main():
         cli_setup.write_hook(HERE)
         if cli_setup.installed_here(HERE):
             threading.Thread(target=cli_setup.stamp_shortcuts, args=("RandisUDS." + re.sub(r"\W+", "", name),), daemon=True).start()
+    if os.name != "nt":
+        import linux_wall
+        linux_wall.install(NO_WEBRTC)
     api = Api()
     window = webview.create_window(
         "Randis UDS" if name == "Base" else f"Randis UDS · {name}",
