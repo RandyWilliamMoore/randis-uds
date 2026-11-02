@@ -140,6 +140,7 @@ def tests(main, pop, control):
         return False
 
     until("typeof state !== 'undefined' && !!document.querySelector('[data-act=open-item]')", 25)
+    js(LISTEN)
     path = os.path.join(TOP, "game.html")
     with open(path, "w", encoding="utf-8") as f:
         f.write(many("tab"))
@@ -148,7 +149,6 @@ def tests(main, pop, control):
     js("document.querySelector('.pane:not([hidden]) [data-act=open-item]').click()")
     check("a hostile page opens as a real tab", until("current().kind === 'built' && current().pane.querySelector('iframe').srcdoc.includes('tab-fetch')"))
     main.create_file_dialog = real
-    js(LISTEN)
     time.sleep(5)
     check("a tab's frame carries the rules", js("current().pane.querySelector('iframe').getAttribute('csp')") == app.WALL_RULES)
     with open(os.path.join(HERE, "ui", "index.html"), encoding="utf-8") as f:
