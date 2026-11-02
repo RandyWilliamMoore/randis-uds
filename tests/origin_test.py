@@ -10,7 +10,7 @@ os.environ.update(UDS_BASE=os.path.join(TOP, "no_base"))
 import webview, app, projects
 app.DATA_DIR = TOP
 app.SESSION_FILE = os.path.join(TOP, "session.json")
-PICTURE = sys.argv[1] if len(sys.argv) > 1 else None
+PICTURE = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].endswith(".png") else None
 REPO = "https://github.com/RandyWilliamMoore/randis-uds"
 SUPPORT = "https://ko-fi.com/moorescombinatoricsmatrix"
 
