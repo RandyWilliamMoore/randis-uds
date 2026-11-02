@@ -6,6 +6,7 @@ gets three things before its page loads:
 - WebRTC off.
 If any of it can't be set up, the window refuses to load anything rather than open unwalled."""
 import json
+import os
 import re
 import sys
 import tempfile
@@ -16,6 +17,12 @@ OPEN_TITLES = set()          # windows left unwalled on purpose: only the wall t
 _home = {}                   # window uid -> (addresses its frames may go to, may it open links in the browser)
 _filters = {}
 _store = []
+DEBUG = bool(os.environ.get("UDS_WALL_DEBUG"))
+
+
+def _say(*a):
+    if DEBUG:
+        print("[wall]", *a, file=sys.stderr, flush=True)
 
 
 def _rules(allow):
@@ -68,6 +75,9 @@ def _setup(window, view, no_webrtc):
                                                    WebKit2.UserScriptInjectionTime.START, None, None))
     view.manager.add_filter(_filter(allow))
     _home[window.uid] = (("about:", "data:") + allow, bool(served))
+    _say("walled", repr(window.title), "url", window.real_url, "allow", allow)
+    if DEBUG:
+        view.webview.connect("load-failed", lambda v, ev, uri, err: _say("load failed", uri, err.message) and False)
 
 
 def install(no_webrtc):
@@ -99,6 +109,7 @@ def install(no_webrtc):
                 decision.ignore()
                 return True
             if not (home and uri.lower().startswith(home)):
+                _say("refused navigation", uri[:120], "home", home)
                 decision.ignore()
                 return True
         return navigate(self, webview, decision, kind)
