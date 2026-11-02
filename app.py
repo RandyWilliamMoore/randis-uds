@@ -73,6 +73,17 @@ POP_SCRIPT = """<script>(function () {
   box.addEventListener('dblclick', function () { window.pywebview && window.pywebview.api.close(); });
 })();</script>"""
 BLANK_POP = "<html><body style='background:transparent'></body></html>"
+# Tabs and the duck hold pages anyone may have written, so they get no internet. ui/index.html carries the same rules on its frames.
+WALL_RULES = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'"
+NO_WEBRTC = "for(const n of ['RTCPeerConnection','webkitRTCPeerConnection','RTCSessionDescription','RTCIceCandidate','RTCDataChannel','RTCRtpSender','RTCRtpReceiver','RTCRtpTransceiver']){try{delete window[n]}catch(e){}}"
+SERVED_HERE = ("http://127.0.0.1:", "http://localhost:", "file:")
+
+
+def walled(html):
+    """A page shown with no frame around it: the rules go first, before anything of its own can run."""
+    rules = f'<meta http-equiv="Content-Security-Policy" content="{WALL_RULES}">'
+    m = re.match(r"\s*<!doctype[^>]*>", html, re.I)
+    return html[:m.end()] + rules + html[m.end():] if m else rules + html
 DUCK_CHAT_SYSTEM = (
     "You are chatting with the user in the rubber duck's \"Modify me?\" chat in Randis UDS. The duck (and his space) is one "
     "small self-contained HTML page: inline CSS and JavaScript, no external files, links or network calls. Talk like a normal "
@@ -169,6 +180,44 @@ class Api:
                 pass                             # the page's own guard (boot_watch.js) still stands
         window.events.loaded += block
 
+    def _wall_window(self, window, served=True):
+        """Two things a page's rules can't stop: WebRTC, removed from every frame before its page runs, and leaving for another address.
+        served: this window's own page comes from this computer; the duck's window only ever shows a page handed to it."""
+        home = ("about:", "data:") + (SERVED_HERE if served else ())
+
+        def setup():
+            view = window.native.browser.webview
+
+            def add(*_):
+                core = view.CoreWebView2
+                core.AddScriptToExecuteOnDocumentCreatedAsync(NO_WEBRTC)
+                if not served:                   # cancelling a navigation still lets its first request out; this stops it being sent
+                    core.WebResourceRequested += refuse
+
+            def refuse(_, args):
+                if not str(args.Request.Uri).lower().startswith(home):
+                    args.Response = view.CoreWebView2.Environment.CreateWebResourceResponse(None, 403, "Blocked", "")
+
+            def stay(_, args):
+                args.Cancel = not str(args.Uri).lower().startswith(home)
+            view.NavigationStarting += stay
+            if not served:                       # pywebview hands window.open to the default browser; it picks this up when the view is ready
+                window.native.browser.on_new_window_request = lambda _, args: args.set_Handled(True)
+            if view.CoreWebView2 is not None:
+                add()
+            else:
+                view.CoreWebView2InitializationCompleted += add
+
+        once = threading.Lock()
+
+        def hook():
+            if once.acquire(blocking=False):
+                from System import Action        # .NET, there once the window is: how a call reaches the window's own thread
+                window.native.Invoke(Action(setup))
+        window.events.before_show += hook
+        if window.events.before_show.is_set():   # a window made while the app runs may already be past that point
+            hook()
+
     def tab_popout(self, payload, x=None, y=None):
         wid = str(self._next_win)
         self._next_win += 1
@@ -177,8 +226,9 @@ class Api:
         w = webview.create_window(self._window.title, url=os.path.join(HERE, "ui", "index.html") + "#win=" + wid, js_api=self,
                                   width=900, height=640, min_size=(480, 320), background_color="#1e1f22", text_select=True,
                                   hidden=bool(os.environ.get("UDS_TEST_HIDDEN")), **pos)
-        self._no_file_drops(w)
         self._wins[wid]["window"] = w
+        self._no_file_drops(w)
+        self._wall_window(w)
         w.events.closed += lambda: self._win_closed(wid)
         self._write_session()
         return wid
@@ -656,6 +706,7 @@ class Api:
         self._pop_win = webview.create_window("Rubber duck", html=BLANK_POP, js_api=PopApi(self), width=190, height=190,
                                               frameless=True, transparent=True, on_top=True, easy_drag=True, resizable=False)
         self._no_file_drops(self._pop_win)
+        self._wall_window(self._pop_win, served=False)
         self._pop_win.events.closing += self._pop_closing
         self._pop_closing_ok = False
 
@@ -734,7 +785,7 @@ class Api:
             return True
         with open(os.path.join(HERE, "ui", "duck.svg"), "rb") as f:
             fallback = "data:image/svg+xml;base64," + base64.b64encode(f.read()).decode()
-        self._pop_win.load_html(self.duck_load()["html"] + POP_SCRIPT % fallback)
+        self._pop_win.load_html(walled(self.duck_load()["html"]) + POP_SCRIPT % fallback)
         self._pop_win.show()
         self._pop = self._pop_win
         return True
@@ -964,6 +1015,7 @@ def main():
     )
     api._window = window
     api._no_file_drops(window)
+    api._wall_window(window)
     window.events.closed += api._main_closed
     api._make_pop_window()
     webview.start(api._startup, icon=os.path.join(HERE, "ui", "logo", f"uds-{logo}.ico"))
