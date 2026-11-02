@@ -39,6 +39,8 @@ def write_hook(root):
 
 
 def shortcuts():
+    if os.name != "nt":
+        return []
     out = []
     try:
         import winreg
@@ -137,4 +139,7 @@ def stamp_shortcuts(app_id):
 
 
 def show_in_explorer(path):
-    subprocess.Popen(["explorer.exe", "/select,", path])
+    if os.name == "nt":
+        subprocess.Popen(["explorer.exe", "/select,", path])
+    else:
+        subprocess.Popen(["xdg-open", os.path.dirname(path)], start_new_session=True)
