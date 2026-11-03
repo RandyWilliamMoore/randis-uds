@@ -16,6 +16,8 @@ CHECK_EVERY = 6 * 3600
 SETUP_NAME = re.compile(r"RandisUDS-Setup-(\d+\.\d+\.\d+)\.exe")
 DOWNLOAD_HOSTS = ("https://github.com/", "https://objects.githubusercontent.com/", "https://release-assets.githubusercontent.com/")
 MAX_SIZE = 300 * 1024 * 1024
+HIDDEN_CONSOLE = 0x08000000
+NEW_GROUP = 0x00000200
 
 
 def releases_url():
@@ -237,7 +239,7 @@ def start_install(app, setup):
     with open(script, "w", encoding="utf-8-sig") as f:
         f.write(WAITER.format(inst=q(inst), setup=q(setup), version=m.group(1)))
     subprocess.Popen(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", script],
-                     cwd=folder, creationflags=0x00000008 | 0x08000000, close_fds=True)
+                     cwd=folder, creationflags=HIDDEN_CONSOLE | NEW_GROUP, close_fds=True)
     return True
 
 
