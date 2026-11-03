@@ -23,7 +23,7 @@ for p in (os.path.join(INST, "Uninstall.exe"), os.path.join(INST, "python", "pyt
 open(os.path.join(FAKE, "VERSION"), "w").write("0.1.2\n")
 
 SETUP = os.urandom(200_000)
-served = {"setup": SETUP, "hits": 0}
+served = {"setup": SETUP, "hits": 0, "ranges": []}
 
 
 class Fake(http.server.BaseHTTPRequestHandler):
@@ -36,6 +36,26 @@ class Fake(http.server.BaseHTTPRequestHandler):
             body = json.dumps(served["releases"]).encode()
         elif self.path.startswith("/dl/"):
             body = served["setup"]
+            rng = self.headers.get("Range")
+            if rng:
+                start = int(rng.split("=")[1].split("-")[0])
+                served["ranges"].append(start)
+                part = body[start:]
+                self.send_response(206)
+                self.send_header("Content-Range", f"bytes {start}-{len(body) - 1}/{len(body)}")
+                self.send_header("Content-Length", str(len(part)))
+                self.end_headers()
+                self.wfile.write(part)
+                return
+            if served.get("cut"):
+                served["cut"] -= 1
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body[:len(body) // 2])
+                self.wfile.flush()
+                self.connection.shutdown(2)
+                return
         else:
             self.send_response(404); self.end_headers(); return
         self.send_response(200)
@@ -77,6 +97,10 @@ check("a copy run from its folder never checks by itself", not updater.due(APP))
 got = updater.download(FAKE)
 check("the download lands in data/updates and matches", os.path.isfile(got["path"]) and open(got["path"], "rb").read() == SETUP
       and os.path.dirname(got["path"]) == os.path.join(FAKE, "data", "updates"), got)
+served["cut"] = 1
+got = updater.download(FAKE)
+check("a download cut partway carries on from where it stopped, and matches", served["ranges"] == [len(SETUP) // 2]
+      and open(got["path"], "rb").read() == SETUP, served["ranges"])
 served["setup"] = SETUP[:-1] + b"x"
 try:
     updater.download(FAKE); bad = None

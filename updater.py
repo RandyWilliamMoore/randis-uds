@@ -4,6 +4,7 @@ a copy run from its source folder, or a project, is left alone. An update is the
 closes, so it does exactly what a reinstall does: code the user's Claude edited is saved first (update_backup.py) and data is never touched.
 Nothing is downloaded or run without the user saying yes."""
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -160,26 +161,54 @@ def download(app, timeout=60):
             except OSError:
                 pass
     dest = os.path.join(folder, f"RandisUDS-Setup-{best['version']}.exe")
+    got = _fetch_file(best["url"], dest + ".part", best["size"], timeout)
     h = hashlib.sha256()
-    got = 0
-    req = urllib.request.Request(best["url"], headers={"User-Agent": "Randis-UDS-updater"})
-    with urllib.request.urlopen(req, timeout=timeout) as r, open(dest + ".part", "wb") as f:
-        if not allowed(r.geturl()):
-            raise ValueError("The download was sent somewhere other than GitHub, so it was stopped.")
-        while True:
-            block = r.read(1 << 16)
-            if not block:
-                break
-            got += len(block)
-            if got > best["size"]:
-                break
+    with open(dest + ".part", "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
             h.update(block)
-            f.write(block)
     if got != best["size"] or (best["sha256"] and h.hexdigest() != best["sha256"]):
         os.remove(dest + ".part")
         raise ValueError("The download didn't match what GitHub lists for it, so it was thrown away. Try again.")
     os.replace(dest + ".part", dest)
     return {"path": dest, "version": best["version"]}
+
+
+def _fetch_file(url, part, size, timeout, tries=5):
+    """Downloads url into part. A connection cut partway carries on from where it stopped (an HTTP Range request), up to tries times.
+    Returns how many bytes were saved."""
+    got = 0
+    open(part, "wb").close()
+    for attempt in range(tries):
+        headers = {"User-Agent": "Randis-UDS-updater"}
+        if got:
+            headers["Range"] = f"bytes={got}-"
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=timeout) as r:
+                if not allowed(r.geturl()):
+                    raise ValueError("The download was sent somewhere other than GitHub, so it was stopped.")
+                if got and r.status != 206:      # the server sent the whole file again: start over
+                    got = 0
+                    open(part, "wb").close()
+                with open(part, "ab") as f:
+                    while got <= size:
+                        block = r.read(1 << 16)
+                        if not block:
+                            break
+                        got += len(block)
+                        f.write(block)
+            if got >= size:
+                return got
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
+            if isinstance(e, urllib.error.HTTPError) and e.code not in (408, 429, 500, 502, 503, 504):
+                break
+        time.sleep(min(2 ** attempt, 10))
+    if got != size:
+        try:
+            os.remove(part)
+        except OSError:
+            pass
+        raise ValueError("The download kept getting cut off. Check the internet connection and try again.")
+    return got
 
 
 WAITER = r"""# written by Randis UDS (updater.py): waits for the app to close, runs the update's setup silently, then opens the app again
