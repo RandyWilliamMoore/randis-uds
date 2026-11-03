@@ -20,8 +20,10 @@ CHAT_HINT = (" If the user asks for a tab, tool, page, game or widget, give one 
 
 def extract_html(text):
     m = re.search(r"```(?:html|HTML)?\s*\n(.*?)```", text, re.S)
+    if not m and re.search(r"```(?:html|HTML)\s*\n", text):
+        return None
     body = m.group(1) if m else text
-    m2 = re.search(r"(<!doctype html.*?</html>|<html.*?</html>)", body, re.S | re.I)
+    m2 = re.search(r"(<!doctype html.*</html>|<html.*</html>)", body, re.S | re.I)
     if m2:
         return m2.group(1).strip()
     if m and re.search(r"<(body|div|button|canvas|script|style|h1|p|input)\b", body, re.I):

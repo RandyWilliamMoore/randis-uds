@@ -19,7 +19,8 @@ import webview
 from wsgiref.simple_server import WSGIServer
 
 WSGIServer.request_queue_size = 128
-ORIGIN_LINKS = {"original": "https://github.com/RandyWilliamMoore/randis-uds", "support": "https://ko-fi.com/moorescombinatoricsmatrix"}
+ORIGIN_LINKS = {"original": "https://github.com/RandyWilliamMoore/randis-uds", "support": "https://ko-fi.com/moorescombinatoricsmatrix",
+                "shop": "https://randywilliammoore.github.io/randis-shop/"}
 
 import ccode
 import cli_setup
@@ -29,12 +30,14 @@ import pdftools
 import projects
 import snapshots
 import tabs
+import updater
 
 for _type, _ext in (("text/javascript", ".js"), ("text/javascript", ".mjs"), ("text/css", ".css"), ("text/html", ".html"), ("application/wasm", ".wasm"), ("image/svg+xml", ".svg")):
     mimetypes.add_type(_type, _ext)
 HERE = os.path.dirname(os.path.abspath(__file__))
 BASE = lambda: os.environ.get("UDS_BASE") or projects.base_of(HERE)
 DATA_DIR = os.path.join(HERE, "data")
+UPDATE_APP = HERE
 SESSION_FILE = os.path.join(DATA_DIR, "session.json")
 LEADERBOARD_FILE = lambda: os.path.join(DATA_DIR, "pong_leaderboard.json")
 DUCK_ID = "rubberduck"
@@ -536,6 +539,27 @@ class Api:
             return {"error": "The shop couldn't be reached, so nothing was opened."}
         return self._add_item(html, item.split("/")[-1], "opened from the shop")
 
+    def shop_list(self):
+        shop = os.environ.get("UDS_SHOP_URL") or SHOP_URL
+        try:
+            with urllib.request.urlopen(f"{shop}items.js", timeout=30) as r:
+                text = r.read(2_000_000).decode("utf-8")
+            items = json.loads(text[text.index("["):text.rindex("]") + 1])
+        except (urllib.error.URLError, OSError, UnicodeError, ValueError):
+            return {"error": "The shop couldn't be reached. Check the internet connection and try again."}
+        out = []
+        for it in items if isinstance(items, list) else []:
+            if not isinstance(it, dict):
+                continue
+            item = f"{it.get('kind')}/{it.get('slug')}"
+            if not ITEM_ADDRESS.fullmatch(item):
+                continue
+            logo = it.get("logo")
+            out.append({"item": item, "kind": it.get("kind"), "name": str(it.get("name") or it.get("slug"))[:80],
+                        "by": str(it.get("by") or "")[:60], "blurb": str(it.get("blurb") or "")[:600],
+                        "logo": f"{shop}{logo}" if isinstance(logo, str) and re.fullmatch(r"(games|apps)/[a-z0-9-]+/logo\.(png|jpg|svg)", logo) else None})
+        return {"items": out}
+
     def built_list(self):
         return self._tabs().list()
 
@@ -689,6 +713,35 @@ class Api:
                 ps = "& '" + ccode.command()[0].replace("'", "''") + "'"
             subprocess.Popen(["powershell.exe", "-NoExit", "-Command", ps], cwd=HERE, env=ccode.child_env(), creationflags=subprocess.CREATE_NEW_CONSOLE)
         return True
+
+    def update_info(self):
+        return {"installed": bool(updater.install_folder(UPDATE_APP)), "current": updater.current_version(UPDATE_APP), "auto": updater.auto_on(UPDATE_APP)}
+
+    def update_check(self):
+        return updater.check(UPDATE_APP)
+
+    def update_due(self):
+        return updater.check(UPDATE_APP) if updater.due(UPDATE_APP) else None
+
+    def update_auto(self, on):
+        updater.save_settings(UPDATE_APP, auto=bool(on))
+        return updater.auto_on(UPDATE_APP)
+
+    def update_download(self):
+        try:
+            got = updater.download(UPDATE_APP)
+        except (ValueError, OSError) as e:
+            return {"error": str(e) if isinstance(e, ValueError) else "The update couldn't be saved on this PC: " + str(e)}
+        self._update_file = got["path"]
+        return {"version": got["version"]}
+
+    def update_install(self):
+        try:
+            updater.start_install(UPDATE_APP, getattr(self, "_update_file", "") or "")
+        except (ValueError, OSError) as e:
+            return {"error": str(e)}
+        threading.Timer(1.0, lambda: self._window.destroy()).start()
+        return {"closing": True}
 
     def open_link(self, which):
         webbrowser.open(ORIGIN_LINKS[which])
