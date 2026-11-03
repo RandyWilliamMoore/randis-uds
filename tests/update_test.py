@@ -138,6 +138,8 @@ try:
     check("the helper waits for this copy's Python to close, installs silently into this install, then opens the app",
           started and "-File" in started[0][0][0] and INST in script and "'/S'" in script and "('/D=' + $inst)" in script
           and "launch.py" in script and "python\\'" in script, script[:400])
+    flags = started[0][1].get("creationflags", 0) if started else 0
+    check("the helper gets a hidden console, never DETACHED_PROCESS (PowerShell quits at once without one)", flags & 0x08000000 and not flags & 0x8, flags)
 finally:
     updater.subprocess.Popen = real_popen
 
