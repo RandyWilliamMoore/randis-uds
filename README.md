@@ -50,6 +50,8 @@ Run `RandisUDS-Setup-<version>.exe`. It installs for your user only, with no adm
 
 Running a newer setup over an install updates it. Your data stays, and any app code you or your Claude changed is saved to `data\edited_before_update` before the new code goes in.
 
+Or update from inside the app: open the Menu (☰) and press **Update Randis UDS**. It checks this repo's releases, and asks before it downloads anything. Then it closes, installs the new version the same way, and opens again. **Check for updates automatically**, in the same place, checks every few hours and asks when there's a new version. It's on to start with. Only an installed copy updates itself. A copy run from source doesn't.
+
 The local GGUF link also needs `llama-cpp-python`, which isn't bundled. LM Studio, an Anthropic API key and Claude Code links don't.
 
 ## Edit it with Claude Code

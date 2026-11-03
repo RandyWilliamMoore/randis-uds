@@ -16,6 +16,11 @@ addEventListener('message', e => { document.title = e.data.note; });</script></b
 with open(os.path.join(SHOP_DIR, "games", "demo-game", "item.html"), "w", encoding="utf-8") as f:
     f.write(PAGE)
 
+with open(os.path.join(SHOP_DIR, "items.js"), "w", encoding="utf-8") as f:
+    f.write("// Written by tools/build_index.py.\nwindow.ITEMS = " + json.dumps([
+        {"kind": "games", "slug": "demo-game", "name": "Demo Game", "by": "Randy", "blurb": "A demo.", "logo": "games/demo-game/logo.png"},
+        {"kind": "games", "slug": "../evil", "name": "Evil"}, {"kind": "apps", "slug": "x", "name": "X", "logo": "https://evil.example/x.png"}]) + ";\n")
+
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a):
@@ -60,6 +65,10 @@ for bad in ("../../secret", "games/x/../../y", "http://evil.example/x", "games/"
 check("a missing item says so", "error" in api.item_fetch("games/not-there"))
 check("ignored by git, in both lists", "data/open_request.json" in projects.IGNORE and "data/open_request.json" in open(os.path.join(HERE, ".gitignore")).read())
 check("the installer sets up the link and removes it", all(x in open(os.path.join(HERE, "packaging", "randis_uds.nsi")).read() for x in ('"Software\\Classes\\randisuds\\shell\\open\\command"', 'DeleteRegKey HKCU "Software\\Classes\\randisuds"')))
+
+shop = api.shop_list()
+check("the shop's list comes back, without bad addresses", [i["item"] for i in shop.get("items", [])] == ["games/demo-game", "apps/x"], shop)
+check("logos only from the shop", shop["items"][0]["logo"].startswith(os.environ["UDS_SHOP_URL"]) and shop["items"][1]["logo"] is None, shop)
 
 r = api._add_item("just some text", "x", "n")
 check("something that isn't a page is refused", "error" in r)
@@ -118,6 +127,13 @@ def run(w):
         js("closeModal()")
         time.sleep(0.5)
         check("saying no opens nothing", len(store.list()) == n)
+        # the Randis Shop tab, from the + menu
+        check("the + menu has the Randis Shop", js("!!document.querySelector('#newtab-menu [data-kind=shop]')"))
+        n = len(store.list())
+        js("openKind('shop')")
+        check("the shop tab lists the shop's items", until("current().kind === 'shop' && current().pane.querySelectorAll('.shop-card').length === 2"), js("current().pane.textContent"))
+        js("current().pane.querySelector('.shop-card .pill').click()")
+        check("its button opens the item as a tab", until("current().kind === 'built' && current().title === 'Demo Game'") and len(store.list()) == n + 1)
         check("no script errors", not js("(window.__errs || []).length"))
     except Exception as e:
         check("test crashed", False, repr(e))

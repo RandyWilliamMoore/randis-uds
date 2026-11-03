@@ -181,6 +181,12 @@ def _run(w):
     js("document.querySelector('#newtab').click()")
     js("document.querySelector('#panes').click()")
     check("click outside closes menu", js("document.querySelector('#newtab-menu').hidden"))
+    js("document.querySelector('#newtab').click(); for (let i = 0; i < 80; i++) document.querySelector('#built-menu').appendChild(document.createElement('button')).textContent = 'x'")
+    check("a long + menu stays in the window and scrolls to Add new item", js(
+        "(() => { const m = document.querySelector('#newtab-menu'), a = m.querySelector('[data-kind=add]'); a.scrollIntoView();"
+        " const mr = m.getBoundingClientRect(), ar = a.getBoundingClientRect();"
+        " return mr.bottom <= innerHeight && m.scrollHeight > m.clientHeight && ar.bottom <= innerHeight && ar.bottom <= mr.bottom + 1; })()"))
+    js("document.querySelector('#built-menu').textContent = ''; document.querySelector('#panes').click()")
     js("selectTab(state.tabs[0].id); document.querySelector('.welcome [data-act=notepad]').click()")
     check("welcome Open Notepad", js("state.tabs[0].kind === 'notepad'"))
     js("const ta=document.querySelector('.pane:not([hidden]) textarea'); ta.value='hi'; ta.dispatchEvent(new Event('input'))")

@@ -1647,6 +1647,7 @@ function toggleMenu(sel, force) {
 
 $("#newtab").addEventListener("click", e => { e.stopPropagation(); renderBuiltMenu(); renderTemplateMenu(); toggleMenu("#newtab-menu"); });
 $("#addllm").addEventListener("click", e => { e.stopPropagation(); toggleMenu("#addllm-menu"); });
+$("#reload").addEventListener("click", () => location.reload());
 $("#projects").addEventListener("click", async e => {
   e.stopPropagation();
   const open = !$("#projects-menu").hidden;
@@ -1717,6 +1718,7 @@ function renderMainMenu() {
     row.append(sw, open);
     m.appendChild(row);
   }
+  if (typeof renderUpdateMenu === "function") renderUpdateMenu(m);     // ui/update.js
 }
 $("#mainmenu").addEventListener("click", e => { e.stopPropagation(); renderMainMenu(); toggleMenu("#main-menu"); });
 
@@ -1858,6 +1860,7 @@ async function start() {
   tellWatcher();
   maybeFirstRun();
   watchShopLinks();
+  if (typeof watchUpdates === "function") watchUpdates();
 }
 
 // launch.py is waiting to hear the page came up with every script whole. The scripts after this one may still be loading.

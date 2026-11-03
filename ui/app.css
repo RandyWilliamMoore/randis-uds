@@ -59,6 +59,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 .menu-wrap { position: relative; }
 .menu { position: absolute; top: 100%; left: 0; z-index: 10; min-width: 220px; padding: 6px; margin-top: 2px;
+        max-height: calc(100vh - 110px); overflow-y: auto;   /* a long list scrolls instead of running off the window */
         background: var(--menu); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
 .menu-right { left: auto; right: 0; }
 .menu button { display: block; width: 100%; text-align: left; padding: 7px 10px; border-radius: 6px; }
@@ -244,6 +245,8 @@ canvas.pong { position: absolute; inset: 0; width: 100%; height: 100%; }
 #mainmenu:hover { background: var(--hover); color: var(--text); }
 .feature-row { display: flex; align-items: center; gap: 4px; padding-left: 6px; }
 .feature-row .feature-open { flex: 1; white-space: nowrap; }
+.update-notes { max-height: 180px; overflow: auto; white-space: pre-wrap; font-size: 12px; padding: 8px; background: var(--bar); border-radius: 6px; }
+.update-version { padding: 2px 10px 6px; }
 .feature-row.off .feature-open { color: var(--muted); text-decoration: line-through; }
 .tab.grouped { box-shadow: inset 0 -3px 0 var(--g); }
 .group-chip { align-self: center; margin: 0 2px 4px; padding: 2px 10px; min-width: 18px; min-height: 22px; border-radius: 6px;
@@ -285,3 +288,17 @@ body.popped .main-only { display: none; }
 .pdf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .sign-pad { width: 360px; max-width: 100%; height: 120px; background: #fff; border: 1px solid var(--line); border-radius: 6px; touch-action: none; cursor: crosshair; }
 .sign-name { width: 200px; padding: 5px 8px; background: var(--bar); color: var(--text); border: 1px solid var(--line); border-radius: 6px; }
+
+/* the Randis Shop tab (shop.js) */
+.shop { overflow: auto; padding: 12px 16px; display: block; }
+.shop-bar { display: flex; align-items: center; gap: 6px; }
+.shop-bar h2 { margin: 0; font-weight: 600; }
+.shop-bar .spacer { flex: 1; }
+.shop-note { margin: 6px 0 10px; }
+.shop h3 { margin: 14px 0 8px; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.shop-card { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.shop-card img { width: 100%; max-height: 120px; object-fit: contain; border-radius: 6px; }
+.shop-card h4, .shop-card p { margin: 0; }
+.shop-blurb { flex: 1; font-size: 13px; }
+.shop-card .pill { align-self: flex-start; margin-top: 6px; }

@@ -27,10 +27,13 @@ CHAT_HINT = (" If the user asks for a tab, tool, page, game or widget, give one 
 
 def extract_html(text):
     """The HTML document inside an LLM reply, or None. Takes a ```html block first, else a bare
-    <html>...</html> or <!doctype ...> document. A page cut off before its end doesn't count."""
+    <html>...</html> or <!doctype ...> document. A page cut off before its end doesn't count.
+    The end is the LAST </html>: a page's script can have that text in it (a game that saves itself does)."""
     m = re.search(r"```(?:html|HTML)?\s*\n(.*?)```", text, re.S)
+    if not m and re.search(r"```(?:html|HTML)\s*\n", text):
+        return None                               # the block was never closed: the reply was cut off
     body = m.group(1) if m else text
-    m2 = re.search(r"(<!doctype html.*?</html>|<html.*?</html>)", body, re.S | re.I)
+    m2 = re.search(r"(<!doctype html.*</html>|<html.*</html>)", body, re.S | re.I)
     if m2:
         return m2.group(1).strip()
     if m and re.search(r"<(body|div|button|canvas|script|style|h1|p|input)\b", body, re.I):

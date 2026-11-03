@@ -20,6 +20,10 @@ check("extract: bare document", tabs.extract_html(f"Here: {page} done") == page)
 check("extract: fenced fragment", tabs.extract_html("```html\n<div>hi</div><script>1</script>\n```") == "<div>hi</div><script>1</script>")
 check("extract: cut-off page rejected", tabs.extract_html("```html\n<!DOCTYPE html><html><body><button>") is None)
 check("extract: plain text rejected", tabs.extract_html("I can't do that.") is None)
+selfsaver = "<!doctype html><html><body><script>var a='</body></html>';var b=2;</script></body></html>"
+check("extract: </html> inside a script doesn't end the page", tabs.extract_html(f"```html\n{selfsaver}\n```") == selfsaver)
+check("extract: same for a bare document", tabs.extract_html(f"Here: {selfsaver} done") == selfsaver)
+check("extract: cut off after an inner </html> rejected", tabs.extract_html("```html\n<!doctype html><html><body><script>var a='</body></html>';var b") is None)
 
 # ---- TabStore ----
 root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_tabs_test")

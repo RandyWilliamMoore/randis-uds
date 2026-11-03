@@ -37,7 +37,8 @@ from wsgiref.simple_server import WSGIServer
 # pywebview's local server inherits Python's default queue of 5 waiting connections, and the page
 # asks for 11 files at once. Connections past the queue fail, leaving the page with files missing.
 WSGIServer.request_queue_size = 128
-ORIGIN_LINKS = {"original": "https://github.com/RandyWilliamMoore/randis-uds", "support": "https://ko-fi.com/moorescombinatoricsmatrix"}
+ORIGIN_LINKS = {"original": "https://github.com/RandyWilliamMoore/randis-uds", "support": "https://ko-fi.com/moorescombinatoricsmatrix",
+                "shop": "https://randywilliammoore.github.io/randis-shop/"}
 
 import ccode
 import cli_setup
@@ -47,6 +48,7 @@ import pdftools
 import projects
 import snapshots
 import tabs
+import updater
 
 # The local page server guesses file types from the Windows registry, which can be wrong (.js as text/plain was seen here, and the browser
 # then refuses module scripts). So these are set here, the same on every PC.
@@ -55,6 +57,7 @@ for _type, _ext in (("text/javascript", ".js"), ("text/javascript", ".mjs"), ("t
 HERE = os.path.dirname(os.path.abspath(__file__))
 BASE = lambda: os.environ.get("UDS_BASE") or projects.base_of(HERE)    # tests point it at a throwaway Base
 DATA_DIR = os.path.join(HERE, "data")
+UPDATE_APP = HERE                    # the copy updater.py looks after; tests point it at a pretend install
 SESSION_FILE = os.path.join(DATA_DIR, "session.json")
 LEADERBOARD_FILE = lambda: os.path.join(DATA_DIR, "pong_leaderboard.json")
 DUCK_ID = "rubberduck"
@@ -590,6 +593,28 @@ class Api:
             return {"error": "The shop couldn't be reached, so nothing was opened."}
         return self._add_item(html, item.split("/")[-1], "opened from the shop")
 
+    def shop_list(self):
+        """The shop's catalog (its items.js), for the Randis Shop tab. Only names, words and item addresses come back."""
+        shop = os.environ.get("UDS_SHOP_URL") or SHOP_URL
+        try:
+            with urllib.request.urlopen(f"{shop}items.js", timeout=30) as r:
+                text = r.read(2_000_000).decode("utf-8")
+            items = json.loads(text[text.index("["):text.rindex("]") + 1])
+        except (urllib.error.URLError, OSError, UnicodeError, ValueError):
+            return {"error": "The shop couldn't be reached. Check the internet connection and try again."}
+        out = []
+        for it in items if isinstance(items, list) else []:
+            if not isinstance(it, dict):
+                continue
+            item = f"{it.get('kind')}/{it.get('slug')}"
+            if not ITEM_ADDRESS.fullmatch(item):
+                continue
+            logo = it.get("logo")
+            out.append({"item": item, "kind": it.get("kind"), "name": str(it.get("name") or it.get("slug"))[:80],
+                        "by": str(it.get("by") or "")[:60], "blurb": str(it.get("blurb") or "")[:600],
+                        "logo": f"{shop}{logo}" if isinstance(logo, str) and re.fullmatch(r"(games|apps)/[a-z0-9-]+/logo\.(png|jpg|svg)", logo) else None})
+        return {"items": out}
+
     def built_list(self):
         return self._tabs().list()
 
@@ -756,6 +781,38 @@ class Api:
                 ps = "& '" + ccode.command()[0].replace("'", "''") + "'"
             subprocess.Popen(["powershell.exe", "-NoExit", "-Command", ps], cwd=HERE, env=ccode.child_env(), creationflags=subprocess.CREATE_NEW_CONSOLE)
         return True
+
+    # ---------- updates: only an installed copy updates itself, from the releases on GitHub, and only after the user says yes ----------
+    def update_info(self):
+        return {"installed": bool(updater.install_folder(UPDATE_APP)), "current": updater.current_version(UPDATE_APP), "auto": updater.auto_on(UPDATE_APP)}
+
+    def update_check(self):
+        return updater.check(UPDATE_APP)
+
+    def update_due(self):
+        """The page asks this now and then: a check result when an automatic check is due, else None."""
+        return updater.check(UPDATE_APP) if updater.due(UPDATE_APP) else None
+
+    def update_auto(self, on):
+        updater.save_settings(UPDATE_APP, auto=bool(on))
+        return updater.auto_on(UPDATE_APP)
+
+    def update_download(self):
+        try:
+            got = updater.download(UPDATE_APP)
+        except (ValueError, OSError) as e:
+            return {"error": str(e) if isinstance(e, ValueError) else "The update couldn't be saved on this PC: " + str(e)}
+        self._update_file = got["path"]
+        return {"version": got["version"]}
+
+    def update_install(self):
+        """Hands the downloaded update to a helper that waits for this app to close, installs it and opens the app again. Then closes."""
+        try:
+            updater.start_install(UPDATE_APP, getattr(self, "_update_file", "") or "")
+        except (ValueError, OSError) as e:
+            return {"error": str(e)}
+        threading.Timer(1.0, lambda: self._window.destroy()).start()
+        return {"closing": True}
 
     def open_link(self, which):
         """The origin line's links: only these fixed addresses, in the user's browser."""
