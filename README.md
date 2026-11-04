@@ -12,6 +12,8 @@ Copies, clones and derivatives must say so at the very top of their work and lin
 
 **Randis UDS™ is a universal software with no fixed purpose. Describe what you need, and the LLM inside it builds that into the app while you're using it. If you can dream it you can build it.**
 
+![Randis UDS with three tabs open: a notepad, Randis Paint, and the Randis Shop tab listing the shop's games](packaging/screenshot.png)
+
 Link a local model or an online account to start. With no LLM linked, it works as a notepad and text editor.
 
 Status: pre-release. Windows only for now.
