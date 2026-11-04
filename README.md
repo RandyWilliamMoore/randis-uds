@@ -16,7 +16,7 @@ Copies, clones and derivatives must say so at the very top of their work and lin
 
 Link a local model or an online account to start. With no LLM linked, it works as a notepad and text editor.
 
-Status: pre-release. Windows only for now.
+Status: pre-release. Windows has an installer. Linux runs from source, tested on Ubuntu 24.04: see [Linux](#linux).
 
 Like it? Support the author: https://ko-fi.com/moorescombinatoricsmatrix
 
