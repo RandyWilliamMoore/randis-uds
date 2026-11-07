@@ -1022,8 +1022,117 @@ window.addEventListener("message", async e => {
   e.source.postMessage({ uds: "saved", note: r.error || `Saved in this tab, as version ${r.meta.current}.` }, "*");
 });
 
+// ---------- online play, for tabs whose meta.json says "online": true (app.py net_*, net.py) ----------
+// The tab stays walled off: it posts {uds: "net", op: "host" | "join" | "send" | "leave"} here. This page makes the
+// private invite code and seals every message with AES-256-GCM, using a key made from the code. The code and key never
+// leave this page; the app only carries the sealed text through a public relay. Only someone with the code can join or read.
+const NET_ABC = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const netLinks = new Map();          // tab -> its one link
+const netB64 = u => { let s = ""; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode(...u.subarray(i, i + 8192)); return btoa(s); };
+const netUnb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+function netNewBody() { let s = ""; for (const x of crypto.getRandomValues(new Uint8Array(20))) s += NET_ABC[x & 31]; return s; }   // 100 random bits
+const netShow = (relay, body) => relay + "-" + body.match(/.{4}/g).join("-");
+function netParse(code) {
+  const c = String(code || "").toUpperCase().replace(/[\s-]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
+  const m = c.match(/^([EHM])([0-9A-HJKMNP-TV-Z]{20})$/);
+  return m ? { relay: m[1], body: m[2] } : null;
+}
+async function netKeys(body) {
+  const enc = new TextEncoder();
+  const base = await crypto.subtle.importKey("raw", enc.encode(body), "PBKDF2", false, ["deriveBits"]);
+  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: enc.encode("randis-uds online v1"), iterations: 200000 }, base, 512));
+  const key = await crypto.subtle.importKey("raw", bits.slice(0, 32), "AES-GCM", false, ["encrypt", "decrypt"]);
+  const channel = "ruds/" + Array.from(bits.slice(32, 48), x => x.toString(16).padStart(2, "0")).join("");
+  return { key, channel, aad: enc.encode(channel) };
+}
+function netSeal(L, data) {
+  let text; try { text = JSON.stringify({ s: L.me, n: ++L.n, d: data }); } catch (_) { return; }
+  if (!text || text.length > 16000) return;
+  L.chain = L.chain.then(async () => {           // one at a time, so they leave in order
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: L.aad }, L.key, new TextEncoder().encode(text)));
+    const out = new Uint8Array(12 + ct.length); out.set(iv); out.set(ct, 12);
+    if (netLinks.has(L.tab) && netLinks.get(L.tab) === L) await api().net_send(L.sid, netB64(out));
+  }).catch(() => {});
+}
+async function netUnseal(L, sealed) {
+  try {
+    const b = netUnb64(sealed);
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b.subarray(0, 12), additionalData: L.aad }, L.key, b.subarray(12));
+    const o = JSON.parse(new TextDecoder().decode(pt));
+    if (!o || typeof o.s !== "string" || o.s === L.me || typeof o.n !== "number") return undefined;
+    if (o.n <= (L.seen.get(o.s) || 0)) return undefined;          // a repeat: dropped
+    if (!L.seen.has(o.s) && L.seen.size >= 8) return undefined;
+    L.seen.set(o.s, o.n);
+    return o.d;
+  } catch (_) { return undefined; }                                 // not sealed with this code: dropped
+}
+function netEnd(tab) {
+  const L = netLinks.get(tab); if (!L) return;
+  netLinks.delete(tab);
+  if (L.sid && api()) api().net_close(L.sid);
+}
+async function netPump(L) {
+  const tab = L.tab;
+  while (netLinks.get(tab) === L) {
+    if (!state.tabs.includes(tab)) { netEnd(tab); break; }
+    let r; try { r = await api().net_recv(L.sid); } catch (_) { r = { msgs: [], open: false }; }
+    if (netLinks.get(tab) !== L) break;
+    for (const m of r.msgs || []) { const d = await netUnseal(L, m); if (d !== undefined) L.say({ ev: "msg", data: d }); }
+    if (!r.open) { netLinks.delete(tab); L.say({ ev: "closed", msg: "The link to the relay server dropped." }); break; }
+  }
+}
+// The first time a tab asks to go online, the person decides. A yes is kept in the tab's meta.json.
+let netAsking = null;
+function netAsk(tab) {
+  if (netAsking) return netAsking;
+  netAsking = new Promise(done => {
+    let watch = null;
+    const finish = v => { if (!watch) return; clearInterval(watch); watch = null; netAsking = null; closeModal(); done(v); };
+    const yes = el("button", { className: "pill primary" }, "Allow online play"); yes.dataset.act = "net-allow";
+    const no = el("button", { className: "pill" }, "Not now"); no.dataset.act = "net-deny";
+    yes.onclick = async () => { await api().net_allow(tab.builtId); finish(true); };
+    no.onclick = () => finish(false);
+    openModal(`Let "${tab.title}" play online?`, [
+      el("p", {}, "It wants to link to a friend through a public relay server. Every message is sealed with the private invite code, so the relay can't read it. The tab stays walled off: it still can't reach anything else on the internet, or your files."),
+      el("p", { className: "muted" }, "Your answer is kept for this tab."), yes, no]);
+    watch = setInterval(() => { if ($("#modal").hidden) finish(false); }, 300);
+  });
+  return netAsking;
+}
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "net" || !api()) return;
+  const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
+  if (!tab) return;
+  const op = e.data.op;
+  if (op === "send") { const L = netLinks.get(tab); if (L && L.sid) netSeal(L, e.data.data); return; }
+  if (op === "leave") return netEnd(tab);
+  if (op !== "host" && op !== "join") return;
+  if (!(await api().net_allowed(tab.builtId)) && !(await netAsk(tab)))
+    return e.source.postMessage({ uds: "net", ev: "error", msg: "Online play is off for this tab." }, "*");
+  netEnd(tab);
+  const say = o => { try { e.source.postMessage(Object.assign({ uds: "net" }, o), "*"); } catch (_) {} };
+  let relay = null, body;
+  if (op === "host") body = netNewBody();
+  else { const p = netParse(e.data.code); if (!p) return say({ ev: "error", msg: "That doesn't look like an invite code. It starts with a letter, then 20 letters and numbers." }); relay = p.relay; body = p.body; }
+  const L = { tab, say, me: netNewBody(), n: 0, seen: new Map(), chain: Promise.resolve(), sid: null };
+  netLinks.set(tab, L);
+  say({ ev: "status", msg: "Sealing the line and reaching the relay…" });
+  const k = await netKeys(body);
+  if (netLinks.get(tab) !== L) return;
+  Object.assign(L, k);
+  const r = await api().net_open(tab.builtId, relay, k.channel);
+  if (netLinks.get(tab) !== L) { if (r && r.sid) api().net_close(r.sid); return; }
+  if (!r || r.error) { netLinks.delete(tab); return say({ ev: "error", msg: (r && r.error) || "Couldn't open the link." }); }
+  L.sid = r.sid;
+  if (op === "host") say({ ev: "code", code: netShow(r.relay, body) });
+  say({ ev: "open", role: op });
+  netPump(L);
+});
+
 async function loadBuilt(tab) {
   const a = api(); if (!a) return;
+  netEnd(tab);                       // a page change ends its online link
   const r = await a.built_load(tab.builtId);
   if (r.error) return buildStatus(tab, r.error, true);
   $("iframe", tab.pane).srcdoc = r.html;
