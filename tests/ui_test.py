@@ -334,6 +334,7 @@ def _run(w):
     check("Modify me? is top right", js("(() => { const b = document.querySelector('.pane:not([hidden]) [data-act=modify]').getBoundingClientRect(),"
                                         " s = document.querySelector('.pane:not([hidden]) .duck-stage').getBoundingClientRect();"
                                         " return b.top - s.top < 30 && s.right - b.right < 30; })()"))
+    check("the duck has + Add a bot too, beside its buttons", js("!!document.querySelector('.pane:not([hidden]) .duck-buttons .tab-bot-btn')"))
     js("document.querySelector('.pane:not([hidden]) [data-act=modify]').click()")
     check("Modify me? opens the duck studio", js("!document.querySelector('.pane:not([hidden]) .duck-studio').hidden"))
     type_enter(".pane:not([hidden]) .duck-studio textarea", "give him a pirate hat")

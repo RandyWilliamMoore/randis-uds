@@ -12,6 +12,8 @@ One window with a tab bar that works like a browser's, a "+" menu and a Notepad 
 - ccode.py links Claude Code with its normal tools, so it can change tabs, the duck and
   the app; the folder is snapshotted before every turn (snapshots.py) and each turn can
   be undone and redone from the chat.
+- bots.py runs the bots added with "+ Add a bot" (on any tab, or for the whole app):
+  small Claude Code helpers that read and report, shown in the Bots tab.
 
 Run: python launch.py (it starts this file and watches for a stall)
 """
@@ -41,6 +43,7 @@ WSGIServer.request_queue_size = 128
 ORIGIN_LINKS = {"original": "https://github.com/RandyWilliamMoore/randis-uds", "support": "https://ko-fi.com/moorescombinatoricsmatrix",
                 "shop": "https://randywilliammoore.github.io/randis-shop/"}
 
+import bots
 import ccode
 import cli_setup
 import ide
@@ -876,6 +879,70 @@ class Api:
         os.replace(st._dir(tpl_id), os.path.join(aside, tpl_id + "_" + str(int(time.time()))))
         return True
 
+    # ---------- Bots: "+ Add a bot" on any tab or for the app, and the Bots tab (bots.py does the work) ----------
+    def _bots(self, fn, *args):
+        os.environ["UDS_BOTS_DIR"] = os.path.join(DATA_DIR, "bots")
+        try:
+            return {"ok": fn(*args)}
+        except (OSError, ValueError, KeyError) as e:
+            return {"error": str(e).strip("'\"")}
+
+    def _bot_scope(self, tab):
+        """Which folder a bot for this tab may read, and how to say where it works. tab None: the app itself."""
+        if not tab:
+            return HERE, "Randis UDS itself (the app's own folder)"
+        kind, title = str(tab.get("kind") or ""), str(tab.get("title") or "")[:80]
+        name = f'the "{title}" tab'
+        if kind == "built" and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", str(tab.get("builtId") or "")):
+            return os.path.join(DATA_DIR, "tabs", tab["builtId"]), f"{name} (a page built in Randis UDS; its versions are the vNNN.html files)"
+        if kind == "duck":
+            return os.path.join(DATA_DIR, "duck", DUCK_ID), f"{name} (the rubber duck's page and its versions)"
+        if kind == "ide":
+            ws = tab.get("workspace") or ide.default_workspace(DATA_DIR)
+            return ws, f"{name} (an IDE tab; its project folder)"
+        if kind in ("notepad", "pdf"):
+            if not tab.get("path"):
+                raise ValueError("Save this tab to a file first, so a bot has something to read.")
+            return os.path.dirname(os.path.abspath(tab["path"])), f"{name} (the file {os.path.basename(tab['path'])} and its folder)"
+        return HERE, f"{name} (a {kind or 'new'} tab; the bot reads the app's own folder)"
+
+    def bot_scope(self, tab=None):
+        """What the + Add a bot form shows before anything is made: what the bot could read, and whether Claude Code is here."""
+        def look():
+            reads, where = self._bot_scope(tab)
+            return {"reads": reads, "where": where, "claude": bool(ccode.command()), "every": [x for x in bots.EVERY_CHOICES]}
+        return self._bots(look)
+
+    def bot_add(self, spec):
+        spec = spec or {}
+
+        def add():
+            every = spec.get("every_min")
+            every = int(every) if every not in (None, "", 0, "0") else None
+            tab = spec.get("tab") or None
+            reads, where = self._bot_scope(tab)
+            scope = {"level": "tab", "tab_kind": tab.get("kind"), "tab_title": tab.get("title")} if tab else {"level": "app"}
+            return bots.add_bot(spec.get("words", ""), reads, where, scope, every)
+        return self._bots(add)
+
+    def bots_list(self):
+        def look():
+            return {"bots": bots.overview(), "bus": bots.read_bus(last=40)[::-1], "record": bots.record(),
+                    "max_parallel": bots.MAX_PARALLEL, "claude": bool(ccode.command())}
+        return self._bots(look)
+
+    def bot_run(self, name):
+        return self._bots(bots.launch, name, True)
+
+    def bot_start(self, name):
+        return self._bots(bots.launch, name, False)
+
+    def bot_stop(self, name):
+        return self._bots(bots.halt, name, "stopped from the Bots tab")
+
+    def bot_retire(self, name):
+        return self._bots(bots.retire, name)
+
     # ---------- IDE (step 5) ----------
     def ide_workspace(self):
         return ide.default_workspace(DATA_DIR)
@@ -1071,6 +1138,7 @@ class Api:
         self._net.close_all()
         self._closing = True             # popped-out tabs are already in the saved session; they come back next start
         self._runner.stop_all()
+        self._bots(bots.stop_all, "Randis UDS closed")      # bots run while the app is open
         for w in list(self._wins.values()):
             w["window"].destroy()
         self._pop_win.destroy()

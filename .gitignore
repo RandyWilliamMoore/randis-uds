@@ -27,3 +27,4 @@ data/history.md
 .claude/settings.local.json
 .venv/
 data/publish.json
+data/bots/
