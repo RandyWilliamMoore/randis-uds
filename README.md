@@ -132,6 +132,7 @@ python tests/pdf_test.py
 python tests/ui_test.py --no-real
 python tests/item_test.py
 python tests/bots_test.py
+python tests/bots_real_test.py    # one real bot run with your Claude Code (a few seconds of your plan)
 python tests/net_test.py          # needs the internet: it uses a real public relay
 ```
 
