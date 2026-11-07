@@ -39,6 +39,7 @@ YouTube: https://www.youtube.com/@Randis9000 and https://www.youtube.com/@Moores
 - A snapshot before every Claude Code turn, so each turn can be undone
 - Projects: separate copies of the app for separate work, with changes from Base pushed into them
 - Online play for built tabs: a game can link to a friend's copy with a private invite code (see below)
+- Bots: "+ Add a bot" on any tab, or for the whole app, makes a small helper that reads and reports, managed in the Bots tab (see below)
 
 ## Contact
 
@@ -100,6 +101,16 @@ A tab that makes music (like Randis Sound Forge, in the Randis Shop) can publish
 
 The shop folder is a git checkout of a shop like [the Randis Shop](https://github.com/RandyWilliamMoore/randis-shop), with its `tools/add_music.py`, that can push. Publishing needs [ffmpeg](https://ffmpeg.org/). Each time, Randis UDS asks you first, then adds the song and pushes only that. Without the file, tabs never see a Publish button.
 
+## Bots
+
+Every tab has a **+ Add a bot** button, and the Bots tab (in the + menu) has one for the whole app. Type what the bot should do, in a sentence; that's its job and your yes. Before anything is made, the form says which folder the bot can read: the tab's own (a built tab's versions, an IDE tab's project, a saved note's folder) or the app's.
+
+- Bots run on your own Claude Code, so each run uses your Claude plan. Without Claude Code installed, the form says how to get it.
+- A bot can only read and search that folder. It can't change, delete or send anything; it reports in the Bots tab.
+- Each run is on its own: from the bot's own folder in your app-data folder, with no saved session, no settings, hooks or connectors, and none of the Claude variables of whatever started Randis UDS.
+- In the Bots tab: Run once, Start (keeps running on its schedule), Stop and Retire, with each bot's light, last answer, today's record and the latest messages.
+- At most two bots run at once, none start when free memory is under 1 GB, and every bot stops when Randis UDS closes.
+
 ## Online play
 
 A built tab stays walled off from the internet. A game in one can still play a friend: the first time it asks, Randis UDS asks you whether to allow online play for that tab, and keeps your answer. One player hosts and gets a private invite code, the other types it in. Every message is sealed with AES-256-GCM, using a key made from the code, before it leaves the app; the app only carries the sealed text through a free public MQTT relay (broker.emqx.io, broker.hivemq.com or test.mosquitto.org) over TLS. The relay can't read what's sent, but it can see that two copies are talking and when. Anyone with the code can join, so send it privately.
@@ -120,6 +131,7 @@ python tests/first_run_test.py
 python tests/pdf_test.py
 python tests/ui_test.py --no-real
 python tests/item_test.py
+python tests/bots_test.py
 python tests/net_test.py          # needs the internet: it uses a real public relay
 ```
 
