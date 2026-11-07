@@ -1023,6 +1023,63 @@ window.addEventListener("message", async e => {
   finally { exportBusy = false; }
 });
 
+let publishBusy = false;
+function publishAsk(tab, d, shop) {
+  return new Promise(done => {
+    let watch = null;
+    const finish = v => { if (!watch) return; clearInterval(watch); watch = null; closeModal(); done(v); };
+    const yes = el("button", { className: "pill primary" }, "Publish it"); yes.dataset.act = "publish-yes";
+    const no = el("button", { className: "pill" }, "Not now"); no.dataset.act = "publish-no";
+    yes.onclick = () => finish(true); no.onclick = () => finish(false);
+    openModal(`Publish "${d.title}" to ${shop}?`, [
+      el("p", {}, `"${tab.title}" wants to put this song on ${shop}, for everyone to play and download, royalty free.`),
+      el("p", {}, "Description: " + d.blurb),
+      el("p", {}, "Genre: " + d.genre),
+      el("p", { className: "muted" }, "It gets a cover and its tags, then it's committed and pushed to the shop. Taking it down later means removing it from the shop's folder."),
+      yes, no]);
+    watch = setInterval(() => { if ($("#modal").hidden) finish(false); }, 300);
+  });
+}
+window.addEventListener("message", async e => {
+  if (!e.data || (e.data.uds !== "can-publish" && e.data.uds !== "publish-song") || !api()) return;
+  const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
+  if (!tab) return;
+  const post = m => { try { e.source.postMessage(m, "*"); } catch (_) {} };
+  const ready = typeof api().publish_ready === "function" ? await api().publish_ready() : { ok: false };
+  if (e.data.uds === "can-publish") return post({ uds: "can-publish", ok: !!ready.ok, shop: ready.shop });
+  const done = (ok, note, url) => post({ uds: "published", ok, note, url: url || null });
+  const d = e.data;
+  if (!ready.ok) return done(false, "Publishing isn't set up on this computer.");
+  if (!(d.data instanceof Blob) || !d.data.size) return done(false, "There's no song to publish.");
+  if (d.data.size > 600 * 1024 * 1024) return done(false, "That song is too big to publish.");
+  if (publishBusy) return done(false, "Another song is being published. Try again in a moment.");
+  publishBusy = true;
+  try {
+    const fields = { title: String(d.title || ""), blurb: String(d.blurb || ""), genre: String(d.genre || "") };
+    if (!(await publishAsk(tab, fields, ready.shop))) return done(false, "Not published.");
+    const r = await api().song_publish_begin(fields.title, fields.blurb, fields.genre);
+    if (r.error) return done(false, r.error);
+    const PIECE = 3 * 1024 * 1024;
+    for (let at = 0; ; at += PIECE) {
+      const last = at + PIECE >= d.data.size;
+      const b64 = await new Promise((ok, bad) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1] || ""); fr.onerror = () => bad(fr.error); fr.readAsDataURL(d.data.slice(at, at + PIECE)); });
+      const p = await api().item_export_part(r.token, b64, last);
+      if (!p || p.error) return done(false, "Publishing failed: " + ((p && p.error) || "no answer"));
+      if (last) break;
+      post({ uds: "publishing", note: `Sending the song… ${Math.round(100 * (at + PIECE) / d.data.size)}%` });
+    }
+    const go = await api().song_publish_run(r.token);
+    if (go.error) return done(false, go.error);
+    for (;;) {
+      await new Promise(res => setTimeout(res, 700));
+      const st = await api().song_publish_status(r.token);
+      if (st.done) { done(!st.error, st.status, st.url); if (!st.error) toast("Published " + st.title); return; }
+      post({ uds: "publishing", note: st.status });
+    }
+  } catch (err) { done(false, "Publishing failed: " + err); }
+  finally { publishBusy = false; }
+});
+
 const NET_ABC = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const netLinks = new Map();
 const netB64 = u => { let s = ""; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode(...u.subarray(i, i + 8192)); return btoa(s); };
