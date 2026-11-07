@@ -32,7 +32,8 @@ YouTube: https://www.youtube.com/@Randis9000 and https://www.youtube.com/@Moores
 
 - Browser-style tabs, including dragging a tab into its own window
 - Chat with a linked LLM: a local model, LM Studio, your own Anthropic API key, or Claude Code on this computer
-- Build tabs by chat, keep their versions, and save any of them as a template
+- Build tabs by chat, keep their versions, and save any of them as a template. Each built tab has its own chat beside it: ask about the tab, report a bug or ask for a change, and it can ask you questions back
+- A built tab can save files it makes, like a song, a video or a picture, wherever you pick
 - An IDE tab, a notepad, and a rubber duck you can restyle, pop out or talk a problem through with
 - A PDF tab: read, make from text or pictures, merge, rotate, reorder, and add a drawn or typed signature (a picture on the page, not a certificate signature)
 - A snapshot before every Claude Code turn, so each turn can be undone
@@ -108,6 +109,7 @@ python tests/origin_test.py
 python tests/first_run_test.py
 python tests/pdf_test.py
 python tests/ui_test.py --no-real
+python tests/item_test.py
 python tests/net_test.py          # needs the internet: it uses a real public relay
 ```
 
