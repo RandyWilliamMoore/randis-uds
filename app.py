@@ -26,6 +26,7 @@ import ccode
 import cli_setup
 import ide
 import llm
+import net
 import pdftools
 import projects
 import snapshots
@@ -98,6 +99,7 @@ class Api:
         self._session = None
         self._closing = False
         self._save_lock = threading.Lock()
+        self._net = net.Hub()
 
     def _tabs(self):
         return tabs.TabStore(os.path.join(DATA_DIR, "tabs"))
@@ -572,6 +574,36 @@ class Api:
     def built_set_current(self, tab_id, n):
         return self._tabs().set_current(tab_id, n)
 
+    def net_allowed(self, tab_id):
+        try:
+            return self._tabs()._meta(tab_id).get("online") is True
+        except (OSError, ValueError):
+            return False
+
+    def net_allow(self, tab_id):
+        store = self._tabs()
+        meta = store._meta(tab_id)
+        meta["online"] = True
+        store._write_meta(meta)
+        return True
+
+    def net_open(self, tab_id, relay, channel):
+        if not self.net_allowed(tab_id):
+            return {"error": "This tab isn't allowed online play."}
+        if relay is not None and relay not in net.RELAYS:
+            return {"error": "That code names a relay this app doesn't use."}
+        return self._net.open(relay, str(channel))
+
+    def net_send(self, sid, sealed):
+        return self._net.send(str(sid), sealed)
+
+    def net_recv(self, sid):
+        return self._net.recv(str(sid), 1.0)
+
+    def net_close(self, sid):
+        self._net.close(str(sid))
+        return True
+
     def _templates(self):
         return tabs.TabStore(os.path.join(DATA_DIR, "templates"))
 
@@ -770,6 +802,7 @@ class Api:
 
     def _main_closed(self):
         self._pop_closing_ok = True
+        self._net.close_all()
         self._closing = True
         self._runner.stop_all()
         for w in list(self._wins.values()):

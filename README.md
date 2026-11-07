@@ -37,6 +37,7 @@ YouTube: https://www.youtube.com/@Randis9000 and https://www.youtube.com/@Moores
 - A PDF tab: read, make from text or pictures, merge, rotate, reorder, and add a drawn or typed signature (a picture on the page, not a certificate signature)
 - A snapshot before every Claude Code turn, so each turn can be undone
 - Projects: separate copies of the app for separate work, with changes from Base pushed into them
+- Online play for built tabs: a game can link to a friend's copy with a private invite code (see below)
 
 ## Contact
 
@@ -88,6 +89,10 @@ The first run sets up `.venv` in this folder. What's different from Windows:
 - API keys are stored in `~/.config/RandisUDS/keys.json`, readable only by your user, but not encrypted.
 - No taskbar pinning help, and the Claude Code setup opens in your terminal instead of PowerShell.
 
+## Online play
+
+A built tab stays walled off from the internet. A game in one can still play a friend: the first time it asks, Randis UDS asks you whether to allow online play for that tab, and keeps your answer. One player hosts and gets a private invite code, the other types it in. Every message is sealed with AES-256-GCM, using a key made from the code, before it leaves the app; the app only carries the sealed text through a free public MQTT relay (broker.emqx.io, broker.hivemq.com or test.mosquitto.org) over TLS. The relay can't read what's sent, but it can see that two copies are talking and when. Anyone with the code can join, so send it privately.
+
 ## Tests
 
 ```powershell
@@ -103,6 +108,7 @@ python tests/origin_test.py
 python tests/first_run_test.py
 python tests/pdf_test.py
 python tests/ui_test.py --no-real
+python tests/net_test.py          # needs the internet: it uses a real public relay
 ```
 
 ## Known issues
