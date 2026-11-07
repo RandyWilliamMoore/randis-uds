@@ -56,9 +56,10 @@ class FakeLMS(BaseHTTPRequestHandler):
                 pieces = ["Sure! I'm giving him ", "a pirate hat.\n\n", "```html\n", f"<!DOCTYPE html><html><body><h1>Pirate duck</h1>{body}</body></html>", "\n```"]
         elif req["messages"][0]["content"].startswith("You help with code"):
             pieces = ["Here you go:\n```python\n", "print(2 + 2)\n", "```"]
-        elif req["messages"][0]["content"].startswith("You build small"):
-            label = "Counter v2" if "Change it as follows" in last else "Counter v1"
-            pieces = ["```html\n", page(label), "\n```"] if "broken" not in last else ["Sorry, I can't."]
+        elif "a built tab's chat" in req["messages"][0]["content"]:     # a built tab's chat
+            label = "Counter v2" if "current page" in req["messages"][0]["content"] else "Counter v1"
+            pieces = (["Sorry, I can't."] if "broken" in last
+                      else ["Made it.\n\n", "```html\n", page(label), "\n```"])
         elif "make a tab" in last:
             pieces = ["Here you go:\n```html\n", page("From chat"), "\n```"]
         else:
@@ -280,9 +281,13 @@ def _run(w):
     check("rollback keeps version 2 on disk", js("state.built[0].versions.length === 2 && state.built[0].current === 1"))
     js("const i=document.querySelector('.pane:not([hidden]) .modify'); i.value='broken please';"
        "document.querySelector('.pane:not([hidden]) [data-act=modify]').click()")
-    check("bad LLM answer -> clear error", until("document.querySelector('.pane:not([hidden]) .status').classList.contains('err')", 15),
-          js("document.querySelector('.pane:not([hidden]) .status').textContent"))
-    check("bad answer keeps the old version", js("state.built[0].versions.length === 2 && !document.querySelector('.pane:not([hidden]) iframe').hidden"))
+    LAST_TAB = "[...document.querySelectorAll('.pane:not([hidden]) .tab-studio .msg.assistant')].pop()"
+    check("an answer in words just talks back", until(f"!current().job && {LAST_TAB}.innerText.includes('Sorry, I can')", 15),
+          js(f"{LAST_TAB} && {LAST_TAB}.innerText"))
+    check("talking keeps the tab as it is", js("state.built[0].versions.length === 2 && !document.querySelector('.pane:not([hidden]) iframe').hidden"))
+    sent = json.dumps(LMS_REQS[-1]["messages"])
+    check("the tab's chat remembers the conversation", "make it say v2" in sent and "version 2" in sent, sent[:400])
+    check("the chat is kept beside the tab", os.path.exists(os.path.join(D, "tabs", js("current().builtId"), "chat.json")))
 
     # ----- step 5: templates from built tabs -----
     js("document.querySelector('.pane:not([hidden]) [data-act=template]').click()")

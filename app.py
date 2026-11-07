@@ -104,6 +104,24 @@ DUCK_CHAT_CC = (
     "write the whole new page as the next version file (v014.html after v013.html, and so on) in the same folder and add it to "
     "meta.json's versions with current set to it. Say in a sentence or two what you changed. When the user asks a question or "
     "just talks, answer in words only and change nothing.")
+TAB_CHAT_SYSTEM = (
+    "You are chatting with the user in a built tab's chat in Randis UDS. The tab is one self-contained HTML page shown in a "
+    "walled-off frame: inline CSS and JavaScript, no external files, links, CDNs or network calls. Talk like a normal chat: "
+    "plain, short and friendly. If a request is unclear or could go several ways, ask a short question first instead of "
+    "guessing. When you change the tab, say in a sentence or two what you changed, then give the complete new page in ONE "
+    "```html code block (all of it, not just the changed part); the app saves it as a new version and keeps the code out of "
+    "the chat. When the user asks a question or just talks, answer in words only, with no code.")
+TAB_CHAT_NEW = (" This tab is new and empty. If you know enough, build it now: a sentence on what you made, then the whole "
+                "page in one ```html code block, with a clean dark look (background #1e1f22, text #e6e6e6). If not, ask first.")
+TAB_CHAT_CC = (
+    "You are chatting with the user in a built tab's chat in Randis UDS. The tab is one self-contained HTML page shown in a "
+    "walled-off frame: inline CSS and JavaScript, no external files, links or network calls. Talk like a normal chat: plain, "
+    "short and friendly, and don't paste the page's code into the chat. If a request is unclear, ask a short question first. "
+    "To change the tab, read the current page, then write the whole new page as the next version file (v005.html after "
+    "v004.html, and so on) in the same folder and add it to meta.json's versions with current set to it. Test what you can. "
+    "Say in a sentence or two what you changed. When the user asks a question or just talks, answer in words only and change nothing.")
+# How long a tab-chat answer may be. A whole page has to fit, and big tabs are tens of thousands of tokens.
+BUILD_TOKENS = {"claude": 64000, "lmstudio": 8192, "local": 4000}
 IDE_SYSTEM = ("You help with code inside the IDE tab of Randis UDS. Answer plainly and briefly. "
               "When you change the file, give the complete new file in one fenced code block.")
 SAVE_TYPES = ("Text file (*.txt)", "Markdown (*.md)", "Python (*.py)", "JSON (*.json)", "CSV (*.csv)",
@@ -528,13 +546,42 @@ class Api:
         return self._hub.stop(job_id)
 
     # ---------- tabs built by chat (step 3) ----------
-    def build_start(self, rec, request, tab_id=None):
-        """Ask the LLM for a new tab (tab_id None) or a change to an existing one's current version."""
+    def build_start(self, rec, request, tab_id=None, history=None):
+        """A built tab's chat: a real conversation about the tab (history is the chat so far, newest last).
+        A reply that changes the tab carries the whole new page in a code block; Claude Code edits the file instead."""
+        history = history or [{"role": "user", "content": request}]
         if tab_id:
-            prompt = tabs.MODIFY_INSTRUCTION.format(html=self._tabs().load(tab_id)["html"], request=request)
+            d = self._tabs().load(tab_id)
+            if rec["kind"] == "claudecode":          # it reads and writes the file itself; the page can be too big to pass along
+                path = os.path.join(DATA_DIR, "tabs", tab_id, next(v["file"] for v in d["meta"]["versions"] if v["n"] == d["n"]))
+                system = TAB_CHAT_CC + f"\nThis tab's current page is the file {path} (version {d['n']})."
+            else:
+                system = TAB_CHAT_SYSTEM + "\nThe tab's current page:\n```html\n" + d["html"] + "\n```"
         else:
-            prompt = request
-        return self._start(rec, [{"role": "user", "content": prompt}], tabs.BUILD_SYSTEM, max_tokens=3000)
+            system = TAB_CHAT_SYSTEM + TAB_CHAT_NEW
+        return self._start(rec, history, system, max_tokens=BUILD_TOKENS.get(rec["kind"], 4000),
+                           chat_id=f"tab-{tab_id}" if tab_id else None)
+
+    def built_chat_load(self, tab_id):
+        """A built tab's chat, kept beside its versions (data/tabs/<id>/chat.json)."""
+        try:
+            with open(os.path.join(self._tabs()._dir(tab_id), "chat.json"), encoding="utf-8") as f:
+                msgs = json.load(f)
+            return msgs if isinstance(msgs, list) else []
+        except (OSError, ValueError):
+            return []
+
+    def built_chat_save(self, tab_id, msgs):
+        try:
+            path = os.path.join(self._tabs()._dir(tab_id), "chat.json")
+            if not os.path.isdir(os.path.dirname(path)):
+                return False
+            with open(path + ".tmp", "w", encoding="utf-8") as f:
+                json.dump(msgs[-200:] if isinstance(msgs, list) else [], f, ensure_ascii=False, indent=1)
+            os.replace(path + ".tmp", path)
+            return True
+        except (OSError, ValueError):
+            return False
 
     def build_save(self, tab_id, name, reply, note, origin_chat=None):
         html = tabs.extract_html(reply or "")
@@ -568,6 +615,52 @@ class Api:
         if not isinstance(html, str) or len(html) > tabs.MAX_ITEM:
             return {"error": "That save is too big."}
         return {"meta": self._tabs().save_version(tab_id, None, html, "saved game")}
+
+    def item_export(self, name):
+        """A built tab made a file (audio, video, picture). The person picks where it goes in a Save box first;
+        then the page sends the file in pieces (item_export_part) so a big file can't choke the bridge."""
+        name = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", str(name or "file"))
+        name = name[:120].strip(" .") or "file"
+        ext = os.path.splitext(name)[1].lower()
+        types = (f"{ext[1:].upper()} file (*{ext})", "All files (*.*)") if re.fullmatch(r"\.[a-z0-9]{1,8}", ext) else ("All files (*.*)",)
+        chosen = self._window.create_file_dialog(webview.FileDialog.SAVE, save_filename=name, file_types=types)
+        if not chosen:
+            return None
+        path = chosen if isinstance(chosen, str) else chosen[0]
+        try:
+            open(path + ".part", "wb").close()
+        except OSError as e:
+            return {"error": str(e)}
+        token = os.urandom(8).hex()
+        self._exports = getattr(self, "_exports", {})
+        self._exports[token] = {"path": path, "size": 0}
+        return {"token": token, "path": path, "name": os.path.basename(path)}
+
+    def item_export_part(self, token, b64, last=False):
+        """One piece of a file being saved; the last piece puts the finished file in place."""
+        job = getattr(self, "_exports", {}).get(token)
+        if not job:
+            return {"error": "That save was already finished or cancelled."}
+        part = job["path"] + ".part"
+        try:
+            data = base64.b64decode(b64 or "", validate=True)
+            job["size"] += len(data)
+            if job["size"] > 2_000_000_000:
+                raise ValueError("That file is too big to save from a tab.")
+            with open(part, "ab") as f:
+                f.write(data)
+            if last:
+                os.replace(part, job["path"])
+                del self._exports[token]
+                return {"path": job["path"], "name": os.path.basename(job["path"])}
+        except (OSError, ValueError) as e:
+            self._exports.pop(token, None)
+            try:
+                os.remove(part)
+            except OSError:
+                pass
+            return {"error": str(e) or "The file came through damaged."}
+        return {"ok": True}
 
     def item_request(self):
         """What a shop link asked for (launch.py wrote it). Taken once; old ones are dropped."""

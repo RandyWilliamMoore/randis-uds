@@ -948,14 +948,19 @@ function buildBuilt(tab) {
   const pane = $("#built-tpl").content.firstElementChild.cloneNode(true);
   tab.pane = pane;
   const input = $(".modify", pane);
-  input.placeholder = tab.builtId ? "Describe a change, e.g. make the buttons bigger" : "Describe the tab you want";
-  input.addEventListener("keydown", e => { if (e.key === "Enter") runBuild(tab, input.value.trim()); });
-  pane.addEventListener("click", e => {
+  input.placeholder = tab.builtId ? "Ask or describe a change, e.g. make the buttons bigger" : "Describe the tab you want";
+  input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runBuild(tab, input.value.trim()); } });
+  const studio = $(".tab-studio", pane);
+  pane.addEventListener("click", async e => {
     const act = e.target.dataset.act;
+    if (act === "chat-toggle") { studio.hidden = !studio.hidden; if (!studio.hidden) { await tabChatLoad(tab); input.focus(); } }
+    if (act === "chat-close") studio.hidden = true;
+    if (act === "chat-new" && !tab.job) { tab.chat = []; tabChatSave(tab); renderTabChat(tab); input.focus(); }
     if (act === "modify") runBuild(tab, input.value.trim());
     if (act === "stop" && tab.job) api().chat_stop(tab.job);
     if (act === "template") saveTemplate(tab);
   });
+  if (!tab.builtId) { studio.hidden = false; $("iframe", pane).hidden = true; $(".built-body", pane).classList.add("no-page"); renderTabChat(tab); }
   $(".versions", pane).addEventListener("change", async e => {
     const n = +e.target.value;
     await api().built_set_current(tab.builtId, n);
@@ -1020,6 +1025,41 @@ window.addEventListener("message", async e => {
   const r = await api().item_save_into(tab.builtId, e.data.text);
   if (!r.error) { fillVersions(tab, r.meta, r.meta.current); buildStatus(tab, `version ${r.meta.current} of ${r.meta.versions.length}`); await refreshBuilt(); }
   e.source.postMessage({ uds: "saved", note: r.error || `Saved in this tab, as version ${r.meta.current}.` }, "*");
+});
+
+// A built tab hands over a file it made ({uds: "export-file", name, data: Blob}); the person picks where it goes.
+// The Save box comes first, then the file goes over in pieces, so a big song or video can't jam the bridge.
+let exportBusy = false;
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "export-file" || !api()) return;
+  const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
+  if (!tab) return;
+  const post = m => { try { e.source.postMessage(m, "*"); } catch (_) {} };
+  const reply = (ok, note) => post({ uds: "exported", ok, note });
+  const d = e.data.data;
+  if (!(d instanceof Blob)) return reply(false, "Nothing to save.");
+  if (typeof api().item_export_part !== "function")
+    return reply(false, "Randis UDS needs a restart before it can save files: close the app and open it again (Reload isn't enough). Then make the file again and press Save.");
+  if (exportBusy) return reply(false, "A Save box is already open.");
+  exportBusy = true;
+  post({ uds: "exporting", note: "Choose where to save it in the Save box…" });
+  try {
+    const r = await api().item_export(String(e.data.name || "file"));
+    if (!r) return reply(false, "Save cancelled. The file is still here; press Save to try again.");
+    if (r.error) return reply(false, "Save failed: " + r.error);
+    const PIECE = 3 * 1024 * 1024;
+    for (let at = 0; ; at += PIECE) {
+      const last = at + PIECE >= d.size;
+      const b64 = await new Promise((ok, bad) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1] || ""); fr.onerror = () => bad(fr.error); fr.readAsDataURL(d.slice(at, at + PIECE)); });
+      const p = await api().item_export_part(r.token, b64, last);
+      if (!p || p.error) return reply(false, "Save failed: " + ((p && p.error) || "no answer") + ". The file is still here; press Save to try again.");
+      if (last) break;
+      post({ uds: "exporting", note: `Saving… ${Math.round(100 * (at + PIECE) / d.size)}%` });
+    }
+    reply(true, "Saved to " + r.path);
+    toast("Saved " + r.name);
+  } catch (err) { reply(false, "Save failed: " + err + ". The file is still here; press Save to try again."); }
+  finally { exportBusy = false; }
 });
 
 // ---------- online play, for tabs whose meta.json says "online": true (app.py net_*, net.py) ----------
@@ -1138,6 +1178,7 @@ async function loadBuilt(tab) {
   $("iframe", tab.pane).srcdoc = r.html;
   $("iframe", tab.pane).hidden = false;
   $(".build-log", tab.pane).hidden = true;
+  $(".built-body", tab.pane).classList.remove("no-page");
   fillVersions(tab, r.meta, r.n);
   tab.title = r.meta.name;
   buildStatus(tab, `version ${r.n} of ${r.meta.versions.length}`);
@@ -1155,46 +1196,127 @@ function outsideCode(text) {
   return text.replace(/```[\s\S]*?(```|$)/g, "").replace(/<!doctype html[\s\S]*?(<\/html>|$)|<html[\s\S]*?(<\/html>|$)/gi, "").trim();
 }
 
+// A built tab's chat (the 💬 Chat panel) is a real conversation, like the duck's "Modify me?": the LLM can ask questions,
+// say what it changed, or just talk. A reply that changes the tab carries the whole new page in a code block; the app
+// saves it as a new version and keeps the code out of the chat. The chat is kept beside the tab (data/tabs/<id>/chat.json).
+// The chat needs app.py's built_chat_*; an app started before they existed must be closed and opened again.
+const tabChatReady = () => !!(api() && typeof api().built_chat_load === "function");
+
+async function tabChatLoad(tab) {
+  if (!tabChatReady()) { renderTabChat(tab); return false; }
+  if (!tab.chat) tab.chat = tab.builtId && api() ? await api().built_chat_load(tab.builtId) : [];
+  renderTabChat(tab);
+  return true;
+}
+
+function tabChatSave(tab) {
+  if (tab.builtId && api()) api().built_chat_save(tab.builtId, (tab.chat || []).filter(m => !m.pending));
+}
+
+function tabLog(tab, who, text, err) {
+  const log = $(".tab-studio .studio-log", tab.pane);
+  const m = el("div", { className: "msg " + (who === "you" ? "user" : "assistant") + (err ? " error" : "") }, text);
+  log.appendChild(m); log.scrollTop = log.scrollHeight;
+  return m;
+}
+
+function tabReply(tab, m) {
+  const b = tabLog(tab, "llm", "");
+  const words = b.appendChild(el("div", { className: "studio-words" }, m.content || ""));
+  const note = b.appendChild(el("div", { className: "studio-note" }, m.note || ""));
+  note.hidden = !m.note;
+  if (m.error) b.classList.add("error");
+  return { b, words, note };
+}
+
+function renderTabChat(tab) {
+  const log = $(".tab-studio .studio-log", tab.pane);
+  log.textContent = "";
+  log.appendChild(el("p", { className: "muted small" }, tab.builtId
+    ? "Talk with the LLM about this tab: ask how something works, report a bug, or describe a change. It can ask you questions back. Every change is a new version you can roll back with the list at the top."
+    : "Describe the tab you want. The LLM may ask a question or two first, then builds it."));
+  if (!tabChatReady()) tabLog(tab, "llm", "This chat needs a restart of Randis UDS: close the app and open it again (Reload isn't enough).", true);
+  for (const m of tab.chat || []) {
+    if (m.role === "user") tabLog(tab, "you", m.content);
+    else tabReply(tab, m);
+  }
+}
+
+// a whole page, not a snippet shown while explaining something
+const tabHasPage = text => /```html|<!doctype html|<html[\s>]/i.test(text);
+
 async function runBuild(tab, request) {
   if (!request || tab.job) return;
   const rec = activeLlm();
   if (!rec) return toast(NEEDS_LLM);
+  const studio = $(".tab-studio", tab.pane);
+  if (studio.hidden) studio.hidden = false;
+  if (!tab.chat && !(await tabChatLoad(tab))) return toast("Close Randis UDS and open it again to use the tab chat.");
   const isNew = !tab.builtId;
-  const log = $(".build-log", tab.pane), frame = $("iframe", tab.pane);
-  $("[data-act=modify]", tab.pane).hidden = true;
-  $("[data-act=stop]", tab.pane).hidden = false;
-  log.textContent = ""; log.hidden = false; frame.hidden = true;
+  const input = $(".modify", tab.pane), frame = $("iframe", tab.pane), log = $(".tab-studio .studio-log", tab.pane);
+  input.value = "";
+  // what the LLM sees: the chat so far in words, with a marker where the tab was changed
+  const history = [...tab.chat.slice(-12), { role: "user", content: request }].filter(m => !m.error)
+    .map(m => ({ role: m.role, content: (m.content || "(no words)") + (m.version ? `\n[The app saved this change as version ${m.version}.]` : "") }));
+  tab.chat.push({ role: "user", content: request });
+  tabLog(tab, "you", request);
+  const msg = { role: "assistant", content: "" };
+  const view = tabReply(tab, { note: "asking " + rec.name + "…" });
+  $("[data-act=modify]", tab.pane).hidden = true; $("[data-act=stop]", tab.pane).hidden = false;
   buildStatus(tab, "asking " + rec.name + "…");
   let r = { text: "", error: null };
   try {
-    tab.job = await api().build_start(rec, request, tab.builtId);
+    tab.job = await api().build_start(rec, request, tab.builtId, history);
     renderTabs();
     for (;;) {
       await new Promise(res => setTimeout(res, 150));
       r = await api().chat_poll(tab.job);
-      log.textContent = r.text || r.status;
-      log.scrollTop = log.scrollHeight;
-      buildStatus(tab, `${r.status || "writing"} · ${r.text.length} characters`);
+      const atEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+      view.words.textContent = outsideCode(r.text);
+      const code = r.text.length - view.words.textContent.length;
+      view.note.textContent = tabHasPage(r.text) ? `writing the new page… ${code} characters`
+                            : r.status && r.status !== "writing" ? r.status : "";   // e.g. "thinking", or Claude Code's "using Edit …"
+      view.note.hidden = !view.note.textContent;
+      buildStatus(tab, tabHasPage(r.text) ? `writing the new page… ${code} characters` : (r.status || "writing") + "…");
+      if (atEnd) log.scrollTop = log.scrollHeight;
       if (r.done) break;
     }
   } catch (e) { r.error = String(e); }
   tab.job = null;
-  $("[data-act=modify]", tab.pane).hidden = false;
-  $("[data-act=stop]", tab.pane).hidden = true;
+  $("[data-act=modify]", tab.pane).hidden = false; $("[data-act=stop]", tab.pane).hidden = true;
+  msg.content = outsideCode(r.text || "");
   const res = r.error ? { error: r.error }
             : !isNew && ccTouched(r, "tabs", tab.builtId) ? await api().built_load(tab.builtId)
-            : await api().build_save(tab.builtId, isNew ? nameFrom(request) : null, r.text, request);
-  if (res.error) {
+            : tabHasPage(r.text) ? await api().build_save(tab.builtId, isNew ? nameFrom(tab.chat.find(m => m.role === "user").content) : null, r.text, request)
+            : null;                                          // just talk: the tab stays as it is
+  if (res && res.error) {
+    msg.error = true; msg.note = "⚠ " + res.error + " The tab wasn't changed.";
+    view.b.classList.add("error");
     buildStatus(tab, res.error, true);
-    if (!isNew) { log.hidden = true; frame.hidden = false; }   // the old version stays on screen
-  } else {
+  } else if (res) {
     tab.builtId = res.meta.id;
-    $(".modify", tab.pane).value = "";
-    $(".modify", tab.pane).placeholder = "Describe a change, e.g. make the buttons bigger";
+    input.placeholder = "Ask or describe a change, e.g. make the buttons bigger";
     await refreshBuilt();
     await loadBuilt(tab);
+    msg.version = res.meta.current;
+    msg.note = isNew ? `Built the tab: ${res.meta.name}.` : `Changed the tab: version ${res.meta.current}.`;
+    if (!msg.content) msg.content = "Done.";
     toast(isNew ? "Tab built: " + res.meta.name : `Saved as version ${res.meta.current}`);
+  } else if (tab.builtId) {
+    const v = $(".versions", tab.pane);
+    buildStatus(tab, `version ${v.value} of ${v.options.length}`);
+  } else buildStatus(tab, "");
+  if (!msg.content && !msg.note) msg.note = r.stopped ? "Stopped." : "(no answer)";
+  view.words.textContent = msg.content; view.note.textContent = msg.note || ""; view.note.hidden = !msg.note;
+  if (tabHasPage(r.text || "")) {                    // the code is still there if wanted, folded away
+    const fold = view.b.appendChild(el("details", { className: "studio-fold" }));
+    fold.appendChild(el("summary", {}, "Show the code"));
+    fold.appendChild(el("pre", { className: "studio-live" }, r.text));
   }
+  tab.chat.push(msg);
+  tabChatSave(tab);
+  log.scrollTop = log.scrollHeight;
+  if (frame.hidden && tab.builtId) frame.hidden = false;
   renderTabs(); scheduleSave();
 }
 

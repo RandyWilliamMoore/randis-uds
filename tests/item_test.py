@@ -39,6 +39,20 @@ import tabs
 app.DATA_DIR = D
 app.SESSION_FILE = os.path.join(D, "session.json")
 results = []
+EXPORT_SIZE = 7_000_000     # more than two of the 3 MB pieces
+EXPORT_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>Maker</title></head><body><script>
+const n = %d, b = new Uint8Array(n); for (let i = 0; i < n; i++) b[i] = i %% 251;
+parent.postMessage({uds: 'export-file', name: 'my song.wav', data: new Blob([b], {type: 'audio/wav'})}, '*');
+</script></body></html>""" % EXPORT_SIZE
+
+
+def _wait_file(path, size, secs=30):
+    end = time.time() + secs
+    while time.time() < end:
+        if os.path.exists(path) and os.path.getsize(path) == size:
+            return True
+        time.sleep(0.2)
+    return False
 
 
 def check(name, ok, detail=""):
@@ -114,6 +128,26 @@ def run(w):
         js("window.postMessage({uds: 'save-file', text: 'not from a game'}, '*')")
         time.sleep(0.4)
         check("only a tab's own frame can save, and only into itself", len(store.list()) == before and len(store.load(tid)["meta"]["versions"]) == 2)
+        # a file a tab makes (a song, a video) is saved where the person picks, sent over in pieces
+        song = os.path.join(TOP, "picked", "my song.wav")
+        os.makedirs(os.path.dirname(song))
+        maker = os.path.join(TOP, "maker.html")
+        with open(maker, "w", encoding="utf-8") as f:
+            f.write(EXPORT_PAGE)
+        asked = []
+        w.create_file_dialog = lambda kind, *a, **k: (asked.append(k), song)[1] if kind == webview.FileDialog.SAVE else [maker]
+        js("openItemFile()")
+        check("a tab's file is saved where the person picked", until("current().title === 'Maker'") and _wait_file(song, EXPORT_SIZE), os.listdir(os.path.dirname(song)))
+        check("the Save box offered the tab's own file name", asked and asked[0].get("save_filename") == "my song.wav", asked)
+        with open(song, "rb") as f:
+            got = f.read()
+        check("every byte arrived, in order, across several pieces", got == bytes(i % 251 for i in range(EXPORT_SIZE)), len(got))
+        check("no half-written file is left behind", not os.path.exists(song + ".part"))
+        w.create_file_dialog = real
+        check("a cancelled Save box saves nothing", api.item_export("x.wav") is None if not setattr(w, "create_file_dialog", lambda *a, **k: None) else False)
+        w.create_file_dialog = real
+        check("a piece for a save that isn't open is refused", "error" in api.item_export_part("nope", ""))
+        before = len(store.list())
         # a shop link while the app is open
         launch.take_open_link(["randisuds://open?item=games/demo-game"])
         check("a shop link asks first", until("!$('#modal').hidden && document.querySelector('#modal [data-act=item-open-go]')"))

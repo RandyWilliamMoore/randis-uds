@@ -116,15 +116,31 @@
   <template id="built-tpl">
     <section class="pane built">
       <div class="toolbar built-bar">
-        <input class="modify" type="text" aria-label="Describe a change">
-        <button class="pill primary" data-act="modify">Change</button>
-        <button class="pill" data-act="stop" hidden>Stop</button>
+        <button class="pill primary" data-act="chat-toggle" title="Talk with the LLM about this tab and have it change it">💬 Chat</button>
         <select class="versions" aria-label="Versions" title="Versions: pick one to roll back or forward"></select>
         <button class="pill" data-act="template" title="Save this version as a template you can start new tabs from">Save as template</button>
         <span class="status muted"></span>
       </div>
+      <div class="built-body">
+      <div class="built-stage">
       <pre class="build-log" hidden></pre>
       <iframe sandbox="allow-scripts allow-modals allow-forms" allow="midi" csp="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'" title="Built tab"></iframe>
+      </div>
+      <aside class="duck-studio tab-studio" hidden>
+        <div class="studio-head">
+          <strong>Chat about this tab</strong>
+          <span style="flex:1"></span>
+          <button class="pill" data-act="chat-new" title="Start the chat over. The tab and its versions stay as they are.">New chat</button>
+          <button class="icon" data-act="chat-close" title="Close the chat">&times;</button>
+        </div>
+        <div class="studio-log"></div>
+        <div class="composer">
+          <textarea class="modify" rows="2" aria-label="Message about this tab"></textarea>
+          <button class="pill primary" data-act="modify">Send</button>
+          <button class="pill" data-act="stop" hidden>Stop</button>
+        </div>
+      </aside>
+      </div>
     </section>
   </template>
 
