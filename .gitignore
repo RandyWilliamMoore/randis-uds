@@ -26,3 +26,4 @@ data/claude_setup.json
 data/history.md
 .claude/settings.local.json
 .venv/
+data/publish.json

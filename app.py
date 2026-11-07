@@ -24,6 +24,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -661,6 +662,100 @@ class Api:
                 pass
             return {"error": str(e) or "The file came through damaged."}
         return {"ok": True}
+
+    # ---------- publishing a song a tab made to your own shop (data/publish.json) ----------
+    # Only on a computer whose data/publish.json names a shop folder: a git checkout of a shop with tools/add_music.py.
+    # The tab asks; this page asks the person first (app.js); then add_music.py makes the tagged MP3 and its cover,
+    # and the song is committed and pushed. Nothing else in the shop folder is touched.
+    def _publish_conf(self):
+        try:
+            with open(os.path.join(DATA_DIR, "publish.json"), encoding="utf-8") as f:
+                conf = json.load(f)
+            folder = conf["shop_folder"]
+            if not (os.path.isfile(os.path.join(folder, "tools", "add_music.py")) and os.path.isdir(os.path.join(folder, ".git"))):
+                return None
+            return {"folder": folder, "shop": str(conf.get("shop_name") or "your shop")[:40], "by": str(conf.get("by") or "Randy")[:40],
+                    "page": conf.get("page") if str(conf.get("page", "")).startswith("https://") else None}
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
+    def publish_ready(self):
+        conf = self._publish_conf()
+        return {"ok": bool(conf), "shop": conf["shop"] if conf else None}
+
+    def song_publish_begin(self, title, blurb, genre):
+        """Checks the words, then opens a save the tab's song comes into in pieces (item_export_part)."""
+        conf = self._publish_conf()
+        if not conf:
+            return {"error": "Publishing isn't set up on this computer."}
+        title, blurb, genre = (str(x or "").strip() for x in (title, blurb, genre))
+        if not (title and len(title) <= 60 and re.search(r"[A-Za-z0-9]", title)):
+            return {"error": "The title must be 1 to 60 characters."}
+        if not (blurb and len(blurb) <= 400):
+            return {"error": "The description must be 1 to 400 characters."}
+        if not (genre and len(genre) <= 40):
+            return {"error": "The genre must be 1 to 40 characters."}
+        work = tempfile.mkdtemp(prefix="uds_publish_")
+        path = os.path.join(work, "song.wav")
+        open(path + ".part", "wb").close()
+        token = os.urandom(8).hex()
+        self._exports = getattr(self, "_exports", {})
+        self._exports[token] = {"path": path, "size": 0}
+        self._publishes = getattr(self, "_publishes", {})
+        self._publishes[token] = {"conf": conf, "title": title, "blurb": blurb, "genre": genre, "path": path, "work": work,
+                                  "status": "waiting for the song", "done": False}
+        return {"token": token}
+
+    def song_publish_run(self, token):
+        job = getattr(self, "_publishes", {}).get(token)
+        if not job or job.get("started") or not os.path.isfile(job["path"]):
+            return {"error": "That song didn't come through."}
+        job["started"] = True
+        threading.Thread(target=self._publish, args=(job,), daemon=True).start()
+        return {"ok": True}
+
+    def song_publish_status(self, token):
+        job = getattr(self, "_publishes", {}).get(token)
+        if not job:
+            return {"error": "Unknown publish.", "done": True}
+        out = {k: job.get(k) for k in ("status", "done", "error", "url", "title")}
+        if job["done"]:
+            self._publishes.pop(token, None)
+        return out
+
+    def _publish(self, job):
+        conf, folder = job["conf"], job["conf"]["folder"]
+        run = lambda args, **k: subprocess.run(args, cwd=folder, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                               creationflags=projects.NO_WINDOW, **k)
+        try:
+            title, n = job["title"], 2
+            slug = lambda t: re.sub(r"[^a-z0-9]+", "-", t.lower()).strip("-")
+            while os.path.exists(os.path.join(folder, "music", slug(title))):      # a title already in the Jukebox gets a number
+                title, n = f"{job['title'][:55]} {n}", n + 1
+            job["title"] = title
+            job["status"] = "making the MP3, its tags and its cover…"
+            r = run([sys.executable, os.path.join(folder, "tools", "add_music.py"), job["path"], "--name", title, "--genre", job["genre"],
+                     "--blurb", job["blurb"], "--by", conf["by"]], timeout=600)
+            if r.returncode:
+                raise ValueError((r.stderr or r.stdout).strip().splitlines()[-1] if (r.stderr or r.stdout).strip() else "add_music.py failed")
+            job["status"] = "committing it…"
+            for args in (["git", "add", "--", "music/" + slug(title), "music.js"],
+                         ["git", *projects.AS_APP, "commit", "-m", f"Jukebox: {title}", "--", "music/" + slug(title), "music.js"]):
+                r = run(args, timeout=120)
+                if r.returncode:
+                    raise ValueError(f"{args[1] if args[1] != '-c' else 'commit'}: " + (r.stderr or r.stdout).strip()[:300])
+            job["status"] = "pushing it to the shop…"
+            r = run(["git", "push"], timeout=180)
+            if r.returncode:
+                raise ValueError("push: " + (r.stderr or r.stdout).strip()[:300] + " The song is committed in the shop folder; push it from there.")
+            job["url"] = (conf["page"].rstrip("/") + "/" + slug(title)) if conf["page"] else None
+            job["status"] = f"Published: {title}. The shop shows it in a minute or two."
+        except (OSError, ValueError, subprocess.SubprocessError) as e:
+            job["error"] = str(e) or "Publishing failed."
+            job["status"] = "Publishing failed: " + job["error"]
+        finally:
+            shutil.rmtree(job["work"], ignore_errors=True)
+            job["done"] = True
 
     def item_request(self):
         """What a shop link asked for (launch.py wrote it). Taken once; old ones are dropped."""

@@ -90,6 +90,16 @@ The first run sets up `.venv` in this folder. What's different from Windows:
 - API keys are stored in `~/.config/RandisUDS/keys.json`, readable only by your user, but not encrypted.
 - No taskbar pinning help, and the Claude Code setup opens in your terminal instead of PowerShell.
 
+## Publishing songs to your own shop
+
+A tab that makes music (like Randis Sound Forge, in the Randis Shop) can publish a song to a shop you run, as a tagged MP3 with a cover, if you set it up. Make `data/publish.json`:
+
+```json
+{"shop_folder": "C:/path/to/your-shop-checkout", "shop_name": "My Shop", "by": "Your name", "page": "https://you.github.io/your-shop/#/music"}
+```
+
+The shop folder is a git checkout of a shop like [the Randis Shop](https://github.com/RandyWilliamMoore/randis-shop), with its `tools/add_music.py`, that can push. Publishing needs [ffmpeg](https://ffmpeg.org/). Each time, Randis UDS asks you first, then adds the song and pushes only that. Without the file, tabs never see a Publish button.
+
 ## Online play
 
 A built tab stays walled off from the internet. A game in one can still play a friend: the first time it asks, Randis UDS asks you whether to allow online play for that tab, and keeps your answer. One player hosts and gets a private invite code, the other types it in. Every message is sealed with AES-256-GCM, using a key made from the code, before it leaves the app; the app only carries the sealed text through a free public MQTT relay (broker.emqx.io, broker.hivemq.com or test.mosquitto.org) over TLS. The relay can't read what's sent, but it can see that two copies are talking and when. Anyone with the code can join, so send it privately.

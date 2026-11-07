@@ -1,7 +1,7 @@
 # Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds
 """One game or app as a tab: opening a file, a game saving into its own tab, and shop links, which only leave a note, ask first, and can only reach the shop.
 Uses a stand-in shop on this computer."""
-import functools, http.server, json, os, shutil, sys, tempfile, threading, time
+import functools, http.server, json, os, shutil, subprocess, sys, tempfile, threading, time
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
@@ -44,6 +44,33 @@ EXPORT_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>Maker</
 const n = %d, b = new Uint8Array(n); for (let i = 0; i < n; i++) b[i] = i %% 251;
 parent.postMessage({uds: 'export-file', name: 'my song.wav', data: new Blob([b], {type: 'audio/wav'})}, '*');
 </script></body></html>""" % EXPORT_SIZE
+
+
+PUBLISH_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>Publisher</title></head><body><script>
+function wav() { const sr = 8000, n = sr * 2, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.sin(i / 8) * 8000, true); return new Blob([b], {type: 'audio/wav'}); }
+const ask = () => parent.postMessage({uds: 'publish-song', title: 'Test Song', blurb: 'A test song for the lobby.', genre: 'Elevator Music', data: wav()}, '*');
+addEventListener('message', e => { if (e.data && e.data.uds === 'can-publish' && e.data.ok) ask(); if (e.data && e.data.uds === 'published' && e.data.ok) ask(); });
+parent.postMessage({uds: 'can-publish'}, '*');
+</script></body></html>"""
+
+
+def make_shop():
+    """A stand-in shop: a git checkout of the real shop's tools, pushing to a stand-in GitHub (a bare repo here)."""
+    import subprocess
+    shop_src = os.path.join(os.path.dirname(HERE), "randis_marketplace")
+    folder, remote = os.path.join(TOP, "shop_checkout"), os.path.join(TOP, "shop_remote.git")
+    shutil.copytree(os.path.join(shop_src, "tools"), os.path.join(folder, "tools"), ignore=shutil.ignore_patterns("__pycache__"))
+    os.makedirs(os.path.join(folder, "site"))
+    shutil.copyfile(os.path.join(shop_src, "site", "band.js"), os.path.join(folder, "site", "band.js"))
+    g = lambda *a, cwd=folder: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=cwd, capture_output=True, text=True, check=True)
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", remote], check=True)
+    g("init", "-q", "-b", "main")
+    subprocess.run([sys.executable, os.path.join(folder, "tools", "build_index.py")], cwd=folder, check=True, capture_output=True)
+    g("add", "-A"); g("commit", "-q", "-m", "start"); g("remote", "add", "origin", remote); g("push", "-q", "-u", "origin", "main")
+    return folder, remote
 
 
 def _wait_file(path, size, secs=30):
@@ -147,6 +174,41 @@ def run(w):
         check("a cancelled Save box saves nothing", api.item_export("x.wav") is None if not setattr(w, "create_file_dialog", lambda *a, **k: None) else False)
         w.create_file_dialog = real
         check("a piece for a save that isn't open is refused", "error" in api.item_export_part("nope", ""))
+        before = len(store.list())
+        # publishing a song a tab made, to the person's own shop: a stand-in shop pushing to a stand-in GitHub
+        check("publishing is off until data/publish.json names a shop", api.publish_ready() == {"ok": False, "shop": None})
+        shop, remote = make_shop()
+        with open(os.path.join(D, "publish.json"), "w", encoding="utf-8") as f:
+            json.dump({"shop_folder": shop, "shop_name": "Test Shop", "by": "Randy", "page": "https://shop.example/#/music"}, f)
+        check("with a shop set up, publishing is on", api.publish_ready() == {"ok": True, "shop": "Test Shop"})
+        pub = os.path.join(TOP, "publisher.html")
+        with open(pub, "w", encoding="utf-8") as f:
+            f.write(PUBLISH_PAGE)
+        w.create_file_dialog = lambda *a, **k: [pub]
+        js("openItemFile()")
+        check("a tab asking to publish gets the person's yes first", until("!$('#modal').hidden && !!document.querySelector('#modal [data-act=publish-yes]')", 15)
+              and "Test Song" in js("$('#modal').textContent") and "A test song for the lobby." in js("$('#modal').textContent"), js("$('#modal').textContent"))
+        w.create_file_dialog = real
+        heads = lambda: subprocess.run(["git", "--git-dir", remote, "log", "--format=%s", "main"], capture_output=True, text=True).stdout.split("\n")
+        check("nothing is pushed before the yes", heads()[0] == "start")
+        js("document.querySelector('#modal [data-act=publish-yes]').click()")
+        end = time.time() + 120
+        while time.time() < end and heads()[0] != "Jukebox: Test Song":
+            time.sleep(0.5)
+        check("after the yes, the song is committed and pushed to the shop", heads()[0] == "Jukebox: Test Song", heads()[:3])
+        files = subprocess.run(["git", "--git-dir", remote, "ls-tree", "-r", "--name-only", "main"], capture_output=True, text=True).stdout.split()
+        check("it went up as an MP3 with its cover and info, and the Jukebox list", {"music/test-song/song.mp3", "music/test-song/cover.jpg", "music/test-song/info.json", "music.js"} <= set(files), files)
+        info = json.loads(subprocess.run(["git", "--git-dir", remote, "show", "main:music/test-song/info.json"], capture_output=True, text=True).stdout or "{}")
+        check("with the title, description and genre the tab gave", info.get("name") == "Test Song" and info.get("blurb") == "A test song for the lobby." and info.get("genre") == "Elevator Music", info)
+        check("only the song was added to the shop", set(subprocess.run(["git", "--git-dir", remote, "diff", "--name-only", "main~1", "main"], capture_output=True, text=True).stdout.split())
+              == {"music/test-song/song.mp3", "music/test-song/cover.jpg", "music/test-song/info.json", "music.js"})
+        # the page asks again once it's published: the same title gets a number; this time the person says no
+        check("a second ask is asked again", until("!$('#modal').hidden && !!document.querySelector('#modal [data-act=publish-no]')", 15))
+        js("document.querySelector('#modal [data-act=publish-no]').click()")
+        time.sleep(2)
+        check("saying no publishes nothing", heads()[0] == "Jukebox: Test Song" and not os.path.exists(os.path.join(shop, "music", "test-song-2")))
+        check("a song with no title is refused", "title" in api.song_publish_begin("", "x", "y").get("error", ""))
+        os.remove(os.path.join(D, "publish.json"))
         before = len(store.list())
         # a shop link while the app is open
         launch.take_open_link(["randisuds://open?item=games/demo-game"])
