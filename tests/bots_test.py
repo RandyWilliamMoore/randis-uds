@@ -65,7 +65,9 @@ check("a bot is made from your words: its job and your yes", b["name"] == "app_b
       and b["approved"]["words"] == b["job"] and b["status"] == "approved", b)
 check("it can only read and search", b["tools"] == ["Read", "Grep", "Glob"])
 t = bots.add_bot("Look over this page for broken links.", READS, 'the "Game" tab', {"level": "tab", "tab_kind": "built", "tab_title": "Game"}, 60)
-check("bots are named after what they tend, counting up", t["name"] == "built_bot1" and bots.add_bot("Another check of the folder.", READS, "x", {"level": "app"})["name"] == "app_bot2")
+check("bots are named after the tab they tend, counting up", t["name"] == "game_bot1" and bots.add_bot("Another check of the folder.", READS, "x", {"level": "app"})["name"] == "app_bot2")
+k = bots.add_bot("Read this tab, look for bugs.", READS, 'the "Randis Sound Forge" tab', {"level": "tab", "tab_kind": "built", "tab_title": "Randis Sound Forge"}, None, "Bug hunter")
+check("a standard bot is named for its tab and its kind, and keeps its label", k["name"] == "randis_sound_forge_bug_hunter1" and k["label"] == "Bug hunter", k)
 check("a tab's bot knows its tab and its schedule", t["scope"]["tab_title"] == "Game" and t["trigger"] == {"every_min": 60})
 
 r = bots.run_once("app_bot1")
@@ -113,13 +115,13 @@ r = bots.launch("app_bot1")
 check("with memory low, a bot doesn't start, and says why", r.get("started") is False and "memory" in r["reason"], r)
 del os.environ["UDS_BOTS_FAKE_FREE_GB"]
 
-r = bots.launch("built_bot1", once=False)
+r = bots.launch("game_bot1", once=False)
 time.sleep(0.5)
 check("Start keeps it on its schedule: it runs, then waits for the next turn", r.get("started") and
-      (lambda: [time.sleep(0.2) for _ in range(60) if not bots.read_state("built_bot1").get("next_due")] or True)() and
-      bots.running("built_bot1") and bots.read_state("built_bot1").get("runs") == 1, bots.read_state("built_bot1"))
-bots.halt("built_bot1")
-check("and Stop ends the schedule", not bots.running("built_bot1"))
+      (lambda: [time.sleep(0.2) for _ in range(60) if not bots.read_state("game_bot1").get("next_due")] or True)() and
+      bots.running("game_bot1") and bots.read_state("game_bot1").get("runs") == 1, bots.read_state("game_bot1"))
+bots.halt("game_bot1")
+check("and Stop ends the schedule", not bots.running("game_bot1"))
 
 bots.retire("app_bot2")
 check("a retired bot stays listed but won't run", bots.bot("app_bot2")["status"] == "retired" and "retired" in bots.launch("app_bot2")["reason"])
@@ -165,12 +167,19 @@ def run(w):
         js("current().pane.querySelector('.tab-bot-btn').click()")
         until("!!document.querySelector('#modal .bot-words')")
         text = js("$('#modal .modal-body').textContent") or ""
-        check("the form says first what the bot can read, that it changes nothing, and that it uses your Claude plan",
-              os.path.dirname(saved_note) in text and "can't change" in text and "Claude plan" in text and "my note.txt" in text, text)
-        js("document.querySelector('#modal .bot-words').value = 'Count the words in my note.'; document.querySelector('#modal .bot-every').value = '60';"
+        check("the form says first what the bots can read, that they change nothing, and that they use your Claude plan",
+              os.path.dirname(saved_note) in text and "change, delete or send" in text and "Claude plan" in text and "my note.txt" in text, text)
+        presets = lambda: js("[...document.querySelectorAll('#modal [data-preset]')].map(b => b.dataset.preset).join(',')")
+        check("it offers the standard bots and a custom one; a note keeps no versions, so no version checker",
+              presets() == "bug_hunter,idea_finder,custom", presets())
+        js("document.querySelector('#modal [data-act=bot-make]').click()")
+        check("with nothing ticked, it asks you to tick one", until("!$('#modal .modal-error').hidden && $('#modal .modal-error').textContent.includes('Tick at least one')"))
+        check("the custom box opens only when ticked", js("document.querySelector('#modal .bot-words').hidden") is True)
+        js("const c = document.querySelector('#modal [data-preset=custom]'); c.checked = true; c.dispatchEvent(new Event('change'));"
+           "document.querySelector('#modal .bot-words').value = 'Count the words in my note.'; document.querySelector('#modal .bot-every').value = '60';"
            "document.querySelector('#modal [data-act=bot-make]').click()")
-        check("Make the bot opens the Bots tab with it", until("current().kind === 'bots' && !!current().pane.querySelector('[data-bot=notepad_bot1]')"), js("current().pane.textContent"))
-        card = js("current().pane.querySelector('[data-bot=notepad_bot1]').textContent") or ""
+        check("Make opens the Bots tab with the custom bot", until("current().kind === 'bots' && !!current().pane.querySelector('[data-bot=my_note_txt_bot1]')"), js("current().pane.textContent"))
+        card = js("current().pane.querySelector('[data-bot=my_note_txt_bot1]').textContent") or ""
         check("its card shows the job, the tab, the schedule, and not run yet",
               "Count the words in my note." in card and "my note.txt" in card and "Every hour" in card and "Not run yet" in card, card)
         for kind in ("chat", "ide", "pdf", "shop"):
@@ -178,8 +187,12 @@ def run(w):
             check(f"a {kind} tab has + Add a bot", until("!!current().pane.querySelector('.tab-bot-btn')", 5), js("current().pane.innerHTML.slice(0, 300)"))
         js("current().pane.querySelector('.tab-bot-btn').click()")
         until("!!document.querySelector('#modal .bot-words')")
-        js("document.querySelector('#modal .bot-words').value = 'x'; document.querySelector('#modal [data-act=bot-make]').click()")
+        js("const c = document.querySelector('#modal [data-preset=custom]'); c.checked = true; c.dispatchEvent(new Event('change'));"
+           "document.querySelector('#modal .bot-words').value = 'x'; document.querySelector('#modal [data-act=bot-make]').click()")
         check("a job too short is refused in the form", until("!$('#modal .modal-error').hidden && $('#modal .modal-error').textContent.includes('Say what')"))
+        js("closeModal(); addBotForm({kind: 'built', title: 'Game', builtId: 'abc123'})")
+        check("a built tab keeps versions, so its form has the version checker too",
+              until("!!document.querySelector('#modal [data-preset=version_checker]')") and "newest version of this tab" in (js("$('#modal .modal-body').textContent") or ""))
         js("closeModal()")
         check("the + menu has Bots", js("!!document.querySelector('#newtab-menu [data-kind=bots]')"))
         js("openKind('bots')")
@@ -187,18 +200,24 @@ def run(w):
         check("the Bots tab doesn't get a tab bot button, it has the app-level one", js("!current().pane.querySelector('.tab-bot-btn') && !!current().pane.querySelector('.app-bot-btn')"))
         js("current().pane.querySelector('.app-bot-btn').click()")
         until("!!document.querySelector('#modal .bot-words')")
-        check("the app-level form is for Randis UDS itself", "Randis UDS itself" in (js("$('#modal .modal-body').textContent") or ""))
-        js("document.querySelector('#modal .bot-words').value = 'Check the app folder for leftover temp files.'; document.querySelector('#modal [data-act=bot-make]').click()")
-        check("an app-level bot is made", until("!!current().pane.querySelector('[data-bot=app_bot1]')"))
-        js("current().pane.querySelector('[data-bot=app_bot1] [data-act=bot-run]').click()")
+        text = js("$('#modal .modal-body').textContent") or ""
+        check("the app-level form is for Randis UDS itself, with the same standard bots", "Randis UDS itself" in text
+              and presets() == "bug_hunter,version_checker,idea_finder,custom", [presets(), text])
+        check("there, the version checker compares the app with its newest snapshot", "newest snapshot" in text, text)
+        js("document.querySelector('#modal [data-preset=bug_hunter]').checked = true; document.querySelector('#modal [data-preset=idea_finder]').checked = true;"
+           "document.querySelector('#modal [data-act=bot-make]').click()")
+        check("ticking two makes both, each with its label", until("!!current().pane.querySelector('[data-bot=app_bug_hunter1]') && !!current().pane.querySelector('[data-bot=app_idea_finder1]')")
+              and "Bug hunter: app_bug_hunter1" in (js("current().pane.querySelector('[data-bot=app_bug_hunter1]').textContent") or ""), js("current().pane.textContent"))
+        check("a standard bot's job is its standard words", "suggest 3 new features" in (js("current().pane.querySelector('[data-bot=app_idea_finder1]').textContent") or ""))
+        js("current().pane.querySelector('[data-bot=app_bug_hunter1] [data-act=bot-run]').click()")
         check("Run once runs it, and its card shows the answer",
-              until("(current().pane.querySelector('[data-bot=app_bot1]') || {}).textContent.includes('All clear: nothing to fix.')", 25),
-              js("current().pane.querySelector('[data-bot=app_bot1]').textContent"))
-        check("its light is green", js("current().pane.querySelector('[data-bot=app_bot1] .bot-light').dataset.light") == "ok")
-        check("today's record counts it", until("current().pane.textContent.includes('app_bot1: 1 runs, 0 failed')", 6), js("current().pane.textContent"))
+              until("(current().pane.querySelector('[data-bot=app_bug_hunter1]') || {}).textContent.includes('All clear: nothing to fix.')", 25),
+              js("current().pane.querySelector('[data-bot=app_bug_hunter1]').textContent"))
+        check("its light is green", js("current().pane.querySelector('[data-bot=app_bug_hunter1] .bot-light').dataset.light") == "ok")
+        check("today's record counts it", until("current().pane.textContent.includes('app_bug_hunter1: 1 runs, 0 failed')", 6), js("current().pane.textContent"))
         check("it read only the app's folder", calls()[-1]["args"][calls()[-1]["args"].index("--add-dir") + 1] == HERE)
-        js("current().pane.querySelector('[data-bot=notepad_bot1] [data-act=bot-retire]').click()")
-        check("Retire moves it under Retired", until("!!current().pane.querySelector('details [data-bot=notepad_bot1]')"))
+        js("current().pane.querySelector('[data-bot=my_note_txt_bot1] [data-act=bot-retire]').click()")
+        check("Retire moves it under Retired", until("!!current().pane.querySelector('details [data-bot=my_note_txt_bot1]')"))
         check("no script errors", not js("window.__errs.length"), js("window.__errs"))
     except Exception as e:
         check("test crashed", False, repr(e))

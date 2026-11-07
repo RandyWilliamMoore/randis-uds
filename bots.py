@@ -368,7 +368,7 @@ def retire(name: str) -> dict:
 
 
 # ---------------------------------------------------------------- adding a bot
-def add_bot(words: str, reads_dir: str, where: str, scope: dict, every_min=None) -> dict:
+def add_bot(words: str, reads_dir: str, where: str, scope: dict, every_min=None, label: str = "") -> dict:
     """"+ Add a bot": what the person typed is the bot's job and their yes. A new bot reads and reports only."""
     words = " ".join(str(words or "").split())
     if len(words) < 8:
@@ -384,16 +384,19 @@ def add_bot(words: str, reads_dir: str, where: str, scope: dict, every_min=None)
                          "sign in once in a terminal, then try again.")
     reg = load_registry()
     names = {b["name"] for b in reg["bots"]}
-    slug = re.sub(r"[^a-z0-9]+", "_", str(scope.get("tab_kind") or "app").lower()).strip("_")[:20] or "app"
+    label = " ".join(str(label or "").split())[:40]
+    slug = lambda x, k: re.sub(r"[^a-z0-9]+", "_", str(x or "").lower()).strip("_")[:k]
+    base = slug(scope.get("tab_title"), 24) or slug(scope.get("tab_kind"), 20) or "app"
+    kind = slug(label, 20) or "bot"                   # e.g. randis_sound_forge_bug_hunter1
     n = 1
-    while f"{slug}_bot{n}" in names:
+    while f"{base}_{kind}{n}" in names:
         n += 1
-    name = f"{slug}_bot{n}"
+    name = f"{base}_{kind}{n}"
     prompt = (f"You are a bot the user added for {where}. You may read the folder {reads_dir}.\n"
               f"The user's words, your job: {words}\n"
               "You can read and search files but you can't change anything. Do the job by reading and checking, then report "
               "in a few short plain lines. End with one line on its own that sums up what you found.")
-    entry = {"name": name, "job": words, "where": where, "kind": "claude", "prompt": prompt, "tools": list(READ_TOOLS),
+    entry = {"name": name, "label": label, "job": words, "where": where, "kind": "claude", "prompt": prompt, "tools": list(READ_TOOLS),
              "reads_dir": os.path.abspath(reads_dir), "trigger": {"every_min": every_min} if every_min else {},
              "scope": scope, "writes": "nothing (it reports here)",
              "approved": {"words": words, "date": datetime.now().strftime("%m/%d/%Y")},
@@ -408,7 +411,7 @@ def overview() -> list[dict]:
     out = []
     for b in load_registry()["bots"]:
         st = read_state(b["name"])
-        out.append({**{k: b.get(k) for k in ("name", "job", "where", "kind", "trigger", "status", "approved", "reads_dir", "writes", "scope")},
+        out.append({**{k: b.get(k) for k in ("name", "label", "job", "where", "kind", "trigger", "status", "approved", "reads_dir", "writes", "scope")},
                     "running": pid_alive(st.get("pid")), "state": st})
     return out
 

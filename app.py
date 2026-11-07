@@ -922,7 +922,7 @@ class Api:
             tab = spec.get("tab") or None
             reads, where = self._bot_scope(tab)
             scope = {"level": "tab", "tab_kind": tab.get("kind"), "tab_title": tab.get("title")} if tab else {"level": "app"}
-            return bots.add_bot(spec.get("words", ""), reads, where, scope, every)
+            return bots.add_bot(spec.get("words", ""), reads, where, scope, every, spec.get("label") or "")
         return self._bots(add)
 
     def bots_list(self):

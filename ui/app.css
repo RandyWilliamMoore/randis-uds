@@ -327,3 +327,5 @@ body.popped .main-only { display: none; }
 .bot-panel h3 { margin: 0 0 6px; font-size: 14px; }
 .tab-bot-btn.corner { position: absolute; top: 8px; right: 12px; z-index: 5; }
 .welcome-bot { justify-content: center; margin-top: 10px; }
+.bot-picks { margin: 4px 0 10px; }
+.bot-pick { display: block; margin: 4px 0; }

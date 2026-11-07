@@ -16,6 +16,22 @@ function openBots() {
   addTab("bots", { title: "Bots" });
 }
 
+// The standard bots, offered on every "+ Add a bot" form, on every layer (each tab, and the app itself), to tick;
+// "Make a custom bot" takes a job in your own words. versions: only where there are versions to compare (built tabs and
+// the duck keep theirs; the app keeps a snapshot of itself before every Claude Code turn).
+const BOT_PRESETS = [
+  { id: "bug_hunter", label: "Bug hunter",
+    job: (thing, v) => `Read ${thing}${v && thing !== "Randis UDS" ? " (its newest version)" : ""}, look for bugs and broken buttons, and tell me what you find.` },
+  { id: "version_checker", label: "Version checker", versions: true,
+    job: thing => thing === "Randis UDS"
+      ? "Compare Randis UDS as it is now with its newest snapshot (data/snapshots: each snapshot lists its files and their content hashes; "
+        + "the contents are in data/snapshots/blobs) and tell me if anything that worked before got broken or removed."
+      : `Compare the newest version of ${thing} with the one before it and tell me if anything that worked before got broken or removed.` },
+  { id: "idea_finder", label: "Idea finder",
+    job: thing => `Read ${thing} and suggest 3 new features or ideas that would fit it.` },
+];
+const KEEPS_VERSIONS = ["built", "duck"];
+
 // The form: tab is the tab the bot is for, or null for a bot that tends the app itself (or another function, or a spin-off)
 async function addBotForm(tab) {
   const a = api(); if (!a) return toast("Bots need the app window.");
@@ -27,39 +43,62 @@ async function addBotForm(tab) {
   const s = r.ok;
   if (!s.claude) return openModal(title, [el("p", {}, "Bots run on Claude Code, which isn't on this computer yet. Install it from claude.com/claude-code, "
     + "sign in once in a terminal, then come back here.")]);
-  const words = el("textarea", { className: "bot-words", rows: 4,
-    placeholder: tab ? `What should a bot do for the "${tab.title}" tab? For example: check it for mistakes and tell me what you find.`
-                     : "What should a bot do? It can tend Randis UDS itself, check something for you, or look into an idea for a spin-off." });
+  const thing = tab ? "this tab" : "Randis UDS", versions = !tab || KEEPS_VERSIONS.includes(tab.kind);
+  const picks = el("div", { className: "bot-picks" });
+  for (const p of BOT_PRESETS) {
+    if (p.versions && !versions) continue;
+    const box = el("input", { type: "checkbox", value: p.id });
+    box.dataset.preset = p.id;
+    const line = el("label", { className: "bot-pick" });
+    line.append(box, el("strong", {}, " " + p.label + ": "), el("span", { className: "small" }, p.job(thing, versions)));
+    picks.appendChild(line);
+  }
+  const customBox = el("input", { type: "checkbox" });
+  customBox.dataset.preset = "custom";
+  const customLine = el("label", { className: "bot-pick" });
+  customLine.append(customBox, el("strong", {}, " Make a custom bot"));
+  const words = el("textarea", { className: "bot-words", rows: 3, hidden: true,
+    placeholder: tab ? `What should it do for the "${tab.title}" tab?`
+                     : "What should it do? It can tend Randis UDS itself, check something for you, or look into an idea for a spin-off." });
+  customBox.addEventListener("change", () => { words.hidden = !customBox.checked; if (customBox.checked) words.focus(); });
+  picks.append(customLine, words);
   const every = el("select", { className: "bot-every" });
   for (const v of ["", "15", "60", "1440"]) every.appendChild(el("option", { value: v }, EVERY_TEXT[v]));
-  const make = el("button", { className: "pill primary" }, "Make the bot");
+  const make = el("button", { className: "pill primary" }, "Make the bots");
   make.dataset.act = "bot-make";
   const cancel = el("button", { className: "pill" }, "Cancel");
   cancel.addEventListener("click", closeModal);
+  const fail = msg => { const er = $("#modal .modal-error"); er.textContent = msg; er.hidden = false; };
   make.addEventListener("click", async () => {
+    const want = BOT_PRESETS.filter(p => picks.querySelector(`[data-preset=${p.id}]:checked`))
+      .map(p => ({ words: p.job(thing, versions), label: p.label }));
+    if (customBox.checked) want.push({ words: words.value, label: "" });
+    if (!want.length) return fail("Tick at least one bot, or Make a custom bot.");
     make.disabled = true;
-    const res = await a.bot_add({ words: words.value, every_min: every.value || null, tab: about });
-    make.disabled = false;
-    if (res.error) { const er = $("#modal .modal-error"); er.textContent = res.error; er.hidden = false; return; }
+    const made = [];
+    for (const w of want) {
+      const res = await a.bot_add({ words: w.words, label: w.label, every_min: every.value || null, tab: about });
+      if (res.error) { make.disabled = false; return fail((made.length ? `Made ${made.join(", ")}. ` : "") + res.error); }
+      made.push(res.ok.name);
+    }
     closeModal();
-    toast(`${res.ok.name} is made. It's in the Bots tab.`);
+    toast(`Made ${made.join(", ")}. ${made.length > 1 ? "They're" : "It's"} in the Bots tab.`);
     openBots();
   });
   openModal(title, [
     el("p", { className: "small" }, `For ${s.where}.`),
     el("ul", { className: "bot-facts small" }, ""),
-    el("label", { className: "small" }, "Its job, in your words:"), words,
+    el("div", { className: "small" }, "Tick the bots you want:"), picks,
     el("label", { className: "small" }, "How often: "), every,
-    el("p", { className: "muted small" }, "What you type is its job and your yes. Nothing runs until you press Run once or Start in the Bots tab."),
+    el("p", { className: "muted small" }, "Ticking a bot and pressing Make is your yes for it; a custom bot's job is what you type. Nothing runs until you press Run once or Start in the Bots tab."),
     el("div", { className: "row" }, ""),
   ]);
   const facts = $("#modal .bot-facts");
-  for (const f of [`It can read: ${s.reads}`, "It can't change, delete or send anything. It reads, then reports in the Bots tab.",
-                   "It's a Claude Code bot, so each run uses your Claude plan.",
-                   "It runs only while Randis UDS is open, and only when the computer has memory to spare."])
+  for (const f of [`Each can read: ${s.reads}`, "None can change, delete or send anything. They read, then report in the Bots tab.",
+                   "They're Claude Code bots, so each run uses your Claude plan.",
+                   "They run only while Randis UDS is open, and only when the computer has memory to spare."])
     facts.appendChild(el("li", {}, f));
   $("#modal .modal-body .row:last-child").append(make, cancel);
-  words.focus();
 }
 
 function botCard(b) {
@@ -69,7 +108,7 @@ function botCard(b) {
   const dot = el("span", { className: "bot-light", title: LIGHT_TEXT[lt] }, "●");
   dot.dataset.light = lt;
   const head = el("div", { className: "bot-head" });
-  head.append(dot, el("strong", {}, b.name), el("span", { className: "muted small" }, ` ${LIGHT_TEXT[lt]} · runs ${botTrigger(b.trigger)}`));
+  head.append(dot, el("strong", {}, b.label ? `${b.label}: ${b.name}` : b.name), el("span", { className: "muted small" }, ` ${LIGHT_TEXT[lt]} · runs ${botTrigger(b.trigger)}`));
   card.append(head,
     el("div", { className: "small" }, "Job: " + (b.job || "")),
     el("div", { className: "muted small" }, `For ${b.where || "the app"}. Reads ${b.reads_dir || "-"}; changes nothing.`),
