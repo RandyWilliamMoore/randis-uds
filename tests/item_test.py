@@ -1,7 +1,7 @@
 # Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds
 """One game or app as a tab: opening a file, a game saving into its own tab, and shop links, which only leave a note, ask first, and can only reach the shop.
 Uses a stand-in shop on this computer."""
-import functools, http.server, json, os, shutil, subprocess, sys, tempfile, threading, time
+import base64, functools, io, http.server, json, os, shutil, subprocess, sys, tempfile, threading, time
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
@@ -210,6 +210,35 @@ def run(w):
         time.sleep(2)
         check("saying no publishes nothing", heads()[0] == "Jukebox: Test Song" and not os.path.exists(os.path.join(shop, "music", "test-song-2")))
         check("a song with no title is refused", "title" in api.song_publish_begin("", "x", "y").get("error", ""))
+        # a shop whose commit check refuses the song: the real reason shows, not git's line-ending warnings, and nothing is left behind
+        hook = os.path.join(shop, ".git", "hooks", "pre-commit")
+        with open(hook, "w", newline="\n") as f:
+            f.write("#!/bin/sh\necho \"warning: in the working copy of 'music.js', LF will be replaced by CRLF the next time Git touches it\" >&2\n"
+                    "echo 'BLOCKED by the shop check: 1 thing in this commit.' >&2\nexit 1\n")
+        import wave as wavemod
+        def publish_direct(title):
+            r = api.song_publish_begin(title, "A song the shop refuses.", "Elevator Music")
+            buf = io.BytesIO()
+            with wavemod.open(buf, "wb") as wv:
+                wv.setnchannels(1); wv.setsampwidth(2); wv.setframerate(8000); wv.writeframes(bytes(16000))
+            api.item_export_part(r["token"], base64.b64encode(buf.getvalue()).decode(), True)
+            api.song_publish_run(r["token"])
+            end = time.time() + 120
+            while time.time() < end:
+                st = api.song_publish_status(r["token"])
+                if st.get("done"):
+                    return st
+                time.sleep(0.5)
+            return {}
+        st = publish_direct("Refused Song")
+        check("a refused commit shows the real reason, not git's warnings", "BLOCKED by the shop check" in (st.get("error") or "")
+              and "LF will be replaced" not in (st.get("error") or ""), st)
+        clean = subprocess.run(["git", "status", "--porcelain"], cwd=shop, capture_output=True, text=True).stdout.strip()
+        check("and nothing is left behind in the shop folder: no song folder, the Jukebox list as it was",
+              not os.path.exists(os.path.join(shop, "music", "refused-song")) and clean == "" and "Nothing was kept" in st.get("error", ""), clean)
+        os.remove(hook)
+        st = publish_direct("Refused Song")
+        check("so pressing Publish again, once fixed, publishes it under the same name", not st.get("error") and heads()[0] == "Jukebox: Refused Song", [st, heads()[:2]])
         os.remove(os.path.join(D, "publish.json"))
         # setting publishing up by itself: a copy of the shop already in the user's folder is found; none found asks
         r = api.publish_auto()
