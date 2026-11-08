@@ -835,6 +835,12 @@ class Api:
             args = [shutil.which(args[0], path=env["PATH"]) or args[0]] + list(args[1:])
             return subprocess.run(args, cwd=folder, capture_output=True, text=True, encoding="utf-8", errors="replace",
                                   creationflags=projects.NO_WINDOW, env=env, **k)
+
+        def said(r):
+            lines = [x.strip() for x in ((r.stderr or "") + "\n" + (r.stdout or "")).splitlines()]
+            real = [x for x in lines if x and not x.lower().startswith("warning:")]
+            return " ".join(real or [x for x in lines if x])[:400] or "no reason given"
+        made = None
         try:
             title, n = job["title"], 2
             slug = lambda t: re.sub(r"[^a-z0-9]+", "-", t.lower()).strip("-")
@@ -850,12 +856,14 @@ class Api:
             if r.returncode:
                 chatlog.dev(DATA_DIR, {"source": "publish", "kind": "add_music output", "out": (r.stdout or "")[-3000:], "err": (r.stderr or "")[-3000:]})
                 raise ValueError((r.stderr or r.stdout).strip().splitlines()[-1] if (r.stderr or r.stdout).strip() else "add_music.py failed")
+            made = "music/" + slug(title)
             job["status"] = "committing it…"
-            for args in (["git", "add", "--", "music/" + slug(title), "music.js"],
-                         ["git", *projects.AS_APP, "commit", "-m", f"Jukebox: {title}", "--", "music/" + slug(title), "music.js"]):
+            for args in (["git", "add", "--", made, "music.js"],
+                         ["git", *projects.AS_APP, "commit", "-m", f"Jukebox: {title}", "--", made, "music.js"]):
                 r = run(args, timeout=120)
                 if r.returncode:
-                    raise ValueError(f"{args[1] if args[1] != '-c' else 'commit'}: " + (r.stderr or r.stdout).strip()[:300])
+                    raise ValueError(("add" if args[1] == "add" else "commit") + ": " + said(r))
+            made = None
             job["status"] = "pushing it to the shop…"
             r = run(["git", "push"], timeout=180)
             if r.returncode and re.search(r"rejected|fetch first|non-fast-forward", (r.stderr or "") + (r.stdout or "")):
@@ -866,12 +874,17 @@ class Api:
                 else:
                     r = run(["git", "push"], timeout=180)
             if r.returncode:
-                raise ValueError("push: " + (r.stderr or r.stdout).strip()[:300] + " The song is committed in the shop folder; push it from there.")
+                raise ValueError("push: " + said(r) + " The song is committed in the shop folder; push it from there.")
             job["url"] = (conf["page"].rstrip("/") + "/" + slug(title)) if conf["page"] else None
             job["status"] = f"Published: {title}. The shop shows it in a minute or two."
             chatlog.dev(DATA_DIR, {"source": "publish", "kind": "published", "title": title, "genre": job["genre"], "blurb": job["blurb"]})
         except Exception as e:
             job["error"] = str(e) or type(e).__name__ or "Publishing failed."
+            if made:
+                run(["git", "reset", "-q", "--", made, "music.js"], timeout=60)
+                shutil.rmtree(os.path.join(folder, *made.split("/")), ignore_errors=True)
+                run(["git", "checkout", "-q", "--", "music.js"], timeout=60)
+                job["error"] += " Nothing was kept in the shop folder; fix that, then press Publish again."
             job["status"] = "Publishing failed: " + job["error"]
             chatlog.dev(DATA_DIR, {"source": "publish", "kind": "failed", "title": job.get("title"), "error": job["error"]})
         finally:
