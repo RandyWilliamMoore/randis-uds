@@ -16,6 +16,7 @@ shutil.rmtree(D, ignore_errors=True)      # the test's own throwaway data only
 os.makedirs(D)
 app.DATA_DIR = D
 app.SESSION_FILE = os.path.join(D, "session.json")
+os.environ["UDS_SHOP_SEARCH_HOME"] = os.path.join(D, "home")       # finding the shop by itself never finds the real one
 os.environ["UDS_KEYS_DIR"] = os.path.join(D, "keys")      # keeps the test's keys away from the real key file
 # projects: a throwaway Base, so test duck versions and test projects never reach the real Base
 PT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_test_projects", "ui")
@@ -606,6 +607,65 @@ def _run(w):
     a = calls[0]["args"] if calls else []
     check("CC: second turn resumes the same session", "--resume" in a and a[a.index("--resume") + 1] == sid, str(a)[:200])
     check("CC: the session remembers", "turn 2 of our session" in js(f"{LAST_CC}.innerText"), js(f"{LAST_CC}.innerText"))
+    # ----- switches: what a Claude Code chat may do without asking, per tab, sent with each turn, never saved -----
+    BAR = ".pane:not([hidden]) .perm-bar"
+    sw = lambda: js(f"[...document.querySelectorAll('{BAR} [data-perm]')].map(s => s.dataset.perm + ':' + s.checked).join(',')")
+    check("switches: a Claude Code chat shows its switches above the message box, all off",
+          js(f"!!document.querySelector('{BAR}') && !document.querySelector('{BAR}').hidden")
+          and sw() == "python:false,node:false,git:false,web:false,sessions:false,full:false", sw())
+    flip = lambda ids: js(";".join(f"(s => {{ s.checked = !s.checked; s.dispatchEvent(new Event('change')); }})(document.querySelector('{BAR} [data-perm={i}]'))" for i in ids))
+    flip(["python", "sessions"])
+    ok, calls = cc_send("hello with switches")
+    a = calls[0]["args"] if calls else []
+    tools = a[a.index("--allowedTools") + 1:] if "--allowedTools" in a else []
+    tools = tools[:next((i for i, x in enumerate(tools) if x.startswith("--")), len(tools))]
+    check("switches: Run Python and Other sessions go with the turn as allowed tools",
+          ok and "Bash(python *)" in tools and "PowerShell(python *)" in tools and "ListAgents" in tools and "SendMessage" in tools
+          and "Bash(git *)" not in tools and a[a.index("--permission-mode") + 1] == "acceptEdits", str(a)[:600])
+    sysp = a[a.index("--append-system-prompt") + 1] if "--append-system-prompt" in a else ""
+    check("switches: Claude Code is told which are on, and to ask for a switch rather than a settings change",
+          "Switches on for this turn: Run Python, Other sessions" in sysp and "Never ask them to edit a settings file" in sysp, sysp[-400:])
+    flip(["full"])
+    ok, calls = cc_send("hello at full access")
+    a = calls[0]["args"] if calls else []
+    check("switches: Full access runs that turn like a full-access terminal", ok and a[a.index("--permission-mode") + 1] == "bypassPermissions", str(a)[:300])
+    flip(["python", "sessions", "full"])
+    ok, calls = cc_send("hello switched off")
+    a = calls[0]["args"] if calls else []
+    check("switches: switched off again, the next turn gets nothing extra",
+          ok and "--allowedTools" not in a and a[a.index("--permission-mode") + 1] == "acceptEdits", str(a)[:300])
+    flip(["git"])
+    js("scheduleSave()"); time.sleep(1.5)
+    saved = open(app.SESSION_FILE, encoding="utf-8").read()
+    check("switches: never saved, so closing the app turns them all off", '"perms"' not in saved and "Bash(" not in saved)
+    flip(["git"])
+    # ----- New terminal chat: a PowerShell window with Claude Code, handed this chat -----
+    opened = []
+    real_terminal = app.ccode.terminal
+    app.ccode.terminal = lambda cwd, path, full=False: opened.append((cwd, path, full))
+    try:
+        js(f"document.querySelector('{BAR} [data-act=terminal-chat]').click()")
+        check("terminal chat: the button opens one in the chat's folder", until("document.querySelector('#toast').textContent.includes('Opened a terminal chat')")
+              and len(opened) == 1 and opened[0][0] == D and opened[0][2] is False, [opened, toast()])
+        hand = open(opened[0][1], encoding="utf-8").read() if opened else ""
+        check("terminal chat: it's handed this chat, in a file under data/logs/briefs",
+              opened and os.path.dirname(opened[0][1]) == os.path.join(app.DATA_DIR, "logs", "briefs")
+              and "hello switched off" in hand and "Hi from Claude Code" in hand, hand[:400])
+    finally:
+        app.ccode.terminal = real_terminal
+    # ----- every chat logged into its own folder, kept even when the chat is cleared -----
+    time.sleep(1.2)
+    logs = os.path.join(app.DATA_DIR, "logs")
+    chat_id = js("current().chatId")
+    idx = json.load(open(os.path.join(logs, "index.json"), encoding="utf-8")) if os.path.exists(os.path.join(logs, "index.json")) else {}
+    folder = os.path.join(logs, *idx.get(f"chats/{chat_id}", {}).get("folder", "x/none").split("/"))
+    day = [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".jsonl")] if os.path.isdir(folder) else []
+    lines = [json.loads(x) for f in day for x in open(f, encoding="utf-8")]
+    check("chat logs: this chat has its own folder in data/logs/chats with every message",
+          any(x["content"] == "hello with switches" for x in lines) and any(x["role"] == "assistant" for x in lines), [folder, len(lines)])
+    dev = os.path.join(logs, "dev")
+    check("chat logs: each Claude Code turn also goes in the dev log",
+          os.path.isdir(dev) and any("claude code" in open(os.path.join(dev, f), encoding="utf-8").read() for f in os.listdir(dev) if f.endswith(".jsonl")))
     # change a built tab in place: the app keeps the old version and saves the change as a new one
     counter = js("state.built.find(b => b.name === 'Counter' && b.versions.length === 2).id")
     old_cur = js(f"state.built.find(b => b.id === {json.dumps(counter)}).current")
@@ -623,6 +683,20 @@ def _run(w):
           and "saved as version 3" in js(f"{LAST_CC}.innerText"), js(f"{LAST_CC}.innerText"))
     check("CC: helper-agent text kept out of the reply", "helper" not in js(f"{LAST_CC}.innerText"))
     check("CC: the open tab reloads to the new version", until(f"state.tabs.find(t => t.id === {built_tab}).pane.querySelector('iframe').srcdoc.includes('Counter CC')"))
+    # ⟳ Refresh: a change made to the tab's file outside the app shows when pressed
+    meta = json.load(open(os.path.join(D, "tabs", counter, "meta.json"), encoding="utf-8"))
+    cur_file = os.path.join(D, "tabs", counter, next(v["file"] for v in meta["versions"] if v["n"] == meta["current"]))
+    page_now = open(cur_file, encoding="utf-8").read()
+    open(cur_file, "w", encoding="utf-8").write(page_now.replace("Counter CC", "Counter Outside"))
+    js("selectTab(%d)" % built_tab)
+    check("Refresh: every built tab has a Refresh button", js("!!current().pane.querySelector('[data-act=tab-refresh]')") is True)
+    js("current().pane.querySelector('[data-act=tab-refresh]').click()")
+    check("Refresh: it loads the tab's file again, with a change made outside the app",
+          until(f"state.tabs.find(t => t.id === {built_tab}).pane.querySelector('iframe').srcdoc.includes('Counter Outside')"))
+    open(cur_file, "w", encoding="utf-8").write(page_now)
+    js("current().pane.querySelector('[data-act=tab-refresh]').click()")
+    until(f"state.tabs.find(t => t.id === {built_tab}).pane.querySelector('iframe').srcdoc.includes('Counter CC')")
+    js("selectTab(%d)" % cc_tab)
     js(f"{LAST_CC}.querySelector('[data-act=cc-undo]').click()")
     check("CC: undo puts the tab back", until(f"state.built.find(b => b.id === {json.dumps(counter)}).versions.length === 2")
           and until(f"!state.tabs.find(t => t.id === {built_tab}).pane.querySelector('iframe').srcdoc.includes('Counter CC')")
@@ -642,7 +716,7 @@ def _run(w):
     js(f"{LAST_CC}.querySelector('[data-act=cc-redo]').click()")
     check("CC: redo brings the file back", until("document.querySelector('#toast').textContent.startsWith('Redone')") and os.path.exists(note))
     n_snaps = len([f for f in os.listdir(os.path.join(D, "snapshots")) if f.endswith(".json")])
-    check("CC: snapshots kept (2 per turn + 1 per undo/redo)", n_snaps == 2 * 4 + 4, str(n_snaps))
+    check("CC: snapshots kept (2 per turn + 1 per undo/redo)", n_snaps == 2 * 7 + 4, str(n_snaps))   # 4 turns + 3 switch turns
     # errors, Stop, and a lost session
     ok, _ = cc_send("please fail")
     check("CC: an error shows in the chat", ok and js(f"{LAST_CC}.classList.contains('error')") and "boom" in js(f"{LAST_CC}.innerText"), js(f"{LAST_CC}.innerText"))
@@ -659,7 +733,7 @@ def _run(w):
     check("CC: a lost session starts fresh with the chat so far", ok and len(calls) == 2 and "--session-id" in calls[1]["args"]
           and "Earlier in this chat" in calls[1]["prompt"] and "turn 1 of our session" in js(f"{LAST_CC}.innerText"), js(f"{LAST_CC}.innerText"))
     lines = [json.loads(l) for l in open(os.path.join(D, "claude_code_log.jsonl"), encoding="utf-8")]
-    check("CC: every turn and undo is logged", sum(e["kind"] == "turn" for e in lines) == 7 and sum(e["kind"].startswith(("undo", "redo")) for e in lines) == 4,
+    check("CC: every turn and undo is logged", sum(e["kind"] == "turn" for e in lines) == 10 and sum(e["kind"].startswith(("undo", "redo")) for e in lines) == 4,
           str([e["kind"] for e in lines]))
     # other paths: building a tab with Claude Code still snapshots first; the backend refuses to run without that step
     rec = js("activeLlm()")

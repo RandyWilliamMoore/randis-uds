@@ -19,7 +19,7 @@ import snapshots
 DATA = os.path.join(HERE, "data")
 LOG = os.path.join(DATA, "claude_code_log.jsonl")
 SKIP = [os.path.join(DATA, n) for n in ("session.json", "session.json.tmp", "claude_code_sessions.json", "claude_code_log.jsonl")] + \
-       [os.path.join(HERE, "tests", "_test_data")]
+       [os.path.join(HERE, "tests", "_test_data"), os.path.join(DATA, "logs")]   # undo never takes a chat log away
 
 
 def entries():

@@ -20,6 +20,60 @@ DEFAULT_MODE = "acceptEdits"
 MODES = {"acceptEdits": "Edit files in the folder (recommended). Commands that need permission are refused",
          "bypassPermissions": "Full access: runs anything on this computer and never asks",
          "plan": "Read and plan only; changes nothing"}
+# Switches a chat can turn on above its message box. Each lets Claude Code do one more kind of thing without asking, for
+# that chat's turns while it's on. They're passed with each turn (--allowedTools, --add-dir) and never written into a
+# settings file, so switching one off, or closing the app, takes it away again.
+PERMS = {"python": ("Run Python", ["python", "py", "python3", "pip"]),
+         "node": ("Run Node", ["node", "npm", "npx"]),
+         "git": ("Run Git", ["git"]),
+         "web": ("Web", []),
+         "shop": ("Shop folder", []),
+         "sessions": ("Other sessions", []),
+         "full": ("Full access", [])}
+PERM_NOTES = {"python": "run Python scripts and tests", "node": "run Node scripts and checks", "git": "run Git (commit, pull, push)",
+              "web": "read web pages and search the web", "shop": "read and change your shop folder",
+              "sessions": "see your other Claude Code sessions and send them messages",
+              "full": "do anything on this computer without asking, like a Claude Code terminal with full access"}
+
+
+def perm_args(perms, dirs=()):
+    """The command-line words for the switches that are on: [] when none are."""
+    tools = []
+    for p in perms or []:
+        for prog in PERMS.get(p, ("", []))[1]:
+            tools += [f"Bash({prog} *)", f"PowerShell({prog} *)"]
+        if p == "web":
+            tools += ["WebFetch", "WebSearch"]
+        if p == "sessions":
+            tools += ["ListAgents", "SendMessage"]
+    args = ["--allowedTools", *tools] if tools else []
+    for d in dirs or []:
+        args += ["--add-dir", d]
+    return args
+
+
+def terminal(cwd, brief_file, full=False):
+    """Opens a new PowerShell window running Claude Code in cwd, told to read the brief first. It's an ordinary
+    interactive Claude Code session: it asks before doing things unless full is on. Windows only. Returns the process."""
+    cmd = command()
+    if not cmd or os.name != "nt":
+        raise ValueError("A terminal chat needs Claude Code on Windows.")
+    q = lambda x: "'" + str(x).replace("'", "''") + "'"
+    ps = (f"$Host.UI.RawUI.WindowTitle = 'Randis UDS: Claude Code'; Set-Location -LiteralPath {q(cwd)}; "
+          f"& {q(cmd[0])} {' '.join(q(a) for a in cmd[1:])} {'--permission-mode bypassPermissions ' if full else ''}"
+          f"{q('Read ' + brief_file + ' first: it is a chat from Randis UDS handed over to you. Then pick up the issue in it.')}")
+    env = child_env()
+    env.pop("UDS_IN_APP", None)                      # a terminal chat keeps its own history, like any terminal session
+    return subprocess.Popen(["powershell.exe", "-NoExit", "-NoProfile", "-Command", ps], cwd=cwd, env=env,
+                            creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
+
+
+def perm_line(perms):
+    on = [PERMS[p][0] for p in perms or [] if p in PERMS]
+    off = [v[0] for k, v in PERMS.items() if k not in (perms or [])]
+    return ("Switches on for this turn: " + (", ".join(on) or "none") + ". Off: " + (", ".join(off) or "none") + ". "
+            "If you need one that's off, ask the user to turn that switch on above the message box, then send again. "
+            "Never ask them to edit a settings file for permissions.")
 SYSTEM = (
     "You are linked into Randis UDS, a blank-canvas desktop app (pywebview: app.py with ui/index.html and ui/app.js). "
     "The user is chatting with you from a chat tab inside the app. Your working folder is {cwd}. "
@@ -127,9 +181,11 @@ class ClaudeCode:
         if system:     # on stdin, never the command line: it can hold a file's text, and cmd.exe parses the line if claude is a .cmd
             prompt = f"Instructions from the app for this turn:\n{system}\n\n---\n\n{prompt}"
             system = ""
+        perms = [p for p in ctx.get("perms") or [] if p in PERMS]
         args = command() + ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-                            "--permission-mode", self.mode,
-                            "--append-system-prompt", SYSTEM.format(cwd=self.cwd) + ("\n" + system if system else "")]
+                            "--permission-mode", "bypassPermissions" if "full" in perms else self.mode,
+                            "--append-system-prompt", SYSTEM.format(cwd=self.cwd) + " " + perm_line(perms)]   # one line: a .cmd claude cuts the command at a line break
+        args += perm_args(perms, ctx.get("dirs"))
         args += ["--resume", sid] if session else ["--session-id", sid]
         job.status = "starting Claude Code"
         proc = subprocess.Popen(args, cwd=self.cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,

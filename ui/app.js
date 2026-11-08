@@ -73,6 +73,53 @@ function buildPane(tab) {
   return buildWelcome(tab);
 }
 
+// Switches above a Claude Code chat's message box: what it may do without asking (run Python, Node or Git, use the web,
+// work in the shop folder). They start off, belong to that one tab, are sent with each turn, and are never saved:
+// closing the app turns them all off again. Shown only when the active LLM is Claude Code in "Edit files" mode.
+let permList = null;
+function tabPerms(tab) { return Object.keys(tab.perms || {}).filter(k => tab.perms[k]); }
+async function permBar(tab, pane) {
+  const box = $(".composer", pane);
+  if (!box || !api() || typeof api().cc_perms !== "function") return;
+  const bar = el("div", { className: "perm-bar", hidden: true });
+  box.parentNode.insertBefore(bar, box);
+  if (!permList) permList = await api().cc_perms();
+  tab.perms = tab.perms || {};
+  bar.appendChild(el("span", { className: "muted small" }, "Let Claude Code:"));
+  for (const p of permList) {
+    const sw = el("input", { type: "checkbox", role: "switch" });
+    sw.dataset.perm = p.id;
+    sw.checked = !!tab.perms[p.id];
+    sw.addEventListener("change", () => { tab.perms[p.id] = sw.checked; });
+    const lab = el("label", { className: "perm-switch", title: p.note + ". On for this tab only, until you switch it off or close the app." });
+    lab.append(sw, el("span", {}, " " + p.label));
+    bar.appendChild(lab);
+  }
+  const term = el("button", { className: "pill small", title: "Open a new PowerShell window with Claude Code in it, handed this chat's issue (Full access carries over if it's on)" }, "⧉ New terminal chat");
+  term.dataset.act = "terminal-chat";
+  term.addEventListener("click", async () => {
+    const msgs = tab.kind === "chat" ? (findChat(tab.chatId) || { messages: [] }).messages : tab.kind === "duck" ? state.duckChat : (tab.chat || []);
+    const rec = activeLlm();
+    const r = await api().cc_terminal(tab.title, msgs.filter(m => !m.pending), tabPerms(tab), rec && rec.cwd);
+    toast(r.error ? r.error : "Opened a terminal chat. It reads this chat first: " + r.brief);
+  });
+  bar.appendChild(term);
+  refreshPermBars();
+}
+function refreshPermBars() {
+  const rec = activeLlm();
+  const show = !!rec && rec.kind === "claudecode" && (rec.mode || "acceptEdits") === "acceptEdits";
+  for (const b of document.querySelectorAll(".perm-bar")) b.hidden = !show;
+}
+const permBaseBuildPane = buildPane;
+buildPane = tab => {
+  const pane = permBaseBuildPane(tab);
+  if (pane && ["chat", "built", "duck"].includes(tab.kind)) permBar(tab, pane);
+  return pane;
+};
+const permBaseRenderTabs = renderTabs;
+renderTabs = () => { permBaseRenderTabs(); refreshPermBars(); };
+
 function buildNotepad(tab) {
   const pane = $("#notepad-tpl").content.firstElementChild.cloneNode(true);
   const ta = $("textarea", pane);
@@ -830,7 +877,7 @@ async function sendMessage(tab, text) {
   setBusy(tab, "starting");
   let r;
   try {
-    tab.job = await api().chat_start(rec, history.concat([{ role: "user", content: text }]), chat.id);
+    tab.job = await api().chat_start(rec, history.concat([{ role: "user", content: text }]), chat.id, tabPerms(tab));
     renderTabs();
     for (;;) {
       await new Promise(res => setTimeout(res, 120));
@@ -849,8 +896,24 @@ async function sendMessage(tab, text) {
   updateLastBubble(tab, reply);
   setBusy(tab, null);
   renderTabs(); scheduleSave();
+  logShot("chats", chat.id, chat.title, reply.error ? "error" : "reply");
   if (reply.cc) await afterClaudeCode(reply.cc.reload);
 }
+
+// A picture of the app window, kept in that chat's log folder (data/logs/.../screens), for looking back at what happened.
+function logShot(kind, id, title, why) {
+  const a = api();
+  if (!a || typeof a.log_screenshot !== "function") return;
+  setTimeout(() => a.log_screenshot(kind, String(id || ""), String(title || ""), String(why || "")).catch(() => {}), 400);
+}
+// Errors in the page go to the dev log, so a failure is never just a vanished window.
+function logError(where, err) {
+  const a = api();
+  if (a && typeof a.log_dev === "function") a.log_dev({ source: "page", kind: "error", where, error: String((err && (err.stack || err.message)) || err).slice(0, 2000) }).catch(() => {});
+  logShot("dev", "errors", "Errors", "error");
+}
+window.addEventListener("error", e => logError("page", e.error || e.message));
+window.addEventListener("unhandledrejection", e => logError("promise", e.reason));
 
 function updateLastBubble(tab, m) {
   const box = $(".msgs", tab.pane);
@@ -955,6 +1018,12 @@ function buildBuilt(tab) {
     const act = e.target.dataset.act;
     if (act === "chat-toggle") { studio.hidden = !studio.hidden; if (!studio.hidden) { await tabChatLoad(tab); input.focus(); } }
     if (act === "chat-close") studio.hidden = true;
+    if (act === "tab-refresh" && tab.builtId) {       // reloads the page from disk, so a change made outside the app shows too
+      $("iframe", pane).removeAttribute("srcdoc");
+      await refreshBuilt();
+      await loadBuilt(tab);
+      toast("Refreshed " + (tab.title || "this tab") + ".");
+    }
     if (act === "chat-new" && !tab.job) { tab.chat = []; tabChatSave(tab); renderTabChat(tab); input.focus(); }
     if (act === "modify") runBuild(tab, input.value.trim());
     if (act === "stop" && tab.job) api().chat_stop(tab.job);
@@ -1077,29 +1146,78 @@ function publishAsk(tab, d, shop) {
       el("p", {}, `"${tab.title}" wants to put this song on ${shop}, for everyone to play and download, royalty free.`),
       el("p", {}, "Description: " + d.blurb),
       el("p", {}, "Genre: " + d.genre),
-      el("p", { className: "muted" }, "It gets a cover and its tags, then it's committed and pushed to the shop. Taking it down later means removing it from the shop's folder."),
+      d.cover ? el("img", { src: d.cover, alt: "Cover", style: "width:160px;height:160px;border-radius:6px" }) : "",
+      el("p", { className: "muted" }, "It gets this cover and its tags, then it's committed and pushed to the shop. Taking a song down later means removing it from the shop's folder."),
       yes, no]);
     watch = setInterval(() => { if ($("#modal").hidden) finish(false); }, 300);
   });
 }
+// Setting publishing up, asked for by a tab ({uds: "publish-setup"}) when the app doesn't know the shop folder yet:
+// pick the shop folder, or have the app download the shop. Nothing is pushed here; the tab gets {uds: "can-publish"} back.
+function publishSetup(why) {
+  return new Promise(async done => {
+    const a = api();
+    if (typeof a.publish_setup_info !== "function") { toast("Close Randis UDS and open it again (Reload isn't enough), then try again."); return done(null); }
+    const info = await a.publish_setup_info();
+    let watch = null;
+    const finish = v => { if (!watch) return; clearInterval(watch); watch = null; closeModal(); done(v); };
+    const note = el("p", { className: "muted" }, "");
+    const show = r => {
+      if (!r) return;
+      if (r.error) { note.textContent = r.error; return; }
+      toast("Publishing is set up: " + r.folder);
+      if (r.missing && r.missing.length) toast("Still needed for publishing: " + r.missing.join(" and ") + ". Install it, then restart the app.");
+      finish(r);
+    };
+    const pick = el("button", { className: "pill primary" }, "Pick my shop folder");
+    const clone = el("button", { className: "pill" }, info.found ? "Use " + info.clone_to : "Download the shop for me");
+    const safely = async f => { try { return await f(); } catch (err) { logError("publish setup", err); return { error: String(err) }; } };
+    pick.onclick = async () => show(await safely(() => a.publish_pick_folder()));
+    clone.onclick = async () => { clone.disabled = pick.disabled = true; note.textContent = "Downloading the shop with Git… this can take a minute.";
+      const r = await safely(() => a.publish_clone()); clone.disabled = pick.disabled = false; show(r); };
+    const missing = (info.missing || []).length ? el("p", {}, "Also needed, and not found on this computer: " + info.missing.join(" and ") +
+      ". Git is free from git-scm.com; ffmpeg from ffmpeg.org (it turns the song into an MP3).") : "";
+    openModal("Couldn't find the Randis Shop folder by itself", [
+      why ? el("p", { className: "err" }, "What went wrong: " + why) : "",
+      el("p", {}, "Press the first button and choose the folder you push your games and apps to the shop from. That's all."),
+      missing, pick, clone, note]);
+    watch = setInterval(() => { if ($("#modal").hidden) finish(null); }, 300);
+  });
+}
 window.addEventListener("message", async e => {
-  if (!e.data || (e.data.uds !== "can-publish" && e.data.uds !== "publish-song") || !api()) return;
+  if (!e.data || !["can-publish", "publish-song", "publish-setup"].includes(e.data.uds) || !api()) return;
   const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
   if (!tab) return;
   const post = m => { try { e.source.postMessage(m, "*"); } catch (_) {} };
-  const ready = typeof api().publish_ready === "function" ? await api().publish_ready() : { ok: false };
-  if (e.data.uds === "can-publish") return post({ uds: "can-publish", ok: !!ready.ok, shop: ready.shop });
-  const done = (ok, note, url) => post({ uds: "published", ok, note, url: url || null });
+  const auto = typeof api().publish_auto === "function";
+  if (e.data.uds === "publish-setup") {
+    let r = auto ? await api().publish_auto() : null;
+    if (!(r && r.ok)) r = await publishSetup((r && r.error) || "");
+    return post({ uds: "can-publish", ok: !!(r && r.ok), shop: r && r.shop, setup: !(r && r.ok) });
+  }
+  let ready = typeof api().publish_ready === "function" ? await api().publish_ready() : { ok: false };
+  // The app sets publishing up by itself when Publish is pressed, so the button always shows.
+  if (e.data.uds === "can-publish") return post({ uds: "can-publish", ok: !!ready.ok || auto, shop: ready.shop || "the Randis Shop", setup: !ready.ok && !auto });
+  const done = (ok, note, url) => { post({ uds: "published", ok, note, url: url || null }); if (!ok) logError("publish", note); };
   const d = e.data;
-  if (!ready.ok) return done(false, "Publishing isn't set up on this computer.");
+  post({ uds: "publishing", note: "Say yes in the Randis UDS window to publish it…" });   // the tab knows the app heard it
+  if (!ready.ok && auto) {
+    post({ uds: "publishing", note: "Finding your copy of the shop (or downloading it)… this can take a minute the first time." });
+    let r = await api().publish_auto();
+    if (!(r && r.ok)) r = await publishSetup((r && r.error) || "");
+    if (!(r && r.ok)) return done(false, "Not published: the shop folder couldn't be set up.");
+    ready = { ok: true, shop: r.shop };
+  }
+  if (!ready.ok) return done(false, "Close Randis UDS and open it again (Reload isn't enough), then press Publish again.");
   if (!(d.data instanceof Blob) || !d.data.size) return done(false, "There's no song to publish.");
   if (d.data.size > 600 * 1024 * 1024) return done(false, "That song is too big to publish.");
   if (publishBusy) return done(false, "Another song is being published. Try again in a moment.");
   publishBusy = true;
   try {
-    const fields = { title: String(d.title || ""), blurb: String(d.blurb || ""), genre: String(d.genre || "") };
+    const cover = typeof d.cover === "string" && /^data:image\/(jpeg|png);base64,/.test(d.cover) && d.cover.length < 8e6 ? d.cover : null;
+    const fields = { title: String(d.title || ""), blurb: String(d.blurb || ""), genre: String(d.genre || ""), cover };
     if (!(await publishAsk(tab, fields, ready.shop))) return done(false, "Not published.");
-    const r = await api().song_publish_begin(fields.title, fields.blurb, fields.genre);
+    const r = await api().song_publish_begin(fields.title, fields.blurb, fields.genre, cover);
     if (r.error) return done(false, r.error);
     const PIECE = 3 * 1024 * 1024;
     for (let at = 0; ; at += PIECE) {
@@ -1326,7 +1444,7 @@ async function runBuild(tab, request) {
   buildStatus(tab, "asking " + rec.name + "…");
   let r = { text: "", error: null };
   try {
-    tab.job = await api().build_start(rec, request, tab.builtId, history);
+    tab.job = await api().build_start(rec, request, tab.builtId, history, tabPerms(tab));
     renderTabs();
     for (;;) {
       await new Promise(res => setTimeout(res, 150));
@@ -1375,6 +1493,7 @@ async function runBuild(tab, request) {
   }
   tab.chat.push(msg);
   tabChatSave(tab);
+  logShot("tabs", tab.builtId, tab.title, msg.error ? "error" : "reply");
   log.scrollTop = log.scrollHeight;
   if (frame.hidden && tab.builtId) frame.hidden = false;
   renderTabs(); scheduleSave();
@@ -1710,7 +1829,7 @@ async function duckSend(tab) {
   $("[data-act=duck-send]", tab.pane).hidden = true; $("[data-act=stop]", tab.pane).hidden = false;
   let r = { text: "", error: null };
   try {
-    tab.job = await api().duck_chat_start(rec, history);
+    tab.job = await api().duck_chat_start(rec, history, tabPerms(tab));
     renderTabs();
     for (;;) {
       await new Promise(res => setTimeout(res, 150));
@@ -1749,6 +1868,7 @@ async function duckSend(tab) {
     fold.appendChild(el("pre", { className: "studio-live" }, r.text));
   }
   state.duckChat.push(msg);
+  logShot("duck", "duck", "Rubber duck", msg.error ? "error" : "reply");
   log.scrollTop = log.scrollHeight;
   renderTabs(); scheduleSave();
 }

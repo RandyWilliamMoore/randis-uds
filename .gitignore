@@ -5,6 +5,7 @@ data/session.json
 data/snapshots/
 data/claude_code_sessions.json
 data/claude_code_log.jsonl
+data/logs/
 data/duck/
 data/project.json
 data/last_push.json

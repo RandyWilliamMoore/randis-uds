@@ -7,6 +7,8 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
 TOP = tempfile.mkdtemp(prefix="uds_item_test_")
 D = os.path.join(TOP, "data")
+os.environ["UDS_SHOP_SEARCH_HOME"] = os.path.join(TOP, "home")       # finding the shop by itself never finds the real one
+os.makedirs(os.environ["UDS_SHOP_SEARCH_HOME"])
 SHOP_DIR = os.path.join(TOP, "shop")
 os.makedirs(D)
 os.makedirs(os.path.join(SHOP_DIR, "games", "demo-game"))
@@ -51,7 +53,7 @@ function wav() { const sr = 8000, n = sr * 2, b = new ArrayBuffer(44 + n * 2), v
   w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
   v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
   for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.sin(i / 8) * 8000, true); return new Blob([b], {type: 'audio/wav'}); }
-const ask = () => parent.postMessage({uds: 'publish-song', title: 'Test Song', blurb: 'A test song for the lobby.', genre: 'Elevator Music', data: wav()}, '*');
+const ask = () => parent.postMessage({uds: 'publish-song', title: 'Test Song', blurb: 'A test song for the lobby.', genre: 'Elevator Music', cover: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=', data: wav()}, '*');
 addEventListener('message', e => { if (e.data && e.data.uds === 'can-publish' && e.data.ok) ask(); if (e.data && e.data.uds === 'published' && e.data.ok) ask(); });
 parent.postMessage({uds: 'can-publish'}, '*');
 </script></body></html>"""
@@ -208,6 +210,17 @@ def run(w):
         time.sleep(2)
         check("saying no publishes nothing", heads()[0] == "Jukebox: Test Song" and not os.path.exists(os.path.join(shop, "music", "test-song-2")))
         check("a song with no title is refused", "title" in api.song_publish_begin("", "x", "y").get("error", ""))
+        os.remove(os.path.join(D, "publish.json"))
+        # setting publishing up by itself: a copy of the shop already in the user's folder is found; none found asks
+        r = api.publish_auto()
+        check("with no shop in the user's folder, setting up by itself says so (the page then offers pick or download)",
+              "error" in r and not os.path.exists(os.path.join(D, "publish.json")), r)
+        found_at = os.path.join(os.environ["UDS_SHOP_SEARCH_HOME"], "Projects", "randis-shop")
+        shutil.copytree(shop, found_at)
+        r = api.publish_auto()
+        check("a shop copy a few folders down in the user's folder is found and set up, with no questions",
+              r.get("ok") and os.path.normcase(r.get("folder", "").replace("/", os.sep)) == os.path.normcase(found_at) and api.publish_ready()["ok"], r)
+        shutil.rmtree(found_at, ignore_errors=True)
         os.remove(os.path.join(D, "publish.json"))
         before = len(store.list())
         # a shop link while the app is open

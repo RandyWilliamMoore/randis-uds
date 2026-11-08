@@ -45,6 +45,7 @@ ORIGIN_LINKS = {"original": "https://github.com/RandyWilliamMoore/randis-uds", "
 
 import bots
 import ccode
+import chatlog
 import cli_setup
 import ide
 import llm
@@ -164,7 +165,39 @@ class Api:
 
     def save_session(self, session):
         self._session = session
+        self._log_chats(session)
         return self._write_session()
+
+    def _hwnd(self):
+        """The main window's handle, for pictures of it (chatlog.screenshot)."""
+        try:
+            return int(self._window.native.Handle.ToInt64())
+        except Exception:                                      # not the Windows backend, or not reachable from this thread
+            if os.name != "nt" or not self._window:
+                return None
+            import ctypes
+            ctypes.windll.user32.FindWindowW.restype = ctypes.c_void_p
+            return ctypes.windll.user32.FindWindowW(None, self._window.title) or None
+
+    def log_screenshot(self, kind, chat_id, title, why):
+        if kind not in ("chats", "tabs", "duck", "dev"):
+            return None
+        return chatlog.screenshot(DATA_DIR, self._hwnd(), kind, str(chat_id)[:80], str(title)[:120], str(why)[:30])
+
+    def log_dev(self, entry):
+        """The page's own errors, so a failure leaves a trace in data/logs/dev."""
+        if isinstance(entry, dict):
+            chatlog.dev(DATA_DIR, {k: str(v)[:2000] for k, v in list(entry.items())[:10]})
+        return True
+
+    def _log_chats(self, session):
+        """Every chat cell's messages also go into data/logs (chatlog.py), kept even after a chat is cleared or closed."""
+        try:
+            for c in session.get("chats") or []:
+                chatlog.record(DATA_DIR, "chats", c.get("id"), c.get("title"), c.get("messages"))
+            chatlog.record(DATA_DIR, "duck", "duck", "Rubber duck", session.get("duckChat"))
+        except (AttributeError, TypeError):
+            pass
 
     def _write_session(self):
         """The main window's session plus the tabs out in their own windows, so closing the app never loses them:
@@ -279,6 +312,7 @@ class Api:
         w = self._wins.get(wid)
         if w is not None:
             w.update(tabs=payload.get("tabs", []), chats=payload.get("chats", []), groups=payload.get("groups", []))
+            self._log_chats({"chats": w["chats"]})
             self._write_session()
         return True
 
@@ -406,14 +440,14 @@ class Api:
         except ValueError as e:
             return {"error": str(e)}
 
-    def chat_start(self, rec, history, chat_id=None):
+    def chat_start(self, rec, history, chat_id=None, perms=None):
         if rec["kind"] == "claudecode":
-            return self._start(rec, history, "", chat_id=chat_id)
+            return self._start(rec, history, "", chat_id=chat_id, perms=perms)
         return self._hub.start(rec, history, system=llm.SYSTEM_PROMPT + tabs.CHAT_HINT)
 
-    def _start(self, rec, history, system, max_tokens=llm.MAX_REPLY_TOKENS, chat_id=None):
+    def _start(self, rec, history, system, max_tokens=llm.MAX_REPLY_TOKENS, chat_id=None, perms=None):
         """Every LLM call that isn't a plain chat goes through here, so a Claude Code turn always gets its snapshot."""
-        ctx = self._cc_ctx(rec, chat_id) if rec["kind"] == "claudecode" else None
+        ctx = self._cc_ctx(rec, chat_id, perms) if rec["kind"] == "claudecode" else None
         return self._hub.start(rec, history, system=system, max_tokens=max_tokens, ctx=ctx)
 
     # ---------- Claude Code ----------
@@ -422,6 +456,33 @@ class Api:
             return {"version": ccode.version(), "cwd": HERE, "modes": ccode.MODES}
         except ValueError as e:
             return {"error": str(e), "cwd": HERE, "modes": ccode.MODES}
+
+    def cc_terminal(self, title, messages, perms=None, cwd=None):
+        """A new PowerShell window with Claude Code in it, for one issue: this chat is written to a brief in
+        data/logs/briefs, and the new session is told to read it first. Full access carries over if it's switched on."""
+        cwd = cwd if isinstance(cwd, str) and os.path.isdir(cwd) else HERE
+        lines = [f"# Handed over from Randis UDS: {str(title or 'a chat')[:120]}", "",
+                 f"Written {time.strftime('%Y-%m-%d %H:%M')}. Working folder: {cwd}.", ""]
+        for m in (messages if isinstance(messages, list) else [])[-40:]:
+            if isinstance(m, dict) and (m.get("content") or m.get("error")):
+                lines += [f"## {'User' if m.get('role') == 'user' else 'Assistant'}", str(m.get("content") or "Error: " + str(m.get("error")))[:6000], ""]
+        folder = os.path.join(chatlog.root(DATA_DIR), "briefs")
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, time.strftime("%Y-%m-%d_%H%M%S_") + (re.sub(r"[^a-z0-9]+", "-", str(title or "chat").lower()).strip("-")[:40] or "chat") + ".md")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        try:
+            ccode.terminal(cwd, path, full="full" in (perms or []))
+        except (OSError, ValueError) as e:
+            return {"error": str(e)}
+        chatlog.dev(DATA_DIR, {"source": "terminal chat", "title": str(title)[:120], "brief": path, "full": "full" in (perms or [])})
+        return {"ok": True, "brief": path}
+
+    def cc_perms(self):
+        """The switches a Claude Code chat can turn on; the shop folder's only when publishing knows where it is."""
+        conf = self._publish_conf()
+        return [{"id": k, "label": v[0], "note": ccode.PERM_NOTES[k] + (f" ({conf['folder']})" if k == "shop" and conf else "")}
+                for k, v in ccode.PERMS.items() if k != "shop" or conf]
 
     def cc_pick_folder(self):
         return self.ide_pick_folder()
@@ -433,10 +494,11 @@ class Api:
     def _snaps(self, root):
         f = self._cc_files()
         return snapshots.Snapshots(root, os.path.join(DATA_DIR, "snapshots"),
-                                   skip=[SESSION_FILE, SESSION_FILE + ".tmp", f["sessions"], f["log"],
+                                   skip=[SESSION_FILE, SESSION_FILE + ".tmp", f["sessions"], f["log"], chatlog.root(DATA_DIR),
                                          os.path.join(HERE, "tests", "_test_data")])
 
     def _cc_log(self, entry):
+        chatlog.dev(DATA_DIR, {"source": "claude code", **entry})
         os.makedirs(DATA_DIR, exist_ok=True)
         with open(self._cc_files()["log"], "a", encoding="utf-8") as f:
             f.write(json.dumps({"time": time.time(), **entry}, ensure_ascii=False) + "\n")
@@ -504,8 +566,11 @@ class Api:
                 notes.append(f"{meta['name']}: version {n} added to its list")
         return notes, touched
 
-    def _cc_ctx(self, rec, chat_id):
+    def _cc_ctx(self, rec, chat_id, perms=None):
         key = f"{rec['id']}:{chat_id}" if chat_id else None
+        perms = [p for p in perms or [] if p in ccode.PERMS] if isinstance(perms, list) else []
+        conf = self._publish_conf() if "shop" in perms else None
+        dirs = [conf["folder"]] if conf else []
         snaps = self._snaps(rec["cwd"])
         state = {}
 
@@ -525,11 +590,11 @@ class Api:
             job.extra.update(after=snap["id"], changed=changed, notes=notes, versions=touched,
                              reload=self._reload_flags(rec["cwd"], sum(changed.values(), [])))
             self._cc_log({"kind": "turn", "chat": chat_id, "session": self._cc_sessions().get(key) if key else None,
-                          "cwd": rec["cwd"], "mode": rec.get("mode"), "before": job.extra["before"], "after": snap["id"],
+                          "cwd": rec["cwd"], "mode": rec.get("mode"), "perms": perms, "before": job.extra["before"], "after": snap["id"],
                           "changed": changed, "notes": notes, "tools": job.extra.get("tools", []),
                           "cost_usd": job.extra.get("cost"), "stopped": job.stop, "reply": job.text[:2000]})
 
-        return {"before": before, "after": after, "session": self._cc_sessions().get(key) if key else None,
+        return {"before": before, "after": after, "perms": perms, "dirs": dirs, "session": self._cc_sessions().get(key) if key else None,
                 "save_session": (lambda sid: self._cc_sessions({key: sid})) if key else (lambda sid: None)}
 
     def cc_restore(self, snap_id, label):
@@ -550,7 +615,7 @@ class Api:
         return self._hub.stop(job_id)
 
     # ---------- tabs built by chat (step 3) ----------
-    def build_start(self, rec, request, tab_id=None, history=None):
+    def build_start(self, rec, request, tab_id=None, history=None, perms=None):
         """A built tab's chat: a real conversation about the tab (history is the chat so far, newest last).
         A reply that changes the tab carries the whole new page in a code block; Claude Code edits the file instead."""
         history = history or [{"role": "user", "content": request}]
@@ -564,7 +629,7 @@ class Api:
         else:
             system = TAB_CHAT_SYSTEM + TAB_CHAT_NEW
         return self._start(rec, history, system, max_tokens=BUILD_TOKENS.get(rec["kind"], 4000),
-                           chat_id=f"tab-{tab_id}" if tab_id else None)
+                           chat_id=f"tab-{tab_id}" if tab_id else None, perms=perms)
 
     def built_chat_load(self, tab_id):
         """A built tab's chat, kept beside its versions (data/tabs/<id>/chat.json)."""
@@ -583,6 +648,11 @@ class Api:
             with open(path + ".tmp", "w", encoding="utf-8") as f:
                 json.dump(msgs[-200:] if isinstance(msgs, list) else [], f, ensure_ascii=False, indent=1)
             os.replace(path + ".tmp", path)
+            try:
+                name = self._tabs()._meta(tab_id).get("name") or tab_id
+            except (OSError, ValueError):
+                name = tab_id
+            chatlog.record(DATA_DIR, "tabs", tab_id, name, msgs)
             return True
         except (OSError, ValueError):
             return False
@@ -686,7 +756,110 @@ class Api:
         conf = self._publish_conf()
         return {"ok": bool(conf), "shop": conf["shop"] if conf else None}
 
-    def song_publish_begin(self, title, blurb, genre):
+    # Setting publishing up from inside the app, so nobody has to write data/publish.json by hand:
+    # pick the shop folder already on this computer, or have the app download (git clone) the shop into Documents.
+    SHOP_REPO = "https://github.com/RandyWilliamMoore/randis-shop.git"
+
+    def _write_publish(self, folder):
+        if not (os.path.isfile(os.path.join(folder, "tools", "add_music.py")) and os.path.isdir(os.path.join(folder, ".git"))):
+            return {"error": "That folder isn't a shop: it needs tools\\add_music.py and must be a Git download (a .git folder)."}
+        conf = {"shop_folder": folder.replace("\\", "/"), "shop_name": "the Randis Shop", "by": "Randy",
+                "page": ORIGIN_LINKS["shop"] + "#/music"}
+        with open(os.path.join(DATA_DIR, "publish.json"), "w", encoding="utf-8") as f:
+            json.dump(conf, f, indent=1)
+        chatlog.dev(DATA_DIR, {"source": "publish", "kind": "set up", "folder": conf["shop_folder"]})
+        return {"ok": True, "shop": conf["shop_name"], "folder": folder, "missing": self._publish_missing()}
+
+    def _publish_missing(self):
+        """Programs publishing needs that aren't on this computer."""
+        return [p for p in ("git", "ffmpeg") if not shutil.which(p, path=self._tool_path())]
+
+    @staticmethod
+    def _tool_path():
+        """PATH plus where winget and Git put programs, so a program installed after the app started is still found."""
+        extra = [os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links"),
+                 os.path.join(os.environ.get("ProgramFiles", "C:\\Program Files"), "Git", "cmd")]
+        try:
+            import winreg                                  # the user's PATH as it is now, not as it was when the app started
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as k:
+                extra += os.path.expandvars(winreg.QueryValueEx(k, "Path")[0]).split(os.pathsep)
+        except (ImportError, OSError):
+            pass
+        return os.pathsep.join([os.environ.get("PATH", "")] + [p for p in extra if p])
+
+    def _find_shop(self):
+        """Looks for a shop copy already on this computer (a Git folder with tools/add_music.py), in the usual places
+        and a few folders deep in the user folder. Stops after about 8 seconds."""
+        home = os.environ.get("UDS_SHOP_SEARCH_HOME") or os.path.expanduser("~")      # tests point this at a throwaway folder
+        skip = {"appdata", "node_modules", ".git", "__pycache__", ".venv", "venv", "windows", "program files",
+                "program files (x86)", "$recycle.bin", ".cache", ".npm", ".nuget", "site-packages"}
+        is_shop = lambda d: os.path.isfile(os.path.join(d, "tools", "add_music.py")) and os.path.isdir(os.path.join(d, ".git"))
+        firsts = [os.path.join(home, *p) for p in (("Documents", "randis-shop"), ("randis-shop",), ("Desktop", "randis-shop"),
+                  ("Documents", "GitHub", "randis-shop"), ("source", "repos", "randis-shop"), ("OneDrive", "Documents", "randis-shop"),
+                  ("OneDrive", "Desktop", "randis-shop"), ("Downloads", "randis-shop"))]
+        for d in firsts:
+            if is_shop(d):
+                return d
+        start, found = time.time(), None
+        for top in [home]:                               # only the user's own folder, a few levels down
+            for dirpath, dirnames, _ in os.walk(top):
+                depth = dirpath[len(top):].count(os.sep)
+                dirnames[:] = [] if depth >= 4 else [d for d in dirnames if d.lower() not in skip]
+                if is_shop(dirpath):
+                    found = dirpath
+                    if "randis-shop" in dirpath.lower():
+                        return dirpath
+                if time.time() - start > 8:
+                    return found
+        return found
+
+    def publish_auto(self):
+        """Gets publishing ready with no questions when a copy of the shop is already in the user's folder. If there
+        isn't one, the page shows the setup window (pick the folder, or download the shop)."""
+        conf = self._publish_conf()
+        if conf:
+            return {"ok": True, "shop": conf["shop"], "folder": conf["folder"]}
+        found = None
+        try:
+            found = self._find_shop()
+            r = self._write_publish(found) if found else {"error": "No copy of the shop was found in your user folder."}
+        except Exception as e:                           # always an answer the page can show, never a dead window
+            r = {"error": f"{type(e).__name__}: {e}"}
+        chatlog.dev(DATA_DIR, {"source": "publish", "kind": "auto set up", "found": found, "result": r})
+        return r
+
+    def publish_setup_info(self):
+        guess = os.path.join(os.path.expanduser("~"), "Documents", "randis-shop")
+        return {"ready": bool(self._publish_conf()), "missing": self._publish_missing(), "clone_to": guess,
+                "found": os.path.isfile(os.path.join(guess, "tools", "add_music.py"))}
+
+    def publish_pick_folder(self):
+        paths = self._window.create_file_dialog(webview.FileDialog.FOLDER)
+        if not paths:
+            return None
+        return self._write_publish(paths[0])
+
+    def publish_clone(self):
+        """Downloads the shop with Git into Documents\\randis-shop (or uses it if it's already there). Pushing later uses
+        this computer's own Git sign-in for GitHub."""
+        dest = self.publish_setup_info()["clone_to"]
+        if os.path.isfile(os.path.join(dest, "tools", "add_music.py")):
+            return self._write_publish(dest)
+        git = shutil.which("git", path=self._tool_path())
+        if not git:
+            return {"error": "Git isn't installed. Get it free from https://git-scm.com, then try again."}
+        if os.path.exists(dest) and os.listdir(dest):
+            return {"error": f"{dest} already has other files in it, but it isn't the shop. Rename that folder, then try again."}
+        try:
+            r = subprocess.run([git, "clone", self.SHOP_REPO, dest], capture_output=True, text=True, encoding="utf-8",
+                               errors="replace", timeout=600, creationflags=projects.NO_WINDOW)
+        except (OSError, subprocess.SubprocessError) as e:
+            return {"error": f"Downloading the shop failed: {e}"}
+        if r.returncode:
+            return {"error": "Downloading the shop failed: " + (r.stderr or r.stdout).strip()[-300:]}
+        return self._write_publish(dest)
+
+    def song_publish_begin(self, title, blurb, genre, cover=None):
         """Checks the words, then opens a save the tab's song comes into in pieces (item_export_part)."""
         conf = self._publish_conf()
         if not conf:
@@ -701,12 +874,21 @@ class Api:
         work = tempfile.mkdtemp(prefix="uds_publish_")
         path = os.path.join(work, "song.wav")
         open(path + ".part", "wb").close()
+        cover_path = None
+        m = re.fullmatch(r"data:image/(jpeg|png);base64,([A-Za-z0-9+/=]+)", str(cover or ""))
+        if m:                                            # the tab's own cover art (the band dressed for the genre)
+            try:
+                cover_path = os.path.join(work, "cover." + ("jpg" if m.group(1) == "jpeg" else "png"))
+                with open(cover_path, "wb") as f:
+                    f.write(base64.b64decode(m.group(2)))
+            except (ValueError, OSError):
+                cover_path = None
         token = os.urandom(8).hex()
         self._exports = getattr(self, "_exports", {})
         self._exports[token] = {"path": path, "size": 0}
         self._publishes = getattr(self, "_publishes", {})
         self._publishes[token] = {"conf": conf, "title": title, "blurb": blurb, "genre": genre, "path": path, "work": work,
-                                  "status": "waiting for the song", "done": False}
+                                  "cover": cover_path, "status": "waiting for the song", "done": False}
         return {"token": token}
 
     def song_publish_run(self, token):
@@ -728,8 +910,12 @@ class Api:
 
     def _publish(self, job):
         conf, folder = job["conf"], job["conf"]["folder"]
-        run = lambda args, **k: subprocess.run(args, cwd=folder, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                                               creationflags=projects.NO_WINDOW, **k)
+        env = dict(os.environ, PATH=self._tool_path())
+
+        def run(args, **k):                              # Windows finds programs on the app's own PATH, so name them in full
+            args = [shutil.which(args[0], path=env["PATH"]) or args[0]] + list(args[1:])
+            return subprocess.run(args, cwd=folder, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                  creationflags=projects.NO_WINDOW, env=env, **k)
         try:
             title, n = job["title"], 2
             slug = lambda t: re.sub(r"[^a-z0-9]+", "-", t.lower()).strip("-")
@@ -737,9 +923,13 @@ class Api:
                 title, n = f"{job['title'][:55]} {n}", n + 1
             job["title"] = title
             job["status"] = "making the MP3, its tags and its cover…"
-            r = run([sys.executable, os.path.join(folder, "tools", "add_music.py"), job["path"], "--name", title, "--genre", job["genre"],
-                     "--blurb", job["blurb"], "--by", conf["by"]], timeout=600)
+            tool = os.path.join(folder, "tools", "add_music.py")
+            args = [sys.executable, tool, job["path"], "--name", title, "--genre", job["genre"], "--blurb", job["blurb"], "--by", conf["by"]]
+            if job.get("cover"):                         # the cover the tab showed you; without one the shop draws the band's
+                args += ["--cover", job["cover"]]
+            r = run(args, timeout=600)
             if r.returncode:
+                chatlog.dev(DATA_DIR, {"source": "publish", "kind": "add_music output", "out": (r.stdout or "")[-3000:], "err": (r.stderr or "")[-3000:]})
                 raise ValueError((r.stderr or r.stdout).strip().splitlines()[-1] if (r.stderr or r.stdout).strip() else "add_music.py failed")
             job["status"] = "committing it…"
             for args in (["git", "add", "--", "music/" + slug(title), "music.js"],
@@ -749,13 +939,22 @@ class Api:
                     raise ValueError(f"{args[1] if args[1] != '-c' else 'commit'}: " + (r.stderr or r.stdout).strip()[:300])
             job["status"] = "pushing it to the shop…"
             r = run(["git", "push"], timeout=180)
+            if r.returncode and re.search(r"rejected|fetch first|non-fast-forward", (r.stderr or "") + (r.stdout or "")):
+                job["status"] = "the shop changed online; catching up, then pushing again…"      # someone else added to it meanwhile
+                p = run(["git", *projects.AS_APP, "pull", "--rebase"], timeout=180)
+                if p.returncode:
+                    run(["git", "rebase", "--abort"], timeout=60)
+                else:
+                    r = run(["git", "push"], timeout=180)
             if r.returncode:
                 raise ValueError("push: " + (r.stderr or r.stdout).strip()[:300] + " The song is committed in the shop folder; push it from there.")
             job["url"] = (conf["page"].rstrip("/") + "/" + slug(title)) if conf["page"] else None
             job["status"] = f"Published: {title}. The shop shows it in a minute or two."
-        except (OSError, ValueError, subprocess.SubprocessError) as e:
-            job["error"] = str(e) or "Publishing failed."
+            chatlog.dev(DATA_DIR, {"source": "publish", "kind": "published", "title": title, "genre": job["genre"], "blurb": job["blurb"]})
+        except Exception as e:                           # any failure must end the job, or the tab waits forever
+            job["error"] = str(e) or type(e).__name__ or "Publishing failed."
             job["status"] = "Publishing failed: " + job["error"]
+            chatlog.dev(DATA_DIR, {"source": "publish", "kind": "failed", "title": job.get("title"), "error": job["error"]})
         finally:
             shutil.rmtree(job["work"], ignore_errors=True)
             job["done"] = True
@@ -993,7 +1192,7 @@ class Api:
                 st.save_version(None, "Rubber duck", f.read(), "the original duck", new_id=DUCK_ID)
         return st.load(DUCK_ID, n)
 
-    def duck_chat_start(self, rec, history):
+    def duck_chat_start(self, rec, history, perms=None):
         """The "Modify me?" chat: a real conversation; a reply that changes the duck carries the new page in a code block."""
         d = self.duck_load()
         if rec["kind"] == "claudecode":              # it reads and writes the file itself; the page can be too big to pass along
@@ -1001,7 +1200,7 @@ class Api:
             system = DUCK_CHAT_CC + DUCK_RULE + f"\nThe duck's current page is the file {path} (version {d['n']})."
         else:
             system = DUCK_CHAT_SYSTEM + DUCK_RULE + "\nThe duck's current page:\n```html\n" + d["html"] + "\n```"
-        return self._start(rec, history, system, max_tokens=4000, chat_id="duck")
+        return self._start(rec, history, system, max_tokens=4000, chat_id="duck", perms=perms)
 
     def duck_save(self, reply, note):
         html = tabs.extract_html(reply or "")

@@ -329,3 +329,6 @@ body.popped .main-only { display: none; }
 .welcome-bot { justify-content: center; margin-top: 10px; }
 .bot-picks { margin: 4px 0 10px; }
 .bot-pick { display: block; margin: 4px 0; }
+.perm-bar { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; padding: 4px 10px 0; font-size: 12px; }
+.perm-bar[hidden] { display: none; }
+.perm-switch { display: inline-flex; align-items: center; cursor: pointer; }
