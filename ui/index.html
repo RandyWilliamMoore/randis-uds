@@ -7,6 +7,9 @@
 <title>Randis UDS</title>
 <link rel="stylesheet" href="vendor/codemirror/codemirror.css">
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="browser.css">
+<link rel="stylesheet" href="select.css">
+<link rel="stylesheet" href="meter.css">
 <link rel="stylesheet" href="vendor/pdfjs/textlayer.css">
 <link rel="stylesheet" href="ext.css">
 </head>
@@ -36,6 +39,9 @@
       </div>
     </div>
     <div class="spacer"></div>
+    <div id="os-switch" class="os-switch main-only" role="radiogroup" aria-label="Your system">
+      <button role="radio" data-os="windows">Windows</button><button role="radio" data-os="linux">Linux</button>
+    </div>
     <button id="reload" class="pill main-only" title="Reload the app page" aria-label="Reload">⟳</button>
     <div class="menu-wrap main-only">
       <button id="projects" class="pill" title="Projects: separate copies of Randis UDS for separate work">Base</button>
@@ -121,6 +127,7 @@
         <button class="pill" data-act="tab-refresh" title="Refresh this tab: load its newest saved version again and restart it">⟳ Refresh</button>
         <select class="versions" aria-label="Versions" title="Versions: pick one to roll back or forward"></select>
         <button class="pill" data-act="template" title="Save this version as a template you can start new tabs from">Save as template</button>
+        <label class="web-switch" title="Let this tab show web pages. The tab's own page stays walled off; the app shows the pages it asks for."><input type="checkbox" class="web-on"> Web view</label>
         <span class="status muted"></span>
       </div>
       <div class="built-body">
@@ -243,11 +250,14 @@
 <script src="vendor/codemirror/codemirror.js"></script>
 <script src="pong.js"></script>
 <script src="app.js"></script>
+<script src="browser.js"></script>
+<script src="select.js"></script>
 <script src="boot_guard.js"></script>
 <script src="tabchat.js"></script>
 <script src="pdf.js"></script>
 <script src="shop.js"></script>
 <script src="bots.js"></script>
+<script src="meter.js"></script>
 <script src="update.js"></script>
 <script src="ext.js"></script>
 </body>

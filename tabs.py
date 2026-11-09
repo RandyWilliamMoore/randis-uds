@@ -95,6 +95,34 @@ class TabStore:
         self._write_meta(meta)
         return meta
 
+    MAX_STORE = 1024 * 1024
+
+    def store_get(self, tab_id):
+        try:
+            with open(os.path.join(self._dir(tab_id), "store.json"), encoding="utf-8") as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def store_set(self, tab_id, data):
+        if not isinstance(data, dict):
+            raise ValueError("the store must be an object")
+        text = json.dumps(data, ensure_ascii=False)
+        if len(text.encode("utf-8")) > self.MAX_STORE:
+            raise ValueError("too much to keep (1 MB at most)")
+        path = os.path.join(self._dir(tab_id), "store.json")
+        with open(path + ".tmp", "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(path + ".tmp", path)
+        return True
+
+    def set_web(self, tab_id, on):
+        meta = self._meta(tab_id)
+        meta["web"] = bool(on)
+        self._write_meta(meta)
+        return meta
+
     def rename(self, tab_id, name):
         meta = self._meta(tab_id)
         meta["name"] = name

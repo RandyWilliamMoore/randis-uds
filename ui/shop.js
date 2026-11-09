@@ -8,7 +8,7 @@ function buildShop(tab) {
   const reload = el("button", { className: "pill" }, "Refresh");
   const web = el("button", { className: "pill" }, "Open the shop in your browser");
   bar.append(title, el("span", { className: "spacer" }), reload, web);
-  const note = el("p", { className: "muted small shop-note" }, "Games and apps made with Randis UDS. Each opens as its own tab, walled off: no internet and no access to your files.");
+  const note = el("p", { className: "muted small shop-note" }, "Songs, games and apps made with Randis UDS. Songs play right here; games and apps each open as their own tab, walled off: no internet and no access to your files.");
   const list = el("div", { className: "shop-list" });
   pane.append(bar, note, list);
 
@@ -19,7 +19,8 @@ function buildShop(tab) {
     const r = a ? await a.shop_list() : { error: "The shop needs the app window." };
     list.textContent = "";
     if (r.error) return list.appendChild(el("p", { className: "muted" }, r.error));
-    if (!r.items.length) return list.appendChild(el("p", { className: "muted" }, "The shop is empty right now."));
+    if (!r.items.length && !(r.songs || []).length) return list.appendChild(el("p", { className: "muted" }, "The shop is empty right now."));
+    showSongs(r.songs);
     for (const kind of ["games", "apps"]) {
       const items = r.items.filter(i => i.kind === kind);
       if (!items.length) continue;
@@ -41,6 +42,22 @@ function buildShop(tab) {
       }
       list.appendChild(grid);
     }
+  }
+  function showSongs(songs) {
+    list.appendChild(el("h3", {}, "Jukebox"));
+    if (songs === undefined) return list.appendChild(el("p", { className: "muted" }, "Close Randis UDS and open it again to see the Jukebox."));
+    if (!songs.length) return list.appendChild(el("p", { className: "muted" }, "No songs in the Jukebox yet."));
+    const grid = el("div", { className: "shop-grid" });
+    for (const s of songs) {
+      const card = el("div", { className: "shop-card" });
+      if (s.cover) { const img = el("img", { src: s.cover, alt: "" }); img.onerror = () => img.remove(); card.appendChild(img); }
+      const audio = el("audio", { controls: true, preload: "none", src: s.file });
+      audio.addEventListener("play", () => pane.querySelectorAll("audio").forEach(a => a !== audio && a.pause()));
+      const meta = [s.genre, s.length, s.by ? "by " + s.by : ""].filter(Boolean).join(" · ");
+      card.append(el("h4", {}, s.name), el("p", { className: "muted small" }, meta), el("p", { className: "shop-blurb" }, s.blurb), audio);
+      grid.appendChild(card);
+    }
+    list.appendChild(grid);
   }
   reload.addEventListener("click", load);
   web.addEventListener("click", () => api() && api().open_link("shop"));

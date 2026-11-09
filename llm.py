@@ -252,6 +252,7 @@ class LLMHub:
     def __init__(self):
         self.backends = {}
         self.jobs = {}
+        self.note = ""
 
     def link(self, rec):
         rec = dict(rec)
@@ -286,7 +287,8 @@ class LLMHub:
         if rec["id"] not in self.backends:
             self.backends[rec["id"]] = BACKENDS[rec["kind"]](rec)
         backend = self.backends[rec["id"]]
-        messages = [{"role": "system", "content": system}] + [
+        note = "" if rec["kind"] == "claudecode" else self.note
+        messages = [{"role": "system", "content": (system or "") + note}] + [
             {"role": m["role"], "content": m["content"]} for m in history if m["role"] in ("user", "assistant")]
         job_id = uuid.uuid4().hex[:10]
         job = self.jobs[job_id] = Job()
