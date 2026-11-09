@@ -1,0 +1,8 @@
+/* Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds */
+/* The live computer meter on the top bar (meter.js). */
+#machine-meter { flex: none; margin: 0 2px 4px; padding: 5px 7px; border-radius: 999px; border: 1px solid var(--line); background: transparent;
+                 color: var(--muted); font: inherit; font-size: 11px; white-space: nowrap; cursor: pointer; font-variant-numeric: tabular-nums; }
+#machine-meter:hover { color: var(--text); background: var(--hover); }
+#machine-meter.hot { color: #fff; background: #c93c37; border-color: #c93c37; }
+#machine-meter[hidden] { display: none; }
+@media (max-width: 899px) { #machine-meter { display: none; } }

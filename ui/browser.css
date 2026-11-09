@@ -1,0 +1,34 @@
+/* Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds */
+/* Browser buttons (browser.js): Back, Forward, Reload tab, All tabs, zoom level, find bar. */
+#nav-btns { display: flex; gap: 0; flex: none; margin-bottom: 4px; }
+.nav-btn { width: 22px; height: 28px; padding: 0; border-radius: 6px; border: 0; background: transparent; color: var(--text);
+           font-size: 16px; line-height: 28px; text-align: center; flex: none; }
+.nav-btn:hover:not(:disabled) { background: var(--hover); }
+.nav-btn:disabled { opacity: .35; cursor: default; }
+#tabbar > .menu-wrap > #alltabs { margin-bottom: 4px; }
+#tabbar > .menu-wrap[hidden] { display: none; }
+#alltabs-menu { width: 300px; max-height: 60vh; overflow: auto; }
+#alltabs-menu .alltabs-find { width: 100%; box-sizing: border-box; padding: 6px 8px; margin-bottom: 4px; border-radius: 6px;
+                              border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+#alltabs-menu button { display: flex; gap: 8px; align-items: center; }
+#alltabs-menu button.on { font-weight: 600; background: var(--hover); }
+#alltabs-menu button span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alltabs-none { padding: 7px 10px; }
+#zoom-level { flex: none; }
+#find-bar { position: fixed; top: 52px; right: 16px; z-index: 30; display: flex; gap: 4px; align-items: center; padding: 6px 8px;
+            background: var(--bar); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+#find-bar[hidden] { display: none; }
+#find-bar input { width: 200px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+#find-bar .muted { font-size: 12px; min-width: 60px; }
+#ctx-menu button:disabled { opacity: .45; cursor: default; }
+#ctx-menu button:disabled:hover { background: none; }
+::highlight(uds-find) { background-color: #ffe066; color: #1d1d1f; }
+::highlight(uds-find-now) { background-color: #ff9632; color: #1d1d1f; }
+/* narrow windows keep their room for tabs; the keys still work */
+@media (max-width: 899px) { #nav-forward { display: none; } }
+@media (max-width: 599px) { #nav-btns, #tabbar > .menu-wrap:has(> #alltabs) { display: none; } }
+/* app.css caps the picked tab's name at the window minus 420px of buttons; Back, Forward and All tabs add about 80px */
+.tab.active .title { max-width: max(60px, calc(100vw - 500px)); }
+@media (max-width: 599px) { .tab.active .title { max-width: max(60px, calc(100vw - 420px)); } }
+/* many tabs: an inactive tab can shrink to its icon (30px) before the row has to scroll */
+.tab:not(.active) { min-width: 30px; }

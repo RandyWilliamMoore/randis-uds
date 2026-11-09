@@ -1,0 +1,8 @@
+/* Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds */
+/* The bar over highlighted text (select.js). The right-click menu is app.css's #ctx-menu. */
+#sel-bar { position: fixed; z-index: 70; display: flex; gap: 2px; padding: 3px; background: var(--menu); color: var(--text);
+           border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.22); }
+#sel-bar[hidden] { display: none; }
+#sel-bar button { border: 0; background: transparent; color: inherit; padding: 4px 9px; border-radius: 6px; font: inherit; font-size: 13px;
+                  white-space: nowrap; cursor: pointer; }
+#sel-bar button:hover { background: var(--hover); }
