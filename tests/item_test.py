@@ -1,7 +1,7 @@
 # Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds
 """One game or app as a tab: opening a file, a game saving into its own tab, and shop links, which only leave a note, ask first, and can only reach the shop.
 Uses a stand-in shop on this computer."""
-import base64, functools, io, http.server, json, os, shutil, subprocess, sys, tempfile, threading, time
+import base64, functools, io, re, http.server, json, os, shutil, subprocess, sys, tempfile, threading, time
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
@@ -22,6 +22,13 @@ with open(os.path.join(SHOP_DIR, "items.js"), "w", encoding="utf-8") as f:
     f.write("// Written by tools/build_index.py.\nwindow.ITEMS = " + json.dumps([
         {"kind": "games", "slug": "demo-game", "name": "Demo Game", "by": "Randy", "blurb": "A demo.", "logo": "games/demo-game/logo.png"},
         {"kind": "games", "slug": "../evil", "name": "Evil"}, {"kind": "apps", "slug": "x", "name": "X", "logo": "https://evil.example/x.png"}]) + ";\n")
+with open(os.path.join(SHOP_DIR, "music.js"), "w", encoding="utf-8") as f:
+    f.write("// Written by tools/build_index.py.\nwindow.MUSIC = " + json.dumps([
+        {"kind": "music", "slug": "demo-song", "name": "Demo Song", "by": "Randy", "genre": "Deep House", "length": "1:14",
+         "file": "music/demo-song/song.mp3", "cover": "music/demo-song/cover.jpg"},
+        {"kind": "music", "slug": "../evil", "name": "Evil", "file": "music/../evil/song.mp3"},
+        {"kind": "music", "slug": "odd", "name": "Odd", "file": "https://evil.example/odd.mp3"},
+        {"kind": "music", "slug": "no-cover", "name": "No Cover", "file": "music/no-cover/song.mp3", "cover": "https://evil.example/c.jpg"}]) + ";\n")
 
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -75,6 +82,28 @@ def make_shop():
     return folder, remote
 
 
+def pages_server(remote, lag=4):
+    """A stand-in for GitHub's website for the shop: it serves what the stand-in GitHub holds, but only `lag` seconds
+    after each push (until then, what was there before), the way the real site takes a while to build."""
+    import subprocess
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            git = lambda *a: subprocess.run(["git", "--git-dir", remote, *a], capture_output=True)
+            when = int(git("log", "-1", "--format=%ct", "main").stdout.strip() or 0)
+            ref = "main" if time.time() - when >= lag else "main~1"
+            got = git("show", f"{ref}:{self.path.split('?')[0].lstrip('/')}")
+            self.send_response(200 if got.returncode == 0 else 404)
+            self.end_headers()
+            self.wfile.write(got.stdout if got.returncode == 0 else b"")
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return f"http://127.0.0.1:{srv.server_address[1]}/"
+
+
 def _wait_file(path, size, secs=30):
     end = time.time() + secs
     while time.time() < end:
@@ -111,6 +140,9 @@ check("the installer sets up the link and removes it", all(x in open(os.path.joi
 
 shop = api.shop_list()
 check("the shop's list comes back, without bad addresses", [i["item"] for i in shop.get("items", [])] == ["games/demo-game", "apps/x"], shop)
+check("the Jukebox's songs come back, only from the shop's own music folder", [x["name"] for x in shop.get("songs", [])] == ["Demo Song", "No Cover"]
+      and shop["songs"][0]["file"] == os.environ["UDS_SHOP_URL"] + "music/demo-song/song.mp3" and shop["songs"][0]["cover"].endswith("music/demo-song/cover.jpg")
+      and shop["songs"][1]["cover"] is None, shop.get("songs"))
 check("logos only from the shop", shop["items"][0]["logo"].startswith(os.environ["UDS_SHOP_URL"]) and shop["items"][1]["logo"] is None, shop)
 
 r = api._add_item("just some text", "x", "n")
@@ -181,7 +213,7 @@ def run(w):
         check("publishing is off until data/publish.json names a shop", api.publish_ready() == {"ok": False, "shop": None})
         shop, remote = make_shop()
         with open(os.path.join(D, "publish.json"), "w", encoding="utf-8") as f:
-            json.dump({"shop_folder": shop, "shop_name": "Test Shop", "by": "Randy", "page": "https://shop.example/#/music"}, f)
+            json.dump({"shop_folder": shop, "shop_name": "Test Shop", "by": "Randy", "page": pages_server(remote) + "#/music"}, f)
         check("with a shop set up, publishing is on", api.publish_ready() == {"ok": True, "shop": "Test Shop"})
         pub = os.path.join(TOP, "publisher.html")
         with open(pub, "w", encoding="utf-8") as f:
@@ -239,6 +271,19 @@ def run(w):
         os.remove(hook)
         st = publish_direct("Refused Song")
         check("so pressing Publish again, once fixed, publishes it under the same name", not st.get("error") and heads()[0] == "Jukebox: Refused Song", [st, heads()[:2]])
+        took = re.search(r"it took (\d+) s", st.get("status", ""))
+        check("it only says live once the shop's website really lists it and plays it (here 4 s after the push)",
+              st.get("live") is True and "Live on Test Shop now: Refused Song" in st.get("status", "") and took and int(took.group(1)) >= 3, st)
+        import app as appmod
+        opened, real_open = [], appmod.webbrowser.open
+        appmod.webbrowser.open = opened.append
+        try:
+            ok = api.publish_open(st.get("url"))
+            bad = [api.publish_open(u) for u in ("https://evil.example/", (st.get("url") or "") + "/../x", st.get("url", "").split("#")[0] + "#/music", None)]
+        finally:
+            appmod.webbrowser.open = real_open
+        check("See it in the shop opens that song's own page in the browser", ok == {"ok": True} and opened == [st.get("url")] and st.get("url", "").endswith("#/music/refused-song"), [ok, opened])
+        check("and opens nothing else", all("error" in r for r in bad) and len(opened) == 1, bad)
         os.remove(os.path.join(D, "publish.json"))
         # setting publishing up by itself: a copy of the shop already in the user's folder is found; none found asks
         r = api.publish_auto()
@@ -269,7 +314,8 @@ def run(w):
         check("the + menu has the Randis Shop", js("!!document.querySelector('#newtab-menu [data-kind=shop]')"))
         n = len(store.list())
         js("openKind('shop')")
-        check("the shop tab lists the shop's items", until("current().kind === 'shop' && current().pane.querySelectorAll('.shop-card').length === 2"), js("current().pane.textContent"))
+        check("the shop tab lists the shop's items", until("current().kind === 'shop' && current().pane.querySelectorAll('.shop-card').length === 4"), js("current().pane.textContent"))
+        check("its Jukebox has a player for each song, from the shop", js("[...current().pane.querySelectorAll('audio')].map(a => a.src.endsWith('/song.mp3')).join()") == "true,true")
         js("current().pane.querySelector('.shop-card .pill').click()")
         check("its button opens the item as a tab", until("current().kind === 'built' && current().title === 'Demo Game'") and len(store.list()) == n + 1)
         check("no script errors", not js("(window.__errs || []).length"))

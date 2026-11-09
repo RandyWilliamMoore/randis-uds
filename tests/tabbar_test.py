@@ -105,7 +105,7 @@ def _run(w):
     check(f"{label} logo and Menu on the row, left of the tabs",
           a["logo"]["r"] <= a["menu"]["l"] + 1 and a["menu"]["r"] <= a["strip"]["l"] + 1 and a["logo"]["t"] - a["bar"]["t"] < 40, a)
     check(f"{label} the active tab keeps its close button", a["activeClose"]["w"] >= 16 and a["activeClose"]["r"] <= a["active"]["r"] + 1, a["activeClose"])
-    if WIDTH >= 1100:
+    if WIDTH >= 1375:     # Back, Forward, Reload and All tabs (browser.js) take ~120px: at 1100, 16 tabs scroll a little, like Chrome
         check(f"{label} all fit without scrolling", not a["scrolls"], a)
     check(f"{label} narrow tabs drop the close button to save room", a["otherHoverless"] >= 90 or a["otherClose"] == 0, a)
     js("selectTab(state.tabs[0].id)")

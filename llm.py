@@ -270,6 +270,7 @@ class LLMHub:
     def __init__(self):
         self.backends = {}
         self.jobs = {}
+        self.note = ""        # added to every call's instructions: the user's system, from the app's switch
 
     def link(self, rec):
         """Check a new link before the page saves it. Returns the record, filled in."""
@@ -305,7 +306,8 @@ class LLMHub:
         if rec["id"] not in self.backends:
             self.backends[rec["id"]] = BACKENDS[rec["kind"]](rec)
         backend = self.backends[rec["id"]]
-        messages = [{"role": "system", "content": system}] + [
+        note = "" if rec["kind"] == "claudecode" else self.note      # Claude Code gets it in its standing instructions
+        messages = [{"role": "system", "content": (system or "") + note}] + [
             {"role": m["role"], "content": m["content"]} for m in history if m["role"] in ("user", "assistant")]
         job_id = uuid.uuid4().hex[:10]
         job = self.jobs[job_id] = Job()

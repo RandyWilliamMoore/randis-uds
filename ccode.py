@@ -74,6 +74,8 @@ def perm_line(perms):
     return ("Switches on for this turn: " + (", ".join(on) or "none") + ". Off: " + (", ".join(off) or "none") + ". "
             "If you need one that's off, ask the user to turn that switch on above the message box, then send again. "
             "Never ask them to edit a settings file for permissions.")
+
+USER_NOTE = [""]      # the user's system, from the app's Windows/Linux switch (fixed text, safe on a command line)
 SYSTEM = (
     "You are linked into Randis UDS, a blank-canvas desktop app (pywebview: app.py with ui/index.html and ui/app.js). "
     "The user is chatting with you from a chat tab inside the app. Your working folder is {cwd}. "
@@ -184,7 +186,7 @@ class ClaudeCode:
         perms = [p for p in ctx.get("perms") or [] if p in PERMS]
         args = command() + ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
                             "--permission-mode", "bypassPermissions" if "full" in perms else self.mode,
-                            "--append-system-prompt", SYSTEM.format(cwd=self.cwd) + " " + perm_line(perms)]   # one line: a .cmd claude cuts the command at a line break
+                            "--append-system-prompt", SYSTEM.format(cwd=self.cwd) + USER_NOTE[0] + " " + perm_line(perms)]   # one line: a .cmd claude cuts the command at a line break
         args += perm_args(perms, ctx.get("dirs"))
         args += ["--resume", sid] if session else ["--session-id", sid]
         job.status = "starting Claude Code"

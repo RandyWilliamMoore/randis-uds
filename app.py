@@ -30,6 +30,7 @@ import tempfile
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import webbrowser
 from html import unescape
@@ -49,12 +50,14 @@ import chatlog
 import cli_setup
 import ide
 import llm
+import machine
 import net
 import pdftools
 import projects
 import snapshots
 import tabs
 import updater
+import webpane
 
 # The local page server guesses file types from the Windows registry, which can be wrong (.js as text/plain was seen here, and the browser
 # then refuses module scripts). So these are set here, the same on every PC.
@@ -89,6 +92,7 @@ POP_BASE = {} if os.name == "nt" else {"base_uri": "about:blank"}   # Linux woul
 WALL_RULES = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'"
 NO_WEBRTC = "for(const n of ['RTCPeerConnection','webkitRTCPeerConnection','RTCSessionDescription','RTCIceCandidate','RTCDataChannel','RTCRtpSender','RTCRtpReceiver','RTCRtpTransceiver']){try{delete window[n]}catch(e){}}"
 SERVED_HERE = ("http://127.0.0.1:", "http://localhost:", "file:")
+web_address_ok = webpane.address_ok
 
 
 def walled(html):
@@ -138,6 +142,7 @@ class Api:
 
     def __init__(self):
         self._window = None
+        self._web_panes = {}
         self._hub = llm.LLMHub()
         self._pop = None             # the pop-out window while the duck is out, else None
         self._pop_win = None
@@ -439,6 +444,15 @@ class Api:
             return {"models": b.models(), "default": llm.ClaudeAPI.DEFAULT_MODEL}
         except ValueError as e:
             return {"error": str(e)}
+
+    def set_user_system(self, which):
+        """The top bar's Windows/Linux switch: every chat is told which system to give steps for.
+        Returns the system this computer really runs, so the page can say when they differ."""
+        name = "Linux" if which == "linux" else "Windows"
+        self._hub.note = (f" The user's system is {name}: give steps, commands, paths and keyboard keys for {name}."
+                          if which in ("windows", "linux") else "")
+        ccode.USER_NOTE[0] = self._hub.note
+        return "windows" if os.name == "nt" else "linux"
 
     def chat_start(self, rec, history, chat_id=None, perms=None):
         if rec["kind"] == "claudecode":
@@ -748,7 +762,7 @@ class Api:
             if not (os.path.isfile(os.path.join(folder, "tools", "add_music.py")) and os.path.isdir(os.path.join(folder, ".git"))):
                 return None
             return {"folder": folder, "shop": str(conf.get("shop_name") or "your shop")[:40], "by": str(conf.get("by") or "Randy")[:40],
-                    "page": conf.get("page") if str(conf.get("page", "")).startswith("https://") else None}
+                    "page": conf.get("page") if re.match(r"https://|http://127\.0\.0\.1:\d+/", str(conf.get("page", ""))) else None}
         except (OSError, ValueError, KeyError, TypeError):
             return None
 
@@ -899,11 +913,44 @@ class Api:
         threading.Thread(target=self._publish, args=(job,), daemon=True).start()
         return {"ok": True}
 
+    LIVE_WAIT = 300
+
+    def _wait_live(self, job, conf, title, slug):
+        """After the push, watch the live shop until the song is listed there and its MP3 answers, so "live" means live."""
+        base, start = conf["page"].split("#")[0].rstrip("/") + "/", time.time()
+
+        def get(url):
+            req = urllib.request.Request(f"{url}?t={time.time_ns()}", headers={"Cache-Control": "no-cache", "User-Agent": "Randis UDS"})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                return r.read(400_000) if url.endswith(".js") else b"ok"
+        while time.time() - start < self.LIVE_WAIT:
+            took = round(time.time() - start)
+            job["status"] = f"Pushed. GitHub is putting it on {conf['shop']}… {took} s (usually under a minute)"
+            try:
+                listed = json.dumps(slug) in get(base + "music.js").decode("utf-8", "replace")
+                if listed and get(base + f"music/{slug}/song.mp3"):
+                    job["live"] = True
+                    job["status"] = f"Live on {conf['shop']} now: {title} (it took {round(time.time() - start)} s after the push)."
+                    return
+            except (urllib.error.URLError, OSError, ValueError):
+                pass
+            time.sleep(3)
+        job["status"] = f"Published: {title}. GitHub hasn't put it on {conf['shop']} yet; it should show up within a few minutes."
+
+    def publish_open(self, url):
+        """Opens a song this app published, on the shop's own page, in the user's browser; any other address is refused."""
+        conf = self._publish_conf()
+        if not (conf and conf["page"] and isinstance(url, str) and url.startswith(conf["page"].rstrip("/") + "/")
+                and re.fullmatch(r"[a-z0-9-]+", url[len(conf["page"].rstrip("/")) + 1:])):
+            return {"error": "That isn't a song on your shop."}
+        webbrowser.open(url)
+        return {"ok": True}
+
     def song_publish_status(self, token):
         job = getattr(self, "_publishes", {}).get(token)
         if not job:
             return {"error": "Unknown publish.", "done": True}
-        out = {k: job.get(k) for k in ("status", "done", "error", "url", "title")}
+        out = {k: job.get(k) for k in ("status", "done", "error", "url", "title", "live")}
         if job["done"]:
             self._publishes.pop(token, None)
         return out
@@ -958,6 +1005,8 @@ class Api:
                 raise ValueError("push: " + said(r) + " The song is committed in the shop folder; push it from there.")
             job["url"] = (conf["page"].rstrip("/") + "/" + slug(title)) if conf["page"] else None
             job["status"] = f"Published: {title}. The shop shows it in a minute or two."
+            if conf["page"]:
+                self._wait_live(job, conf, title, slug(title))
             chatlog.dev(DATA_DIR, {"source": "publish", "kind": "published", "title": title, "genre": job["genre"], "blurb": job["blurb"]})
         except Exception as e:                           # any failure must end the job, or the tab waits forever
             job["error"] = str(e) or type(e).__name__ or "Publishing failed."
@@ -1018,7 +1067,30 @@ class Api:
             out.append({"item": item, "kind": it.get("kind"), "name": str(it.get("name") or it.get("slug"))[:80],
                         "by": str(it.get("by") or "")[:60], "blurb": str(it.get("blurb") or "")[:600],
                         "logo": f"{shop}{logo}" if isinstance(logo, str) and re.fullmatch(r"(games|apps)/[a-z0-9-]+/logo\.(png|jpg|svg)", logo) else None})
-        return {"items": out}
+        return {"items": out, "songs": self._shop_songs(shop)}
+
+    @staticmethod
+    def _shop_songs(shop):
+        """The shop's Jukebox (its music.js): each song's words, and its MP3 and cover, only from the shop's own music/ folder."""
+        try:
+            with urllib.request.urlopen(f"{shop}music.js", timeout=30) as r:
+                text = r.read(2_000_000).decode("utf-8")
+            songs = json.loads(text[text.index("["):text.rindex("]") + 1])
+        except (urllib.error.URLError, OSError, UnicodeError, ValueError):
+            return []
+        out = []
+        for s in songs if isinstance(songs, list) else []:
+            if not isinstance(s, dict) or not isinstance(s.get("slug"), str) or not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", s["slug"]):
+                continue
+            base = f"music/{s['slug']}/"
+            if s.get("file") != base + "song.mp3":
+                continue
+            cover = s.get("cover")
+            out.append({"name": str(s.get("name") or s["slug"])[:80], "by": str(s.get("by") or "")[:60],
+                        "blurb": str(s.get("blurb") or "")[:600], "genre": str(s.get("genre") or "")[:40],
+                        "length": str(s.get("length") or "")[:10], "file": f"{shop}{base}song.mp3",
+                        "cover": f"{shop}{cover}" if cover in (base + "cover.jpg", base + "cover.png") else None})
+        return out
 
     def built_list(self):
         return self._tabs().list()
@@ -1064,6 +1136,66 @@ class Api:
 
     def net_close(self, sid):
         self._net.close(str(sid))
+
+    def built_store_get(self, tab_id):
+        try:
+            return self._tabs().store_get(tab_id)
+        except ValueError:
+            return {}
+
+    def built_store_set(self, tab_id, data):
+        try:
+            return self._tabs().store_set(tab_id, data)
+        except (OSError, ValueError, TypeError) as e:
+            return {"error": f"Couldn't save: {e}"}
+
+    def built_set_web(self, tab_id, on):
+        return self._tabs().set_web(tab_id, on)
+
+    def _panes(self, wid):
+        """The web panes of one window (made the first time that window asks)."""
+        key = wid or "main"
+        if key not in self._web_panes:
+            self._web_panes[key] = webpane.WebPanes(self._win(wid))
+        return self._web_panes[key]
+
+    def webpane_go(self, wid, key, url, reload=False):
+        if not webpane.ok_platform:
+            return {"error": "Web view needs Windows for now."}
+        try:
+            return self._panes(wid).go(str(key), str(url), bool(reload))
+        except Exception as e:
+            return {"error": f"Couldn't open the page: {e}"}
+
+    def webpane_nav(self, wid, key, how):
+        try:
+            return self._panes(wid).nav(str(key), str(how))
+        except Exception:
+            return False
+
+    def webpane_place(self, wid, key, x, y, w, h, visible):
+        try:
+            return self._panes(wid).place(str(key), x, y, w, h, visible)
+        except Exception:
+            return False
+
+    def webpane_close(self, wid, key):
+        try:
+            return self._panes(wid).close(str(key))
+        except Exception:
+            return False
+
+    def webpane_state(self, wid=None):
+        try:
+            return self._panes(wid).state()
+        except Exception as e:
+            return {"error": str(e)}
+
+    def web_open_outside(self, url):
+        """A web tab's "open in its own window": the address in the user's browser, if it's a real web address."""
+        if not web_address_ok(url):
+            return {"error": "Only web addresses (http or https) open outside."}
+        webbrowser.open(url)
         return True
 
     # ---------- templates (step 5) ----------
@@ -1122,7 +1254,8 @@ class Api:
         """What the + Add a bot form shows before anything is made: what the bot could read, and whether Claude Code is here."""
         def look():
             reads, where = self._bot_scope(tab)
-            return {"reads": reads, "where": where, "claude": bool(ccode.command()), "every": [x for x in bots.EVERY_CHOICES]}
+            return {"reads": reads, "where": where, "claude": bool(ccode.command()), "every": [x for x in bots.EVERY_CHOICES],
+                    "helpers": [] if tab else bots.helpers(DATA_DIR)}
         return self._bots(look)
 
     def bot_add(self, spec):
@@ -1131,6 +1264,8 @@ class Api:
         def add():
             every = spec.get("every_min")
             every = int(every) if every not in (None, "", 0, "0") else None
+            if spec.get("helper"):                   # a computer helper: its job and permissions are fixed in bots.py
+                return bots.add_helper(str(spec["helper"]), DATA_DIR, every, spec.get("folder") or "", spec.get("dest") or "")
             tab = spec.get("tab") or None
             reads, where = self._bot_scope(tab)
             scope = {"level": "tab", "tab_kind": tab.get("kind"), "tab_title": tab.get("title")} if tab else {"level": "app"}
@@ -1140,7 +1275,7 @@ class Api:
     def bots_list(self):
         def look():
             return {"bots": bots.overview(), "bus": bots.read_bus(last=40)[::-1], "record": bots.record(),
-                    "max_parallel": bots.MAX_PARALLEL, "claude": bool(ccode.command())}
+                    "max_parallel": bots.MAX_PARALLEL, "claude": bool(ccode.command()), "paused": bots.paused()}
         return self._bots(look)
 
     def bot_run(self, name):
@@ -1152,8 +1287,87 @@ class Api:
     def bot_stop(self, name):
         return self._bots(bots.halt, name, "stopped from the Bots tab")
 
+    def machine_meter(self):
+        """The top bar's live computer meter: free memory, processor load, temperature (when the computer gives one)."""
+        return machine.sample()
+
     def bot_retire(self, name):
         return self._bots(bots.retire, name)
+
+    def bots_extra(self, day=None):
+        """The Bots tab's slower parts: the day's record and its days, the rules, the locked list, token use, the group chat."""
+        def look():
+            return {"record": bots.record(day), "days": bots.record_days(), "rules": bots.rules_text(), "locked": bots.locked_patterns(),
+                    "usage": bots.usage(), "group": bots.group_log()[-60:], "waiting": bots.group_waiting(), "paused": bots.paused(),
+                    "perm_features": bots.PERM_FEATURES, "perm_levels": bots.PERM_LEVELS, "holdbacks": bots.HOLDBACKS}
+        return self._bots(look)
+
+    def bot_card(self, name):
+        """One bot's card tabs: duties, its own tabs, run reports, chat, process questions, token use."""
+        def look():
+            return {"duties": bots.duties(name), "tabs": bots.card_tabs(name), "report": bots.run_report(name),
+                    "chat": bots.chat_log(name)[-80:], "procs_chat": bots.proc_chat(name)[-40:], "usage": bots.usage(name),
+                    "perms": bots.perms_of(bots.bot(name))}
+        return self._bots(look)
+
+    def bot_report(self, name, file=None):
+        return self._bots(bots.run_report, name, file)
+
+    def bot_set_frequency(self, name, choice):
+        return self._bots(bots.set_frequency, name, choice)
+
+    def bots_pause(self):
+        return self._bots(bots.pause_all)
+
+    def bots_resume(self):
+        return self._bots(bots.resume_all)
+
+    def bot_chat(self, name, text):
+        return self._bots(bots.chat, name, text)
+
+    def bots_group_chat(self, text):
+        """Chat with all bots: the replies come in one by one, so it runs in the background and the tab reads them as they land."""
+        def start():
+            if bots.group_waiting():
+                raise ValueError("The bots are still answering the last message.")
+            if not str(text or "").strip():
+                raise ValueError("Type a message first.")
+            threading.Thread(target=lambda: self._bots(bots.group_chat, text), daemon=True).start()
+            return True
+        return self._bots(start)
+
+    def bot_duties_set(self, name, kind, text):
+        return self._bots(bots.set_duties, name, kind, text)
+
+    def bot_tab_add(self, name, title):
+        return self._bots(bots.card_tab_add, name, title)
+
+    def bot_tab_save(self, name, tab_id, text):
+        return self._bots(bots.card_tab_save, name, tab_id, text)
+
+    def bot_tab_remove(self, name, tab_id):
+        return self._bots(bots.card_tab_remove, name, tab_id)
+
+    def bot_perms_set(self, name, level, features=None, holds=None):
+        return self._bots(bots.set_perms, name, level, features, holds)
+
+    def bots_rules_set(self, text):
+        return self._bots(bots.set_rules, text)
+
+    def bot_rule_add(self, text, from_bot=""):
+        return self._bots(bots.add_rule, text, from_bot)
+
+    def bots_locked_set(self, text):
+        return self._bots(bots.set_locked, text)
+
+    def bots_procs(self):
+        return self._bots(bots.scan_procs)
+
+    def bot_proc_ask(self, pid):
+        return self._bots(bots.proc_ask, pid)
+
+    def bot_proc_answer(self, pid, keep):
+        return self._bots(bots.proc_answer, pid, bool(keep))
 
     # ---------- IDE (step 5) ----------
     def ide_workspace(self):
@@ -1322,6 +1536,94 @@ class Api:
         webbrowser.open(ORIGIN_LINKS[which])
         return True
 
+    def search_web(self, text):
+        """Highlighted text's "Search the web": a search page in the user's browser."""
+        text = str(text or "").strip()[:500]
+        if text:
+            webbrowser.open("https://duckduckgo.com/?q=" + urllib.parse.quote(text))
+        return True
+
+    def clipboard_set(self, text):
+        """Copy, when the page itself may not write the clipboard (its window isn't focused)."""
+        text = str(text or "")
+        if sys.platform != "win32":
+            try:
+                import tkinter
+                root = tkinter.Tk(); root.withdraw()
+                root.clipboard_clear(); root.clipboard_append(text); root.update(); root.destroy()
+                return True
+            except Exception:
+                return False
+        import ctypes
+        from ctypes import wintypes
+        user, kernel = ctypes.windll.user32, ctypes.windll.kernel32
+        user.OpenClipboard.argtypes = [wintypes.HWND]
+        user.SetClipboardData.argtypes = [wintypes.UINT, ctypes.c_void_p]
+        user.SetClipboardData.restype = ctypes.c_void_p
+        kernel.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+        kernel.GlobalAlloc.restype = ctypes.c_void_p
+        kernel.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel.GlobalLock.restype = ctypes.c_void_p
+        kernel.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        kernel.GlobalFree.argtypes = [ctypes.c_void_p]
+        data = text.encode("utf-16-le") + b"\0\0"
+        for _ in range(5):
+            if user.OpenClipboard(None):
+                break
+            time.sleep(0.05)
+        else:
+            return False
+        try:
+            user.EmptyClipboard()
+            handle = kernel.GlobalAlloc(0x0002, len(data))     # GMEM_MOVEABLE
+            ptr = kernel.GlobalLock(handle)
+            ctypes.memmove(ptr, data, len(data))
+            kernel.GlobalUnlock(handle)
+            if not user.SetClipboardData(13, handle):          # CF_UNICODETEXT; the clipboard owns it from here
+                kernel.GlobalFree(handle)
+                return False
+            return True
+        finally:
+            user.CloseClipboard()
+
+    def clipboard_text(self):
+        """The clipboard's text, for Paste on the right-click menu (the page itself may not read it)."""
+        if sys.platform != "win32":
+            try:
+                import tkinter
+                root = tkinter.Tk(); root.withdraw()
+                try:
+                    return root.clipboard_get()
+                finally:
+                    root.destroy()
+            except Exception:
+                return None
+        import ctypes
+        from ctypes import wintypes
+        user, kernel = ctypes.windll.user32, ctypes.windll.kernel32
+        user.OpenClipboard.argtypes = [wintypes.HWND]
+        user.GetClipboardData.restype = ctypes.c_void_p
+        kernel.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel.GlobalLock.restype = ctypes.c_void_p
+        kernel.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        for _ in range(5):                                 # another program may hold the clipboard for a moment
+            if user.OpenClipboard(None):
+                break
+            time.sleep(0.05)
+        else:
+            return None
+        try:
+            handle = user.GetClipboardData(13)             # CF_UNICODETEXT
+            if not handle:
+                return ""
+            ptr = kernel.GlobalLock(handle)
+            try:
+                return ctypes.wstring_at(ptr) if ptr else ""
+            finally:
+                kernel.GlobalUnlock(handle)
+        finally:
+            user.CloseClipboard()
+
     def is_derivative(self):
         """A project on Base says so on its origin line; NOTICE.md requires anyone else's copy to say so too."""
         return projects.name_of(HERE) != "Base"
@@ -1338,6 +1640,7 @@ class Api:
     def _startup(self):
         time.sleep(1.5)                  # let the see-through window come up once, then put it away
         self._pop_win.hide()
+        self._bots(bots.resume_wanted)   # bots that were on their schedule when the app closed start again (not while paused)
 
     def _pop_closing(self):
         if self._pop_closing_ok:

@@ -5,7 +5,7 @@
 "use strict";
 
 const state = { tabs: [], active: null, llms: [], activeLlm: null, chats: [], built: [], templates: [], duckChat: [],
-                groups: [], off: [] };
+                groups: [], off: [], system: "windows" };
 let nextId = 1;
 const $ = (sel, root = document) => root.querySelector(sel);
 const api = () => (window.pywebview && window.pywebview.api) || null;
@@ -33,7 +33,7 @@ function scheduleSave() {
       return;
     }
     a.save_session({ tabs, active: state.active, llms: state.llms, activeLlm: state.activeLlm, chats: state.chats, duckChat: state.duckChat,
-                     groups: state.groups, off: state.off })
+                     groups: state.groups, off: state.off, system: state.system })
       .catch(e => toast("Couldn't save session: " + e));
   }, WIN ? 150 : 400);
 }
@@ -615,7 +615,7 @@ function linkClaude() {
   key.addEventListener("keydown", e => { if (e.key === "Enter") check.click(); });
   openModal("Claude (Anthropic API key)", [
     el("p", { className: "muted" }, "Paste an API key from console.anthropic.com (Settings → API keys). Messages are billed to that account."),
-    el("p", { className: "muted small" }, "The key is stored encrypted for your Windows user only, outside the app's files. Unlinking removes it."),
+    el("p", { className: "muted small" }, `The key is stored encrypted for your ${osName()} user only, outside the app's files. Unlinking removes it.`),
     key, check, el("div", { className: "claude-models" })]);
   key.focus();
 }
@@ -1030,6 +1030,14 @@ function buildBuilt(tab) {
     if (act === "template") saveTemplate(tab);
   });
   if (!tab.builtId) { studio.hidden = false; $("iframe", pane).hidden = true; $(".built-body", pane).classList.add("no-page"); renderTabChat(tab); }
+  $(".web-on", pane).addEventListener("change", async e => {
+    if (!tab.builtId) { e.target.checked = false; return toast("Build the tab first."); }
+    const meta = await api().built_set_web(tab.builtId, e.target.checked);
+    tab.web = !!meta.web;
+    if (!tab.web) clearWebFrames(tab);
+    tellPage(tab, { uds: "web-state", on: tab.web });
+    toast(tab.web ? "Web view is on: this tab can show web pages." : "Web view is off: this tab is walled off again.");
+  });
   $(".versions", pane).addEventListener("change", async e => {
     const n = +e.target.value;
     await api().built_set_current(tab.builtId, n);
@@ -1083,6 +1091,89 @@ function watchShopLinks() {
   }, 1500);
 }
 
+// ---------- web view ----------
+// A built tab's own page never reaches the internet. With its Web view switch on, the page may ask the app to show
+// websites: the app lays a real browser view (webpane.py, the engine Edge uses) over the area the page names, so a
+// site shows as a whole page, as in any browser. Only http/https addresses on the internet, never this machine.
+// The view sits above the page, so it steps aside while a menu, dialog or note would be under it.
+function webAddressOk(u) {
+  let x; try { x = new URL(String(u || "")); } catch (e) { return false; }
+  const h = x.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!/^https?:$/.test(x.protocol) || !h) return false;
+  return !(h === "localhost" || h.endsWith(".localhost") || h.startsWith("127.") || h === "0.0.0.0" || h === "::1" || h === "::");
+}
+function builtTabOf(src) {
+  return state.tabs.find(t => t.kind === "built" && t.builtId && t.pane && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === src);
+}
+function tellPage(tab, msg) { const f = tab.pane && $("iframe", tab.pane); if (f && f.contentWindow) f.contentWindow.postMessage(msg, "*"); }
+function paneKey(tab, id) { return tab.builtId + ":" + String(id).slice(0, 40); }
+function clearWebFrames(tab) {
+  for (const id of Object.keys(tab.webPanes || {})) api().webpane_close(WIN, paneKey(tab, id));
+  tab.webPanes = {};
+}
+window.webPaneEvent = info => {      // a pane went somewhere: tell the page that owns it
+  const tab = state.tabs.find(t => t.kind === "built" && t.builtId && info.key.startsWith(t.builtId + ":"));
+  if (!tab) return;
+  const id = info.key.slice(tab.builtId.length + 1), p = (tab.webPanes || {})[id];
+  if (p) p.url = info.url;
+  tellPage(tab, { uds: "web-url", id, url: info.url, title: info.title, back: info.back, fwd: info.fwd });
+};
+const OVER_PANES = "#modal:not([hidden]), .menu:not([hidden]), #toast:not([hidden]), #select-bar:not([hidden])";
+function syncPanes() {
+  if (!api()) return;
+  const dpr = window.devicePixelRatio || 1;
+  const covers = [...document.querySelectorAll(OVER_PANES)].map(e => e.getBoundingClientRect()).filter(r => r.width && r.height);
+  for (const tab of state.tabs) {
+    if (tab.kind !== "built" || !tab.webPanes) continue;
+    const page = tab.pane && $("iframe", tab.pane);
+    const box = page && page.getClientRects().length ? page.getBoundingClientRect() : null;
+    for (const [id, p] of Object.entries(tab.webPanes)) {
+      let x = 0, y = 0, w = 0, h = 0, show = false;
+      if (box && p.rect && p.shown && p.url && tab.web) {
+        const r = p.rect, W = box.width, H = box.height;
+        const lx = Math.min(Math.max(0, r.x), W), ly = Math.min(Math.max(0, r.y), H);
+        const left = box.left + lx, top = box.top + ly, rw = Math.min(r.w, W - lx), rh = Math.min(r.h, H - ly);
+        show = rw > 0 && rh > 0 && !covers.some(c => c.left < left + rw && c.right > left && c.top < top + rh && c.bottom > top);
+        x = Math.round(left * dpr); y = Math.round(top * dpr); w = Math.round(rw * dpr); h = Math.round(rh * dpr);
+      }
+      const now = [x, y, w, h, show].join();
+      if (p.placed === now) continue;
+      p.placed = now;
+      api().webpane_place(WIN, paneKey(tab, id), x, y, w, h, show);
+    }
+  }
+}
+setInterval(syncPanes, 150);
+window.addEventListener("message", async e => {
+  const d = e.data;
+  if (!d || typeof d.uds !== "string" || !/^(web|store)/.test(d.uds) || !api()) return;
+  const tab = builtTabOf(e.source);
+  if (!tab) return;
+  if (d.uds === "store-get") return tellPage(tab, { uds: "store", data: await api().built_store_get(tab.builtId) });
+  if (d.uds === "store-set") { const r = await api().built_store_set(tab.builtId, d.data); if (r && r.error) tellPage(tab, { uds: "store-error", note: r.error }); return; }
+  if (d.uds === "web-hello") { tab.webHello = true; return tellPage(tab, { uds: "web-state", on: !!tab.web }); }
+  if (!tab.webHello) return;
+  if (!tab.web) return tellPage(tab, { uds: "web-state", on: false });
+  if (d.uds === "web-pop") { if (webAddressOk(d.url)) await api().web_open_outside(String(d.url)); return; }
+  tab.webPanes = tab.webPanes || {};
+  const id = String(d.id).slice(0, 40);
+  if (d.uds === "web-close") { if (tab.webPanes[id]) { delete tab.webPanes[id]; api().webpane_close(WIN, paneKey(tab, id)); } return; }
+  if (d.uds !== "web") return;
+  if (!d.url && !d.nav && !tab.webPanes[id]) return;
+  const p = tab.webPanes[id] = tab.webPanes[id] || { url: "", shown: false, rect: null };
+  if (d.url !== undefined) {
+    const url = d.url ? String(d.url) : "";
+    if (url && !webAddressOk(url)) tellPage(tab, { uds: "web-refused", id, url });
+    else if (url && (d.reload || p.url !== url)) { p.url = url; await api().webpane_go(WIN, paneKey(tab, id), url, !!d.reload); }
+    else if (!url) p.url = "";
+  }
+  if (d.nav && p.url) api().webpane_nav(WIN, paneKey(tab, id), String(d.nav));
+  if (d.rect) p.rect = { x: +d.rect.x || 0, y: +d.rect.y || 0, w: +d.rect.w || 0, h: +d.rect.h || 0 };
+  if (d.show !== undefined) p.shown = !!d.show;
+  else if (d.url !== undefined) p.shown = !!p.url;
+  syncPanes();
+});
+
 // A game in a tab saves itself as this tab's next version.
 let lastItemSave = 0;
 window.addEventListener("message", async e => {
@@ -1094,6 +1185,36 @@ window.addEventListener("message", async e => {
   const r = await api().item_save_into(tab.builtId, e.data.text);
   if (!r.error) { fillVersions(tab, r.meta, r.meta.current); buildStatus(tab, `version ${r.meta.current} of ${r.meta.versions.length}`); await refreshBuilt(); }
   e.source.postMessage({ uds: "saved", note: r.error || `Saved in this tab, as version ${r.meta.current}.` }, "*");
+});
+
+// The lyrics bot: a built tab asks for lyrics to a brief ({uds: "lyrics-ask", brief}); the linked LLM writes them and only
+// the words go back ({uds: "lyrics", status} while it works, then {uds: "lyrics", done, text | error}).
+let lyricsBusy = false;
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "lyrics-ask" || !api()) return;
+  const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
+  if (!tab) return;
+  const post = m => { try { e.source.postMessage(Object.assign({ uds: "lyrics" }, m), "*"); } catch (_) {} };
+  if (typeof api().lyrics_ask !== "function")
+    return post({ done: true, error: "Randis UDS needs a restart first: close the app and open it again (Reload isn't enough)." });
+  const rec = activeLlm();
+  if (!rec) return post({ done: true, error: "link an AI in Randis UDS first (the LLM button), then try again." });
+  if (lyricsBusy) return post({ done: true, error: "already writing a set of lyrics; wait for it to finish." });
+  lyricsBusy = true;
+  post({ status: `Asking ${rec.name} to write the lyrics…` });
+  let r = { text: "", error: null };
+  try {
+    const job = await api().lyrics_ask(rec, e.data.brief || {});
+    if (job && job.error) throw new Error(job.error);
+    for (;;) {
+      await new Promise(res => setTimeout(res, 300));
+      r = await api().chat_poll(job);
+      if (r.done) break;
+      post({ status: `${rec.name} is writing… ${(r.text || "").split("\n").filter(Boolean).length} lines so far` });
+    }
+  } catch (err) { r = { text: "", error: String(err.message || err) }; }
+  lyricsBusy = false;
+  post(r.error ? { done: true, error: r.error } : { done: true, text: r.text || "" });
 });
 
 // A built tab hands over a file it made ({uds: "export-file", name, data: Blob}); the person picks where it goes.
@@ -1184,11 +1305,16 @@ function publishSetup(why) {
     watch = setInterval(() => { if ($("#modal").hidden) finish(null); }, 300);
   });
 }
+const publishedUrl = new Map();      // tab -> the shop page of the song it last published
 window.addEventListener("message", async e => {
-  if (!e.data || !["can-publish", "publish-song", "publish-setup"].includes(e.data.uds) || !api()) return;
+  if (!e.data || !["can-publish", "publish-song", "publish-setup", "open-published"].includes(e.data.uds) || !api()) return;
   const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
   if (!tab) return;
   const post = m => { try { e.source.postMessage(m, "*"); } catch (_) {} };
+  if (e.data.uds === "open-published") {               // only the song this tab published, on the shop's page
+    if (publishedUrl.has(tab) && typeof api().publish_open === "function") api().publish_open(publishedUrl.get(tab));
+    return;
+  }
   const auto = typeof api().publish_auto === "function";
   if (e.data.uds === "publish-setup") {
     let r = auto ? await api().publish_auto() : null;
@@ -1198,7 +1324,7 @@ window.addEventListener("message", async e => {
   let ready = typeof api().publish_ready === "function" ? await api().publish_ready() : { ok: false };
   // The app sets publishing up by itself when Publish is pressed, so the button always shows.
   if (e.data.uds === "can-publish") return post({ uds: "can-publish", ok: !!ready.ok || auto, shop: ready.shop || "the Randis Shop", setup: !ready.ok && !auto });
-  const done = (ok, note, url) => { post({ uds: "published", ok, note, url: url || null }); if (!ok) logError("publish", note); };
+  const done = (ok, note, url, live) => { if (ok && url) publishedUrl.set(tab, url); post({ uds: "published", ok, note, url: url || null, live: !!live }); if (!ok) logError("publish", note); };
   const d = e.data;
   post({ uds: "publishing", note: "Say yes in the Randis UDS window to publish it…" });   // the tab knows the app heard it
   if (!ready.ok && auto) {
@@ -1233,7 +1359,7 @@ window.addEventListener("message", async e => {
     for (;;) {
       await new Promise(res => setTimeout(res, 700));
       const st = await api().song_publish_status(r.token);
-      if (st.done) { done(!st.error, st.status, st.url); if (!st.error) toast("Published " + st.title); return; }
+      if (st.done) { done(!st.error, st.status, st.url, st.live); if (!st.error) toast((st.live ? "Live on the shop: " : "Published ") + st.title); return; }
       post({ uds: "publishing", note: st.status });
     }
   } catch (err) { done(false, "Publishing failed: " + err); }
@@ -1353,6 +1479,10 @@ async function loadBuilt(tab) {
   netEnd(tab);                       // a page change ends its online link
   const r = await a.built_load(tab.builtId);
   if (r.error) return buildStatus(tab, r.error, true);
+  clearWebFrames(tab);
+  tab.webHello = false;   // a page reloading may still send its old requests; wait for the new one to say hello
+  tab.web = !!r.meta.web;
+  $(".web-on", tab.pane).checked = tab.web;
   $("iframe", tab.pane).srcdoc = r.html;
   $("iframe", tab.pane).hidden = false;
   $(".build-log", tab.pane).hidden = true;
@@ -2059,6 +2189,27 @@ function toggleMenu(sel, force) {
 $("#newtab").addEventListener("click", e => { e.stopPropagation(); renderBuiltMenu(); renderTemplateMenu(); toggleMenu("#newtab-menu"); });
 $("#addllm").addEventListener("click", e => { e.stopPropagation(); toggleMenu("#addllm-menu"); });
 $("#reload").addEventListener("click", () => location.reload());
+
+// ---------- Windows / Linux switch ----------
+// Windows by default. It picks the system the chats and the help give steps, commands and paths for. The app itself
+// always works the way the computer it runs on needs (its web views, its wall), whatever the switch says.
+const osName = () => state.system === "linux" ? "Linux" : "Windows";
+async function showSystem() {
+  for (const b of document.querySelectorAll(".os-switch button")) b.setAttribute("aria-checked", String(b.dataset.os === state.system));
+  const a = api(); if (!a) return;
+  const real = await a.set_user_system(state.system);
+  $("#os-switch").title = `Your system: chats and help give steps for ${osName()}.` +
+    (real && real !== state.system ? ` This computer runs ${real === "linux" ? "Linux" : "Windows"}; the app itself still works the way it needs.` : "");
+}
+function pickSystem(e) {
+  let os = e.target.dataset && e.target.dataset.os;
+  const inBar = !!e.target.closest("#tabbar > .os-switch");
+  if (os === state.system && inBar && matchMedia("(max-width: 800px)").matches) os = os === "linux" ? "windows" : "linux";   // narrow: one button, a click flips it
+  if (!os || os === state.system) return;
+  state.system = os; showSystem(); scheduleSave();
+  toast(`Set to ${osName()}: chats and help now give ${osName()} steps.`);
+}
+$("#os-switch").addEventListener("click", pickSystem);
 $("#projects").addEventListener("click", async e => {
   e.stopPropagation();
   const open = !$("#projects-menu").hidden;
@@ -2129,6 +2280,14 @@ function renderMainMenu() {
     row.append(sw, open);
     m.appendChild(row);
   }
+  m.appendChild(el("div", { className: "menu-label" }, "Your system"));
+  const sys = el("div", { className: "os-switch", role: "radiogroup" });
+  for (const [os, label] of [["windows", "Windows"], ["linux", "Linux"]]) {
+    const b = el("button", { role: "radio" }, label); b.dataset.os = os;
+    b.setAttribute("aria-checked", String(os === state.system)); sys.appendChild(b);
+  }
+  sys.addEventListener("click", e => { e.stopPropagation(); pickSystem(e); });
+  m.appendChild(sys);
   if (typeof renderUpdateMenu === "function") renderUpdateMenu(m);     // ui/update.js
 }
 $("#mainmenu").addEventListener("click", e => { e.stopPropagation(); renderMainMenu(); toggleMenu("#main-menu"); });
@@ -2195,7 +2354,9 @@ async function showSetup() {
   const row = (...kids) => { const r = el("div", { className: "row" }); r.append(...kids); return r; };
   if (i.shortcut) {
     body.push(el("h3", {}, "Pin it to your taskbar"),
-      el("p", { className: "muted" }, "Windows only lets you do this part yourself. Right-click the Randis UDS icon and pick Pin to taskbar. On Windows 11, pick Show more options first if you don't see it."),
+      el("p", { className: "muted" }, state.system === "linux"
+        ? "Your desktop lets you do this part yourself. Open the app from your app menu, then right-click its icon in the dock or panel and pick Add to Favorites or Pin."
+        : "Windows only lets you do this part yourself. Right-click the Randis UDS icon and pick Pin to taskbar. On Windows 11, pick Show more options first if you don't see it."),
       row(button("Show me the icon", "setup-pin")));
   }
   body.push(el("h3", {}, "Connect Claude Code"),
@@ -2248,6 +2409,7 @@ async function start() {
   if (session) {
     state.groups = session.groups || [];
     state.off = session.off || [];
+    state.system = session.system === "linux" ? "linux" : "windows";
     state.llms = session.llms || [];
     state.activeLlm = session.activeLlm || (state.llms[0] && state.llms[0].id) || null;
     state.chats = session.chats || [];
@@ -2259,6 +2421,7 @@ async function start() {
   }
   renderLinked();
   applyFeatures();
+  showSystem();
   refreshProjects();
   // tabs that were out in their own windows when the app closed come back into this one
   const restore = session ? [...(session.tabs || []), ...(session.popped || []).map(t => Object.assign({}, t, { id: undefined, group: null }))] : [];
