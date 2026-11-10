@@ -324,52 +324,13 @@ body.popped .main-only { display: none; }
 
 /* Bots: the Bots tab and "+ Add a bot" */
 .bots-body { flex: 1; overflow: auto; padding: 10px 14px; }
-.bot-card, .bot-panel { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }
-.bot-head { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
-.bot-light { font-size: 14px; color: var(--muted); }
-.bot-light[data-light="ok"], .bot-light[data-light="running"] { color: #3fb950; }
-.bot-light[data-light="failed"] { color: #e5534b; }
 .bot-btns { display: flex; gap: 6px; margin: 6px 0 0; justify-content: flex-start; flex-wrap: wrap; }
-.bot-bus { max-height: 220px; overflow: auto; }
-.bot-answer { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
 .bot-warn { color: #e3b341; }
+.bot-chat-box, .bot-rule-text, .bt-newtab, .bt-cl-new, .bt-duty, .bt-card-note { padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
 .bot-words { width: 100%; box-sizing: border-box; margin: 4px 0 8px; }
 .bot-facts { margin: 4px 0 10px; padding-left: 18px; }
-.bot-panel h3 { margin: 0 0 6px; font-size: 14px; }
 .tab-bot-btn.corner { position: absolute; top: 8px; right: 12px; z-index: 5; }
 .welcome-bot { justify-content: center; margin-top: 10px; }
-/* the bot card: a stack of lights, an icon, tabs; panels below the cards */
-.bot-stack { display: inline-flex; flex-direction: column; gap: 2px; padding: 3px 4px; border-radius: 4px; background: rgba(127,127,127,.15); align-self: center; }
-.bot-lamp { display: block; width: 12px; height: 5px; border-radius: 2px; background: rgba(127,127,127,.35); }
-.bot-icon { font-size: 18px; align-self: center; }
-.bot-tabs { display: flex; gap: 2px; flex-wrap: wrap; margin: 6px 0; border-bottom: 1px solid var(--line); }
-.bot-tab { border: 0; border-radius: 6px 6px 0 0; padding: 4px 10px; background: transparent; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
-.bot-tab:hover { color: var(--text); background: var(--hover); }
-.bot-tab.on { color: var(--text); background: var(--hover); font-weight: 600; }
-.bot-tab-body { min-height: 24px; }
-.bot-tab-body h4 { margin: 10px 0 4px; font-size: 13px; }
-.bot-chat-log { max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 4px; margin: 4px 0; }
-.bot-msg { white-space: pre-wrap; overflow-wrap: anywhere; }
-.bot-msg.you b { color: var(--accent); }
-.bot-chat-box, .bot-rule-text { flex: 1; min-width: 200px; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
-                                background: var(--bg); color: var(--text); font: inherit; }
-.bot-duty { width: 100%; box-sizing: border-box; margin: 2px 0 8px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
-            background: var(--bg); color: var(--text); font: inherit; }
-.bot-freq, .bot-report-pick, .bot-day, .bot-perm-level { padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
-.bot-btns { align-items: center; }
-.bot-report { max-height: 360px; }
-.bot-metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; margin: 4px 0 8px; }
-.bot-metric { display: flex; flex-direction: column; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; }
-.bot-metric b { font-size: 16px; }
-.bot-chart { display: flex; align-items: flex-end; gap: 3px; height: 90px; margin: 6px 0; }
-.bot-bar { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; }
-.bot-bar-fill { width: 100%; min-height: 1px; background: var(--accent); border-radius: 3px 3px 0 0; }
-.bot-bar-day { font-size: 10px; color: var(--muted); }
-.bot-switch { display: block; margin: 3px 0; cursor: pointer; }
-.bot-proc { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 3px 0; }
-.bot-proc.leftover > span { color: #e3b341; }
-.bot-paused { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: rgba(227,179,65,.15); color: #e3b341; }
-.bot-paused[hidden] { display: none; }
 .bot-picks { margin: 4px 0 10px; }
 .bot-pick { display: block; margin: 4px 0; }
 .perm-bar { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; padding: 4px 10px 0; font-size: 12px; }

@@ -3,7 +3,7 @@
 
 A bot is a Claude Code run (your own installed Claude Code, `claude -p`) with one job, the words you typed. New bots read
 and report only: they can read one folder (the tab's, or the app's) and search it, and can't change anything, unless you
-give one more on its Permissions tab. Each run is its own background process with its own log; every message goes on
+give one more on its Perms tab. Each run is its own background process with its own log; every message goes on
 the bus, one line per message in data/bots/bus/<date>.jsonl, and the Bots tab shows them, with each day's record.
 
 Every bot has an ID (B001, B002, ...). Every program it runs carries a label with that ID, its name and its task, in
@@ -39,7 +39,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_PARALLEL = 2
 MIN_FREE_GB = 1.0
 READ_TOOLS = ["Read", "Grep", "Glob"]
-# How often a bot runs: None is "when you click Run once"; the rest are minutes.
+# How often a bot runs: None is "when you click Start now"; the rest are minutes.
 EVERY_CHOICES = (None, 5, 15, 30, 60, 180, 720, 1440)
 CHAT_TURNS = 12
 GROUP_TURNS = 16
@@ -317,7 +317,7 @@ def why_not(name: str, scheduled: bool = False) -> str | None:
 
 
 # ---------------------------------------------------------------- permissions
-# Every bot reads its own folder. More is the user's to give, bot by bot, on its Permissions tab: a level, or the
+# Every bot reads its own folder. More is the user's to give, bot by bot, on its Perms tab: a level, or the
 # switches one by one. Hold-backs block one kind of command even when the switches would allow it.
 PERM_FEATURES = [
     ("read", "Read files", "Open, search and list the files in its folder", ["Read", "Grep", "Glob"]),
@@ -802,7 +802,7 @@ def workspace(b: dict) -> str:
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "CLAUDE.md"), "w", encoding="utf-8") as f:
         f.write(f"# Bot: {b['name']} ({b.get('id')})\n\nYou are a small background bot inside Randis UDS, added by its user.\n"
-                f"Your one job: {b['job']}\n\nYour permissions (the user sets them on your card's Permissions tab): {perms_summary(b)}.\n"
+                f"Your one job: {b['job']}\n\nYour permissions (the user sets them on your card's Perms tab): {perms_summary(b)}.\n"
                 "Do only that job, and stay in your own folder unless the user says otherwise. If something you need isn't "
                 "allowed, say so in your answer instead of finding a way around it. Answer in a few short plain lines; your "
                 "answer is shown in the app's Bots tab.\n"
@@ -869,9 +869,12 @@ def run_once(name: str) -> dict:
     task = "scheduled run" if (b.get("trigger") or {}).get("every_min") else "run"
     write_state(name, last_start=now(), last_log=log)
     snap = lock_snapshot(b)
-    prompt = b["prompt"] + duties_prompt(name) + _questions_prompt(name)
+    prompt = b.get("prompt", "") + duties_prompt(name) + _questions_prompt(name)
     try:
-        code, answer, err, toks = _claude(b, prompt, task, b.get("timeout_s", 900))
+        if b.get("service"):
+            code, answer, err, toks = _service_run(b)
+        else:
+            code, answer, err, toks = _claude(b, prompt, task, b.get("timeout_s", 900))
     except OSError as e:
         code, answer, err, toks = -1, "", f"Claude Code didn't start: {e}", {}
     changed = lock_check(name, snap)
@@ -1001,7 +1004,7 @@ def resume_all() -> dict:
 
 
 def set_frequency(name: str, choice) -> dict:
-    """The card's How often dropdown: "off" (only when you click Run once) or minutes. A schedule starts at once."""
+    """The card's How often dropdown: "off" (only when you click Start now) or minutes. A schedule starts at once."""
     every = None if str(choice) in ("off", "", "None") else int(choice)
     if every not in EVERY_CHOICES:
         raise ValueError("Pick one of the choices in the list.")
@@ -1009,10 +1012,10 @@ def set_frequency(name: str, choice) -> dict:
     st = read_state(name)
     if pid_alive(st.get("pid")) and st.get("mode") == "schedule":
         halt(name)
-    post("you", "schedule", f"{name}: {'every ' + str(every) + ' min' if every else 'only when you click Run once'}")
+    post("you", "schedule", f"{name}: {'every ' + str(every) + ' min' if every else 'only when you click Start now'}")
     if every and approved(b):
         return launch(name, once=False)
-    return {"started": False, "reason": "it runs when you click Run once"}
+    return {"started": False, "reason": "it runs when you click Start now"}
 
 
 def retire(name: str) -> dict:
@@ -1243,8 +1246,10 @@ def add_helper(hid: str, data_dir: str, every_min=None, folder: str = "", dest: 
 
 
 # ---------------------------------------------------------------- adding a bot
-def add_bot(words: str, reads_dir: str, where: str, scope: dict, every_min=None, label_: str = "") -> dict:
-    """"+ Add a bot": what the person typed is the bot's job and their yes. A new bot reads and reports only."""
+def add_bot(words: str, reads_dir: str, where: str, scope: dict, every_min=None, label_: str = "", name_: str = "",
+            types: list | None = None, yes: str = "") -> dict:
+    """"+ Add a bot": what the person typed is the bot's job and their yes. A new bot reads and reports only.
+    The Bot design suite also gives a name, the bot types it's made from, and the yes in the person's own words."""
     words = " ".join(str(words or "").split())
     if len(words) < 8:
         raise ValueError("Say what the bot should do (a sentence is enough).")
@@ -1267,6 +1272,11 @@ def add_bot(words: str, reads_dir: str, where: str, scope: dict, every_min=None,
     while f"{base}_{kind}{n}" in names:
         n += 1
     name = f"{base}_{kind}{n}"
+    want = _clean_name(name_)
+    if want:
+        if want in names:
+            raise ValueError(f"There's already a bot called {want}. Pick another name.")
+        name = want
     prompt = (f"You are a bot the user added for {where}. You may read the folder {reads_dir}.\n"
               f"The user's words, your job: {words}\n"
               "Do the job with what your permissions allow, then report in a few short plain lines. End with one line on "
@@ -1274,8 +1284,10 @@ def add_bot(words: str, reads_dir: str, where: str, scope: dict, every_min=None,
     entry = {"name": name, "label": lbl, "job": words, "where": where, "kind": "claude", "prompt": prompt, "tools": list(READ_TOOLS),
              "reads_dir": os.path.abspath(reads_dir), "trigger": {"every_min": every_min} if every_min else {},
              "scope": scope, "writes": "nothing (it reports here)",
-             "approved": {"words": words, "date": datetime.now().strftime("%m/%d/%Y")},
+             "approved": {"words": " ".join(str(yes or "").split()) or words, "date": datetime.now().strftime("%m/%d/%Y")},
              "status": "approved", "timeout_s": 900}
+    if types:
+        entry["types"] = list(types)
     reg["bots"].append(entry)
     save_registry(reg)
     post("bots", "added", f"{name} added for {where}: \"{words}\"")
@@ -1287,11 +1299,255 @@ def overview() -> list[dict]:
     for b in load_registry()["bots"]:
         st = read_state(b["name"])
         alive = pid_alive(st.get("pid"))
-        out.append({**{k: b.get(k) for k in ("name", "id", "label", "job", "where", "kind", "trigger", "status", "approved", "reads_dir", "scope")},
+        out.append({**{k: b.get(k) for k in ("name", "id", "label", "job", "where", "kind", "trigger", "status", "approved", "reads_dir", "scope",
+                                             "types", "service")},
                     "writes": "nothing (it reports here)" if not can_change(b) else perms_summary(b),
                     "running": alive, "in_run": alive and in_run(b["name"]), "state": st, "perms": perms_of(b),
                     "questions": len(open_questions(b["name"])), "tabs": [{"id": t["id"], "title": t["title"]} for t in card_tabs(b["name"])]})
     return out
+
+
+def usage_rows() -> list[list]:
+    """Every run's and chat's token count, [when, bot, tokens], for the Bots tab's charts (they zoom from minutes to years)."""
+    return [[r.get("ts"), r.get("bot"), r.get("total") or 0] for r in _jsonl(p("usage.jsonl"))]
+
+
+# ---------------------------------------------------------------- bot types, services and the Bot design suite
+# Bot types are names only: what a bot of a type does is the user's to say, in its job. A service is a small crew of bots
+# that hand work along; it unlocks when there's a bot of every type it needs, and opening it (with the user's yes) makes
+# its tender, which runs the crew one stage at a time. Everything a service does stays within its bots' permissions.
+BOT_TYPES = [("archivist", "Archivist", "ledger"), ("librarian", "Librarian", "book"), ("historian", "Historian", "book"),
+             ("digital_archeologist", "Digital archeologist", "lens"), ("researcher", "Researcher", "lens"),
+             ("subject_expert", "Subject-matter expert", "spark"), ("data_scientist", "Data scientist", "flask"),
+             ("accountant", "Accountant", "ledger"), ("security_manager", "Security manager", "lock"), ("editor", "Editor", "book"),
+             ("auditor", "Auditor", "ledger"), ("cartographer", "Cartographer", "layers"), ("scout", "Scout", "spark"),
+             ("quartermaster", "Quartermaster", "gear"), ("translator", "Translator", "book"), ("curator", "Curator", "layers"),
+             ("tester", "Tester", "bug"), ("mentor", "Mentor", "bulb")]
+SERVICES = [
+    {"id": "market_research", "label": "Market research", "needs": ["researcher", "data_scientist"], "hue": "#3d9bff",
+     "blurb": "What's out there and what the numbers say about it.", "goal": "a short market-research brief about what's in your folder"},
+    {"id": "private_investigator", "label": "Private investigator", "needs": ["archivist", "historian", "researcher"], "hue": "#b46bff",
+     "blurb": "Who changed what, when and why.", "goal": "a case file: what changed most recently in your folder, when, and what it was for"},
+    {"id": "resource_finder", "label": "Resource finder", "needs": ["librarian", "scout"], "hue": "#3fb950",
+     "blurb": "Where things are, and what's worth getting.", "goal": "a list of what's in your folder, where it is, and what's worth adding or updating"},
+    {"id": "data_mining", "label": "Data mining", "needs": ["digital_archeologist", "data_scientist"], "hue": "#e3b341",
+     "blurb": "Dig up old results and see what they show.", "goal": "old results, notes and logs that were never looked at again, and what they show"},
+    {"id": "data_analytics", "label": "Data analytics", "needs": ["data_scientist", "accountant"], "hue": "#ff9a2e",
+     "blurb": "What the work costs and what it buys.", "goal": "what your bots cost to run (their token use) and what each one has delivered"},
+    {"id": "ad_agency", "label": "Ad agency", "needs": ["researcher", "editor"], "hue": "#ff4d4d",
+     "blurb": "Plain, honest copy for what you make.", "goal": "draft copy for what's in your folder, honest about what each thing does (drafts only; nothing is published)"},
+    {"id": "legal", "label": "Legal", "needs": ["subject_expert", "auditor"], "hue": "#8a8f98",
+     "blurb": "License and terms checks. Not legal advice.", "goal": "a license and terms check of what's in your folder, labeled 'not legal advice'"},
+]
+
+
+def _clean_name(s) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(s or "").lower()).strip("_")[:40]
+
+
+def bot_types() -> list[dict]:
+    """Every bot type: the ones Randis UDS comes with, then the ones the user named (custom: true)."""
+    mine = _read_json(p("types.json"), {}).get("types", [])
+    return [{"id": i, "label": l, "icon": ic} for i, l, ic in BOT_TYPES] + mine
+
+
+def add_type(label_: str) -> list[dict]:
+    """A bot type the user names: a name only. What it's for is theirs to say in each bot's job."""
+    lbl = " ".join(str(label_ or "").split())[:40]
+    tid = _clean_name(lbl)
+    if len(tid) < 2:
+        raise ValueError("Give the type a name (letters and numbers).")
+    if any(t["id"] == tid or t["label"].lower() == lbl.lower() for t in bot_types()):
+        raise ValueError(f"There's already a bot type called {lbl}.")
+    data = _read_json(p("types.json"), {})
+    data.setdefault("types", []).append({"id": tid, "label": lbl, "icon": "robot", "custom": True})
+    _write_json(p("types.json"), data)
+    post("you", "type", f"new bot type: {lbl}")
+    return bot_types()
+
+
+def draft(ids: list) -> dict:
+    """The design suite's step 2: a name and title from the picked bot types. The job is left for the user to write."""
+    by = {t["id"]: t for t in bot_types()}
+    picked = [by[i] for i in ids or [] if i in by]
+    if not picked or len(picked) != len(ids):
+        raise ValueError("Pick one or more bot types from the list.")
+    return {"name": "_".join(t["id"] for t in picked)[:40], "title": " + ".join(t["label"] for t in picked), "job": "",
+            "icon": picked[0]["icon"], "types": [t["id"] for t in picked]}
+
+
+def services() -> list[dict]:
+    """Every service, with unlocked, the bot found for each type it needs (in stage order), what's missing, and its tender."""
+    reg = load_registry()["bots"]
+    crew = [b for b in reg if approved(b) and not b.get("service")]
+    out = []
+    for s in SERVICES:
+        members, missing = [], []
+        for need in s["needs"]:
+            b = next((b for b in crew if need in (b.get("types") or [])), None)
+            if b:
+                members.append({"type": need, "bot": b["name"]})
+            else:
+                missing.append(need)
+        tender = next((b["name"] for b in reg if b.get("service") == s["id"] and b.get("status") != "retired"), None)
+        out.append({**s, "unlocked": not missing, "members": members, "missing": missing, "tender": tender})
+    return out
+
+
+def open_service(sid: str, words: str) -> dict:
+    """Open an unlocked service: make its tender bot, with the user's yes in their own words."""
+    words = " ".join(str(words or "").split())
+    if len(words) < 2:
+        raise ValueError("Opening a service needs your yes, in your words.")
+    s = next((x for x in services() if x["id"] == sid), None)
+    if not s:
+        raise ValueError(f"There's no service called {sid}.")
+    if not s["unlocked"]:
+        raise ValueError(f"{s['label']} is locked: it still needs a bot of type {', '.join(s['missing']).replace('_', ' ')}.")
+    if s["tender"]:
+        raise ValueError(f"{s['label']} is already open (its tender is {s['tender']}).")
+    reg = load_registry()
+    names = {b["name"] for b in reg["bots"]}
+    name, n = f"{sid}_tender", 1
+    while name in names:
+        n += 1
+        name = f"{sid}_tender{n}"
+    entry = {"name": name, "label": "Service tender", "kind": "service", "service": sid, "prompt": "",
+             "job": f"Runs the {s['label']} service: its bots in order ({' -> '.join(m['bot'] for m in s['members'])}), each reading what "
+                    f"the earlier ones found, then writes the service's report: {s['goal']}.",
+             "where": f"the {s['label']} service", "trigger": {}, "scope": {"level": "app"}, "writes": "nothing (it reports here)",
+             "approved": {"words": words, "date": datetime.now().strftime("%m/%d/%Y")}, "status": "approved", "timeout_s": 3600}
+    reg["bots"].append(entry)
+    save_registry(reg)
+    post("you", "service", f"{s['label']} opened: \"{words}\"; its tender is {name}")
+    return bot(name)
+
+
+def _stage_prompt(b: dict, svc: dict, i: int, n: int) -> str:
+    role = "gather what the service needs" if i == 0 else "write the service's result" if i == n - 1 else "analyze what was gathered"
+    return (b.get("prompt", "") + duties_prompt(b["name"]) + f"\n\nYou are stage {i + 1} of {n} of the {svc['label']} service, whose goal is: "
+            f"{svc['goal']}. Your part: {role}, using your job above."
+            + (" The file earlier_stages.md in your working folder holds what the earlier stages reported; read it first and build "
+               "on it rather than repeating it." if i else "")
+            + (" Write the result as the service's report: short sections, plain words, each point with the file it came from."
+               if i == n - 1 else " Report what the next stage needs, briefly."))
+
+
+def _service_run(t: dict) -> tuple[int, str, str, dict]:
+    """A tender's run: each of the service's bots in turn, with its own permissions, from its own folder; each reads what
+    the earlier ones reported. The answer is the service's report; every stage's tokens count toward the tender."""
+    svc = next((s for s in services() if s["id"] == t["service"]), None)
+    if not svc or not svc["unlocked"]:
+        return 1, "", f"the service is locked: it needs a bot of type {', '.join((svc or {}).get('missing', ['?']))}", {}
+    seen = list(dict.fromkeys(m["bot"] for m in svc["members"]))      # one bot may cover two types: it runs once
+    earlier, toks, code = [], {}, 0
+    for i, name in enumerate(seen):
+        b = bot(name)
+        with open(os.path.join(workspace(b), "earlier_stages.md"), "w", encoding="utf-8") as f:
+            f.write("\n\n".join(earlier) or "(you are the first stage)")
+        t0 = time.time()
+        code, answer, err, tk = _claude(b, _stage_prompt(b, svc, i, len(seen)), f"{svc['label']} service, stage {i + 1} of {len(seen)}",
+                                        b.get("timeout_s", 900))
+        for k in (*TOKEN_KEYS, "cost_usd"):
+            toks[k] = toks.get(k, 0) + (tk.get(k) or 0)
+        text = answer.strip() if code == 0 else f"(this stage failed, exit {code}) {answer.strip()}\n{err.strip()[-800:]}"
+        earlier.append(f"## Stage {i + 1}: {name} ({time.time() - t0:.0f} s)\n\n{text}")
+        if code:
+            break
+    report = (f"# {svc['label']} service report\n\n{datetime.now().strftime('%m/%d/%Y %H:%M')}. Goal: {svc['goal']}.\n"
+              f"Stages: {' -> '.join(seen)}.\n\n" + "\n\n".join(earlier)
+              + f"\n\n{svc['label']}: {len(earlier) - (1 if code else 0)} of {len(seen)} stages done.")
+    return code, report, "", toks
+
+
+WIZARD_SYSTEM = (
+    "You are the Bot Wizard in the Bot design suite of Randis UDS. The user tells you in plain words what they want a bot "
+    "to do, and you fill in the form beside you: which bot types it's made from, its name, its job, and how often it runs. "
+    "New bots read and report only (the user can give one more later, on its card's Perms tab), so never promise more than "
+    "that. Ask at most one short question at a time, in short plain words. Never make the bot yourself: the user makes it "
+    "on the last step by typing their yes. You don't know what the user wants a bot for until they say it: never make up a "
+    "job, and never guess what a bot type means. The job is the user's own words (tidied only for spelling); if they haven't "
+    "said it yet, leave job empty and ask them. "
+    "Reply with ONE JSON object and nothing else: {\"say\": what you say to the user, \"types\": [bot type ids from the list, "
+    "or [] if it's too early to pick], \"name\": a short snake_case name or \"\", \"job\": the job in the user's own words, "
+    "or \"\", \"every\": one of \"\", \"15\", \"60\", \"1440\" (minutes; \"\" means only when the user clicks Start now), "
+    "\"step\": 1-4, the form step to show (4 once types, name and job are all settled)}.")
+
+
+def wizard_ask(msgs: list, form: dict | None = None) -> dict:
+    """The Bot Wizard: a chat beside the design suite's form that fills it in. msgs is the chat so far,
+    [{who: "you"|"wizard", msg}]. Returns what the wizard says and the fields it filled in. It reads nothing and runs nothing."""
+    cmd = ccode.command()
+    if not cmd:
+        raise ValueError("The wizard talks through Claude Code, which isn't installed on this computer (claude.com/claude-code).")
+    types = bot_types()
+    ids = {t["id"] for t in types}
+    talk = "\n".join(f"{'User' if m.get('who') == 'you' else 'Wizard'}: {' '.join(str(m.get('msg', '')).split())}" for m in (msgs or [])[-20:])
+    prompt = ("Bot types (id: name):\n" + "\n".join(f"{t['id']}: {t['label']}" for t in types)
+              + f"\n\nThe form right now: {json.dumps(form or {})}\n\nThe chat so far (oldest first):\n{talk}\n\nYour JSON reply:")
+    os.makedirs(workspaces(), exist_ok=True)
+    try:
+        res = subprocess.run([*cmd, "-p", "--output-format", "text", "--tools", "", "--permission-mode", "dontAsk", "--no-session-persistence",
+                              "--setting-sources", "project", "--strict-mcp-config", "--append-system-prompt", WIZARD_SYSTEM],
+                             input=prompt, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=workspaces(),
+                             timeout=240, env=clean_env(), creationflags=NO_WINDOW)
+    except subprocess.TimeoutExpired:
+        raise ValueError("The wizard took longer than 4 minutes and was stopped. Try again.")
+    out = res.stdout or ""
+    a, b = out.find("{"), out.rfind("}")
+    try:
+        r = json.loads(out[a:b + 1]) if a >= 0 < b else {}
+    except ValueError:
+        r = {}
+    if not isinstance(r, dict) or not r.get("say"):
+        return {"say": out.strip() or f"(The wizard said nothing. {(res.stderr or '').strip()[:200]})", "types": [], "name": "", "job": "",
+                "every": None, "step": None}
+    every, step = str(r.get("every") or ""), r.get("step")
+    return {"say": str(r["say"]), "types": [t for t in (r.get("types") or []) if t in ids], "name": _clean_name(r.get("name")),
+            "job": " ".join(str(r.get("job") or "").split()), "every": every if every in ("", "15", "60", "1440") else None,
+            "step": max(1, min(4, int(step))) if isinstance(step, (int, float)) else None}
+
+
+def design(spec: dict, reads_dir: str, where: str) -> dict:
+    """The design suite's last step: make the bot from its types, name, job and how often, with the user's yes in their words."""
+    spec = spec or {}
+    yes = " ".join(str(spec.get("yes") or "").split())
+    if len(yes) < 2:
+        raise ValueError("Type your yes for this bot, in your own words.")
+    every = spec.get("every_min")
+    every = int(every) if every not in (None, "", "0", 0) else None
+    d = draft(list(spec.get("types") or []))
+    return add_bot(spec.get("job", ""), reads_dir, where, {"level": "app"}, every, d["title"], spec.get("name") or d["name"], d["types"], yes)
+
+
+def group_members() -> list[str]:
+    """Who answers in Chat with all bots: every bot on duty (not retired)."""
+    return [b["name"] for b in load_registry()["bots"] if approved(b)]
+
+
+_SCAN = {"t": 0.0, "rows": []}
+
+
+def view() -> dict:
+    """Everything the Bots tab draws, in one call. The program scan lists every process on the computer, so it runs at
+    most every 20 seconds."""
+    if time.time() - _SCAN["t"] > 20:
+        try:
+            _SCAN.update(t=time.time(), rows=scan_procs())
+        except Exception:
+            _SCAN.update(t=time.time(), rows=[])
+    bots_ = overview()
+    names = [b["name"] for b in bots_]
+    return {"bots": bots_, "max_parallel": MAX_PARALLEL, "paused": paused(), "usage": usage_rows(),
+            "chats": {n: chat_log(n)[-60:] for n in names}, "duties": {n: duties(n) for n in names},
+            "card_tabs": {n: card_tabs(n) for n in names}, "procs": _SCAN["rows"],
+            "proc_chats": {n: proc_chat(n)[-30:] for n in names},
+            "proc_open": {n: [q.get("pid") for q in open_questions(n)] for n in names},
+            "groups": {"all": {"log": group_log()[-60:], "members": group_members(), "waiting": group_waiting()}},
+            "types": bot_types(), "services": services(),
+            "perms": {"features": [{"id": k, "label": l, "about": a} for k, l, a, *_ in PERM_FEATURES], "levels": PERM_LEVELS,
+                      "holdbacks": [{"id": k, "label": l, "about": a} for k, l, a, *_ in HOLDBACKS],
+                      "default": perms_of({}), "bots": [{"name": b["name"], "perms": b["perms"]} for b in bots_]}}
 
 
 def main(argv) -> int:

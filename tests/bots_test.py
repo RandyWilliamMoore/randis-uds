@@ -297,6 +297,58 @@ check("every bot is told which system it's on, so its commands fit", ("This comp
 for x in (d, bd, bk, lc):
     bots.retire(x["name"])
 
+# ---------------- bot types, the Bot design suite, the Bot Wizard and bot services
+ty = bots.bot_types()
+check("bot types come built in, names and pictures only", len(ty) >= 15 and all(set(t) == {"id", "label", "icon"} for t in ty)
+      and "researcher" in [t["id"] for t in ty], ty[:3])
+check("you can name your own type", bots.add_type("News hound")[-1] == {"id": "news_hound", "label": "News hound", "icon": "robot", "custom": True})
+check("but not one that's already there", "already" in refused(lambda: bots.add_type("researcher")))
+dr = bots.draft(["researcher", "editor"])
+check("picking types drafts a name and title, and leaves the job for you", dr["name"] == "researcher_editor" and dr["title"] == "Researcher + Editor"
+      and dr["job"] == "" and dr["types"] == ["researcher", "editor"], dr)
+check("a type that isn't there is refused", "Pick one or more" in refused(lambda: bots.draft(["nope"])))
+check("making it needs your yes in your words", "your yes" in refused(lambda: bots.design({"types": ["researcher"], "job": "Read my notes."}, READS, "the app")))
+w = bots.wizard_ask([{"who": "you", "msg": "I want a bot that reads my notes"}], {"step": 1})
+wa = calls()[-1]["args"]
+check("the Bot Wizard answers and fills in the form, keeping only real types and a clean name",
+      w["say"].startswith("A researcher bot") and w["types"] == ["researcher"] and w["name"] == "notes_reader" and w["every"] == "60" and w["step"] == 2, w)
+check("the wizard reads nothing and runs nothing", wa[wa.index("--tools") + 1] == "" and "dontAsk" in wa, wa)
+svc = {s["id"]: s for s in bots.services()}
+check("services are listed, locked until there's a bot of each type they need",
+      len(svc) == 7 and not svc["ad_agency"]["unlocked"] and svc["ad_agency"]["missing"] == ["researcher", "editor"], svc["ad_agency"])
+r1 = bots.design({"types": ["researcher"], "name": "Finder", "job": "Find what my folder is about.", "yes": "yes make it", "every_min": "60"}, READS, "the app")
+check("the suite makes the bot: its name, types, job, schedule and your words", r1["name"] == "finder" and r1["types"] == ["researcher"]
+      and r1["label"] == "Researcher" and r1["approved"]["words"] == "yes make it" and r1["trigger"] == {"every_min": 60}
+      and bots.perms_of(r1)["level"] == "read", r1)
+check("a name that's taken is refused", "already a bot called finder" in refused(lambda: bots.design({"types": ["researcher"], "name": "finder",
+      "job": "Find more things in my folder.", "yes": "yes"}, READS, "the app")))
+check("one type isn't enough to unlock the ad agency", "locked" in refused(lambda: bots.open_service("ad_agency", "yes open it")))
+bots.design({"types": ["editor"], "job": "Tidy the wording of what Finder writes.", "yes": "yes"}, READS, "the app")
+a = next(s for s in bots.services() if s["id"] == "ad_agency")
+check("with a bot of each type, it unlocks, its crew in stage order", a["unlocked"] and [m["type"] for m in a["members"]] == ["researcher", "editor"]
+      and [m["bot"] for m in a["members"]] == ["finder", "editor"], a)
+check("opening it needs your yes", "your yes" in refused(lambda: bots.open_service("ad_agency", "")))
+tdr = bots.open_service("ad_agency", "yes, open the ad agency")
+check("opening it makes its tender", tdr["name"] == "ad_agency_tender" and tdr["service"] == "ad_agency" and tdr["kind"] == "service"
+      and next(s for s in bots.services() if s["id"] == "ad_agency")["tender"] == "ad_agency_tender", tdr)
+check("and it can't be opened twice", "already open" in refused(lambda: bots.open_service("ad_agency", "yes")))
+n0 = len(calls())
+res = bots.run_once("ad_agency_tender")
+stage = calls()[n0:]
+crew = [m["bot"] for m in a["members"]]
+check("the tender runs each bot of the crew in turn, in its own folder", res["exit"] == 0 and len(stage) == 2
+      and [os.path.basename(c["cwd"]) for c in stage] == crew and "stage 1 of 2 of the Ad agency service" in stage[0]["prompt"], [res, [c["cwd"] for c in stage]])
+check("each later stage reads what the earlier ones found", "Stage 1 of 2 done" in open(os.path.join(WS, crew[1], "earlier_stages.md"), encoding="utf-8").read()
+      and "earlier_stages.md" in stage[1]["prompt"])
+rep = bots.run_report("ad_agency_tender")
+check("its report has every stage, and every stage's tokens count toward the tender", "# Ad agency service report" in rep["text"]
+      and "Stage 2 of 2 done" in rep["text"] and bots.read_state("ad_agency_tender")["tokens"]["in"] == 200, rep["text"][:300])
+check("the tender, the services and the types reach the Bots tab", (lambda v: any(b["name"] == "ad_agency_tender" and b["service"] == "ad_agency" for b in v["bots"])
+      and len(v["services"]) == 7 and v["types"][-1]["id"] == "news_hound")(bots.view()))
+for x in ("ad_agency_tender", "finder", a["members"][1]["bot"]):
+    bots.retire(x)
+check("retiring the crew locks the service again", not next(s for s in bots.services() if s["id"] == "ad_agency")["unlocked"])
+
 # ---------------- the app, in its window
 shutil.rmtree(os.path.join(D, "bots"))
 import webview
@@ -348,7 +400,7 @@ def run(w):
         check("Make opens the Bots tab with the custom bot", until("current().kind === 'bots' && !!current().pane.querySelector('[data-bot=my_note_txt_bot1]')"), js("current().pane.textContent"))
         card = js("current().pane.querySelector('[data-bot=my_note_txt_bot1]').textContent") or ""
         check("its card shows the job, the tab, the schedule, and not run yet",
-              "Count the words in my note." in card and "my note.txt" in card and "Every hour" in card and "Not run yet" in card, card)
+              "Count the words in my note." in card and "my note.txt" in card and "runs every hour" in card and "Not run yet" in card, card)
         for kind in ("chat", "ide", "pdf", "shop"):
             js(f"addTab('{kind}')")
             check(f"a {kind} tab has + Add a bot", until("!!current().pane.querySelector('.tab-bot-btn')", 5), js("current().pane.innerHTML.slice(0, 300)"))
@@ -374,13 +426,13 @@ def run(w):
         js("document.querySelector('#modal [data-preset=bug_hunter]').checked = true; document.querySelector('#modal [data-preset=idea_finder]').checked = true;"
            "document.querySelector('#modal [data-act=bot-make]').click()")
         check("ticking two makes both, each with its label", until("!!current().pane.querySelector('[data-bot=app_bug_hunter1]') && !!current().pane.querySelector('[data-bot=app_idea_finder1]')")
-              and "Bug hunter: app_bug_hunter1" in (js("current().pane.querySelector('[data-bot=app_bug_hunter1]').textContent") or ""), js("current().pane.textContent"))
+              and "Bug hunter · runs" in (js("current().pane.querySelector('[data-bot=app_bug_hunter1]').textContent") or ""), js("current().pane.textContent"))
         check("a standard bot's job is its standard words", "suggest 3 new features" in (js("current().pane.querySelector('[data-bot=app_idea_finder1]').textContent") or ""))
         js("current().pane.querySelector('[data-bot=app_bug_hunter1] [data-act=bot-run]').click()")
-        check("Run once runs it, and its card shows the answer",
+        check("Start now runs it, and its card shows the answer",
               until("(current().pane.querySelector('[data-bot=app_bug_hunter1]') || {}).textContent.includes('All clear: nothing to fix.')", 25),
               js("current().pane.querySelector('[data-bot=app_bug_hunter1]').textContent"))
-        check("its light is green", js("current().pane.querySelector('[data-bot=app_bug_hunter1] .bot-light').dataset.light") == "ok")
+        check("its light is green", js("current().pane.querySelector('[data-bot=app_bug_hunter1] .bt-light').dataset.light") == "ok")
         check("today's record counts it", until("current().pane.textContent.includes('app_bug_hunter1: 1 runs, 0 failed')", 6), js("current().pane.textContent"))
         check("it read only the app's folder", calls()[-1]["args"][calls()[-1]["args"].index("--add-dir") + 1] == HERE)
         # ---- the app's form offers the computer helpers; a notepad tab's offers the proofreader
@@ -418,70 +470,126 @@ def run(w):
                 time.sleep(0.2)
             return False
         cq = "current().pane.querySelector('[data-bot=app_bug_hunter1]')"
-        tabs_of = lambda: js(f"[...{cq}.querySelectorAll('.bot-tab')].map(b => b.textContent).join(',')")
-        check("a card shows its ID, a stack of six lights with one lit, and an icon for its kind",
-              js(f"{cq}.querySelector('.bot-head strong').textContent").startswith("B0") and js(f"{cq}.querySelectorAll('.bot-lamp').length") == 6
-              and js(f"!!{cq}.querySelector('.bot-lamp.on')") and js(f"{cq}.querySelector('.bot-icon').textContent") == "\U0001F41E",
-              js(f"{cq}.querySelector('.bot-head').textContent"))
-        check("its tabs: Card, Report, Chat, Duties, Metrics, Processes, Permissions and + for your own", tabs_of() == "Card,Report,Chat,Duties,Metrics,Processes,Permissions,+", tabs_of())
+        tabs_of = lambda: js(f"[...{cq}.querySelectorAll('.bt-card-tab')].map(b => b.textContent).join(',')")
+        check("a card shows its ID, a sphere, a stack of six lights with one lit, and a picture for its kind",
+              js(f"{cq}.querySelector('.bt-topid').textContent").startswith("B0") and js(f"{cq}.querySelectorAll('.bt-andon-dot').length") == 6
+              and js(f"!!{cq}.querySelector('.bt-andon-dot[data-on=\"1\"]')") and js(f"{cq}.querySelector('.bt-avatar').dataset.icon") == "bug"
+              and js(f"{cq}.querySelector('.bt-light').dataset.hue") == "red", js(f"{cq}.querySelector('.bt-top').textContent"))
+        check("the sample card comes first, with every light lit", js("current().pane.querySelector('.bt-deck > .bt-bot').classList.contains('bt-bot-sample')")
+              and js("current().pane.querySelectorAll('.bt-bot-sample .bt-andon-dot[data-on=\"1\"]').length") == 6)
+        check("its tabs: Card, Report, Metrics, Data, Perms, Duties, Chat, Processes and + for your own",
+              tabs_of() == "Card,Report,Metrics,Data,Perms,Duties,Chat,Processes,+", tabs_of())
         js(f"const f = {cq}.querySelector('.bot-freq'); f.value = '1440'; f.dispatchEvent(new Event('change', {{bubbles: true}}))")
-        check("How often: picking Once a day saves it and starts its schedule",
+        check("Runs: picking Once a day saves it and starts its schedule",
               wait(lambda: bots.bot("app_bug_hunter1")["trigger"] == {"every_min": 1440} and bots.running("app_bug_hunter1")), bots.bot("app_bug_hunter1")["trigger"])
         check("and the card says so", until(f"{cq}.textContent.includes('runs once a day') && {cq}.querySelector('.bot-freq').value === '1440'", 8))
+        check("its lights: on duty, not off duty", until(f"{cq}.querySelector('.bt-andon-dot[data-c=green]').dataset.on === '1' && {cq}.querySelector('.bt-andon-dot[data-c=red]').dataset.on === '0'", 8))
         js("current().pane.querySelector('[data-act=bots-pause]').click()")
         check("Pause all bots stops them, says so, and the button becomes Resume all bots",
-              until("!current().pane.querySelector('.bot-paused').hidden && !!current().pane.querySelector('[data-act=bots-resume]')", 8)
+              until("current().pane.querySelector('.bt-pause').dataset.paused === '1' && !!current().pane.querySelector('[data-act=bots-resume]')", 8)
               and wait(lambda: bots.paused() and not bots.running("app_bug_hunter1")))
         js("current().pane.querySelector('[data-act=bots-resume]').click()")
         check("Resume all bots brings back the one on its schedule", wait(lambda: not bots.paused() and bots.running("app_bug_hunter1")),
               [bots.paused(), bots.read_state("app_bug_hunter1"), bots.read_bus(last=6)])
         until(f"{cq}.querySelector('.bot-freq')", 5)
-        js(f"const f = {cq}.querySelector('.bot-freq'); f.value = ''; f.dispatchEvent(new Event('change', {{bubbles: true}}))")
-        check("When I click Run once: the schedule stops", wait(lambda: not bots.running("app_bug_hunter1") and bots.bot("app_bug_hunter1")["trigger"] == {}))
-        pick = lambda t: js(f"[...{cq}.querySelectorAll('.bot-tab')].find(b => b.textContent === '{t}').click()")
+        js(f"const f = {cq}.querySelector('.bot-freq'); f.value = 'off'; f.dispatchEvent(new Event('change', {{bubbles: true}}))")
+        check("Off: the schedule stops", wait(lambda: not bots.running("app_bug_hunter1") and bots.bot("app_bug_hunter1")["trigger"] == {}))
+        pick = lambda t: js(f"[...{cq}.querySelectorAll('.bt-card-tab')].find(b => b.textContent === '{t}').click()")
         pick("Chat")
         until(f"!!{cq}.querySelector('.bot-chat-box')", 5)
-        js(f"const b = {cq}.querySelector('.bot-chat-box'); b.value = 'hi there'; b.dispatchEvent(new Event('input')); {cq}.querySelector('[data-act=bot-chat-send]').click()")
+        js(f"const b = {cq}.querySelector('.bot-chat-box'); b.value = 'hi there'; b.dispatchEvent(new Event('input', {{bubbles: true}})); {cq}.querySelector('[data-act=bot-chat-send]').click()")
         check("Chat: the bot answers in its card", until(f"{cq}.textContent.includes('You said: hi there')", 20), js(f"{cq}.textContent"))
-        js(f"const b = {cq}.querySelector('.bot-chat-box'); b.focus(); b.value = 'half typed'; b.dispatchEvent(new Event('input'))")
-        d0 = int(js("current().pane.dataset.draws"))
-        check("a refresh doesn't eat what you're typing to a bot", until(f"+current().pane.dataset.draws > {d0}", 10)
-              and js(f"{cq}.querySelector('.bot-chat-box').value") == "half typed")
+        check("the picked tab stays picked across refreshes", js(f"{cq}.querySelector('.bt-card-tab[data-on=\"1\"]').textContent") == "Chat")
+        js(f"const b = {cq}.querySelector('.bot-chat-box'); b.focus(); b.value = 'half typed'; b.dispatchEvent(new Event('input', {{bubbles: true}}))")
+        time.sleep(6)
+        check("a refresh doesn't eat what you're typing to a bot", js(f"{cq}.querySelector('.bot-chat-box').value") == "half typed")
         js("document.activeElement.blur()")
+        d0 = int(js("current().pane.dataset.draws"))
+        check("and once you click away it refreshes again, keeping the words", until(f"+current().pane.dataset.draws > {d0}", 10)
+              and js(f"{cq}.querySelector('.bot-chat-box').value") == "half typed")
+        js(f"const b = {cq}.querySelector('.bot-chat-box'); b.value = ''; b.dispatchEvent(new Event('input', {{bubbles: true}}))")
         pick("Duties")
         until(f"!!{cq}.querySelector('[data-duty=general]')", 5)
-        js(f"const t = {cq}.querySelector('[data-duty=general]'); t.value = 'Look at the Bots tab too.'; t.dispatchEvent(new Event('change'))")
+        js(f"const t = {cq}.querySelector('[data-duty=general]'); t.value = 'Look at the Bots tab too.'; t.dispatchEvent(new Event('change', {{bubbles: true}}))")
         check("Duties: what you write is saved for its runs", wait(lambda: bots.duties("app_bug_hunter1")["general"] == "Look at the Bots tab too."))
         pick("Report")
         check("Report: its last run's full report", until(f"{cq}.querySelector('.bot-report') && {cq}.querySelector('.bot-report').textContent.includes('All clear')", 8))
-        js(f"{cq}.querySelector('.bot-rule-text').value = 'Say which file each bug is in.'; {cq}.querySelector('[data-act=bot-rule-add]').click()")
+        js(f"const r = {cq}.querySelector('.bot-rule-text'); r.value = 'Say which file each bug is in.'; r.dispatchEvent(new Event('input', {{bubbles: true}})); {cq}.querySelector('[data-act=bot-rule-add]').click()")
         check("a rule added from its report goes to every bot", wait(lambda: "Say which file each bug is in. (learned from app_bug_hunter1" in bots.rules_text()))
         pick("Metrics")
-        check("Metrics: runs, time, tokens, cost at API prices, and a chart of tokens a day",
-              until(f"{cq}.querySelectorAll('.bot-metric').length === 8 && {cq}.querySelectorAll('.bot-chart .bot-bar').length === 14", 8)
-              and "At API prices" in js(f"{cq}.textContent"), js(f"{cq}.querySelector('.bot-tab-body').textContent"))
-        pick("Permissions")
-        until(f"!!{cq}.querySelector('.bot-perm-level')", 5)
-        check("Permissions: Read only to start, with a switch per ability and the hold-backs",
-              js(f"{cq}.querySelector('.bot-perm-level').value") == "read" and js(f"{cq}.querySelectorAll('[data-feat]').length") == 4
-              and js(f"{cq}.querySelectorAll('[data-hold]').length") == 3)
-        js(f"{cq}.querySelector('[data-feat=edit]').click()")
+        check("Metrics: runs, time, tokens and cost at API prices", until(f"{cq}.querySelectorAll('.bt-metrics .bt-kv').length === 8", 8)
+              and "At API prices" in js(f"{cq}.textContent"), js(f"{cq}.textContent"))
+        pick("Card")
+        check("Usage: token mileage and a chart that zooms from minutes to years",
+              until(f"!!{cq}.querySelector('.bt-usage[data-chart=\"bot:app_bug_hunter1\"]')", 5)
+              and js(f"{cq}.querySelectorAll('.bt-usage-zoom').length") == 5 and "Token mileage" in js(f"{cq}.textContent"))
+        pick("Perms")
+        until(f"!!{cq}.querySelector('.bt-perms-main')", 5)
+        check("Perms: Read only to start, with a switch per ability and the hold-backs",
+              js(f"{cq}.querySelector('[data-act=perms-level][data-on=\"1\"]').dataset.level") == "read"
+              and js(f"{cq}.querySelectorAll('[data-act=perms-feature]').length") == 4 and js(f"{cq}.querySelectorAll('[data-act=perms-hold]').length") == 3)
+        js(f"{cq}.querySelector('[data-act=perms-feature][data-id=edit]').click()")
         check("turning on a switch makes it Custom, with that ability", wait(lambda: bots.perms_of(bots.bot("app_bug_hunter1"))["level"] == "custom"
               and bots.perms_of(bots.bot("app_bug_hunter1"))["features"]["edit"]))
         pick("Processes")
         check("Processes: says how to find its programs by their label", until(f"{cq}.textContent.includes('B0') && {cq}.textContent.includes('Task Manager')", 20))
-        js("window.prompt = () => 'Notes'")
         pick("+")
-        check("+ adds a tab of your own", until(f"[...{cq}.querySelectorAll('.bot-tab')].some(b => b.textContent === 'Notes' && b.classList.contains('on'))", 8)
+        js(f"const n = {cq}.querySelector('.bt-newtab'); n.value = 'Notes'; n.dispatchEvent(new Event('input', {{bubbles: true}})); {cq}.querySelector('[data-act=bot-tab-add]').click()")
+        check("+ adds a tab of your own", until(f"[...{cq}.querySelectorAll('.bt-card-tab')].some(b => b.textContent === 'Notes' && b.dataset.on === '1')", 8)
               and [t["title"] for t in bots.card_tabs("app_bug_hunter1")] == ["Notes"])
+        tid = bots.card_tabs("app_bug_hunter1")[0]["id"]
+        bots.card_tab_save("app_bug_hunter1", tid, "- [ ] check the menu\n- [x] check the tabs")
+        js("current().botsLoad()")
+        check("a tab with - [ ] lines is a to-do list you can tick", until(f"{cq}.querySelectorAll('.bt-cl-row').length === 2", 8))
+        js(f"{cq}.querySelector('.bt-cl-row input').click()")
+        check("ticking one saves it", wait(lambda: bots.card_tabs("app_bug_hunter1")[0]["text"].startswith("- [x] check the menu")))
         pick("Card")
-        js("const g = current().pane.querySelector('.bot-group .bot-chat-box'); g.value = 'What are you each for?'; current().pane.querySelector('[data-act=bots-group-send]').click()")
+        js(f"{cq}.querySelector('[data-act=card-fold]').click()")
+        check("a card folds to its name and lights, and stays folded", js(f"{cq}.dataset.folded") == "1"
+              and js(f"getComputedStyle({cq}.querySelector('.bt-card-tabs')).display") == "none" and js(f"getComputedStyle({cq}.querySelector('.bt-art')).display") != "none"
+              and "c:app_bug_hunter1" in js("localStorage.getItem('uds-bot-fold')"))
+        js("current().pane.querySelector('[data-act=bots-unfoldall]').click()")
+        check("Unfold all opens it again", js(f"{cq}.dataset.folded") == "0")
+        js("const g = current().pane.querySelector('.bt-group .bot-chat-box'); g.value = 'What are you each for?'; g.dispatchEvent(new Event('input', {bubbles: true})); current().pane.querySelector('[data-act=bots-group-send]').click()")
         check("Chat with all bots: each working bot answers under it",
-              until("current().pane.querySelectorAll('.bot-group .bot-msg.bot').length >= 2", 30), js("current().pane.querySelector('.bot-group').textContent"))
-        js("current().pane.querySelector('.bots-body textarea[placeholder^=\"One rule\"]').value = 'Be brief.'; current().pane.querySelector('[data-act=bots-rules-save]').click()")
+              until("current().pane.querySelectorAll('.bt-group .bot-msg.bot').length >= 2", 30), js("current().pane.querySelector('.bt-group').textContent"))
+        js("const r = current().pane.querySelector('.bt-rules'); r.value = 'Be brief.'; r.dispatchEvent(new Event('input', {bubbles: true})); current().pane.querySelector('[data-act=bots-rules-save]').click()")
         check("the rules every bot follows can be written on the Bots tab", wait(lambda: bots.rules_text() == "Be brief."))
-        check("the Bots tab has the usage chart and the daily record with a day picker",
-              js("current().pane.querySelectorAll('.bot-chart').length") >= 1 and js("current().pane.querySelector('.bot-day').options.length") >= 1)
+        check("the Bots tab has the all-bots usage chart and the daily record with a day picker",
+              js("!!current().pane.querySelector('.bt-usage-all .bt-usage')") and js("current().pane.querySelector('.bot-day').options.length") >= 1)
+        # the Bot design suite and the Bot Wizard
+        check("the + menu and the Bots tab both open the Bot design suite", js("!!document.querySelector('#newtab-menu [data-kind=botsuite]')")
+              and js("!!current().pane.querySelector('[data-act=bots-suite]')"))
+        js("current().pane.querySelector('[data-act=bots-suite]').click()")
+        S = "current().pane"
+        check("the suite opens with the Bot Wizard in 3D and the bot types to pick", until(f"current().kind === 'botsuite' && {S}.querySelectorAll('.suite-type-box').length >= 15", 8)
+              and js(f"!!{S}.querySelector('.suite-wizard-face canvas.wz-gl')") and "Bot Wizard" in js(f"{S}.textContent"))
+        check("he's drawn (WebGL works in this window)", until(f"(() => {{ const f = {S}.querySelector('.suite-wizard-face'); return !!(f._wz && f._wz.gl); }})()", 5))
+        js(f"{S}.querySelector('.suite-wizard-face').dataset.next = '0'; {S}.querySelector('.suite-wizard-face').click()")
+        check("click him and he shouts", until(f"({S}.querySelector('.wz-shout') || {{}}).textContent === 'Ow!!!'", 3))
+        js(f"const a = {S}.querySelector('.suite-wizard-in'); a.value = 'I want a bot that reads my notes'; {S}.querySelector('[data-act=suite-wiz-send]').click()")
+        check("tell the wizard what you want: he answers and fills in the steps", until(f"{S}.querySelector('.suite-box').dataset.step === '2' && {S}.querySelector('.suite-name').value === 'notes_reader'", 20)
+              and js(f"{S}.querySelector('.suite-job').value") == "Read my notes and list the open questions."
+              and "What should I call it?" in js(f"{S}.querySelector('.suite-wizard-log').textContent"), js(f"{S}.querySelector('.suite-wizard-log').textContent"))
+        js(f"{S}.querySelector('[data-act=suite-reset]').click()")
+        js(f"for (const id of ['scout', 'librarian']) {S}.querySelector(`.suite-type-box[value=${{id}}]`).checked = true; {S}.querySelector('[data-act=suite-next]').click()")
+        check("or pick types yourself: Next drafts the name", until(f"!!{S}.querySelector('.suite-name') && {S}.querySelector('.suite-name').value === 'librarian_scout'", 8),
+              js(f"{S}.querySelector('.suite-box').textContent"))
+        js(f"{S}.querySelector('.suite-job').value = 'List what is in my folder and what could be added.'; {S}.querySelector('[data-act=suite-next]').click()")
+        until(f"!!{S}.querySelector('.suite-every')", 5)
+        js(f"{S}.querySelector('.suite-every').value = ''; {S}.querySelector('[data-act=suite-next]').click()")
+        until(f"!!{S}.querySelector('.suite-yes')", 5)
+        js(f"{S}.querySelector('.suite-yes').value = 'yes, make it'; {S}.querySelector('[data-act=suite-make]').click()")
+        check("Make the bot makes it from its types, and opens the Bots tab with its card", until("current().kind === 'bots' && !!current().pane.querySelector('[data-bot=librarian_scout]')", 10)
+              and bots.bot("librarian_scout")["types"] == ["librarian", "scout"], js("current().kind"))
+        R = "current().pane.querySelector('.bt-service[data-svc=resource_finder]')"
+        check("one bot of both types unlocks the Resource finder service", until(f"!!{R} && {R}.dataset.state === 'unlocked'", 10)
+              and js("current().pane.querySelector('.bt-service[data-svc=legal]').dataset.state") == "locked"
+              and "Still needs a bot of type" in js("current().pane.querySelector('.bt-service[data-svc=legal]').textContent"))
+        js(f"const w = {R}.querySelector('.bt-svc-words'); w.value = 'yes, open it'; w.dispatchEvent(new Event('input', {{bubbles: true}})); {R}.querySelector('[data-act=svc-open]').click()")
+        check("Open this service makes its tender, shown on the service card", until(f"!!{R} && {R}.dataset.state === 'open' && !!{R}.querySelector('[data-bot=resource_finder_tender]')", 10)
+              and js(f"{R}.querySelectorAll('.bt-service-bots .bt-bot[data-bot=librarian_scout]').length") == 1,
+              js(f"({R} ? {R}.dataset.state + ' ' + {R}.querySelectorAll('.bt-service-bots .bt-bot[data-bot=librarian_scout]').length : 'none') + ' | ' + $('#toast').textContent"))
         check("no script errors", not js("window.__errs.length"), js("window.__errs"))
     except Exception as e:
         check("test crashed", False, repr(e))

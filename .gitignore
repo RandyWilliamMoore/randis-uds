@@ -29,3 +29,5 @@ data/history.md
 .venv/
 data/publish.json
 data/bots/
+# your own wiki (the My Wiki tab) stays on this computer
+data/tabs/4d79776b69/

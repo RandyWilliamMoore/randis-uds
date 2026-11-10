@@ -26,6 +26,12 @@ if "touch" in job and os.environ.get("FAKE_TOUCH"):
 answer = "I read the folder.\nNo mistakes found in 3 files.\nAll clear: nothing to fix."
 if "\nUser: " in prompt:                                     # a chat
     answer = f"Hello, I'm on it. You said: {prompt.rsplit(chr(10) + 'User: ', 1)[1].split(chr(10))[0]}"
+if prompt.rstrip().endswith("Your JSON reply:"):           # the Bot Wizard: fills in the design suite's form
+    answer = json.dumps({"say": "A researcher bot that reads your notes. What should I call it?", "types": ["researcher", "no_such_type"],
+                         "name": "Notes Reader!", "job": "Read my notes and list the open questions.", "every": "60", "step": 2})
+m = re.search(r"You are stage (\d+) of (\d+) of the (.+?) service", prompt)
+if m:                                                      # a stage of a bot service
+    answer = f"Stage {m.group(1)} of {m.group(2)} done for {m.group(3)}." + (" I read earlier_stages.md." if m.group(1) != "1" else "")
 for pid in re.findall(r"Program (\d+) \(", prompt):
     answer += f"\nDONE {pid}"
 if "--output-format" in args and args[args.index("--output-format") + 1] == "json":

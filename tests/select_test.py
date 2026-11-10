@@ -99,7 +99,7 @@ def _run(w):
           and "Copy this text" not in js(menu) and "Undo" not in js(menu), js(menu))
     js("document.body.click()")
 
-    # a page that refreshes itself waits while text is highlighted (the Bots tab refreshes every 4 s)
+    # a page that refreshes itself waits while text is highlighted (the Bots tab refreshes every 5 s)
     js("openBots()")
     first = "current().pane.querySelector('.bots-intro')"
     until(f"!!{first} && +current().pane.dataset.draws > 0", 8)
