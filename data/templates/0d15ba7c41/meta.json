@@ -1,0 +1,15 @@
+{
+ "id": "0d15ba7c41",
+ "name": "Club Wiki",
+ "created": 1794263068.9345205,
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "a sample wiki",
+   "time": 1794263068.9345205
+  }
+ ],
+ "current": 1
+}
