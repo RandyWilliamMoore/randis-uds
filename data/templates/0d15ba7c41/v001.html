@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Club Wiki</title>
+<style>
+:root{--bg:#1e1f22;--side:#18191c;--card:#25272b;--ink:#e6e6e6;--sub:#a3a9b6;--line:#34373d;--acc:#f59e0b;--link:#7cb7ff;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--blue:#60a5fa;--mute:#6b7280}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 "Segoe UI",system-ui,sans-serif;display:flex}
+a{color:var(--link);text-decoration:none;cursor:pointer}a:hover{text-decoration:underline}.back{display:inline-block;margin-bottom:8px;font-size:13px}
+#side{width:250px;min-width:250px;background:var(--side);border-right:1px solid var(--line);overflow-y:auto;padding:12px 10px 40px}
+#side .brand{display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer}
+#side .brand img{width:34px;height:34px}#side .brand b{font-size:16px}#side .brand small{display:block;color:var(--sub);font-size:11px}
+#q{width:100%;padding:7px 9px;border-radius:6px;border:1px solid var(--line);background:#111214;color:var(--ink);margin-bottom:10px}
+#side h4{margin:14px 4px 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--sub)}
+#side a{display:block;padding:3px 8px;border-radius:5px;color:var(--ink);font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#side a:hover{background:#2a2c31;text-decoration:none}#side a.on{background:#3a2f15;color:var(--acc)}
+#main{flex:1;overflow-y:auto}
+#page{max-width:980px;margin:0 auto;padding:22px 34px 80px}
+.crumb{color:var(--sub);font-size:12px;margin-bottom:6px}
+h1{font-size:28px;margin:4px 0 6px;border-bottom:1px solid var(--line);padding-bottom:8px}
+h2{font-size:21px;margin:26px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font-size:17px;margin:18px 0 6px}h4,h5,h6{margin:14px 0 4px}
+table{border-collapse:collapse;margin:10px 0;width:100%;font-size:13.5px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:5px 8px;vertical-align:top;text-align:left}th{background:#2a2c31}
+code{background:#111214;padding:1px 5px;border-radius:4px;font:13px Consolas,monospace;color:#f0c674}
+pre{background:#111214;border:1px solid var(--line);border-radius:6px;padding:10px;overflow-x:auto;font:12.5px/1.45 Consolas,monospace}
+pre code{background:none;padding:0;color:#d6d6d6}
+blockquote{border-left:3px solid var(--acc);margin:8px 0;padding:2px 12px;color:var(--sub)}
+hr{border:0;border-top:1px solid var(--line);margin:18px 0}
+.infobox{float:right;width:270px;margin:0 0 14px 18px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13px}
+.infobox img{width:100%;border-radius:6px}.infobox table{display:table;font-size:12.5px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin:12px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;cursor:pointer}
+.card:hover{border-color:var(--acc)}.card b{display:block;margin-bottom:4px}.card span{color:var(--sub);font-size:13px}
+.bot{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;margin:8px 0}
+.bot img{width:72px;height:72px;border-radius:10px;background:#111}.bot .ph{width:72px;height:72px;border-radius:10px;background:#333;display:grid;place-items:center;font-size:28px}
+.lbl{display:inline-block;padding:0 7px;border-radius:9px;font-size:11.5px;font-weight:600}
+.SOLVED{background:#14532d;color:#86efac}.PARTIAL{background:#1e3a8a;color:#bfdbfe}.WIP{background:#78350f;color:#fde68a}.OPEN{background:#7f1d1d;color:#fecaca}.WORKAROUND{background:#4c1d95;color:#ddd6fe}
+.big{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0}.stat{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 16px;min-width:150px}
+.stat b{font-size:24px;display:block}.stat span{color:var(--sub);font-size:12px}
+.diagram{background:#141518;border:1px solid var(--line);border-radius:8px;padding:10px;margin:12px 0;text-align:center}
+.diagram svg{max-width:100%;height:auto}
+.hit{background:#5b4210;border-radius:3px}
+.res{margin:10px 0;padding:8px 10px;background:var(--card);border-radius:6px}.res small{color:var(--sub)}
+figure{margin:12px 0}figure img{max-width:100%;border:1px solid var(--line);border-radius:6px}figcaption{color:var(--sub);font-size:12.5px}
+.toc{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 14px;display:inline-block;font-size:13px;margin:8px 0}
+.foot{margin-top:40px;color:var(--mute);font-size:12px;border-top:1px solid var(--line);padding-top:8px}
+</style></head><body>
+<nav id="side"></nav><div id="main"><div id="page"></div></div>
+<script>
+const D = {"pics": {"mark": "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f59e0b'/%3E%3Cpath d='M18 46 L32 16 L46 46 Z' fill='none' stroke='%231e1f22' stroke-width='5' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='38' r='4' fill='%231e1f22'/%3E%3C/svg%3E", "shop": "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 180'%3E%3Crect width='320' height='180' fill='%2325272b'/%3E%3Crect x='20' y='100' width='280' height='14' fill='%238a6a4a'/%3E%3Crect x='40' y='114' width='10' height='50' fill='%238a6a4a'/%3E%3Crect x='270' y='114' width='10' height='50' fill='%238a6a4a'/%3E%3Crect x='60' y='60' width='60' height='40' rx='4' fill='%2360a5fa'/%3E%3Crect x='140' y='70' width='40' height='30' fill='%23fbbf24'/%3E%3Ccircle cx='230' cy='82' r='18' fill='%23f87171'/%3E%3C/svg%3E", "printer": "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 180'%3E%3Crect width='320' height='180' fill='%2325272b'/%3E%3Crect x='110' y='30' width='100' height='120' rx='8' fill='%23555'/%3E%3Crect x='125' y='45' width='70' height='70' fill='%23ddd'/%3E%3Cpath d='M140 105 L160 70 L180 105 Z' fill='%23f59e0b'/%3E%3Crect x='150' y='120' width='20' height='12' fill='%234ade80'/%3E%3C/svg%3E"}, "docs": [{"id": "doc:handbook/welcome.md", "title": "handbook/welcome.md", "group": "Handbook", "md": "# Welcome to the club\n\nThis is a sample page. The club, its people and its numbers are made up, to show what a wiki page can hold.\n\n## First visit\n\n1. Come on a Tuesday, Thursday or Saturday.\n2. Do the [safety check](safety.md) with a volunteer (about 20 minutes).\n3. Book a bench on the sheet by the door.\n\n## What to bring\n\n- Closed shoes\n- Your project, or an idea for one\n- A notebook\n\n> Ask anyone in a green apron. They're all volunteers and happy to help.\n\n## Where next\n\n- [Safety rules](safety.md)\n- [Tools](../tools/printer.md)\n- [Events](../events/repair_cafe.md)\n"}, {"id": "doc:handbook/safety.md", "title": "handbook/safety.md", "group": "Handbook", "md": "# Safety rules\n\nThe rules every member agrees to at their safety check.\n\n| Rule | Why |\n|---|---|\n| Goggles on at the lathe and the drill press | Chips fly |\n| Tie back long hair and sleeves | Spinning parts catch them |\n| Never work alone on the big tools | Someone can stop the machine |\n| Unplug before changing a blade | It can start by accident |\n\n## The first-aid kit\n\nIt's on the wall by the sink. If you use something from it, write it on the list inside the lid.\n\nSee also: [Welcome](welcome.md).\n"}, {"id": "doc:tools/printer.md", "title": "tools/printer.md", "group": "Tools", "md": "# The 3D printers\n\nTwo printers, booked in 2-hour slots on the sheet by the door.\n\n## Before you print\n\n- [ ] Level the bed (the card test: it should just drag)\n- [ ] Load the right plastic for the job\n- [ ] Check the first layer before you walk away\n\n## Settings that work\n\n```\nnozzle: 0.4 mm\nlayer height: 0.2 mm\nnozzle temperature: 210 C\nbed temperature: 60 C\n```\n\nStatus: **PARTIAL**. The second printer still needs a new fan. See [the lathe](lathe.md) for the other booked tool.\n"}, {"id": "doc:tools/lathe.md", "title": "tools/lathe.md", "group": "Tools", "md": "# The lathe\n\nA small metal lathe, for members who have done the lathe class.\n\n## Bookings\n\nSaturdays only, with a second member in the room. Book on the sheet by the door.\n\n## Recent jobs\n\n- A new gear for the church clock (it strikes on time again)\n- Spacers for the bike trailer\n"}, {"id": "doc:events/repair_cafe.md", "title": "events/repair_cafe.md", "group": "Events", "md": "# Repair café\n\nOnce a month, people bring broken things and volunteers help fix them, for free.\n\n## Last time\n\n| Things brought | Fixed | Rate |\n|---|---|---|\n| 40 | 31 | 78% |\n\n## How to help\n\n- Fixers for small electronics\n- Someone to welcome people at the door\n\nMore on repair cafés: https://en.wikipedia.org/wiki/Repair_Caf%C3%A9\n"}], "built": "a sample"};
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const L = t => `<span class="lbl ${t}">${t}</span>`;
+
+// ---------- small markdown renderer ----------
+function inline(s){
+  s = esc(s);
+  s = s.replace(/`([^`]+)`/g, (m,c)=>"<code>"+c+"</code>");
+  s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m,a,u)=>/^data:/.test(u)?`<img alt="${a}" src="${u}">`:`<em>[picture: ${a}]</em>`);
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m,t,u)=>`<a href="${linkFor(u)}"${/^https?:/.test(u)?' target="_blank"':''}>${t}</a>`);
+  s = s.replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>").replace(/(^|[^*])\*([^*\s][^*]*)\*/g,"$1<i>$2</i>");
+  s = s.replace(/~~([^~]+)~~/g,"<s>$1</s>");
+  s = s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,'$1<a href="$2" target="_blank">$2</a>');
+  s = s.replace(/\b(SOLVED|PARTIAL|WORKAROUND|WIP)\b(?![^<]*>)/g, m=>L(m));
+  return s;
+}
+let curDoc = "";
+function linkFor(u){
+  if (/^https?:|^#/.test(u)) return u;
+  const base = curDoc.includes("/") ? curDoc.replace(/[^/]*$/,"") : "";
+  let p = (base + u.replace(/#.*$/,"")).split("/"), out=[];
+  for (const x of p){ if (x==="..") out.pop(); else if (x && x!==".") out.push(x); }
+  const id = "doc:"+out.join("/");
+  if (D.docs.some(d=>d.id===id)) return "#"+encodeURIComponent(id);
+  const plain = "doc:"+u.replace(/^\.?\//,"");
+  if (D.docs.some(d=>d.id===plain)) return "#"+encodeURIComponent(plain);
+  return "#missing:"+encodeURIComponent(u);
+}
+function md(src){
+  const lines = src.replace(/\r/g,"").replace(/<!--[\s\S]*?-->/g,"").split("\n"); let h="", i=0, heads=[];
+  while (i<lines.length){
+    let l = lines[i];
+    if (/^```/.test(l)){ let b=[]; i++; while(i<lines.length && !/^```/.test(lines[i])) b.push(lines[i++]); i++; h+=`<pre><code>${esc(b.join("\n"))}</code></pre>`; continue; }
+    let m = l.match(/^(#{1,6})\s+(.*)/);
+    if (m){ const id="h"+heads.length; heads.push([m[1].length,m[2],id]); h+=`<h${Math.min(m[1].length+1,6)} id="${id}">${inline(m[2])}</h${Math.min(m[1].length+1,6)}>`; i++; continue; }
+    if (/^\s*\|.*\|\s*$/.test(l) && i+1<lines.length && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i+1])){
+      const row = r=>r.trim().replace(/^\||\|$/g,"").split("|").map(c=>c.trim());
+      h+="<table><tr>"+row(l).map(c=>`<th>${inline(c)}</th>`).join("")+"</tr>"; i+=2;
+      while(i<lines.length && /^\s*\|/.test(lines[i])) h+="<tr>"+row(lines[i++]).map(c=>`<td>${inline(c)}</td>`).join("")+"</tr>";
+      h+="</table>"; continue; }
+    if (/^\s*([-*+]|\d+\.)\s+/.test(l)){
+      const ol=/^\s*\d+\./.test(l); h+=ol?"<ol>":"<ul>";
+      while(i<lines.length && (/^\s*([-*+]|\d+\.)\s+/.test(lines[i]) || (/^\s{2,}\S/.test(lines[i])))){
+        const t = lines[i].replace(/^\s*([-*+]|\d+\.)\s+/,""); const ind=(lines[i].match(/^\s*/)[0].length);
+        h+=`<li style="margin-left:${ind*8}px">${inline(t.replace(/^\[ \]/,"☐").replace(/^\[x\]/i,"☑"))}</li>`; i++; }
+      h+=ol?"</ol>":"</ul>"; continue; }
+    if (/^>\s?/.test(l)){ let b=[]; while(i<lines.length && /^>\s?/.test(lines[i])) b.push(lines[i++].replace(/^>\s?/,"")); h+=`<blockquote>${inline(b.join(" "))}</blockquote>`; continue; }
+    if (/^\s*(---|\*\*\*|___)\s*$/.test(l)){ h+="<hr>"; i++; continue; }
+    if (/^[├│└─ ]{2,}|^\s*[├│└]/.test(l)){ let b=[]; while(i<lines.length && lines[i].trim() && /[├│└─]/.test(lines[i])) b.push(lines[i++]); h+=`<pre>${esc(b.join("\n"))}</pre>`; continue; }
+    if (!l.trim()){ i++; continue; }
+    let p=[]; while(i<lines.length && lines[i].trim() && !/^(#|```|\s*[-*+]\s|\s*\d+\.\s|>|\s*\|)/.test(lines[i])) p.push(lines[i++]);
+    if (!p.length) p.push(lines[i++]);
+    h+=`<p>${inline(p.join(" "))}</p>`;
+  }
+  return {html:h, heads};
+}
+
+
+// ---------- diagrams (pictures drawn here) ----------
+function box(x,y,w,h,t,c,sub){ return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="9" fill="${c}22" stroke="${c}" stroke-width="2"/><text x="${x+w/2}" y="${y+(sub?h/2-4:h/2+5)}" fill="#eee" font-size="14" font-weight="600" text-anchor="middle">${t}</text>${sub?`<text x="${x+w/2}" y="${y+h/2+14}" fill="#aaa" font-size="11.5" text-anchor="middle">${sub}</text>`:""}`; }
+function arrow(x1,y1,x2,y2,c="#888",dash){ return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="2" ${dash?'stroke-dasharray="6 5"':''} marker-end="url(#ar)"/>`; }
+const DEFS = `<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#999"/></marker></defs>`;
+const SVG_JOIN = `<svg viewBox="0 0 820 150" xmlns="http://www.w3.org/2000/svg">${DEFS}
+${box(20,40,170,60,"First visit","#fbbf24","Tue, Thu or Sat")}${arrow(190,70,228,70)}
+${box(230,40,170,60,"Safety check","#f87171","20 minutes")}${arrow(400,70,438,70)}
+${box(440,40,170,60,"Book a bench","#60a5fa","the sheet by the door")}${arrow(610,70,648,70)}
+${box(650,40,150,60,"Make things","#4ade80","and teach others")}</svg>`;
+
+// ---------- the wiki's own articles ----------
+const A = {};
+const art = (id,title,group,html)=>A[id]={id,title,group,html};
+const dl = (p,t)=>`<a href="#${encodeURIComponent("doc:"+p)}">${t||p}</a>`;
+const go = (id,t)=>`<a href="#${id}">${t}</a>`;
+
+art("home","Main page","Start",()=>`
+<div class="infobox"><img src="${D.pics.shop}" alt="The club's workbench, drawn for this sample"><table>
+<tr><th>Club</th><td>Willow Creek Makers Club</td></tr><tr><th>Founded</th><td>2019</td></tr>
+<tr><th>Members</th><td>42</td></tr><tr><th>Open</th><td>Tue, Thu, Sat</td></tr>
+<tr><th>Wiki built</th><td>${D.built}</td></tr></table></div>
+<h1>Club Wiki</h1>
+<p>Welcome. This is a <b>sample wiki</b> for a made-up makers club, to show what a wiki tab in Randis UDS can hold: articles, a library of pages with links between them, pictures, diagrams, tables, to-do lists and search.</p>
+<p>To make it yours, ask the chat something like <i>"turn this wiki into one about my garden, with pages for each bed"</i>, or point a bot at a folder of your notes and have it rebuild the wiki from them.</p>
+<div class="big"><div class="stat"><b>42</b><span>members</span></div><div class="stat"><b>${D.docs.length}</b><span>pages in the library</span></div><div class="stat"><b>78%</b><span>repair rate</span></div></div>
+<h2>Start here</h2>
+<div class="cards">
+<div class="card" onclick="nav('join')"><b>Joining</b><span>From first visit to your own bench.</span></div>
+<div class="card" onclick="nav('tools')"><b>Tools</b><span>What the shop has and how to book it.</span></div>
+<div class="card" onclick="nav('people')"><b>People</b><span>Who does what.</span></div>
+<div class="card" onclick="nav('library')"><b>Page library</b><span>Every page, by group.</span></div>
+</div>`);
+
+art("join","Joining","The club",()=>`<h1>Joining</h1>
+<p>Four steps from the door to a bench of your own.</p><div class="diagram">${SVG_JOIN}</div>
+<p>The details are in the handbook: ${dl("handbook/welcome.md","Welcome")} and ${dl("handbook/safety.md","Safety rules")}.</p>`);
+
+art("tools","Tools","The club",()=>`<h1>Tools</h1>
+<figure><img style="max-width:360px" src="${D.pics.printer}" alt="A 3D printer, drawn for this sample"><figcaption>One of the two 3D printers (a drawing for this sample).</figcaption></figure>
+<table><tr><th>Tool</th><th>Booking</th><th>Status</th><th>Page</th></tr>
+<tr><td>3D printers (2)</td><td>2-hour slots</td><td>${L("PARTIAL")}</td><td>${dl("tools/printer.md","The 3D printers")}</td></tr>
+<tr><td>Lathe</td><td>Saturdays, after the class</td><td>${L("SOLVED")}</td><td>${dl("tools/lathe.md","The lathe")}</td></tr>
+<tr><td>Laser cutter</td><td>Not bought yet</td><td>${L("OPEN")}</td><td>Fund: $1,240 of $3,000</td></tr></table>`);
+
+art("people","People","The club",()=>`<h1>People</h1>
+<p>Everyone here is made up for the sample.</p>
+<div class="bot"><div class="ph">🔧</div><div><b>Sam, the shop lead</b><br>Keeps the tools working and runs the safety checks.</div></div>
+<div class="bot"><div class="ph">🧁</div><div><b>Priya, the treasurer</b><br>Runs the bake sales and the laser cutter fund.</div></div>
+<div class="bot"><div class="ph">🎓</div><div><b>Lee, the teacher</b><br>Teaches the soldering and lathe classes.</div></div>`);
+
+art("glossary","Glossary","Reference",()=>`<h1>Glossary</h1>
+<table><tr><th>Word</th><th>Meaning</th></tr>
+<tr><td>Bench</td><td>A work table you book for a session.</td></tr>
+<tr><td>Repair café</td><td>A monthly free fixing event (${dl("events/repair_cafe.md","its page")}).</td></tr>
+<tr><td>Status labels</td><td>${L("SOLVED")} done, ${L("PARTIAL")} partly done, ${L("WIP")} being worked on, ${L("OPEN")} not started.</td></tr></table>`);
+
+art("links","Links","Reference",()=>`<h1>Links</h1><p>Web links open in your web browser.</p><ul>
+<li><a href="https://en.wikipedia.org/wiki/Repair_Caf%C3%A9" target="_blank">Repair café (Wikipedia)</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Hackerspace" target="_blank">Makerspaces and hackerspaces (Wikipedia)</a></li></ul>`);
+
+art("library","Page library","Reference",()=>{ const g={}; D.docs.forEach(d=>(g[d.group]=g[d.group]||[]).push(d));
+ return `<h1>Page library</h1><p>${D.docs.length} pages, written in Markdown. Links between pages work.</p>`+Object.entries(g).map(([k,v])=>`<h2>${k}</h2><ul>${v.map(d=>`<li>${dl(d.title)}</li>`).join("")}</ul>`).join(""); });
+
+// ---------- sidebar, routing, search ----------
+const groups = ["Start","The club","Reference"];
+function side(cur){
+  let h = `<div class="brand" onclick="nav('home')"><img src="${D.pics.mark}" alt=""><div><b>Club Wiki</b><small>a sample wiki</small></div></div>
+  <input id="q" placeholder="Search the wiki…" value="${esc(window._q||"")}">`;
+  for (const g of groups){ const xs=Object.values(A).filter(a=>a.group===g); if(!xs.length) continue;
+    h+=`<h4>${g}</h4>`+xs.map(a=>`<a href="#${a.id}" class="${cur===a.id?"on":""}">${a.title}</a>`).join(""); }
+  const dg={}; D.docs.forEach(d=>(dg[d.group]=dg[d.group]||[]).push(d));
+  for (const [g,xs] of Object.entries(dg)) h+=`<h4>Pages: ${g}</h4>`+xs.map(d=>`<a href="#${encodeURIComponent(d.id)}" title="${esc(d.title)}" class="${cur===d.id?"on":""}">${esc(d.title.split("/").pop())}</a>`).join("");
+  $("#side").innerHTML = h;
+  const q=$("#q"); q.oninput=()=>{ window._q=q.value; if(q.value.trim().length>1){ if(cur==="search") route(true); else nav("search",true); } };
+  q.onkeydown=e=>{ if(e.key==="Enter"){ window._q=q.value; route(true);} };
+}
+function search(q){
+  const ql=q.toLowerCase(), out=[];
+  for (const a of Object.values(A)){ const t=(typeof a.html==="function"?a.html():a.html).replace(/<svg[\s\S]*?<\/svg>/g,"").replace(/<[^>]+>/g," ");
+    const i=t.toLowerCase().indexOf(ql); if(i>=0||a.title.toLowerCase().includes(ql)) out.push([a.id,a.title,"Wiki article",t,i]); }
+  for (const d of D.docs){ const i=d.md.toLowerCase().indexOf(ql); if(i>=0||d.title.toLowerCase().includes(ql)) out.push([encodeURIComponent(d.id),d.title,"Doc: "+d.group,d.md,i]); }
+  const snip=(t,i)=>{ if(i<0) return ""; const s=esc(t.slice(Math.max(0,i-90),i+150)); return "…"+s.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"),m=>`<span class="hit">${m}</span>`)+"…"; };
+  return `<h1>Search: ${esc(q)}</h1><p>${out.length} result(s).</p>`+out.slice(0,200).map(r=>`<div class="res"><a href="#${r[0]}"><b>${esc(r[1])}</b></a> <small>${r[2]}</small><br>${snip(r[3],r[4])}</div>`).join("");
+}
+function route(keepFocus){
+  const raw = cur; let body;
+  if (raw==="search") body = search(window._q||"");
+  else if (A[raw]) { curDoc=""; const a=A[raw]; body = (typeof a.html==="function"?a.html():a.html); }
+  else if (raw.startsWith("doc:")) { const d=D.docs.find(x=>x.id===raw);
+    if (d){ curDoc=d.title; const r=md(d.md); const toc=r.heads.filter(x=>x[0]<=2).slice(0,40);
+      body = `<div class="crumb">Page library › ${esc(d.group)} › ${esc(d.title)}</div>`+(toc.length>3?`<div class="toc"><b>Contents</b><br>${toc.map(x=>`<a data-to="${x[2]}">${"&nbsp;".repeat((x[0]-1)*3)}${inline(x[1])}</a>`).join("<br>")}</div>`:"")+r.html; }
+    else body = `<h1>Not found</h1><p>${esc(raw)}</p>`; }
+  else if (raw.startsWith("missing:")) body = `<h1>Not in the library</h1><p>The link points to <code>${esc(raw.slice(8))}</code>, which isn't a page in this wiki.</p><p>${go("library","Back to the page library")}</p>`;
+  else body = `<h1>Not found</h1><p>${go("home","Main page")}</p>`;
+  $("#page").innerHTML = (back.length?`<a class="back" data-back="1">← Back</a>`:"") + body + `<div class="foot">Club Wiki · a sample: the club, its people and its numbers are made up · made in Randis UDS</div>`;
+  side(raw);
+  if (keepFocus===true || raw==="search"){ const q=$("#q"); q.focus(); q.setSelectionRange(q.value.length,q.value.length); }
+  if (keepFocus!==true) $("#main").scrollTop=0;
+}
+// The app shows this tab in a sandboxed srcdoc frame, where "#page" links would navigate the frame away.
+// So links never change location: every click on an internal link is caught here and routed in-page.
+let cur = "home"; const back = [];
+function nav(id, keepFocus){ if (id && id !== cur){ back.push(cur); if (back.length>100) back.shift(); cur = id; } route(keepFocus); }
+document.addEventListener("click", e=>{
+  const a = e.target.closest && e.target.closest("a"); if (!a) return;
+  if (a.dataset.back){ e.preventDefault(); if (back.length){ cur = back.pop(); route(); } return; }
+  if (a.dataset.to){ e.preventDefault(); const t=document.getElementById(a.dataset.to); if (t) t.scrollIntoView(); return; }
+  const h = a.getAttribute("href")||"";
+  if (h.startsWith("#")){ e.preventDefault(); let id=h.slice(1); try{ id=decodeURIComponent(id); }catch(_){} nav(id); return; }
+  if (/^https?:/.test(h)){ e.preventDefault(); try{ navigator.clipboard.writeText(h); }catch(_){} alert("Web links can't open inside the app. Address copied (if allowed): "+h); }
+});
+document.addEventListener("keydown", e=>{ if (e.altKey && e.key==="ArrowLeft" && back.length){ cur = back.pop(); route(); } });
+route();
+</script></body></html>

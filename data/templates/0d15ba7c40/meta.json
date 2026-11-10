@@ -1,0 +1,15 @@
+{
+ "id": "0d15ba7c40",
+ "name": "The Dispatch",
+ "created": 1794262892.9104147,
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "a sample newsletter page",
+   "time": 1794262892.9104147
+  }
+ ],
+ "current": 1
+}

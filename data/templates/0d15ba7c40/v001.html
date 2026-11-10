@@ -1,0 +1,684 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The Dispatch</title><style>:root{--ink:#14161b;--sub:#5d6371;--line:#e4e6eb;--bg:#f5f6f8;--card:#fff;--soft:#fafbfc;--acc:#c2410c;--acc2:#1d4ed8;--ok:#15803d;--warn:#b45309;--bad:#b91c1c;--mute:#94a3b8;--sh:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.06);--sh2:0 10px 30px rgba(16,24,40,.12)}
+*{box-sizing:border-box}html{scroll-behavior:smooth;color-scheme:light}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif}
+.serif,h1,.acard h2,.reader h2,blockquote,.dek{font-family:Georgia,"Times New Roman",serif}
+a{color:var(--acc2);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{width:100%;padding:0 clamp(14px,2.2vw,32px)}
+/* masthead */
+header.mast{background:#fff;border-bottom:1px solid var(--line);padding:18px 0 12px}
+.mast .row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.mast h1{font-size:44px;line-height:1;margin:0;letter-spacing:-.02em}
+.mast .date{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sub)}
+.mast .tag{color:var(--sub);font-size:14px;margin-top:4px}
+.mast .issue{text-align:right;font-size:12px;color:var(--sub)}
+.mast .issue b{display:block;font-size:22px;color:var(--ink);font-family:Georgia,serif}
+/* toolbar */
+.bar0{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar0 .wrap{display:flex;gap:8px;align-items:center;padding-top:8px;padding-bottom:8px;flex-wrap:wrap}
+.chipb{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:99px;padding:5px 13px;font:600 12px inherit;font-family:inherit;cursor:pointer;transition:.15s}
+.chipb:hover{border-color:var(--ink)}.chipb.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.bar0 .sp{flex:1}
+.bar0 input{border:1px solid var(--line);border-radius:99px;padding:6px 14px;font:13px inherit;font-family:inherit;width:220px;background:var(--soft)}
+.bar0 input:focus{outline:none;border-color:var(--acc2);background:#fff}
+.readall{border:0;background:var(--acc2);color:#fff;border-radius:99px;padding:6px 14px;font:600 12px inherit;font-family:inherit;cursor:pointer}
+/* ticker */
+.ticker{overflow:hidden;white-space:nowrap;background:#fff;border-bottom:1px solid var(--line);font-size:13px;color:var(--sub);padding:6px 0}
+.ticker span{display:inline-block;padding-left:30%;animation:tick 70s linear infinite}
+.ticker:hover span{animation-play-state:paused}
+.ticker b{color:var(--acc);margin:0 6px 0 26px}
+@keyframes tick{to{transform:translateX(-100%)}}
+/* ad banners */
+.ad{position:relative;display:flex;align-items:center;gap:18px;border:1px solid var(--line);border-radius:14px;padding:16px 20px;background:linear-gradient(110deg,#fff 0%,#f3f6ff 60%,#eef2ff 100%);box-shadow:var(--sh);overflow:hidden}
+.ad .lbl{position:absolute;top:7px;right:12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.ad .ico{flex:none;width:52px;height:52px;border-radius:12px;display:grid;place-items:center;font-size:26px;background:#fff;border:1px solid var(--line)}
+.ad .txt{flex:1;min-width:0}
+.ad .h{font-weight:700;font-size:17px;letter-spacing:-.01em}
+.ad .d{font-size:13px;color:var(--sub)}
+.ad .cta{flex:none;border:1px solid var(--ink);border-radius:99px;padding:7px 15px;font-weight:600;font-size:12px;color:var(--ink);background:#fff;cursor:pointer;white-space:nowrap}
+.ad .cta:hover{background:var(--ink);color:#fff;text-decoration:none}
+.ad.warm{background:linear-gradient(110deg,#fff 0%,#fff7ed 60%,#ffedd5 100%)}
+.ad.green{background:linear-gradient(110deg,#fff 0%,#f0fdf4 60%,#dcfce7 100%)}
+.adrot{margin:16px 0 0}
+.adrot .slide{display:none;animation:fade .5s ease-out both}.adrot .slide.on{display:flex}
+.dots{display:flex;gap:6px;justify-content:center;margin-top:8px}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--line);cursor:pointer}.dots i.on{background:var(--ink)}
+.adcard{display:flex;flex-direction:column;justify-content:space-between;gap:12px;align-items:stretch}
+.adcard .ico{width:46px;height:46px}.adcard .cta{align-self:flex-start}
+/* kpi strip */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:16px 0 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--sh);transition:.15s}
+.tile:hover{transform:translateY(-2px);box-shadow:var(--sh2)}
+.tile .n{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.tile .l{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.07em}
+.tile .s{font-size:12px;color:var(--sub);margin-top:2px}
+/* article card grid */
+.feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:18px;margin:18px 0 26px;align-items:start}
+.span2{grid-column:span 2}
+@media(max-width:900px){.span2{grid-column:auto}.feed{grid-template-columns:1fr}}
+.acard{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);display:flex;flex-direction:column;overflow:hidden;transition:box-shadow .2s,transform .2s;animation:fade .6s ease-out both}
+.acard:hover{box-shadow:var(--sh2)}
+.acard.hide{display:none}
+.acard header{padding:16px 18px 10px;border-bottom:1px solid var(--line);cursor:pointer}
+.kicker{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--acc)}
+.acard h2{font-size:22px;line-height:1.2;margin:4px 0 6px;letter-spacing:-.01em}
+.acard header:hover h2{color:var(--acc2)}
+.dek{color:var(--sub);font-size:15px;margin:0;font-style:italic;line-height:1.45}
+.meta{font-size:11px;color:var(--mute);margin-top:6px}
+.tabs{display:flex;gap:2px;padding:0 10px;background:var(--soft);border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{border:0;background:none;padding:9px 11px;font:600 12px inherit;font-family:inherit;color:var(--sub);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button:hover{color:var(--ink)}.tabs button.on{color:var(--ink);border-bottom-color:var(--acc)}
+.panes{position:relative}
+.pane{display:none;padding:14px 18px;max-height:360px;overflow:auto;scrollbar-width:thin}
+.pane.on{display:block;animation:fade .3s ease-out both}
+.pane::-webkit-scrollbar{width:8px}.pane::-webkit-scrollbar-thumb{background:#d6d9e0;border-radius:8px}
+.acard footer{display:flex;justify-content:space-between;align-items:center;padding:9px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--sub);background:var(--soft)}
+.open{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 11px;font:600 12px inherit;font-family:inherit;cursor:pointer;color:var(--ink)}
+.open:hover{border-color:var(--acc2);color:var(--acc2)}
+/* content bits */
+h3{font-size:15px;margin:14px 0 4px}
+.pane>h3:first-child{margin-top:0}
+p{margin:0 0 10px}
+blockquote{margin:12px 0;padding:4px 0 4px 16px;border-left:3px solid var(--acc);font-size:18px;line-height:1.4;font-style:italic}
+blockquote cite{display:block;font:normal 11px -apple-system,"Segoe UI",Arial,sans-serif;color:var(--sub);margin-top:5px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:6px 7px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);background:var(--soft);position:sticky;top:0}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.SOLVED{color:var(--ok)}.PARTIAL{color:var(--acc2)}.WORKAROUND{color:var(--warn)}.WIP{color:var(--acc)}.OPEN{color:var(--bad)}
+pre,code{font-family:Consolas,"Cascadia Mono",monospace;font-size:12px}code{background:#f1f3f6;border-radius:4px;padding:0 4px}
+ul.tl{list-style:none;padding:0;margin:0;border-left:2px solid var(--line)}ul.tl li{position:relative;padding:0 0 12px 18px}ul.tl li:before{content:"";position:absolute;left:-6px;top:7px;width:10px;height:10px;border-radius:50%;background:var(--acc)}
+.hbar{height:9px;background:#eef0f3;border-radius:6px;overflow:hidden}.hbar i{display:block;height:100%;background:var(--acc2);transform-origin:left;animation:grow 1.2s ease-out both}
+@keyframes grow{from{transform:scaleX(0)}}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}}
+.callout{border:1px solid var(--line);border-left:4px solid var(--acc2);border-radius:8px;padding:10px 14px;background:var(--soft);margin:0 0 10px;font-size:14px}
+.callout.ok{border-left-color:var(--ok)}.callout.warn{border-left-color:var(--warn)}
+.small{font-size:12px;color:var(--sub)}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rules div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--soft)}
+svg text{font-family:-apple-system,"Segoe UI",Arial,sans-serif}
+footer.site{padding:10px 0 40px;font-size:12px;color:var(--sub)}
+/* reader (pdf-style pop-up) */
+.reader{position:fixed;inset:0;z-index:100;background:rgba(20,22,27,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center}
+.reader.on{display:flex;animation:fadeo .2s ease-out}
+@keyframes fadeo{from{opacity:0}}
+.reader .shell{position:relative;width:min(980px,92vw);height:92vh;display:flex;flex-direction:column;background:#e9ebef;border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.35);overflow:hidden}
+.reader .rtop{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#fff;border-bottom:1px solid var(--line);font-size:12px;color:var(--sub)}
+.reader .rtop b{color:var(--ink)}
+.reader .rtop .sp{flex:1}
+.reader .x,.reader .nav{border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font:600 13px inherit;font-family:inherit;color:var(--ink)}
+.reader .x{padding:4px 10px}
+.reader .scroll{flex:1;overflow:auto;padding:26px 0}
+.reader .page{width:min(760px,86%);margin:0 auto;background:#fff;border-radius:4px;box-shadow:0 2px 10px rgba(0,0,0,.12);padding:46px 56px 54px;animation:pagein .35s ease-out both}
+.reader .page.fromleft{animation-name:pageinl}
+@keyframes pagein{from{opacity:0;transform:translateX(40px)}}
+@keyframes pageinl{from{opacity:0;transform:translateX(-40px)}}
+.reader .page h2{font-size:32px;line-height:1.15;margin:6px 0 8px}
+.reader .page .dek{font-size:18px;margin-bottom:6px}
+.reader .page .sec{border-top:1px solid var(--line);margin-top:22px;padding-top:14px}
+.reader .page .sec>.st{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sub);margin-bottom:8px}
+.reader .page p{font-family:Georgia,serif;font-size:16.5px;line-height:1.7}
+.reader .page .pnum{text-align:center;font-size:11px;color:var(--mute);margin-top:30px}
+.reader .nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;font-size:22px;box-shadow:var(--sh2);z-index:2}
+.reader .nav:hover{background:var(--ink);color:#fff}
+.reader .nav:disabled{opacity:.3;cursor:default;background:#fff;color:var(--ink)}
+.reader .prev{left:14px}.reader .next{right:14px}
+.reader .thumbs{display:flex;gap:6px;padding:8px 14px;background:#fff;border-top:1px solid var(--line);overflow-x:auto}
+.reader .thumbs button{flex:none;border:1px solid var(--line);background:var(--soft);border-radius:6px;padding:4px 9px;font:600 11px inherit;font-family:inherit;color:var(--sub);cursor:pointer;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reader .thumbs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+@media(max-width:700px){.reader .page{padding:26px 22px}.rules{grid-template-columns:1fr}.bar0 input{width:100%}}
+
+/* ===== Issue 3: wiki + cards blend (loads after style2.css) ===== */
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr) 300px;gap:26px;align-items:start;margin-top:18px}
+@media(max-width:1250px){.layout{grid-template-columns:210px minmax(0,1fr)}.rail{grid-column:1/-1;position:static!important;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}}
+@media(max-width:860px){.layout{grid-template-columns:1fr}.toc{position:static!important;max-height:none!important}}
+/* left: contents */
+.toc{position:sticky;top:58px;max-height:calc(100vh - 70px);overflow:auto;font-size:13px;scrollbar-width:thin}
+.toc .box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 12px 10px;margin-bottom:12px}
+.toc .bt{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sub);margin-bottom:6px}
+.toc ol{margin:0;padding:0;list-style:none;counter-reset:t}
+.toc li{counter-increment:t}
+.toc li a{display:flex;gap:6px;padding:3px 6px;border-radius:6px;color:var(--ink);line-height:1.35}
+.toc li a:before{content:counter(t);color:var(--mute);min-width:16px;font-variant-numeric:tabular-nums}
+.toc li a:hover{background:var(--soft);text-decoration:none}
+.toc li a.on{background:#eef2ff;color:var(--acc2);font-weight:600}
+.toc .portal{display:flex;flex-wrap:wrap;gap:5px}
+.toc .portal a{font-size:11px;border:1px solid var(--line);border-radius:99px;padding:2px 9px;color:var(--sub);background:var(--soft)}
+.toc .issues a{display:block;padding:2px 0;font-size:12px}
+/* center column */
+.col{min-width:0}
+.wart{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 34px 22px;margin:0 0 20px;box-shadow:var(--sh);animation:fade .6s ease-out both}
+.wart.hide,.feed .hide{display:none}
+.wart>.kicker{margin-bottom:2px}
+.wart h2{font-family:Georgia,"Times New Roman",serif;font-size:30px;line-height:1.15;font-weight:normal;margin:0 0 6px;padding-bottom:8px;border-bottom:1px solid var(--line);letter-spacing:-.01em}
+.wart h3{font-family:Georgia,serif;font-size:20px;font-weight:normal;margin:22px 0 6px;padding-bottom:4px;border-bottom:1px solid #f0f1f4}
+.wart h4{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--sub);margin:16px 0 4px}
+.wart p,.wart li{font-family:Georgia,serif;font-size:16px;line-height:1.72}
+.wart .lead{font-size:18px;color:#2a2e37}
+.wart .byline{font:12px -apple-system,"Segoe UI",Arial,sans-serif;color:var(--mute);margin:0 0 14px}
+.hat{font-style:italic;font-size:13px!important;color:var(--sub);padding:0 0 0 18px;margin:-2px 0 12px;border-left:0}
+.hat:before{content:"→ ";color:var(--mute)}
+sup.r{font:600 10px -apple-system,Arial,sans-serif;margin-left:1px}
+sup.r a{color:var(--acc2)}
+/* wiki infobox floats inside an article */
+.infobox{float:right;width:300px;margin:4px 0 14px 22px;border:1px solid var(--line);border-radius:10px;background:var(--soft);font-size:13px;overflow:hidden}
+.infobox .ih{background:#eef2ff;padding:8px 12px;font-weight:700;text-align:center;font-family:Georgia,serif;font-size:16px}
+.infobox img{display:block;width:100%;border-bottom:1px solid var(--line)}
+.infobox .cap{font-size:11px;color:var(--sub);padding:5px 10px;border-bottom:1px solid var(--line)}
+.infobox table{font-size:12.5px}.infobox th{position:static;background:none;text-transform:none;letter-spacing:0;font-size:12px;color:var(--sub);width:42%}
+@media(max-width:900px){.infobox{float:none;width:100%;margin:0 0 14px}}
+figure{margin:16px 0}figure img{max-width:100%;border-radius:8px;border:1px solid var(--line);box-shadow:var(--sh)}
+figcaption{font-size:12px;color:var(--sub);margin-top:6px;font-family:-apple-system,"Segoe UI",Arial,sans-serif}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:1000px){.cols2{grid-template-columns:1fr}}
+.wart table{font-family:-apple-system,"Segoe UI",Arial,sans-serif}
+.correction{border:1px solid #fed7aa;background:#fff7ed;border-radius:10px;padding:12px 16px;margin:14px 0;font-size:14px}
+.correction b:first-child{color:var(--acc);letter-spacing:.1em;text-transform:uppercase;font-size:11px;display:block}
+.pull{font-family:Georgia,serif;font-size:22px;line-height:1.35;font-style:italic;text-align:center;color:#2a2e37;border-top:2px solid var(--ink);border-bottom:1px solid var(--line);padding:14px 30px;margin:20px 0}
+.pull cite{display:block;font:normal 11px -apple-system,Arial,sans-serif;color:var(--sub);margin-top:6px;letter-spacing:.06em;text-transform:uppercase}
+pre.snip{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px 16px;overflow:auto;font-size:12.5px;line-height:1.55;margin:10px 0}
+pre.snip .c{color:#94a3b8}pre.snip .k{color:#93c5fd}pre.snip .s{color:#fdba74}
+.snip-h{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:12px}
+.copy{border:1px solid var(--line);background:#fff;border-radius:6px;font:600 11px inherit;font-family:inherit;padding:2px 8px;cursor:pointer}
+/* section feed = cards inside the center column */
+.col .feed{grid-template-columns:repeat(auto-fill,minmax(330px,1fr));margin:0 0 20px}
+.secrow{display:flex;align-items:baseline;gap:12px;margin:6px 0 10px}
+.secrow h2{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--sub);margin:0;white-space:nowrap}
+.secrow:after{content:"";flex:1;border-top:1px solid var(--line)}
+/* right rail */
+.rail{position:sticky;top:58px;max-height:calc(100vh - 70px);overflow:auto;scrollbar-width:thin}
+.rail>*{margin-bottom:14px}
+.rail .ad{flex-direction:column;align-items:flex-start;gap:8px;padding:14px 16px}
+.rail .ad .ico{width:40px;height:40px;font-size:21px}
+.rail .ad .h{font-size:15px}
+.fact{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px}
+.fact .bt{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sub);margin-bottom:6px}
+.fact table{font-size:12.5px}.fact th{position:static;background:none;text-transform:none;letter-spacing:0;font-size:12px;width:48%}
+.dyk{background:#fffdf5;border:1px solid #f3e8c4;border-radius:12px;padding:12px 14px;font-size:13px}
+.dyk ul{margin:4px 0 0;padding-left:16px}.dyk li{margin-bottom:5px}
+/* demos */
+.demo{border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:14px;margin:12px 0}
+.demo .ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.demo button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 12px;font:600 12px inherit;font-family:inherit;cursor:pointer}
+.demo button:hover{border-color:var(--acc2);color:var(--acc2)}
+.demo button.pri{background:var(--acc2);color:#fff;border-color:var(--acc2)}
+.demo .stat{font-size:12px;color:var(--sub);margin-left:auto;font-variant-numeric:tabular-nums}
+.demo canvas{display:block;max-width:100%;border-radius:8px;background:#fff;border:1px solid var(--line)}
+.demo .row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.slid{display:grid;grid-template-columns:170px 1fr 70px;gap:10px;align-items:center;font-size:13px;margin:4px 0}
+.slid input{width:100%}.slid b{text-align:right;font-variant-numeric:tabular-nums}
+.outbig{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+.outbig div{flex:1;min-width:120px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.outbig b{display:block;font-size:24px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.outbig span{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.06em}
+/* chart tooltip */
+.tip{position:fixed;pointer-events:none;z-index:200;background:#14161b;color:#fff;font-size:12px;padding:5px 9px;border-radius:6px;box-shadow:var(--sh2);opacity:0;transition:opacity .1s;white-space:nowrap}
+.tip.on{opacity:1}
+svg [data-tip]{cursor:pointer}svg [data-tip]:hover{opacity:.8}
+/* flow diagram */
+.flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:14px 0}
+.flow .st{flex:1;min-width:120px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;position:relative;font-family:-apple-system,"Segoe UI",Arial,sans-serif}
+.flow .st b{display:block;font-size:14px}.flow .st .e{font-size:22px}
+.flow .ar{align-self:center;padding:0 6px;color:var(--mute);font-size:20px}
+.flow .st.hl{border-color:var(--acc2);background:#f3f6ff}
+.flow .st{animation:pop .5s ease-out both}.flow .st:nth-of-type(2){animation-delay:.15s}.flow .st:nth-of-type(3){animation-delay:.3s}.flow .st:nth-of-type(4){animation-delay:.45s}.flow .st:nth-of-type(5){animation-delay:.6s}
+@keyframes pop{from{opacity:0;transform:scale(.92)}}
+.crit{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:12px 0}
+.crit div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font-size:13px;font-family:-apple-system,"Segoe UI",Arial,sans-serif}
+.crit div b{display:block;font-size:14px;margin:2px 0}
+.refs{columns:2;column-gap:30px;font-size:13px;padding-left:22px}
+.refs li{break-inside:avoid;margin-bottom:5px;font-family:-apple-system,"Segoe UI",Arial,sans-serif!important;font-size:13px!important;line-height:1.5!important}
+@media(max-width:900px){.refs{columns:1}}
+.reader .page h2{font-family:Georgia,serif}
+.reader .page .infobox{float:none;width:100%;margin:0 0 14px}
+.reader .page canvas,.reader .page .demo{display:none}
+.wart .pull,.wart h3{clear:both}
+</style></head><body><header class="mast"><div class="wrap row">
+  <div>
+    <div class="date">Saturday, March 14 · Sample issue</div>
+    <h1 class="serif">The Dispatch</h1>
+    <div class="tag">News, numbers and analysis from the Willow Creek Makers Club. A sample: every story here is made up. Ask the chat to make it your own.</div>
+  </div>
+  <div class="issue"><b>Issue No. 1</b>3 long reads + 5 desk cards · weekend edition</div>
+</div></header>
+
+<div class="bar0"><div class="wrap">
+  <button class="chipb on" data-f="all">All</button>
+  <button class="chipb" data-f="club">Club</button>
+  <button class="chipb" data-f="projects">Projects</button>
+  <button class="chipb" data-f="money">Money</button>
+  <button class="chipb" data-f="events">Events</button>
+  <button class="chipb" data-f="analysis">Analysis</button>
+  <button class="chipb" data-f="media">Video &amp; media</button>
+  <span class="sp"></span>
+  <input id="q" type="search" placeholder="Search this issue…">
+  <button class="readall" id="readall">Read cards as magazine ⤢</button>
+</div></div>
+
+<div class="ticker"><span>
+  <b>CLUB</b> 42 members, 6 new this month
+  <b>SHOP</b> The second 3D printer is in and calibrated
+  <b>EVENTS</b> Repair café next Saturday, 10 to 2, in the library hall
+  <b>MONEY</b> Bake sale raised $412 toward the laser cutter
+  <b>PROJECTS</b> 9 projects finished since January
+  <b>NEW</b> This is a sample issue: every name and number in it is made up
+</span></div>
+
+<main class="wrap">
+
+<div class="adrot" id="adrot">
+  <div class="ad slide on"><span class="lbl">Desk pick 1 of 4</span><div class="ico">🔧</div><div class="txt"><div class="h">Bring something broken on Saturday</div><div class="d">The repair café fixes lamps, toasters, bikes and torn jackets for free. Last time, 31 of 40 things went home working.</div></div><button class="cta" data-go="events">Events desk →</button></div>
+  <div class="ad slide warm"><span class="lbl">Desk pick 2 of 4</span><div class="ico">🧮</div><div class="txt"><div class="h">Do the fundraiser math yourself</div><div class="d">Move three sliders and see what visitors × share who give × average gift brings in a month.</div></div><button class="cta" data-go="money">Calculator →</button></div>
+  <div class="ad slide green"><span class="lbl">Desk pick 3 of 4</span><div class="ico">🎬</div><div class="txt"><div class="h">Film one project in 60 seconds</div><div class="d">The shot list is in the Media desk below: five shots, about ten seconds each.</div></div><button class="cta" data-go="media">Media desk →</button></div>
+  <div class="ad slide"><span class="lbl">Desk pick 4 of 4</span><div class="ico">🙋</div><div class="txt"><div class="h">Two volunteer spots open</div><div class="d">Saturday mornings at the front desk, and one teacher for the soldering class.</div></div><button class="cta" data-go="club">Club desk →</button></div>
+</div>
+<div class="dots" id="dots"></div>
+
+<div class="kpis">
+  <div class="tile"><div class="l">Members</div><div class="n">42</div><div class="s">6 new this month</div></div>
+  <div class="tile"><div class="l">Volunteer hours</div><div class="n">318</div><div class="s">since January</div></div>
+  <div class="tile"><div class="l">Laser cutter fund</div><div class="n">$1,240</div><div class="s">of $3,000</div></div>
+  <div class="tile"><div class="l">Projects finished</div><div class="n">9</div><div class="s">3 this month</div></div>
+  <div class="tile"><div class="l">Repair rate</div><div class="n" style="color:var(--ok)">78%</div><div class="s">31 of 40 fixed</div></div>
+  <div class="tile"><div class="l">Next event</div><div class="n" style="font-size:22px">Repair café</div><div class="s">Saturday, 10 to 2</div></div>
+</div>
+
+<div class="layout">
+
+<aside class="toc">
+  <div class="box"><div class="bt">Contents</div><ol>
+    <li><a href="#a-lead">The shop gets busier</a></li>
+    <li><a href="#a-gallery">🖼️ Gallery: pictures and links</a></li>
+    <li><a href="#a-video">Media desk: what to watch, what to film</a></li>
+    <li><a href="#a-calc">Fundraiser math, live</a></li>
+    <li><a href="#a-explain">The club explained three ways</a></li>
+    <li><a href="#cards">Desk cards</a></li>
+  </ol></div>
+  <div class="box"><div class="bt">Portals</div><div class="portal">
+    <a href="#" data-go="club">Club</a><a href="#" data-go="projects">Projects</a><a href="#" data-go="money">Money</a><a href="#" data-go="events">Events</a><a href="#" data-go="media">Media</a><a href="#" data-go="analysis">Analysis</a>
+  </div></div>
+  <div class="box issues"><div class="bt">Back issues</div>
+    <a><b>Issue 1 · March 14 (this one)</b></a>
+    <div class="small" style="margin-top:6px;color:var(--sub)">Each new issue is a new version of this tab, so older issues stay in its version list.</div>
+  </div>
+</aside>
+
+<div class="col">
+
+<article class="wart" id="a-lead" data-sec="club projects analysis">
+  <div class="kicker">Lead · State of the club</div>
+  <h2>The shop gets busier: more members, more projects, one bottleneck</h2>
+  <div class="byline">By the club desk · March 14 · 3 min read</div>
+  <div class="infobox">
+    <div class="ih">Willow Creek Makers Club</div>
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 180'%3E%3Crect width='320' height='180' fill='%23e8eef7'/%3E%3Crect x='20' y='100' width='280' height='14' fill='%238a6a4a'/%3E%3Crect x='40' y='114' width='10' height='50' fill='%238a6a4a'/%3E%3Crect x='270' y='114' width='10' height='50' fill='%238a6a4a'/%3E%3Crect x='60' y='60' width='60' height='40' rx='4' fill='%233d6bd6'/%3E%3Crect x='140' y='70' width='40' height='30' fill='%23e3a33b'/%3E%3Ccircle cx='230' cy='82' r='18' fill='%23c2410c'/%3E%3C/svg%3E" alt="The workbench in the club's shop">
+    <div class="cap">The main workbench, drawn for this sample</div>
+    <table>
+      <tr><th>Founded</th><td>2019</td></tr>
+      <tr><th>Members</th><td>42</td></tr>
+      <tr><th>Open</th><td>Tue, Thu, Sat</td></tr>
+      <tr><th>Tools</th><td>2 printers, 1 lathe</td></tr>
+      <tr><th>Next event</th><td>Repair café</td></tr>
+    </table>
+  </div>
+  <p class="lead">Six new members joined this month, the most since the club opened. The shop is full on Saturdays, and the 3D printers have a waiting list.</p>
+  <h3>What changed this month</h3>
+  <ul>
+    <li><b>Members:</b> 42, up from 36. Four of the six new members came from the last repair café.</li>
+    <li><b>Tools:</b> the second 3D printer arrived and passed its first test print. The waiting list for printing dropped from two weeks to five days.</li>
+    <li><b>Projects:</b> three finished: a bird-feeder kit for the school, a repaired church clock, and a bike trailer.</li>
+    <li><b>Money:</b> the bake sale raised $412, taking the laser cutter fund to $1,240 of $3,000.</li>
+  </ul>
+  <div class="pull">"Saturdays are full and Tuesdays are half empty. The easiest new space we have is a weekday evening."<cite>Desk analysis</cite></div>
+  <h3>Where we're heading</h3>
+  <p>The bottleneck isn't tools or money any more: it's <b>bench time on Saturdays</b>. Moving one class to Tuesday evening would free about eight bench hours a week, at no cost.</p>
+  <div class="correction"><b>Desk note</b>This is a sample issue. The club, its members and every number in it are made up to show what this newsletter page can hold.</div>
+</article>
+
+<article class="wart" id="a-video" data-sec="media club">
+  <div class="kicker">Media desk</div>
+  <h2>What to watch, and the one video we should make</h2>
+  <div class="byline">Links open in your web browser</div>
+  <p class="lead">Two lists: viewing that helps the club, and a shot list for a one-minute video about a finished project.</p>
+  <div class="cols2">
+    <div>
+      <h3>Watch list</h3>
+      <ul>
+        <li><a href="https://www.youtube.com/results?search_query=how+to+run+a+repair+cafe">Running a repair café</a>: how other towns set theirs up.</li>
+        <li><a href="https://www.youtube.com/results?search_query=3d+printer+calibration+beginner">3D printer calibration</a>: a beginner's walkthrough for the new machine.</li>
+        <li><a href="https://www.youtube.com/results?search_query=makerspace+tour">Makerspace tours</a>: ideas for laying out a small shop.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Shot list: "One project in 60 seconds"</h3>
+      <div class="flow">
+        <div class="st"><span class="e">📦</span><b>0–10s</b>The broken thing</div><span class="ar">→</span>
+        <div class="st hl"><span class="e">🔧</span><b>10–30s</b>The fix at the bench</div><span class="ar">→</span>
+        <div class="st"><span class="e">✅</span><b>30–45s</b>It works</div><span class="ar">→</span>
+        <div class="st"><span class="e">😀</span><b>45–55s</b>The owner's face</div><span class="ar">→</span>
+        <div class="st"><span class="e">📍</span><b>55–60s</b>Where and when we meet</div>
+      </div>
+      <p>A phone is enough. Film sideways, in good light, and keep each shot under ten seconds.</p>
+    </div>
+  </div>
+</article>
+
+<article class="wart" id="a-calc" data-sec="money analysis">
+  <div class="kicker">Money desk · Interactive</div>
+  <h2>Fundraiser math, live: what monthly giving could bring in</h2>
+  <div class="byline">A simple model with your own inputs. It isn't a forecast.</div>
+  <p>Monthly giving ≈ visitors × the share who give × the average gift. Most groups turn a small share of visitors into regular givers, so start low.</p>
+  <div class="demo">
+    <div class="slid"><span>Visitors a month</span><input id="cv" type="range" min="50" max="20000" step="50" value="500"><b id="cvo">500</b></div>
+    <div class="slid"><span>Share who give (%)</span><input id="cc" type="range" min="0.1" max="5" step="0.1" value="0.5"><b id="cco">0.5%</b></div>
+    <div class="slid"><span>Average gift, $ a month</span><input id="cp" type="range" min="1" max="25" step="1" value="5"><b id="cpo">$5</b></div>
+    <div class="outbig"><div><span>Givers</span><b id="o1">3</b></div><div><span>Per month</span><b id="o2">$13</b></div><div><span>Per year</span><b id="o3">$150</b></div></div>
+  </div>
+  <h4>What the model says</h4>
+  <p>Moving the visitors slider changes the result far more than moving the gift slider. So the order is: <b>more people through the door</b> first, then <b>an easy way to give</b>, then thank-you levels.</p>
+</article>
+
+<article class="wart" id="a-explain" data-sec="club analysis">
+  <div class="kicker">Explainer</div>
+  <h2>The club explained three ways</h2>
+  <div class="cols2">
+    <div>
+      <h4>For a 10-year-old</h4>
+      <p>A big shared garage where people help each other build and fix things, with tools you couldn't buy on your own.</p>
+      <h4>For a new member</h4>
+      <p>A workshop open three days a week. Members book bench time, take classes, and borrow tools after a short safety check.</p>
+    </div>
+    <div>
+      <h4>For a sponsor</h4>
+      <p>A volunteer-run community space that keeps things out of the landfill and teaches practical skills. Every dollar goes to tools and materials.</p>
+      <h4>The idea underneath</h4>
+      <p><i>Shared tools → shared skills → fewer things thrown away.</i> The same loop works for a library of things, a garden or a kitchen.</p>
+    </div>
+  </div>
+</article>
+
+<section class="wart" id="a-gallery" data-sec="media">
+  <div class="kicker">Gallery</div>
+  <h2>Gallery: pictures and every link in this issue</h2>
+  <p class="small" style="color:var(--sub)">Click a picture to see it big. These are simple drawings for the sample; your own photos go here.</p>
+  <div class="ggrid">
+    <figure class="gfig"><img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 180'%3E%3Crect width='320' height='180' fill='%23fdf3e3'/%3E%3Crect x='110' y='40' width='100' height='100' rx='8' fill='%23555'/%3E%3Crect x='125' y='55' width='70' height='55' fill='%23ddd'/%3E%3Cpath d='M140 100 L160 70 L180 100 Z' fill='%23c2410c'/%3E%3C/svg%3E" alt="The new 3D printer" loading="lazy"><figcaption>The new 3D printer</figcaption></figure>
+    <figure class="gfig"><img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 180'%3E%3Crect width='320' height='180' fill='%23e9f5ec'/%3E%3Ccircle cx='100' cy='120' r='35' fill='none' stroke='%23333' stroke-width='6'/%3E%3Ccircle cx='220' cy='120' r='35' fill='none' stroke='%23333' stroke-width='6'/%3E%3Cpath d='M100 120 L150 70 L220 120 M150 70 L190 70' stroke='%23157f3d' stroke-width='6' fill='none'/%3E%3C/svg%3E" alt="A bike, fixed at the repair café" loading="lazy"><figcaption>A bike, fixed at the repair café</figcaption></figure>
+    <figure class="gfig"><img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 180'%3E%3Crect width='320' height='180' fill='%23eef0fb'/%3E%3Cpath d='M160 30 L230 80 L230 150 L90 150 L90 80 Z' fill='%23b07a3b'/%3E%3Ccircle cx='160' cy='105' r='16' fill='%23333'/%3E%3C/svg%3E" alt="The bird-feeder kit for the school" loading="lazy"><figcaption>The bird-feeder kit for the school</figcaption></figure>
+  </div>
+  <h3>▶ Videos <small>(3)</small></h3>
+  <div class="lgrid">
+    <a class="lcard video" href="https://www.youtube.com/results?search_query=how+to+run+a+repair+cafe"><span class="lico">▶</span><span class="lt">Running a repair café</span><span class="ld">youtube.com</span></a>
+    <a class="lcard video" href="https://www.youtube.com/results?search_query=3d+printer+calibration+beginner"><span class="lico">▶</span><span class="lt">3D printer calibration</span><span class="ld">youtube.com</span></a>
+    <a class="lcard video" href="https://www.youtube.com/results?search_query=makerspace+tour"><span class="lico">▶</span><span class="lt">Makerspace tours</span><span class="ld">youtube.com</span></a>
+  </div>
+  <h3>📖 Reading <small>(2)</small></h3>
+  <div class="lgrid">
+    <a class="lcard read" href="https://en.wikipedia.org/wiki/Repair_Caf%C3%A9"><span class="lico">📖</span><span class="lt">Repair café</span><span class="ld">wikipedia.org</span></a>
+    <a class="lcard read" href="https://en.wikipedia.org/wiki/Hackerspace"><span class="lico">📖</span><span class="lt">Makerspaces and hackerspaces</span><span class="ld">wikipedia.org</span></a>
+  </div>
+  <div class="gbox" id="gbox" hidden><img alt=""><div class="gcap"></div></div>
+</section>
+
+<div class="secrow" id="cards"><h2>Desk cards</h2></div>
+<div class="feed" id="feed">
+
+<article class="acard span2" data-sec="club analysis">
+  <header><div class="kicker">Lead story · Club desk</div>
+    <h2>Saturdays are full, Tuesdays are half empty</h2>
+    <p class="dek">Bench bookings by day show where the room to grow is.</p>
+    <div class="meta">Analysis · Source: the club's booking sheet (made up for this sample)</div></header>
+  <div class="tabs"><button class="on">Story</button><button>Chart</button><button>What to do</button></div>
+  <div class="panes">
+    <div class="pane on" data-t="Story">
+      <p>Of the 120 bench hours booked last month, <b>58 were on Saturdays</b>. Tuesdays had 24 and Thursdays 38. Every Saturday had people waiting for a bench by 11 o'clock.</p>
+      <blockquote>The shop isn't too small. It's busy at one time and quiet at another.<cite>The desk's read</cite></blockquote>
+    </div>
+    <div class="pane" data-t="Chart">
+      <svg viewBox="0 0 340 190" width="100%" style="max-width:600px" role="img" aria-label="Bench hours by day: Tuesday 24, Thursday 38, Saturday 58">
+        <line x1="40" y1="160" x2="320" y2="160" stroke="#ccd" />
+        <rect x="70" y="113" width="50" height="47" fill="#1d4ed8" /><text x="95" y="178" font-size="12" text-anchor="middle">Tue</text><text x="95" y="107" font-size="12" text-anchor="middle">24</text>
+        <rect x="150" y="86" width="50" height="74" fill="#1d4ed8" /><text x="175" y="178" font-size="12" text-anchor="middle">Thu</text><text x="175" y="80" font-size="12" text-anchor="middle">38</text>
+        <rect x="230" y="47" width="50" height="113" fill="#c2410c" /><text x="255" y="178" font-size="12" text-anchor="middle">Sat</text><text x="255" y="41" font-size="12" text-anchor="middle">58</text>
+      </svg>
+    </div>
+    <div class="pane" data-t="What to do">
+      <p>Move the beginners' soldering class from Saturday morning to <b>Tuesday evening</b>. That frees about eight Saturday bench hours a week, and new members often work days anyway.</p>
+    </div>
+  </div>
+  <footer><span>3 sections · 2 min read</span><button class="open">Open reader ⤢</button></footer>
+</article>
+
+<div class="ad adcard green" data-sec="money events"><span class="lbl">Desk pick</span>
+  <div class="ico">🧁</div>
+  <div><div class="h">Next bake sale: April 11</div><div class="d">Last time's best sellers were lemon bars and cinnamon rolls. Sign up to bake at the front desk.</div></div>
+  <button class="cta" data-go="money">Money desk →</button></div>
+
+<article class="acard" data-sec="money">
+  <header><div class="kicker">Money desk</div>
+    <h2>The laser cutter fund passes $1,200</h2>
+    <p class="dek">Where the money came from, and what's left to raise.</p>
+    <div class="meta">Source: the treasurer's sheet (made up for this sample)</div></header>
+  <div class="tabs"><button class="on">Where it came from</button><button>What's left</button></div>
+  <div class="panes">
+    <div class="pane on" data-t="Where it came from">
+      <table>
+        <tr><th>Source</th><th style="width:50%">Amount</th></tr>
+        <tr><td>Member dues</td><td><div class="hbar"><i style="width:100%"></i></div><span class="small">$520</span></td></tr>
+        <tr><td>Bake sale</td><td><div class="hbar"><i style="width:79%"></i></div><span class="small">$412</span></td></tr>
+        <tr><td>Repair café tips</td><td><div class="hbar"><i style="width:40%"></i></div><span class="small">$208</span></td></tr>
+        <tr><td>Local shop gift</td><td><div class="hbar"><i style="width:19%"></i></div><span class="small">$100</span></td></tr>
+      </table>
+    </div>
+    <div class="pane" data-t="What's left">
+      <div class="callout ok"><b>$1,240 raised.</b> 41% of the $3,000 goal.</div>
+      <div class="callout warn"><b>$1,760 to go.</b> At this month's pace, that's about four more months.</div>
+    </div>
+  </div>
+  <footer><span>2 sections · 1 min read</span><button class="open">Open reader ⤢</button></footer>
+</article>
+
+<article class="acard" data-sec="events">
+  <header><div class="kicker">Events desk</div>
+    <h2>Coming up: four dates for the calendar</h2>
+    <p class="dek">All at the club unless it says otherwise.</p></header>
+  <div class="tabs"><button class="on">Calendar</button><button>How to help</button></div>
+  <div class="panes">
+    <div class="pane on" data-t="Calendar">
+      <ul>
+        <li><b>Saturday, 10 to 2:</b> repair café, library hall</li>
+        <li><b>Tuesday, 7 pm:</b> beginners' soldering, first evening class</li>
+        <li><b>April 11:</b> bake sale for the laser cutter fund</li>
+        <li><b>April 25:</b> open house and project show</li>
+      </ul>
+    </div>
+    <div class="pane" data-t="How to help">
+      <p>The repair café needs two more fixers who know small electronics, and one person to welcome people at the door.</p>
+    </div>
+  </div>
+  <footer><span>2 sections · 1 min read</span><button class="open">Open reader ⤢</button></footer>
+</article>
+
+<article class="acard" data-sec="projects">
+  <header><div class="kicker">Projects desk</div>
+    <h2>Three projects finished this month</h2>
+    <p class="dek">From a school kit to a church clock.</p></header>
+  <div class="tabs"><button class="on">Finished</button><button>In progress</button></div>
+  <div class="panes">
+    <div class="pane on" data-t="Finished">
+      <ul>
+        <li><b>Bird-feeder kit:</b> 30 kits cut and bagged for the primary school.</li>
+        <li><b>Church clock:</b> a worn gear made new on the lathe. It strikes on time again.</li>
+        <li><b>Bike trailer:</b> built from two old child seats and a pallet.</li>
+      </ul>
+    </div>
+    <div class="pane" data-t="In progress">
+      <ul><li>A weather station for the community garden</li><li>A wheelchair ramp for the library's back door</li></ul>
+    </div>
+  </div>
+  <footer><span>2 sections · 1 min read</span><button class="open">Open reader ⤢</button></footer>
+</article>
+
+<article class="acard" data-sec="analysis club">
+  <header><div class="kicker">Rules of thumb</div>
+    <h2>Four rules of thumb from this issue</h2>
+    <p class="dek">Suggestions only. The members decide.</p></header>
+  <div class="tabs"><button class="on">Rules</button></div>
+  <div class="panes">
+    <div class="pane on" data-t="Rules">
+      <div class="rules">
+        <div><div class="kicker">1 · Space</div><b>Fill the quiet days before adding room.</b><p class="small">Tuesdays use 40% of the benches Saturdays do.</p></div>
+        <div><div class="kicker">2 · Members</div><b>Every event is a sign-up desk.</b><p class="small">4 of 6 new members came from the repair café.</p></div>
+        <div><div class="kicker">3 · Money</div><b>Small regular gifts beat big one-offs.</b><p class="small">Dues brought in more than the bake sale.</p></div>
+        <div><div class="kicker">4 · Stories</div><b>Film the fix, not the tool.</b><p class="small">People share a before-and-after, not a spec sheet.</p></div>
+      </div>
+    </div>
+  </div>
+  <footer><span>1 section · 1 min read</span><button class="open">Open reader ⤢</button></footer>
+</article>
+
+</div><!-- /feed -->
+</div><!-- /col -->
+
+<aside class="rail">
+  <div class="fact"><div class="bt">At a glance</div><table>
+    <tr><th>Members</th><td>42</td></tr>
+    <tr><th>Volunteer hours</th><td>318</td></tr>
+    <tr><th>Fund</th><td>$1,240 / $3,000</td></tr>
+    <tr><th>Repair rate</th><td>78%</td></tr>
+    <tr><th>Next event</th><td>Repair café, Sat</td></tr>
+  </table></div>
+  <div class="ad"><span class="lbl">Desk pick</span><div class="ico">📣</div><div class="txt"><div class="h">Tell one neighbor</div><div class="d">Most new members heard about the club from someone who was already in it.</div></div><button class="cta" data-go="club">Club desk →</button></div>
+  <div class="dyk"><div class="bt" style="font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sub)">Did you know?</div><ul>
+    <li>This page is a tab in Randis UDS. Ask the chat to change any part of it.</li>
+    <li>Each new issue can be a new version of this tab, so older issues stay one click away.</li>
+    <li>The Read cards as magazine button turns the desk cards into pages.</li>
+  </ul></div>
+  <div class="fact"><div class="bt">Coming next issue</div><ul style="margin:0;padding-left:16px;font-size:13px">
+    <li>How the Tuesday class went</li><li>Open house plans</li><li>The fund's next total</li></ul></div>
+</aside>
+
+</div><!-- /layout -->
+</main>
+<footer class="site wrap">The Dispatch is a sample newsletter: the club, its people and its numbers are made up. To make it yours, ask the chat something like "turn the Dispatch into a newsletter about my garden, with these numbers…". "Desk picks" are the desk's own suggestions, not ads.</footer>
+
+<!-- READER -->
+<div class="reader" id="reader" aria-modal="true" role="dialog">
+  <div class="shell">
+    <div class="rtop"><b>The Dispatch</b><span>· Issue 1 reader</span><span class="sp"></span><span id="pc"></span><span class="small">← → to turn · Esc to close</span><button class="x" id="rx">✕</button></div>
+    <button class="nav prev" id="rp" aria-label="Previous page">‹</button>
+    <button class="nav next" id="rn" aria-label="Next page">›</button>
+    <div class="scroll" id="rs"><div class="page" id="rpage"></div></div>
+    <div class="thumbs" id="rt"></div>
+  </div>
+</div>
+
+<style>
+.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:14px 0 22px}
+.gfig{margin:0;background:#fff;border:1px solid #e3e5e8;border-radius:10px;overflow:hidden;cursor:zoom-in;transition:transform .15s,box-shadow .15s}
+.gfig:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.gfig img{display:block;width:100%;height:170px;object-fit:cover;object-position:top}
+.gfig figcaption{font-size:13px;padding:8px 10px;color:#444}
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin:8px 0 20px}
+.lcard{display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto;gap:2px 10px;padding:10px 12px;background:#fff;border:1px solid #e3e5e8;border-radius:10px;text-decoration:none;color:#1a1a1a}
+.lcard:hover{border-color:#9aa4b2;background:#fafbfc}
+.lico{grid-row:1/3;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#f1f3f5;font-size:16px}
+.lcard.video .lico{background:#ffe9e7;color:#d93025}.lcard.fund .lico{background:#eaf7ee}
+.lt{font-size:14px;font-weight:600;line-height:1.3}.ld{font-size:12px;color:#777}
+.gbox{position:fixed;inset:0;background:rgba(20,22,26,.86);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out}
+.gbox[hidden]{display:none}.gbox img{max-width:94vw;max-height:86vh;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+.gcap{color:#eee;margin-top:10px;font-size:14px}
+</style>
+<script>(function(){var b=document.getElementById("gbox");document.querySelectorAll(".gfig").forEach(function(f){f.onclick=function(){b.querySelector("img").src=f.querySelector("img").src;b.querySelector(".gcap").textContent=f.querySelector("figcaption").textContent;b.hidden=false}});b.onclick=function(){b.hidden=true};document.addEventListener("keydown",function(e){if(e.key==="Escape")b.hidden=true})})();</script>
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelectorAll(s)};
+  // card tabs
+  $('.acard').forEach(function(c){
+    var b=$('.tabs button',c), p=$('.pane',c);
+    b.forEach(function(btn,i){btn.onclick=function(){b.forEach(function(x){x.classList.remove('on')});p.forEach(function(x){x.classList.remove('on')});btn.classList.add('on');p[i].classList.add('on')}});
+  });
+  // filters + search
+  var f='all', q=document.getElementById('q');
+  function apply(){var t=q.value.toLowerCase();
+    $('#feed>*').forEach(function(el){var sec=el.getAttribute('data-sec')||'';
+      var okF=f==='all'||sec.split(' ').indexOf(f)>=0, okQ=!t||el.textContent.toLowerCase().indexOf(t)>=0;
+      el.classList.toggle('hide',!(okF&&okQ)); el.style.display=(okF&&okQ)?'':'none';});}
+  $('.chipb').forEach(function(c){c.onclick=function(){$('.chipb').forEach(function(x){x.classList.remove('on')});c.classList.add('on');f=c.getAttribute('data-f');apply();window.scrollTo(0,0)}});
+  q.oninput=apply;
+  // ad CTA -> filter to that desk
+  $('[data-go]').forEach(function(a){a.onclick=function(){var g=a.getAttribute('data-go');$('.chipb').forEach(function(c){if(c.getAttribute('data-f')===g)c.click()});var fd=document.getElementById('feed');fd.scrollIntoView({behavior:'smooth'})}});
+  // rotating ad banner
+  var sl=$('#adrot .slide'), dots=document.getElementById('dots'), ai=0, timer;
+  sl.forEach(function(_,i){var d=document.createElement('i');d.onclick=function(){show(i);restart()};dots.appendChild(d)});
+  function show(i){ai=i;sl.forEach(function(s,k){s.classList.toggle('on',k===i)});$('#dots i').forEach(function(d,k){d.classList.toggle('on',k===i)})}
+  function restart(){clearInterval(timer);timer=setInterval(function(){show((ai+1)%sl.length)},8000)}
+  show(0);restart();
+  document.getElementById('adrot').onmouseenter=function(){clearInterval(timer)};
+  document.getElementById('adrot').onmouseleave=restart;
+  // reader
+  var R=document.getElementById('reader'), page=document.getElementById('rpage'), rs=document.getElementById('rs'), th=document.getElementById('rt'), pc=document.getElementById('pc'), cur=0, list=[];
+  function visible(){return Array.prototype.filter.call($('#feed .acard'),function(c){return c.style.display!=='none'})}
+  function build(i,dir){var c=list[i]; if(!c)return; cur=i;
+    var h=c.querySelector('header').cloneNode(true), html='';
+    html+=h.innerHTML;
+    $('.pane',c).forEach(function(p){html+='<div class="sec"><div class="st">'+(p.getAttribute('data-t')||'')+'</div>'+p.innerHTML+'</div>'});
+    html+='<div class="pnum">— '+(i+1)+' —</div>';
+    page.className='page'+(dir<0?' fromleft':''); void page.offsetWidth; page.innerHTML=html; rs.scrollTop=0;
+    pc.textContent='Page '+(i+1)+' of '+list.length;
+    document.getElementById('rp').disabled=i===0; document.getElementById('rn').disabled=i===list.length-1;
+    $('button',th).forEach(function(b,k){b.classList.toggle('on',k===i)});
+    var on=th.querySelector('.on'); if(on)on.scrollIntoView({block:'nearest',inline:'center'});}
+  function openAt(card){list=visible(); th.innerHTML='';
+    list.forEach(function(c,k){var b=document.createElement('button');b.textContent=(k+1)+'. '+c.querySelector('h2').textContent;b.onclick=function(){build(k,k<cur?-1:1)};th.appendChild(b)});
+    R.classList.add('on'); document.body.style.overflow='hidden'; build(Math.max(0,list.indexOf(card)),1);}
+  function close(){R.classList.remove('on');document.body.style.overflow=''}
+  $('.acard').forEach(function(c){c.querySelector('.open').onclick=function(){openAt(c)};c.querySelector('header').onclick=function(){openAt(c)}});
+  document.getElementById('readall').onclick=function(){openAt(visible()[0])};
+  document.getElementById('rp').onclick=function(){if(cur>0)build(cur-1,-1)};
+  document.getElementById('rn').onclick=function(){if(cur<list.length-1)build(cur+1,1)};
+  document.getElementById('rx').onclick=close;
+  R.onclick=function(e){if(e.target===R)close()};
+  document.addEventListener('keydown',function(e){if(!R.classList.contains('on'))return;
+    if(e.key==='ArrowRight'&&cur<list.length-1)build(cur+1,1);
+    else if(e.key==='ArrowLeft'&&cur>0)build(cur-1,-1);
+    else if(e.key==='Escape')close();});
+  if(location.hash==='#read')openAt(visible()[0]);
+})();
+</script>
+<script>
+(function(){var $=function(s){return document.querySelectorAll(s)},f='all',q=document.getElementById('q');
+function ap(){var t=q.value.toLowerCase();$('.wart').forEach(function(a){var s=(a.getAttribute('data-sec')||'').split(' ');a.classList.toggle('hide',!((f==='all'||s.indexOf(f)>=0)&&(!t||a.textContent.toLowerCase().indexOf(t)>=0)))})}
+$('.chipb').forEach(function(c){c.addEventListener('click',function(){f=c.getAttribute('data-f');ap()})});q.addEventListener('input',ap);
+$('.toc .portal a').forEach(function(a){a.onclick=function(e){e.preventDefault();var g=a.getAttribute('data-go');$('.chipb').forEach(function(c){if(c.getAttribute('data-f')===g)c.click()})}});
+$('.toc ol a').forEach(function(a){a.onclick=function(e){e.preventDefault();var el=document.querySelector(a.getAttribute('href'));if(el)el.scrollIntoView({behavior:'smooth'})}});
+var secs=[].slice.call($('.wart,#cards'));window.addEventListener('scroll',function(){var cur=null;secs.forEach(function(s){if(s.getBoundingClientRect().top<140)cur=s.id});$('.toc ol a').forEach(function(a){a.classList.toggle('on',a.getAttribute('href')==='#'+cur)})});
+function calc(){var v=+document.getElementById('cv').value,c=+document.getElementById('cc').value,p=+document.getElementById('cp').value,n=v*c/100;
+document.getElementById('cvo').textContent=v.toLocaleString();document.getElementById('cco').textContent=c.toFixed(1)+'%';document.getElementById('cpo').textContent='$'+p;
+document.getElementById('o1').textContent=n<10?n.toFixed(1):Math.round(n).toLocaleString();document.getElementById('o2').textContent='$'+Math.round(n*p).toLocaleString();document.getElementById('o3').textContent='$'+Math.round(n*p*12).toLocaleString()}
+['cv','cc','cp'].forEach(function(i){document.getElementById(i).oninput=calc});calc();})();
+</script>
+<script>
+/* Links: in a browser they open in a new tab; inside the app's walled-off tab they can't load, so show the address with a Copy button instead of a dead click. */
+(function(){
+  var inApp = window.self !== window.top;
+  var box = document.getElementById('lnk'), u = document.getElementById('lnk-u'), ok = document.getElementById('lnk-ok');
+  function close(){ box.style.display = 'none'; }
+  document.getElementById('lnk-x').onclick = close;
+  box.onclick = function(e){ if (e.target === box) close(); };
+  document.getElementById('lnk-c').onclick = function(){
+    u.select();
+    var done = false; try { done = document.execCommand('copy'); } catch (e) {}
+    if (!done && navigator.clipboard) navigator.clipboard.writeText(u.value).then(function(){ ok.textContent = 'Copied ✓'; }, function(){ ok.textContent = 'Press Ctrl+C to copy'; });
+    ok.textContent = done ? 'Copied ✓' : 'Press Ctrl+C to copy';
+  };
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && box.style.display === 'flex') close(); }, true);
+  Array.prototype.forEach.call(document.querySelectorAll('a[href^="http"]'), function(a){
+    a.target = '_blank'; a.rel = 'noopener';
+    if (!a.title) a.title = a.href;
+    a.addEventListener('click', function(e){
+      if (!inApp) return;
+      e.preventDefault(); e.stopPropagation();
+      u.value = a.href; ok.textContent = ''; box.style.display = 'flex'; u.focus(); u.select();
+    });
+  });
+})();
+</script>
+</body></html>
