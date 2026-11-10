@@ -1177,6 +1177,29 @@ class Api:
                     "max_parallel": bots.MAX_PARALLEL, "claude": bool(ccode.command()), "paused": bots.paused()}
         return self._bots(look)
 
+    def bots_view(self):
+        def look():
+            return {**bots.view(), "claude": bool(ccode.command())}
+        return self._bots(look)
+
+    def bot_types(self):
+        return self._bots(bots.bot_types)
+
+    def bot_type_add(self, label):
+        return self._bots(bots.add_type, label)
+
+    def bot_draft(self, ids):
+        return self._bots(bots.draft, list(ids or []))
+
+    def bot_design(self, spec):
+        return self._bots(lambda: bots.design(spec, *self._bot_scope(None)))
+
+    def wizard_ask(self, msgs, form=None):
+        return self._bots(bots.wizard_ask, msgs, form)
+
+    def bot_open_service(self, sid, words):
+        return self._bots(bots.open_service, sid, words)
+
     def bot_run(self, name):
         return self._bots(bots.launch, name, True)
 
