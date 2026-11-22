@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<!-- Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds -->
+<html><head><meta charset="utf-8"><title>Offline emulator</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#111215;color:#e6e6e6;font:14px/1.45 "Segoe UI",system-ui,sans-serif}
+#pick{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:17px;margin:0 0 4px}
+.muted{color:#9aa;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:12px 0}
+.sys{background:#22242a;border:1px solid #363944;border-radius:8px;padding:8px 10px;cursor:pointer;text-align:left;color:inherit;font:inherit}
+.sys:hover{border-color:#5b74e0}.sys.on{border-color:#3a5bd9;background:#262c44}
+.sys b{display:block}.sys small{color:#99a}
+#drop{border:2px dashed #444856;border-radius:10px;padding:22px;text-align:center;margin:10px 0;cursor:pointer}
+#drop.over{border-color:#3a5bd9;background:#1c2236}
+button.go{background:#3a5bd9;color:#fff;border:0;border-radius:7px;padding:8px 16px;font:inherit;cursor:pointer}
+button.go:disabled{opacity:.4;cursor:default}
+#play{display:none;height:100%;flex-direction:column}
+#bar{display:flex;gap:8px;align-items:center;padding:5px 8px;background:#18191d;border-bottom:1px solid #30323a}
+#bar button{background:#2c2f37;border:1px solid #444856;color:#eee;border-radius:6px;padding:3px 10px;cursor:pointer;font:inherit}
+#gamewrap{flex:1;min-height:0}
+#game{width:100%;height:100%}
+#err{color:#f08080}
+</style></head>
+<body>
+<div id="pick">
+  <h1>🎮 Offline emulator</h1>
+  <div class="muted">EmulatorJS, running on this computer. Nothing loads from the internet, and your game file stays here.</div>
+  <div class="grid" id="systems"></div>
+  <div id="drop">📂 <b>Choose a game file</b>, or drop it here<br><span class="muted" id="hint">Pick a system first, or just choose a file and the system is guessed from its type.</span></div>
+  <input type="file" id="file" hidden>
+  <p><button class="go" id="start" disabled>▶ Play</button> <span id="chosen" class="muted"></span></p>
+  <p id="err"></p>
+  <p class="muted">Use games you own and copied yourself, or free homebrew. Zip files work too. For PlayStation, use a single .pbp or .chd file (a .cue with separate .bin files can't be picked as one).
+  Saves and save states are kept in this view on this computer. In a game, the bar along the bottom has save states, controls, gamepad and full screen.</p>
+</div>
+<div id="play">
+  <div id="bar"><button id="back">← Choose another game</button><span id="now" class="muted"></span></div>
+  <div id="gamewrap"><div id="game"></div></div>
+</div>
+<script>
+"use strict";
+const SYSTEMS = [
+  { core: "fceumm", n: "NES / Famicom", ext: ["nes", "fds", "unf", "unif"] },
+  { core: "snes9x", n: "Super Nintendo", ext: ["smc", "sfc", "fig", "swc", "bs"] },
+  { core: "gambatte", n: "Game Boy / Color", ext: ["gb", "gbc", "dmg"] },
+  { core: "mgba", n: "Game Boy Advance", ext: ["gba"] },
+  { core: "genesis_plus_gx", n: "Genesis, Master System, Game Gear", ext: ["md", "gen", "smd", "sms", "gg", "sg", "68k"] },
+  { core: "mupen64plus_next", n: "Nintendo 64", ext: ["n64", "z64", "v64"] },
+  { core: "melonds", n: "Nintendo DS", ext: ["nds"] },
+  { core: "pcsx_rearmed", n: "PlayStation", ext: ["pbp", "chd", "iso", "cue", "img"] },
+  { core: "mednafen_pce", n: "PC Engine / TurboGrafx-16", ext: ["pce", "sgx"] },
+  { core: "stella2014", n: "Atari 2600", ext: ["a26"] },
+  { core: "prosystem", n: "Atari 7800", ext: ["a78"] },
+  { core: "handy", n: "Atari Lynx", ext: ["lnx"] },
+  { core: "mame2003_plus", n: "Arcade (MAME 2003-Plus, .zip)", ext: [] }
+];
+const $ = s => document.querySelector(s);
+let sys = null, file = null;
+function draw() {
+  const g = $("#systems"); g.textContent = "";
+  for (const s of SYSTEMS) {
+    const b = document.createElement("button");
+    b.className = "sys" + (sys === s ? " on" : "");
+    const t = document.createElement("b"), x = document.createElement("small");
+    t.textContent = s.n; x.textContent = s.ext.length ? "." + s.ext.join(" .") : ".zip";
+    b.append(t, x);
+    b.onclick = () => { sys = s; draw(); ready(); };
+    g.append(b);
+  }
+}
+function guess(name) {
+  const e = (name.split(".").pop() || "").toLowerCase();
+  return SYSTEMS.find(s => s.ext.includes(e)) || null;
+}
+function ready() {
+  $("#start").disabled = !(sys && file);
+  $("#chosen").textContent = file ? file.name + (sys ? " on " + sys.n : ": pick its system above") : "";
+}
+function take(f) {
+  if (!f) return;
+  file = f; $("#err").textContent = "";
+  const g = guess(f.name);
+  if (g) sys = g;
+  draw(); ready();
+}
+$("#drop").onclick = () => $("#file").click();
+$("#file").onchange = e => { take(e.target.files[0]); e.target.value = ""; };
+$("#drop").ondragover = e => { e.preventDefault(); $("#drop").classList.add("over"); };
+$("#drop").ondragleave = () => $("#drop").classList.remove("over");
+$("#drop").ondrop = e => { e.preventDefault(); $("#drop").classList.remove("over"); take(e.dataTransfer.files[0]); };
+$("#back").onclick = () => location.reload();
+$("#start").onclick = () => {
+  if (!sys || !file) return;
+  $("#pick").style.display = "none"; $("#play").style.display = "flex";
+  $("#now").textContent = file.name + " · " + sys.n;
+  window.EJS_player = "#game";
+  window.EJS_core = sys.core;
+  window.EJS_gameUrl = file;
+  window.EJS_gameName = file.name.replace(/\.[^.]+$/, "");
+  window.EJS_pathtodata = "data/";
+  window.EJS_startOnLoaded = true;
+  window.EJS_threads = false;
+  window.EJS_color = "#3a5bd9";
+  window.EJS_language = "en-US";
+  const s = document.createElement("script");
+  s.src = "data/loader.js";
+  s.onerror = () => { $("#now").textContent = "The emulator files are missing from this copy of the app."; };
+  document.body.append(s);
+};
+draw();
+</script>
+</body></html>

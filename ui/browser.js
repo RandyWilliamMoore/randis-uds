@@ -124,7 +124,8 @@ const Browser = (() => {
         const name = t.kind === "welcome" ? "New tab" : t.title;
         if (words && !(name + " " + (t.path || "")).toLowerCase().includes(words)) continue;
         const b = el("button", { className: t.id === state.active ? "on" : "" });
-        b.append(el("span", { className: "tab-icon" }, tabIcon(t)), el("span", {}, name));
+        const ic = el("span", { className: "tab-icon" }); if (typeof fillTabIcon === "function") fillTabIcon(ic, t); else ic.textContent = tabIcon(t);
+        b.append(ic, el("span", {}, name));
         b.dataset.tab = t.id;
         b.addEventListener("click", e => { e.stopPropagation(); toggleMenu("#none"); selectTab(t.id); });
         list.append(b);

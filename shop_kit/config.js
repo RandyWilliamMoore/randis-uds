@@ -1,0 +1,21 @@
+window.SHOP_CONF = {
+ "tagline": "games and apps made with Randis UDS",
+ "owner_full": "",
+ "repo": "",
+ "page": "",
+ "links": [],
+ "store": null,
+ "guestbook": null,
+ "video": null,
+ "theme": "retro",
+ "accent": "",
+ "ticker": "",
+ "welcome": "",
+ "welcome_title": "",
+ "about": "",
+ "music": true,
+ "music_terms": "",
+ "sections": {},
+ "name": "My Shop",
+ "owner": "Me"
+};

@@ -5,3 +5,7 @@
 #machine-meter.hot { color: #fff; background: #c93c37; border-color: #c93c37; }
 #machine-meter[hidden] { display: none; }
 @media (max-width: 899px) { #machine-meter { display: none; } }
+#weather-chip { flex: none; margin: 0 2px 4px; padding: 5px 8px; border-radius: 999px; border: 1px solid var(--line); background: transparent;
+                color: var(--muted); font: inherit; font-size: 11px; white-space: nowrap; cursor: pointer; font-variant-numeric: tabular-nums; }
+#weather-chip:hover { color: var(--text); background: var(--hover); }
+@media (max-width: 899px) { #weather-chip { display: none; } }

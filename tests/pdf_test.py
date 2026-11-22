@@ -106,7 +106,7 @@ def _run(w):
     js("window.__errs = []; window.addEventListener('error', e => window.__errs.push(e.message)); window.addEventListener('unhandledrejection', e => window.__errs.push(String(e.reason)));")
     check("the + menu has PDF", js("!!document.querySelector('#newtab-menu [data-kind=pdf]')"))
     js("document.querySelector('#newtab-menu [data-kind=pdf]').click()")
-    check("it opens a PDF tab with a red book icon", until("current().kind === 'pdf'") and js("document.querySelector('#tabs .tab.active .tab-icon').textContent") == "\U0001F4D5")
+    check("it opens a PDF tab with a red book icon", until("current().kind === 'pdf'") and js("(() => { const i = document.querySelector('#tabs .tab.active .tab-icon'), m = i.querySelector('img.rmo'); return m ? m.alt : i.textContent; })()") in ("\U0001F4D5", ":tab-pdf:"))
 
     if os.path.exists(OUTSIDE):
         answers.append([OUTSIDE])
@@ -245,6 +245,29 @@ def _run(w):
     js("state.llms = [window.__rec.llm]; state.activeLlm = state.llms[0].id; renderLinked()")
     js(f"{btn}.click()")
     check("the button opens a chat beside the page", until("(() => { const p = current().pane.querySelector('.tab-talk'), t = current().pane.querySelector('textarea'); return p && !p.hidden && t.getBoundingClientRect().right <= p.getBoundingClientRect().left + 1; })()", 5))
+    P = "current().pane.querySelector('.tab-talk')"
+    def drag_to(x):
+        js(f"(() => {{ const g = {P}.querySelector('.tab-talk-grip'), r = g.getBoundingClientRect(), o = {{ bubbles: true, pointerId: 1, clientY: 200 }};"
+           f" g.setPointerCapture = () => {{}}; g.dispatchEvent(new PointerEvent('pointerdown', {{ ...o, clientX: r.left + 4 }}));"
+           f" g.dispatchEvent(new PointerEvent('pointermove', {{ ...o, clientX: {x} }})); g.dispatchEvent(new PointerEvent('pointerup', {{ ...o, clientX: {x} }})); }})()")
+    right = js("current().pane.getBoundingClientRect().right")
+    drag_to(right - 600)
+    check("dragging the chat's left edge makes it wider", abs(js(f"{P}.getBoundingClientRect().width") - 600) < 3 and js("current().extra.talkW") == 600,
+          js(f"{P}.getBoundingClientRect().width"))
+    check("the page makes room for the wider chat", js(f"current().pane.querySelector('textarea').getBoundingClientRect().right <= {P}.getBoundingClientRect().left + 1"))
+    drag_to(right - 300)
+    check("and narrower", abs(js(f"{P}.getBoundingClientRect().width") - 300) < 3)
+    drag_to(right - 50)
+    check("it can't be dragged narrower than a usable chat", js(f"{P}.getBoundingClientRect().width") >= 259)
+    js(f"{P}.querySelector('[data-act=talk-fold]').click()")
+    check("» folds it to a thin strip on the right", js(f"{P}.getBoundingClientRect().width") <= 31 and js("current().extra.talkFolded") is True)
+    check("the page gets the room back", js("current().pane.querySelector('textarea').getBoundingClientRect().right") > right - 60)
+    js(f"{P}.querySelector('[data-act=talk-unfold]').click()")
+    check("clicking the strip brings it back at its width", abs(js(f"{P}.getBoundingClientRect().width") - 260) < 3 and js("current().extra.talkFolded") is False)
+    js(f"{P}.querySelector('[data-act=talk-fold]').click(); {btn}.click()")
+    check("the Chat button unfolds a folded chat", abs(js(f"{P}.getBoundingClientRect().width") - 260) < 3 and not js(f"{P}.hidden"))
+    js(f"{P}.querySelector('.tab-talk-grip').dispatchEvent(new MouseEvent('dblclick', {{ bubbles: true }}))")
+    check("double-clicking the edge puts back the normal width", js("current().extra.talkW") is None and abs(js(f"{P}.getBoundingClientRect().width") - min(420, js("current().pane.getBoundingClientRect().width") * 0.45)) < 3)
     js("const p = current().pane.querySelector('.tab-talk'); p.querySelector('.composer textarea').value = 'what do I need?'; p.querySelector('[data-act=send]').click()")
     check("the reply shows in the panel", until("current().pane.querySelector('.tab-talk').innerText.includes('Quack?')", 15), js("current().pane.querySelector('.tab-talk').innerText"))
     check("the LLM is told about the tab and its text", seen and "Shopping" in seen[-1] and "milk and eggs" in seen[-1] and "what do I need?" in seen[-1], seen[-1:] )

@@ -16,6 +16,12 @@ def address_ok(url):
                 or host in ("0.0.0.0", "::1", "::"))
 
 
+def pane_ok(only, url):
+    if only:
+        return str(url or "").startswith(only)
+    return address_ok(url)
+
+
 def profile_dir():
     if os.name == "nt":
         home = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
@@ -37,6 +43,7 @@ class EdgePanes:
         self.panes = {}
         self.want = {}
         self.shown = {}
+        self.only = {}
 
     def _form(self):
         return getattr(self.window, "native", None)
@@ -84,12 +91,12 @@ class EdgePanes:
             core.Settings.IsWebMessageEnabled = False
 
             def starting(s, a):
-                if not address_ok(a.Uri):
+                if not pane_ok(self.only.get(key), a.Uri):
                     a.Cancel = True
                     self._tell_app(key, wv)
             def new_window(s, a):
                 a.Handled = True
-                if address_ok(a.Uri):
+                if pane_ok(self.only.get(key), a.Uri):
                     core.Navigate(a.Uri)
             def changed(s, a):
                 self._tell_app(key, wv)
@@ -107,10 +114,16 @@ class EdgePanes:
         wv.EnsureCoreWebView2Async(None)
         return wv
 
-    def go(self, key, url, reload=False):
-        if not address_ok(url):
+    def go(self, key, url, reload=False, only=None):
+        if not pane_ok(only, url):
             return {"error": "Only web addresses (http or https) on the internet open here."}
         def run():
+            if only and key in self.panes and self.only.get(key) != only:
+                return {"error": "That pane is already in use."}
+            if only:
+                self.only[key] = only
+            elif key in self.only:
+                return {"error": "That pane is kept to the offline emulator."}
             wv = self.panes.get(key)
             if wv is None:
                 wv = self.panes[key] = self._make(key)
@@ -160,6 +173,7 @@ class EdgePanes:
         def run():
             wv = self.panes.pop(key, None)
             self.want.pop(key, None)
+            self.only.pop(key, None)
             self.shown.pop(key, None)
             if wv is not None:
                 self._form().Controls.Remove(wv)
@@ -186,6 +200,7 @@ class GtkPanes:
         self.window = window
         self.panes = {}
         self.shown = {}
+        self.only = {}
         self.overlay = None
         self.context = None
 
@@ -257,7 +272,7 @@ class GtkPanes:
         def decide(v, decision, kind):
             if kind in (WebKit2.PolicyDecisionType.NAVIGATION_ACTION, WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION):
                 uri = decision.get_navigation_action().get_request().get_uri() or ""
-                if not address_ok(uri):
+                if not pane_ok(self.only.get(key), uri):
                     decision.ignore()
                     self._tell_app(key, v)
                     return True
@@ -276,10 +291,16 @@ class GtkPanes:
         self._stage().add_overlay(view)
         return view
 
-    def go(self, key, url, reload=False):
-        if not address_ok(url):
+    def go(self, key, url, reload=False, only=None):
+        if not pane_ok(only, url):
             return {"error": "Only web addresses (http or https) on the internet open here."}
         def run():
+            if only and key in self.panes and self.only.get(key) != only:
+                return {"error": "That pane is already in use."}
+            if only:
+                self.only[key] = only
+            elif key in self.only:
+                return {"error": "That pane is kept to the offline emulator."}
             view = self.panes.get(key)
             if view is None:
                 view = self.panes[key] = self._make(key)
@@ -324,6 +345,7 @@ class GtkPanes:
         def run():
             view = self.panes.pop(key, None)
             self.shown.pop(key, None)
+            self.only.pop(key, None)
             if view is not None:
                 self.overlay.remove(view)
                 view.destroy()

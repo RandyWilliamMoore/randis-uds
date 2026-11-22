@@ -133,6 +133,14 @@ def run(w):
 def _run(w):
     js = w.evaluate_js
 
+    def until_py(f, secs):
+        end = time.time() + secs
+        while time.time() < end:
+            if f():
+                return True
+            time.sleep(0.3)
+        return False
+
     def until(expr, timeout=10):
         t0 = time.time()
         while time.time() - t0 < timeout:
@@ -296,7 +304,7 @@ def _run(w):
     js("selectTab(%d)" % built_tab)
     js("closeTab(state.active)")
     js("document.querySelector('#newtab').click()")
-    check("+ menu lists built tab", "▣ Counter" in js("document.querySelector('#built-menu').innerText"))
+    check("+ menu lists built tab", "Counter" in js("[...document.querySelectorAll('#built-menu [data-built]')].map(b => b.textContent).join()"))
     js("document.querySelector('#built-menu [data-built]').click()")
     check("reopen built tab from menu", until("current().kind === 'built' && document.querySelector('.pane:not([hidden]) iframe').srcdoc.includes('Counter v1')"))
     js("selectTab(%d)" % first_tab)
@@ -407,7 +415,7 @@ def _run(w):
     after = ImageGrab.grab()
     import ctypes.wintypes as wt
     rect = wt.RECT()
-    ctypes.windll.user32.GetWindowRect(ctypes.windll.user32.FindWindowW(None, "Rubber duck"), ctypes.byref(rect))
+    ctypes.windll.user32.GetWindowRect(ctypes.windll.user32.FindWindowW(None, "Quak Quak"), ctypes.byref(rect))
     x, y, w, h = rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top
     corner = [(x + 3, y + 3), (x + w - 4, y + 3), (x + 3, y + h - 4), (x + w - 4, y + h - 4)]
     same = sum(before.getpixel(p) == after.getpixel(p) for p in corner if 0 <= p[0] < before.width and 0 <= p[1] < before.height)
@@ -419,6 +427,50 @@ def _run(w):
     pop.evaluate_js("document.getElementById('__pop').dispatchEvent(new MouseEvent('dblclick', {bubbles: true}))")
     check("double-click puts him back", until("document.querySelector('.pane:not([hidden]) .duck-out').hidden && !document.querySelector('.pane:not([hidden]) .duck-stage iframe').hidden", 10)
           and api._pop is None)
+    js("document.querySelector('.pane:not([hidden]) [data-act=popout]').click()")
+    until("!document.querySelector('.pane:not([hidden]) .duck-out').hidden", 10)
+    for _ in range(50):
+        try:
+            if api._pop.evaluate_js("!!document.getElementById('__pop')"):
+                break
+        except Exception:
+            pass
+        time.sleep(0.2)
+    api._pop.evaluate_js("window.__popLost = 1")
+    back = until("document.querySelector('.pane:not([hidden]) .duck-out').hidden", 20) and api._pop is None
+    pop_hwnd = int(api._pop_win.native.Handle.ToInt64())
+    check("a duck that stops drawing is put back, window hidden", back and until_py(lambda: not ctypes.windll.user32.IsWindowVisible(pop_hwnd), 10))
+    api._pop_win.show()
+    check("an empty duck window left showing is hidden by the guard", until_py(lambda: not ctypes.windll.user32.IsWindowVisible(pop_hwnd), 10))
+    js("(() => { const c = document.body.appendChild(document.createElement('div')); c.className = 'composer'; c.id = '__imgtest';"
+       " const ta = c.appendChild(document.createElement('textarea')); ta.value = 'look:'; ta.selectionStart = ta.selectionEnd = 5;"
+       " window.__png = () => { const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), ch => ch.charCodeAt(0));"
+       " const dt = new DataTransfer(); dt.items.add(new File([png], 'x.png', {type: 'image/png'})); return dt; };"
+       " ta.dispatchEvent(new ClipboardEvent('paste', {clipboardData: __png(), bubbles: true, cancelable: true})); })()")
+    until("/\\[Image attached: .+chat_images.+\\.png/.test(document.querySelector('#__imgtest textarea').value)", 5)
+    v = js("document.querySelector('#__imgtest textarea').value") or ""
+    p = v.split("[Image attached: ")[-1].split(" — ")[0]
+    check("pasted image saved, path put in the chat box", v.startswith("look:") and os.path.isfile(p) and p.startswith(D), v)
+    check("the 🖼 button is added to a chat box", until("!!document.querySelector('#__imgtest .img-pick')", 5))
+    js("(() => { const t = document.querySelector('#__imgtest textarea'); t.value = ''; t.dispatchEvent(new DragEvent('drop', {dataTransfer: __png(), bubbles: true, cancelable: true})); })()")
+    check("dropped image goes in too", until("/\\[Image attached: .+\\.png/.test(document.querySelector('#__imgtest textarea').value)", 5))
+    js("(() => { const b = document.body.appendChild(document.createElement('div')); b.id = '__imgbot';"
+       " const t = document.createElement('textarea'); t.className = 'agi-bot-chat-input bot-chat-box bt-chat-input'; b.appendChild(t); })()")
+    check("a chat box made later (a bot chat) gets the 🖼 button", until("!!document.querySelector('#__imgbot textarea + .img-pick')", 5))
+    js(f"(() => {{ const m = document.createElement('div'); m.id = '__imgmsg'; m.textContent = {json.dumps('see [Image attached: ' + p + ' — open it]')}; document.body.appendChild(m); }})()")
+    check("a sent image shows as a picture in the chat", until("!!document.querySelector('#__imgmsg .chat-thumbs img') && document.querySelector('#__imgmsg .chat-thumbs img').src.startsWith('data:image/png')", 8))
+    shutil.copy(p, os.path.join(D, "outside.png"))
+    check("only chat_images files can be shown", api.chat_image_data(os.path.join(D, "outside.png")) is None and api.chat_image_data(p).startswith("data:image/png"))
+    js("['__imgtest', '__imgbot', '__imgmsg'].forEach(i => document.getElementById(i) && document.getElementById(i).remove())")
+    js("(() => { const p = document.querySelector('.pane:not([hidden])'); const w = document.createElement('div'); w.id = '__wide';"
+       " Object.assign(w.style, {position: 'absolute', left: '0', top: '0', width: '100%', height: '5000px', overflowX: 'auto', zIndex: 40, background: '#fff'});"
+       " const i = document.createElement('div'); i.style.width = '6000px'; i.style.height = '10px'; w.appendChild(i); p.appendChild(w); window.hscrollUpdate(); })()")
+    check("a sideways scrollbar shows at the bottom when the wide part's own bar is out of sight",
+          until("!document.querySelector('.hscroll-bar').hidden && document.querySelector('.hscroll-bar').getBoundingClientRect().bottom <= innerHeight", 5))
+    js("(() => { const b = document.querySelector('.hscroll-bar'); b.scrollLeft = 200; b.dispatchEvent(new Event('scroll')); })()")
+    check("moving it scrolls the wide part sideways", until("document.getElementById('__wide').scrollLeft > 100", 3))
+    js("document.getElementById('__wide').remove(); window.hscrollUpdate()")
+    check("it goes away when nothing is wide", until("document.querySelector('.hscroll-bar').hidden", 3))
     js("document.querySelector('.pane:not([hidden]) [data-act=modify]').click()")
     type_enter(".pane:not([hidden]) .duck-studio textarea", "redraw him, no id")
     until("document.querySelector('.pane:not([hidden]) .duck-stage iframe').srcdoc.includes('Pirate duck')", 15)
@@ -838,7 +890,7 @@ def _run(w):
     js("document.querySelector('#mainmenu').click()")
     mm = lambda: js("document.querySelector('#main-menu').innerText")
     check("Menu lists every page and feature", until("!document.querySelector('#main-menu').hidden")
-          and all(x in mm() for x in ("Chat", "IDE", "Rubber duck", "Notepad", "Add new item")), mm())
+          and all(x in mm() for x in ("Chat", "IDE", "Quak Quak", "Notepad", "Add new item")), mm())
     js("const c=document.querySelector('#main-menu input[data-feature=notepad]'); c.click()")
     check("turning Notepad off takes it out of the + menu", js("document.querySelector('#newtab-menu [data-kind=notepad]').hidden && state.off.includes('notepad')"))
     js("document.querySelector('#main-menu [data-open=notepad]').click()")

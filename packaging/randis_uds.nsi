@@ -8,13 +8,24 @@ RequestExecutionLevel user
 !include "x64.nsh"
 !include "webview2_check.nsh"
 
-!define APP_NAME "Randis UDS"
+!ifndef Edition
+  !define Edition "developer"
+!endif
+!if "${Edition}" == "marketplace"
+  !define APP_NAME "Randis UDS Marketplace Edition"
+  !define APP_ID "RandisUDSMarketplace"
+  !define SETUP_NAME "RandisUDS-Marketplace-Setup"
+!else
+  !define APP_NAME "Randis UDS"
+  !define APP_ID "RandisUDS"
+  !define SETUP_NAME "RandisUDS-Setup"
+!endif
 !define ICON "${Stage}\app\ui\logo\uds-base.ico"
-!define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\RandisUDS"
+!define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
 
 Name "${APP_NAME}"
-OutFile "${OutDir}\RandisUDS-Setup-${Version}.exe"
-InstallDir "$LOCALAPPDATA\Programs\RandisUDS"
+OutFile "${OutDir}\${SETUP_NAME}-${Version}.exe"
+InstallDir "$LOCALAPPDATA\Programs\${APP_ID}"
 ShowInstDetails nevershow
 ShowUninstDetails nevershow
 
@@ -86,9 +97,11 @@ Section "${APP_NAME}" SecMain
   SetOverwrite on
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
+!if "${Edition}" != "marketplace"
   WriteRegStr HKCU "Software\Classes\randisuds" "" "URL:Randis UDS"
   WriteRegStr HKCU "Software\Classes\randisuds" "URL Protocol" ""
   WriteRegStr HKCU "Software\Classes\randisuds\shell\open\command" "" '"$INSTDIR\python\pythonw.exe" "$INSTDIR\app\launch.py" "%1"'
+!endif
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${Version}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "${APP_NAME}"
@@ -125,7 +138,9 @@ Section "Uninstall"
   RMDir /r "$INSTDIR\python"
   RMDir /r "$INSTDIR\app\__pycache__"
   !include "${Stage}\uninstall_files.nsh"
+!if "${Edition}" != "marketplace"
   DeleteRegKey HKCU "Software\Classes\randisuds"
+!endif
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"

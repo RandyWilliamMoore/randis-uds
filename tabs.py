@@ -34,6 +34,14 @@ def extract_html(text):
 MAX_ITEM = 30 * 1024 * 1024
 
 
+def uds_version():
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION"), encoding="utf-8") as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
 class TabStore:
     def __init__(self, root):
         self.root = root
@@ -75,7 +83,7 @@ class TabStore:
         fname = f"v{n:03d}.html"
         with open(os.path.join(self._dir(tab_id), fname), "w", encoding="utf-8") as f:
             f.write(html)
-        meta["versions"].append({"n": n, "file": fname, "note": note, "time": time.time()})
+        meta["versions"].append({"n": n, "file": fname, "note": note, "time": time.time(), "uds": uds_version()})
         meta["current"] = n
         self._write_meta(meta)
         return meta

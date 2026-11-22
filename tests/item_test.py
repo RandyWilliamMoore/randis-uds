@@ -119,7 +119,7 @@ for bad in ("randisuds://open?item=../../secret", "randisuds://open?item=games/A
     check(f"a bad link leaves no note: {bad}", not launch.take_open_link([bad]) and not os.path.exists(note))
 check("a shop link leaves a note", launch.take_open_link(["randisuds://open?item=games/demo-game"]) and json.load(open(note))["item"] == "games/demo-game")
 api = app.Api()
-check("the app takes the note once", api.item_request() == "games/demo-game" and api.item_request() is None)
+check("the app takes the note once", (api.item_request() or {}).get("item") == "games/demo-game" and api.item_request() is None)
 with open(note, "w") as f:
     json.dump({"item": "games/demo-game", "time": time.time() - 3600}, f)
 check("an old note is dropped", api.item_request() is None and not os.path.exists(note))

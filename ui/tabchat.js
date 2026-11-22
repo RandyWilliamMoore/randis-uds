@@ -22,6 +22,18 @@ function addTabChat(tab, pane, opts = {}) {
   if (opts.first) opts.bar.prepend(btn); else opts.bar.append(btn);
   let box = null, talk = null;
   const close = () => { box.hidden = true; pane.classList.remove("talk-open"); tab.extra[key + "Open"] = false; scheduleSave(); };
+  const setWidth = w => {
+    tab.extra = tab.extra || {};
+    if (w == null) { delete tab.extra[key + "W"]; pane.style.removeProperty("--talk-w"); return; }
+    w = Math.round(Math.max(260, Math.min(w, pane.getBoundingClientRect().width - 160)));
+    tab.extra[key + "W"] = w; pane.style.setProperty("--talk-w", w + "px");
+  };
+  const setFolded = on => {
+    tab.extra = tab.extra || {};
+    tab.extra[key + "Folded"] = !!on; pane.classList.toggle("talk-folded", !!on);
+    if (!on && box) { const ta = $(".composer textarea", box); if (ta) ta.focus(); }
+    scheduleSave();
+  };
   const open = quiet => {
     if (!state.llms.length) { if (!quiet) toast("Link an LLM first, with + Add LLM."); return; }
     tab.extra = tab.extra || {};
@@ -31,20 +43,42 @@ function addTabChat(tab, pane, opts = {}) {
       talk = { id: -tab.id, kind: "chat", title: chat.title, chatId: chat.id, job: null, talkAbout: tab, talkIntro: opts.intro };
       const inner = buildChat(talk);
       inner.classList.add("side-hidden");
+      const fold = el("button", { className: "icon tab-talk-fold", title: "Fold the chat away to the right" }, "»");
+      fold.dataset.act = "talk-fold";
+      fold.addEventListener("click", () => setFolded(true));
       const x = el("button", { className: "icon", title: "Hide this chat" }, "×");
       x.addEventListener("click", close);
-      $(".chat-head", inner).append(x);
+      $(".chat-head", inner).append(fold, x);
       box = el("div", { className: "tab-talk" });
-      box.append(inner);
+      const strip = el("button", { className: "tab-talk-strip", title: "Show the chat" }, "« 💬");
+      strip.dataset.act = "talk-unfold";
+      strip.addEventListener("click", () => setFolded(false));
+      const grip = el("div", { className: "tab-talk-grip", title: "Drag to change the width (double-click: normal width)" });
+      grip.addEventListener("pointerdown", e => {
+        e.preventDefault(); grip.setPointerCapture(e.pointerId); box.classList.add("sizing");
+        const move = ev => setWidth(pane.getBoundingClientRect().right - ev.clientX);
+        const up = () => { grip.removeEventListener("pointermove", move); box.classList.remove("sizing"); scheduleSave(); };
+        grip.addEventListener("pointermove", move);
+        grip.addEventListener("pointerup", up, { once: true });
+        grip.addEventListener("lostpointercapture", up, { once: true });
+      });
+      grip.addEventListener("dblclick", () => { setWidth(null); scheduleSave(); });
+      box.append(grip, strip, inner);
       box.addEventListener("click", e => e.stopPropagation());
       pane.append(box);
     }
     box.hidden = false; pane.classList.add("talk-open"); tab.extra[key + "Open"] = true;
+    if (tab.extra[key + "W"]) pane.style.setProperty("--talk-w", tab.extra[key + "W"] + "px");
+    pane.classList.toggle("talk-folded", !!tab.extra[key + "Folded"]);
     tabChatStarted(talk);
-    $(".composer textarea", box).focus();
+    if (!tab.extra[key + "Folded"]) $(".composer textarea", box).focus();
     scheduleSave();
   };
-  btn.addEventListener("click", e => { e.stopPropagation(); box && !box.hidden ? close() : open(false); });
+  btn.addEventListener("click", e => {
+    e.stopPropagation();
+    if (box && !box.hidden && pane.classList.contains("talk-folded")) return setFolded(false);
+    box && !box.hidden ? close() : open(false);
+  });
   if (tab.extra && tab.extra[key + "Open"]) open(true);
 }
 

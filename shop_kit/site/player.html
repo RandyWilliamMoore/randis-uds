@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; base-uri 'none'; form-action 'none'">
+<title>Player</title>
+</head>
+<body>
+<script>
+Object.getOwnPropertyNames(window).filter(function (k) { return /^(webkit)?RTC/.test(k); }).forEach(function (k) {
+  try { Object.defineProperty(window, k, { value: undefined, writable: false, configurable: false }); } catch (e) {}
+});
+addEventListener("message", function take(e) {
+  if (e.source !== parent || typeof e.data !== "string") return;
+  removeEventListener("message", take);
+  var files = new Map(), makeUrl = URL.createObjectURL, pressA = HTMLAnchorElement.prototype.click;
+  URL.createObjectURL = function (b) { var u = makeUrl.call(URL, b); if (b instanceof Blob) files.set(u, b); return u; };
+  function fromData(u) {
+    var m = /^data:([^,;]*)((?:;[^,;]*)*),(.*)$/s.exec(u); if (!m) return null;
+    var raw = /;base64/i.test(m[2]) ? atob(m[3]) : decodeURIComponent(m[3]), out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i) & 255;
+    return new Blob([out], { type: m[1] });
+  }
+  function handOver(a) {
+    var href = a.getAttribute("href") || "";
+    if (a.hasAttribute("download")) {
+      var f = /^blob:/.test(href) ? files.get(href) : /^data:/.test(href) ? fromData(href) : null;
+      if (!f) return false;
+      var name = a.getAttribute("download") || "download";
+      f.arrayBuffer().then(function (buf) { parent.postMessage({ uds: "download", name: name, type: f.type, data: buf }, "*", [buf]); });
+      return true;
+    }
+    if (/^https?:\/\//i.test(href)) { parent.postMessage({ uds: "open-link", url: href }, "*"); return true; }
+    return false;
+  }
+  HTMLAnchorElement.prototype.click = function () { if (!handOver(this)) return pressA.call(this); };
+  window.open = function (u) { if (/^https?:\/\//i.test(String(u))) parent.postMessage({ uds: "open-link", url: String(u) }, "*"); return null; };
+  document.open(); document.write(e.data); document.close();
+  document.addEventListener("click", function (ev) {
+    var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
+    if (a && handOver(a)) ev.preventDefault();
+  }, true);
+});
+parent.postMessage("player-ready", "*");
+</script>
+</body>
+</html>

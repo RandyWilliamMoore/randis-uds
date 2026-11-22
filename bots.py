@@ -288,6 +288,8 @@ def why_not(name: str, scheduled: bool = False) -> str | None:
     b = bot(name)
     if not approved(b):
         return "it's retired" if b.get("status") == "retired" else "it has no yes from you"
+    if b.get("kind") == "session":
+        return "it's a Claude Code session's card: it answers in its chat, it doesn't run"
     if paused():
         return "every bot is paused (Resume all bots starts them again)"
     if not scheduled and running(name):
@@ -993,6 +995,10 @@ def chat(name: str, text: str) -> dict:
     b = bot(name)
     if b.get("status") == "retired":
         raise ValueError(f"{name} is retired.")
+    if b.get("kind") == "session":
+        row = _append(p("chats", f"{name}.jsonl"), {"ts": now(), "who": "you", "text": text})
+        post("you", "chat", f"to {name}: {text[:120]}", {"to": name})
+        return row
     if paused():
         raise ValueError("Every bot is paused. Resume all bots to talk to them.")
     if not ccode.command():
@@ -1052,6 +1058,9 @@ def group_chat(text: str) -> dict:
 
     def one(name):
         b = bot(name)
+        if b.get("kind") == "session":
+            post("you", "chat", f"to all bots (and {name}): {text[:120]}", {"to": name, "group": "all"})
+            return f"(sent to {name}; its answer lands here when it replies)", 0
         prompt = (f"You are the bot \"{name}\" ({b.get('id')}). Your job: {b.get('job', '')}\n"
                   f"The user is talking to all their bots at once: {', '.join(members)}. Answer for yourself only, in a few "
                   "short plain lines, from your own job's point of view. If it isn't for you, say so in one line.\n"
@@ -1450,6 +1459,37 @@ def group_members() -> list[str]:
     return [b["name"] for b in load_registry()["bots"] if approved(b)]
 
 
+def inbox(name: str) -> list[dict]:
+    out = []
+    for f, mine in ((f"{name}.jsonl", "bot"), ("_all.jsonl", name)):
+        rows = _jsonl(p("chats", f))
+        last = max([i for i, m in enumerate(rows) if m.get("who") == mine] + [-1])
+        out += [dict(m, where="all bots" if f == "_all.jsonl" else "its chat") for m in rows[last + 1:] if m.get("who") == "you"]
+    return sorted(out, key=lambda m: m["ts"])
+
+
+def reply(name: str, text: str, group: bool = False) -> dict:
+    if bot(name).get("kind") != "session":
+        raise ValueError(f"{name} isn't a session card.")
+    text = str(text or "").strip()
+    if not text:
+        raise ValueError("Say something first.")
+    if group:
+        return _append(p("chats", "_all.jsonl"), {"ts": now(), "who": name, "text": text})
+    return _append(p("chats", f"{name}.jsonl"), {"ts": now(), "who": "bot", "text": text})
+
+
+def inbox_watch(name: str, poll_s: float = 3.0) -> None:
+    seen = {m["ts"] + m["text"] for m in inbox(name)}
+    while True:
+        time.sleep(poll_s)
+        for m in inbox(name):
+            k = m["ts"] + m["text"]
+            if k not in seen:
+                seen.add(k)
+                print(f"[inbox] {m['ts']} in {m['where']}: " + m["text"].replace("\n", " ")[:400], flush=True)
+
+
 _SCAN = {"t": 0.0, "rows": []}
 
 
@@ -1496,6 +1536,17 @@ def main(argv) -> int:
         except (KeyError, ValueError) as e:
             print(str(e).strip("'\""))
             return 1
+        return 0
+    if cmd == "inbox" and len(argv) > 2:
+        for m in inbox(argv[2]):
+            print(f"{m['ts']} in {m['where']}: {m['text']}")
+        return 0
+    if cmd == "inbox-watch" and len(argv) > 2:
+        inbox_watch(argv[2])
+        return 0
+    if cmd == "reply" and len(argv) > 3:
+        group = argv[3] == "--group"
+        print(reply(argv[2], " ".join(argv[4 if group else 3:]), group=group)["ts"])
         return 0
     if cmd == "run" and len(argv) > 2:
         reason = why_not(argv[2])

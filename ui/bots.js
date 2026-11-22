@@ -885,7 +885,7 @@ function buildBots(tab) {
     const x = await botCall("bot_chat", name, text);
     delete CHATWAIT[name];
     if (x.error) { toast(x.error); DRAFTS[key] = text; }
-    await load(true); scrollChats(name);
+    await load(true);
   };
   let groupPoll = null;
   const sendGroup = async () => {

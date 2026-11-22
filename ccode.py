@@ -54,7 +54,9 @@ def terminal(cwd, brief_file, full=False):
                             creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
 
 
-def perm_line(perms):
+def perm_line(perms, mode=DEFAULT_MODE):
+    if mode == "bypassPermissions" or "full" in (perms or []):
+        return "Full access is on: you may run commands and use the web without asking. There are no switches to turn on."
     on = [PERMS[p][0] for p in perms or [] if p in PERMS]
     off = [v[0] for k, v in PERMS.items() if k not in (perms or [])]
     return ("Switches on for this turn: " + (", ".join(on) or "none") + ". Off: " + (", ".join(off) or "none") + ". "
@@ -121,10 +123,14 @@ def _short(inp):
     return ""
 
 
+PARALLEL = max(1, int(os.environ.get("UDS_CC_PARALLEL") or 4))
+
+
 class ClaudeCode:
     def __init__(self, rec):
         self.cwd, self.mode = rec["cwd"], rec.get("mode", DEFAULT_MODE)
         self.lock = threading.Lock()
+        self.slots = threading.BoundedSemaphore(PARALLEL)
         self.version = None
 
     def check(self):
@@ -137,15 +143,26 @@ class ClaudeCode:
     def stream(self, messages, job, max_tokens=None, ctx=None):
         if ctx is None:
             raise ValueError("Claude Code only runs through the app's snapshot step.")
-        with self.lock:
-            job.status = "saving a snapshot"
-            ctx["before"](job)
+        job.status = "waiting for a free turn (other chats are working)"
+        while not self.slots.acquire(timeout=0.5):
+            if job.stop:
+                return
+        try:
+            job.wait() if hasattr(job, "wait") else None
+            if job.stop:
+                return
+            with self.lock:
+                job.status = "saving a snapshot"
+                ctx["before"](job)
             try:
                 self._turn(messages, job, ctx, ctx.get("session"))
             finally:
                 job.status = "checking what changed"
                 self._end_programs(job)
-                ctx["after"](job)
+                with self.lock:
+                    ctx["after"](job)
+        finally:
+            self.slots.release()
 
     def _end_programs(self, job):
         programs = getattr(job, "programs", None)
@@ -170,7 +187,7 @@ class ClaudeCode:
         perms = [p for p in ctx.get("perms") or [] if p in PERMS]
         args = command() + ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
                             "--permission-mode", "bypassPermissions" if "full" in perms else self.mode,
-                            "--append-system-prompt", SYSTEM.format(cwd=self.cwd) + USER_NOTE[0] + " " + perm_line(perms)]
+                            "--append-system-prompt", SYSTEM.format(cwd=self.cwd) + USER_NOTE[0] + " " + perm_line(perms, self.mode)]
         args += perm_args(perms, ctx.get("dirs"))
         args += ["--resume", sid] if session else ["--session-id", sid]
         job.status = "starting Claude Code"
@@ -185,6 +202,7 @@ class ClaudeCode:
         proc.stdin.write(prompt)
         proc.stdin.close()
         started = new_msg = billed = False
+        done_out = 0
         result = None
         for line in proc.stdout:
             if job.stop:
@@ -205,6 +223,11 @@ class ClaudeCode:
                 e = ev.get("event", {})
                 if e.get("type") == "message_start":
                     new_msg = True
+                    done_out = getattr(job, "tokens_out", 0)
+                    u = e.get("message", {}).get("usage", {})
+                    job.tokens_in = (u.get("input_tokens") or 0) + (u.get("cache_read_input_tokens") or 0) + (u.get("cache_creation_input_tokens") or 0)
+                elif e.get("type") == "message_delta" and e.get("usage", {}).get("output_tokens") is not None:
+                    job.tokens_out = done_out + e["usage"]["output_tokens"]
                 elif e.get("type") == "content_block_delta" and e.get("delta", {}).get("type") == "text_delta":
                     if new_msg and job.text and not job.text.endswith("\n\n"):
                         job.text += "\n\n"

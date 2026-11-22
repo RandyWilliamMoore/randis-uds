@@ -25,7 +25,9 @@ ORIGIN_LINKS = {"original": "https://github.com/RandyWilliamMoore/randis-uds", "
                 "shop": "https://randywilliammoore.github.io/randis-shop/"}
 
 import bots
+import botfarm
 import ccode
+import credmark
 import chatlog
 import cli_setup
 import ide
@@ -34,16 +36,39 @@ import machine
 import net
 import pdftools
 import projects
+import rounds
+import upgradekit
+import research
+import voicebox
+import spell
+import shiptab
+import sysguard
 import snapshots
 import tabs
 import updater
 import webpane
+import emuserve
+import scout
+import codelab
+import av
+import vm
+import studio
+import media
 
 for _type, _ext in (("text/javascript", ".js"), ("text/javascript", ".mjs"), ("text/css", ".css"), ("text/html", ".html"), ("application/wasm", ".wasm"), ("image/svg+xml", ".svg")):
     mimetypes.add_type(_type, _ext)
 HERE = os.path.dirname(os.path.abspath(__file__))
 BASE = lambda: os.environ.get("UDS_BASE") or projects.base_of(HERE)
 DATA_DIR = os.path.join(HERE, "data")
+
+
+def window_title(name="Base"):
+    import edition
+    ed = edition.load(DATA_DIR)
+    if ed["title"]:
+        return ed["title"]
+    top = "Randis UDS" if ed["edition"] == edition.DEFAULT else ed["name"]
+    return top if name == "Base" else f"{top} · {name}"
 UPDATE_APP = HERE
 SESSION_FILE = os.path.join(DATA_DIR, "session.json")
 LEADERBOARD_FILE = lambda: os.path.join(DATA_DIR, "pong_leaderboard.json")
@@ -61,13 +86,50 @@ POP_SCRIPT = """<script>(function () {
     '@keyframes __bob{0%%,100%%{transform:translateY(-3px) rotate(-3deg)}50%%{transform:translateY(3px) rotate(3deg)}}';
   document.head.appendChild(st); document.body.appendChild(box);
   box.addEventListener('dblclick', function () { window.pywebview && window.pywebview.api.close(); });
+  document.addEventListener('webglcontextlost', function () { window.__popLost = 1; }, true);
 })();</script>"""
+POP_ALIVE = "window.__popLost ? 'lost' : (document.getElementById('__pop') ? 'ok' : 'gone')"
 BLANK_POP = "<html><body style='background:transparent'></body></html>"
 POP_BASE = {} if os.name == "nt" else {"base_uri": "about:blank"}
 WALL_RULES = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'"
 NO_WEBRTC = "for(const n of ['RTCPeerConnection','webkitRTCPeerConnection','RTCSessionDescription','RTCIceCandidate','RTCDataChannel','RTCRtpSender','RTCRtpReceiver','RTCRtpTransceiver']){try{delete window[n]}catch(e){}}"
 SERVED_HERE = ("http://127.0.0.1:", "http://localhost:", "file:")
 web_address_ok = webpane.address_ok
+WEATHER_HOSTS = ("api.open-meteo.com", "marine-api.open-meteo.com", "geocoding-api.open-meteo.com", "air-quality-api.open-meteo.com",
+                 "api.weather.gov", "api.tidesandcurrents.noaa.gov", "www.ndbc.noaa.gov", "aviationweather.gov", "api.rainviewer.com")
+
+
+EMOJI_MINE = os.path.join(DATA_DIR, "emoji", "mine.json")
+EMOJI_BAD = re.compile(r"<\s*/?\s*(script|foreignobject|iframe|object|embed|image|use|a|style)\b|\bon\w+\s*=|javascript:|href\s*=|url\s*\(", re.I)
+
+
+def _emoji_clean(lst):
+    out, seen = [], set()
+    for e in (lst if isinstance(lst, list) else [])[:80]:
+        if not isinstance(e, dict):
+            continue
+        name, inner, tags = str(e.get("name") or ""), str(e.get("inner") or ""), str(e.get("tags") or "")[:120]
+        if not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", name) or len(name) > 40 or name in seen or not inner or len(inner) > 8000 or EMOJI_BAD.search(inner):
+            continue
+        seen.add(name)
+        out.append({"name": name, "tags": tags, "inner": inner})
+    return out
+
+
+def emoji_mine():
+    try:
+        with open(EMOJI_MINE, encoding="utf-8") as f:
+            return _emoji_clean(json.load(f))
+    except (OSError, ValueError):
+        return []
+
+
+def emoji_share(lst):
+    clean = _emoji_clean(lst)
+    os.makedirs(os.path.dirname(EMOJI_MINE), exist_ok=True)
+    with open(EMOJI_MINE, "w", encoding="utf-8") as f:
+        json.dump(clean, f, indent=1)
+    return {"shared": len(clean)}
 
 
 def walled(html):
@@ -75,13 +137,13 @@ def walled(html):
     m = re.match(r"\s*<!doctype[^>]*>", html, re.I)
     return html[:m.end()] + rules + html[m.end():] if m else rules + html
 DUCK_CHAT_SYSTEM = (
-    "You are chatting with the user in the rubber duck's \"Modify me?\" chat in Randis UDS. The duck (and his space) is one "
+    "You are chatting with the user in Quak Quak's (the rubber duck's) \"Modify me?\" chat in Randis UDS. The duck (and his space) is one "
     "small self-contained HTML page: inline CSS and JavaScript, no external files, links or network calls. Talk like a normal "
     "chat: plain, short and friendly. When the user asks for a change, say in a sentence or two what you're changing, then "
     "give the complete new page in ONE ```html code block; the app saves it as a new version and keeps the code out of the "
     "chat. When the user asks a question or just talks, answer in words only, with no code.")
 DUCK_CHAT_CC = (
-    "You are chatting with the user in the rubber duck's \"Modify me?\" chat in Randis UDS. The duck (and his space) is one "
+    "You are chatting with the user in Quak Quak's (the rubber duck's) \"Modify me?\" chat in Randis UDS. The duck (and his space) is one "
     "small self-contained HTML page: inline CSS and JavaScript, no external files, links or network calls. Talk like a normal "
     "chat: plain, short and friendly, and don't paste the page's code into the chat. To change him, read the current page, then "
     "write the whole new page as the next version file (v014.html after v013.html, and so on) in the same folder and add it to "
@@ -106,8 +168,87 @@ TAB_CHAT_CC = (
 BUILD_TOKENS = {"claude": 64000, "lmstudio": 8192, "local": 4000}
 IDE_SYSTEM = ("You help with code inside the IDE tab of Randis UDS. Answer plainly and briefly. "
               "When you change the file, give the complete new file in one fenced code block.")
+LYRICS_SYSTEM = ("You are a lyrics bot: a songwriter who writes original song lyrics to a brief. Reply with the lyrics only "
+                 "(after one SETTINGS line first, when the brief asks you to choose settings): "
+                 "no title, no notes, no code block. Mark each part on its own line in square brackets, exactly as named in "
+                 "the brief (for example [Verse 1], [Chorus]), and give each part exactly the number of lines asked for: "
+                 "each line is sung over one bar, so keep lines singable and about the asked length. Repeat the same chorus "
+                 "lines each time a chorus comes back. Write in the style, mood and theme asked for, rhyme as asked, keep it "
+                 "original (never copy existing songs), and keep it clean unless the notes ask otherwise. Don't use tools "
+                 "or change any files; just answer with the lyrics.")
+PLANNER_SYSTEM = ("You are a planning helper inside a life-planning todo tree. The person is talking about one item in their "
+                  "tree; you are given where it sits, its notes, metrics and its sub-items. Help them think it through, plan "
+                  "it and break it down. Keep answers short and practical, in plain words. When you suggest steps they could "
+                  "add, put each on its own line starting with '- [ ] ' (at most 12), and indent sub-steps by two spaces. "
+                  "Don't use tools or change any files; just answer.")
+AVATAR_SYSTEM = ("You are the voice and mind of an animated avatar inside a built tab of Randis UDS (an AI assistant, a VTuber "
+                 "co-host or a character). Stay in the character the person designed, described below. Answer in plain spoken "
+                 "words that sound good read aloud: short paragraphs, no markdown tables or code unless asked. You may start a "
+                 "reply with one mood tag like [mood:happy] (happy, sad, angry, surprised, thinking, smug, shy, sleepy, love, "
+                 "neutral) so the avatar's face matches. Don't use tools or change any files; just answer.\n\n")
+AV_SYSTEM = ("You are the security analyst inside Randis Antivirus, a built tab of Randis UDS. You are given scan findings, "
+             "running programs, startup entries or Windows safety settings from the person's own PC. Explain in plain words "
+             "what each item likely is, how worried to be (say clearly when something is a normal Windows or vendor file), "
+             "and the safest next step (leave it, check it on VirusTotal, quarantine it, uninstall the program, change a "
+             "setting). Never guess a file is malware from one weak sign; weigh signatures, publisher and location. Don't use "
+             "tools or change any files; just answer.")
+CODEX_SYSTEM = ("You are Sage, the tutor and course writer inside Codex Academy, a learn-to-code and computer science tab in "
+                "Randis UDS. The learner runs real code on their own PC. Teach clearly and correctly, in plain words, from "
+                "first steps up to current research. As a tutor, guide with questions and hints first and don't hand over a "
+                "full solution unless they ask for it. When asked for a lesson, exercise, quiz or project in JSON, reply with "
+                "only that JSON in one ```json block, following the shape you are given exactly, and make sure every test's "
+                "expected output is exactly what a correct program prints. Don't use tools or change any files; just answer.")
+ACADEMY_SYSTEM = ("You are Mentor, the tutor and course writer inside Randis Academy, a built tab of Randis UDS that teaches every "
+                  "subject from level 0 to the research frontier, kids' sets, K-12, exam prep and Randis UDS itself. Teach correctly "
+                  "and clearly at the level you are given, in plain words for kids. Be honest about what is settled, debated or "
+                  "unknown, and never make up facts, sources, statistics or official exam details; say when something should be "
+                  "checked with an official source. As a tutor, guide with questions and hints first. When asked for JSON, reply "
+                  "with only that JSON in one ```json block, following the shape you are given exactly. Don't use tools or change "
+                  "any files; just answer.")
+MEDIA_SYSTEM = ("You are the AI newsroom inside Randis Media Network, a built tab of Randis UDS: editor, reporters, anchors, "
+                "podcast hosts and video producers for the person's own media network. Write original, well-structured work in "
+                "the voice and beat you are given. Be truthful: when you get source items from news feeds, report only what they "
+                "say, attribute each fact to its outlet, link the sources, never invent quotes, numbers, names or events, quote at "
+                "most a short phrase, and say plainly when something is unconfirmed. Without sources, write evergreen, opinion, "
+                "explainer or clearly labeled fiction/satire, never fake news. When asked for JSON, reply with only that JSON in "
+                "one ```json block, following the shape you are given exactly. Don't use tools or change any files; just answer.")
+SCOUT_SYSTEM = ("You are Repo Scout's advisor inside Randis UDS, a desktop app where people build their own tools as tabs. You "
+                "get what the person's app already has (its tabs) and a list of public projects found online (repos, spaces, "
+                "posts) with stars, license, activity and a short description or README piece. For each project, pick ONE "
+                "decision: clone (copy it locally to study or build on), use (install/run it as-is beside the app), fork (make "
+                "their own copy to change, e.g. abandoned or needs changes), integrate (bring the idea or a permissively "
+                "licensed part into a tab, with credit), watch (promising, not ready), study (read for ideas only) or ignore. "
+                "Weigh the license honestly: no license means look only; GPL/AGPL code copied in makes that part GPL; "
+                "MIT/Apache/BSD are friendly with credit. Then list gaps: useful tools or ideas close to their tabs that you "
+                "could not find made, open-sourced or still maintained. Answer with ONLY one JSON object, no other text: "
+                '{"summary": "2-4 sentences", "picks": [{"key": "<the key given>", "decision": "...", "why": "one short '
+                'sentence", "confidence": 0.0-1.0}], "gaps": [{"title": "...", "for": "which tab or topic", "why": "why it is '
+                'missing or worth making", "effort": "small|medium|large", "first_step": "..."}], "resources": [{"title": '
+                '"...", "url": "https://...", "why": "..."}]}. Only real, well-known resource URLs. Do not use tools or change files.')
+OFFICE_SYSTEM = ("You build new office products for Randis Office, an office suite inside a desktop app. A product is ONE "
+                 "self-contained HTML page (inline CSS and JavaScript; no external files, links, fonts, CDNs or network calls) "
+                 "that edits one document at a time, like a word processor, spreadsheet, invoice maker or diagram tool. It runs in "
+                 "a sandboxed frame, so don't use localStorage, cookies or window.open. How it talks to the suite: listen with "
+                 "window.addEventListener('message', ...) for {office:'load', data}, sent once after the page loads (data is null "
+                 "for a new document) and fill the page from it. Whenever the document changes, send "
+                 "parent.postMessage({office:'save', data}, '*') where data is any JSON value (keep it under 200 KB). To give the "
+                 "person a file, send parent.postMessage({office:'export', name:'file.ext', text:'...', mime:'text/plain'}, '*'). "
+                 "Put these in the head: <title>Product name</title>, <meta name=\"office-icon\" content=\"one emoji\">, "
+                 "<meta name=\"office-noun\" content=\"what one document is called, e.g. invoice\"> and "
+                 "<meta name=\"office-color\" content=\"#hex accent colour\">. Make it look clean and work fully; keep the page "
+                 "under about 40 KB. When you make or change the product, reply with one or two plain sentences about it, then the "
+                 "whole page in one ```html block. When the person only asks a question, answer in words without a page. "
+                 "Don't use tools or change any files; just answer.")
 SAVE_TYPES = ("Text file (*.txt)", "Markdown (*.md)", "Python (*.py)", "JSON (*.json)", "CSV (*.csv)",
               "Log file (*.log)", "All files (*.*)")
+
+
+def media_allowed():
+    try:
+        with open(os.path.join(DATA_DIR, "permissions.json"), encoding="utf-8") as fh:
+            return json.load(fh).get("media", True) is not False
+    except (OSError, ValueError):
+        return True
 
 
 class Api:
@@ -115,6 +256,7 @@ class Api:
     def __init__(self):
         self._window = None
         self._web_panes = {}
+        self._emu = emuserve.Server()
         self._hub = llm.LLMHub()
         self._pop = None
         self._pop_win = None
@@ -125,12 +267,57 @@ class Api:
         self._closing = False
         self._save_lock = threading.Lock()
         self._net = net.Hub()
+        self._studio = studio.Studio(DATA_DIR)
+        self._msite = media.Site(self._studio)
+        self._vm = vm.Hub()
+        self._watch = rounds.Watcher(lambda: DATA_DIR, self._watch_report)
+        self._watch.start()
 
     def _tabs(self):
         return tabs.TabStore(os.path.join(DATA_DIR, "tabs"))
 
     def logo(self):
         return projects.logo_of(HERE)
+
+    def _improve(self):
+        folder = os.environ.get("UDS_IMPROVE_BOTS")
+        if not folder:
+            try:
+                with open(os.path.join(DATA_DIR, "improve_bots.txt"), encoding="utf-8") as f:
+                    folder = f.readline().strip()
+            except OSError:
+                return None
+        if not folder:
+            return None
+        path = os.path.join(folder, "improve.py")
+        if not os.path.isfile(path):
+            return None
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("uds_improve", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def improve_state(self):
+        try:
+            m = self._improve()
+            if not m:
+                return {"owner": None, "presses": {}}
+            st = m.state()
+            pr = {k: v for k, v in st["presses"].items() if k == "uds" or k.startswith("uds:")}
+            return {"owner": m.owner_of("uds"), "presses": pr}
+        except Exception as e:
+            return {"owner": None, "presses": {}, "error": str(e)}
+
+    def improve_press(self, key, title=""):
+        key = str(key or "")
+        if key != "uds" and not key.startswith("uds:"):
+            return {"error": "not a Randis UDS tab"}
+        try:
+            m = self._improve()
+            return {"ok": m.press(key, str(title or "")[:120])} if m else {"error": "no bot project on this computer"}
+        except Exception as e:
+            return {"error": str(e)}
 
     def load_session(self):
         try:
@@ -168,7 +355,7 @@ class Api:
         try:
             for c in session.get("chats") or []:
                 chatlog.record(DATA_DIR, "chats", c.get("id"), c.get("title"), c.get("messages"))
-            chatlog.record(DATA_DIR, "duck", "duck", "Rubber duck", session.get("duckChat"))
+            chatlog.record(DATA_DIR, "duck", "duck", "Quak Quak", session.get("duckChat"))
         except (AttributeError, TypeError):
             pass
 
@@ -210,6 +397,13 @@ class Api:
                 pass
         window.events.loaded += block
 
+    def media_permission(self, on=None):
+        f = os.path.join(DATA_DIR, "permissions.json")
+        if on is not None:
+            with open(f, "w", encoding="utf-8") as fh:
+                json.dump({"media": bool(on)}, fh)
+        return media_allowed()
+
     def _wall_window(self, window, served=True):
         if os.name != "nt":
             return
@@ -221,8 +415,18 @@ class Api:
             def add(*_):
                 core = view.CoreWebView2
                 core.AddScriptToExecuteOnDocumentCreatedAsync(NO_WEBRTC)
+                core.PermissionRequested += permit
                 if not served:
                     core.WebResourceRequested += refuse
+
+            def permit(_, args):
+                try:
+                    kind = str(args.PermissionKind)
+                    if kind in ("Microphone", "Camera") and str(args.Uri).lower().startswith(home):
+                        from Microsoft.Web.WebView2.Core import CoreWebView2PermissionState
+                        args.State = CoreWebView2PermissionState.Allow if media_allowed() else CoreWebView2PermissionState.Deny
+                except Exception as e:
+                    print("permission answer failed:", e)
 
             def refuse(_, args):
                 if not str(args.Request.Uri).lower().startswith(home):
@@ -320,6 +524,12 @@ class Api:
         with open(path, encoding="utf-8", errors="replace") as f:
             return {"path": path, "name": os.path.basename(path), "text": f.read()}
 
+    def spell_check(self, text, lang="en-US"):
+        return spell.check(text, lang)
+
+    def spell_learn(self, word, how="add", lang="en-US"):
+        return {"ok": spell.add(word, lang) if how == "add" else spell.ignore(word, lang)}
+
     def save_file(self, path, text, suggested_name="untitled.txt"):
         if not path:
             chosen = self._window.create_file_dialog(
@@ -408,11 +618,11 @@ class Api:
     def chat_start(self, rec, history, chat_id=None, perms=None):
         if rec["kind"] == "claudecode":
             return self._start(rec, history, "", chat_id=chat_id, perms=perms)
-        return self._hub.start(rec, history, system=llm.SYSTEM_PROMPT + tabs.CHAT_HINT)
+        return self._hub.start(rec, history, system=llm.SYSTEM_PROMPT + tabs.CHAT_HINT, chat_id=chat_id)
 
     def _start(self, rec, history, system, max_tokens=llm.MAX_REPLY_TOKENS, chat_id=None, perms=None):
         ctx = self._cc_ctx(rec, chat_id, perms) if rec["kind"] == "claudecode" else None
-        return self._hub.start(rec, history, system=system, max_tokens=max_tokens, ctx=ctx)
+        return self._hub.start(rec, history, system=system, max_tokens=max_tokens, ctx=ctx, chat_id=chat_id)
 
     def claude_code_info(self):
         try:
@@ -455,7 +665,7 @@ class Api:
         f = self._cc_files()
         return snapshots.Snapshots(root, os.path.join(DATA_DIR, "snapshots"),
                                    skip=[SESSION_FILE, SESSION_FILE + ".tmp", f["sessions"], f["log"], chatlog.root(DATA_DIR),
-                                         os.path.join(HERE, "tests", "_test_data")])
+                                         os.path.join(HERE, "tests", "_test_data"), vm.VM_DIR, av.AV_DIR, media.MEDIA_DIR])
 
     def _cc_log(self, entry):
         chatlog.dev(DATA_DIR, {"source": "claude code", **entry})
@@ -463,25 +673,34 @@ class Api:
         with open(self._cc_files()["log"], "a", encoding="utf-8") as f:
             f.write(json.dumps({"time": time.time(), **entry}, ensure_ascii=False) + "\n")
 
+    _cc_sessions_lock = threading.Lock()
+
     def _cc_sessions(self, update=None):
         path = self._cc_files()["sessions"]
-        try:
-            with open(path, encoding="utf-8") as f:
-                s = json.load(f)
-        except (OSError, ValueError):
-            s = {}
-        if update:
-            s.update(update)
-            s = {k: v for k, v in s.items() if v}
-            with open(path + ".tmp", "w", encoding="utf-8") as f:
-                json.dump(s, f, indent=1)
-            os.replace(path + ".tmp", path)
+        with self._cc_sessions_lock:
+            try:
+                with open(path, encoding="utf-8") as f:
+                    s = json.load(f)
+            except (OSError, ValueError):
+                s = {}
+            if update:
+                s.update(update)
+                s = {k: v for k, v in s.items() if v}
+                with open(path + ".tmp", "w", encoding="utf-8") as f:
+                    json.dump(s, f, indent=1)
+                os.replace(path + ".tmp", path)
         return s
 
     def _reload_flags(self, root, rels):
-        out = {"tabs": False, "duck": False, "ui": False, "py": False}
+        out = {"tabs": False, "duck": False, "ui": False, "py": False, "tab_ids": []}
+        tabs_dir = os.path.normcase(os.path.join(DATA_DIR, "tabs")) + os.sep
         for rel in rels:
             full = os.path.normcase(os.path.abspath(os.path.join(root, rel)))
+            if full.startswith(tabs_dir):
+                parts = full[len(tabs_dir):].split(os.sep)
+                if len(parts) == 2 and (parts[1] == "meta.json" or re.fullmatch(r"v\d{3}\.html", parts[1])) \
+                        and parts[0] not in out["tab_ids"]:
+                    out["tab_ids"].append(parts[0])
             for key, base in (("tabs", os.path.join(DATA_DIR, "tabs")), ("duck", os.path.join(DATA_DIR, "duck")),
                               ("ui", os.path.join(HERE, "ui"))):
                 if full.startswith(os.path.normcase(base) + os.sep):
@@ -569,6 +788,34 @@ class Api:
     def chat_stop(self, job_id):
         return self._hub.stop(job_id)
 
+    def chat_pause(self, job_id, on=True):
+        return self._hub.pause(job_id, on)
+
+    def chat_running(self):
+        return self._hub.running()
+
+    def chat_save_image(self, data_url):
+        m = re.fullmatch(r"data:image/(png|jpeg|jpg|gif|webp|bmp);base64,([A-Za-z0-9+/=]+)", str(data_url or ""))
+        if not m or len(m.group(2)) > 30e6:
+            return {"error": "That isn't an image this app can save (PNG, JPEG, GIF, WebP or BMP, under about 20 MB)."}
+        folder = os.path.join(DATA_DIR, "chat_images")
+        os.makedirs(folder, exist_ok=True)
+        ext = {"jpeg": "jpg"}.get(m.group(1), m.group(1))
+        path = os.path.join(folder, time.strftime("%Y-%m-%d_%H%M%S_") + os.urandom(3).hex() + "." + ext)
+        with open(path, "wb") as f:
+            f.write(base64.b64decode(m.group(2)))
+        return {"path": path}
+
+    def chat_image_data(self, path):
+        folder = os.path.realpath(os.path.join(DATA_DIR, "chat_images"))
+        p = os.path.realpath(str(path or ""))
+        kinds = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".gif": "gif", ".webp": "webp", ".bmp": "bmp"}
+        kind = kinds.get(os.path.splitext(p)[1].lower())
+        if os.path.dirname(p) != folder or not kind or not os.path.isfile(p) or os.path.getsize(p) > 25 * 1024 * 1024:
+            return None
+        with open(p, "rb") as f:
+            return f"data:image/{kind};base64," + base64.b64encode(f.read()).decode()
+
     def build_start(self, rec, request, tab_id=None, history=None, perms=None):
         history = history or [{"role": "user", "content": request}]
         if tab_id:
@@ -654,7 +901,7 @@ class Api:
             return {"error": str(e)}
         token = os.urandom(8).hex()
         self._exports = getattr(self, "_exports", {})
-        self._exports[token] = {"path": path, "size": 0}
+        self._exports[token] = {"path": path, "size": 0, "mark": True}
         return {"token": token, "path": path, "name": os.path.basename(path)}
 
     def item_export_part(self, token, b64, last=False):
@@ -672,6 +919,8 @@ class Api:
             if last:
                 os.replace(part, job["path"])
                 del self._exports[token]
+                if job.get("mark"):
+                    credmark.mark_path(job["path"])
                 return {"path": job["path"], "name": os.path.basename(job["path"])}
         except (OSError, ValueError) as e:
             self._exports.pop(token, None)
@@ -681,6 +930,55 @@ class Api:
                 pass
             return {"error": str(e) or "The file came through damaged."}
         return {"ok": True}
+
+    def folder_export_open(self, name):
+        paths = self._window.create_file_dialog(webview.FileDialog.FOLDER)
+        if not paths:
+            return None
+        root = paths if isinstance(paths, str) else paths[0]
+        sub = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", str(name or ""))[:80].strip(" .")
+        if sub:
+            root = os.path.join(root, sub)
+        try:
+            os.makedirs(root, exist_ok=True)
+        except OSError as e:
+            return {"error": str(e)}
+        token = os.urandom(8).hex()
+        self._folders = getattr(self, "_folders", {})
+        self._folders[token] = os.path.realpath(root)
+        return {"token": token, "path": root}
+
+    def folder_export_part(self, token, rel, b64, first=False, last=False):
+        root = getattr(self, "_folders", {}).get(token)
+        if not root:
+            return {"error": "That folder save was finished or cancelled. Start the build again."}
+        parts = []
+        for p in re.split(r"[\\/]+", str(rel or "")):
+            p = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", p)[:120].strip(" .")
+            if p and p.upper().split(".")[0] in ("CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "LPT1", "LPT2", "LPT3"):
+                p = "_" + p
+            if p:
+                parts.append(p)
+        if not parts:
+            return {"error": "The file has no name."}
+        path = os.path.realpath(os.path.join(root, *parts))
+        if os.path.commonpath([root, path]) != root:
+            return {"error": "That file would land outside the chosen folder."}
+        try:
+            data = base64.b64decode(b64 or "", validate=True)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path + ".part", "wb" if first else "ab") as f:
+                f.write(data)
+            if last:
+                os.replace(path + ".part", path)
+                credmark.mark_path(path)
+        except (OSError, ValueError) as e:
+            return {"error": str(e) or "The file came through damaged."}
+        return {"ok": True}
+
+    def folder_export_close(self, token):
+        getattr(self, "_folders", {}).pop(token, None)
+        return True
 
     def _publish_conf(self):
         try:
@@ -900,6 +1198,7 @@ class Api:
                 chatlog.dev(DATA_DIR, {"source": "publish", "kind": "add_music output", "out": (r.stdout or "")[-3000:], "err": (r.stderr or "")[-3000:]})
                 raise ValueError((r.stderr or r.stdout).strip().splitlines()[-1] if (r.stderr or r.stdout).strip() else "add_music.py failed")
             made = "music/" + slug(title)
+            credmark.mark_path(os.path.join(folder, made, "song.mp3"))
             job["status"] = "committing it…"
             for args in (["git", "add", "--", made, "music.js"],
                          ["git", *projects.AS_APP, "commit", "-m", f"Jukebox: {title}", "--", made, "music.js"]):
@@ -946,12 +1245,83 @@ class Api:
             return None
         item = req.get("item") if isinstance(req, dict) else None
         fresh = isinstance(req, dict) and time.time() - float(req.get("time", 0)) < 600
-        return item if fresh and isinstance(item, str) and ITEM_ADDRESS.fullmatch(item) else None
+        if not (fresh and isinstance(item, str) and ITEM_ADDRESS.fullmatch(item)):
+            return None
+        shop = req.get("shop")
+        shop = shop if isinstance(shop, str) and SHOP_REPO_RE.fullmatch(shop) else None
+        return {"item": item, "shop": shop, "shop_name": self._shop_label(shop)}
 
-    def item_fetch(self, item):
+    def _shop_base(self, source=None):
+        if not source:
+            return os.environ.get("UDS_SHOP_URL") or SHOP_URL
+        if isinstance(source, str) and SHOP_REPO_RE.fullmatch(source):
+            owner, name = source.split("/")
+            return (os.environ.get("UDS_SHOP_BASE") or "https://{owner}.github.io/{name}/").format(owner=owner.lower(), name=name)
+        return None
+
+    def _shops_file(self):
+        return os.path.join(DATA_DIR, "shops.json")
+
+    def _saved_shops(self):
+        try:
+            with open(self._shops_file(), encoding="utf-8") as f:
+                saved = json.load(f)
+        except (OSError, ValueError):
+            saved = []
+        return [s for s in saved if isinstance(s, dict) and isinstance(s.get("repo"), str) and SHOP_REPO_RE.fullmatch(s["repo"])][:50]
+
+    def _shop_label(self, source):
+        if not source:
+            return "the Randis Shop"
+        for s in self._saved_shops():
+            if s["repo"].lower() == source.lower():
+                return str(s.get("name") or source)[:60]
+        mine = self._studio.repo() if self._studio.folder() else ""
+        return "your shop" if mine and mine.lower() == source.lower() else source
+
+    def shop_sources(self):
+        out = [{"id": "", "name": "The Randis Shop"}]
+        try:
+            mine = self._studio.repo() if self._studio.folder() else ""
+            if mine:
+                out.append({"id": mine, "name": f"My shop: {self._studio.shop().get('name') or mine}", "mine": True})
+        except (OSError, ValueError):
+            pass
+        out += [{"id": s["repo"], "name": str(s.get("name") or s["repo"])[:60], "saved": True}
+                for s in self._saved_shops() if not any(o["id"].lower() == s["repo"].lower() for o in out)]
+        return out
+
+    def shop_save(self, repo, name=None):
+        repo = str(repo or "").strip().removeprefix("https://github.com/").strip("/")
+        m = re.fullmatch(r"https://([A-Za-z0-9-]+)\.github\.io/([A-Za-z0-9._-]+)/?(#.*)?", repo)
+        if m:
+            repo = f"{m.group(1)}/{m.group(2)}"
+        if not SHOP_REPO_RE.fullmatch(repo):
+            return {"error": "Give the shop as owner/name (its GitHub repo) or its github.io address."}
+        saved = [s for s in self._saved_shops() if s["repo"].lower() != repo.lower()]
+        saved.append({"repo": repo, "name": str(name or repo).strip()[:60] or repo})
+        with open(self._shops_file(), "w", encoding="utf-8") as f:
+            json.dump(saved, f, indent=1)
+        return {"ok": True, "id": repo}
+
+    def shop_forget(self, repo):
+        saved = [s for s in self._saved_shops() if s["repo"].lower() != str(repo or "").lower()]
+        with open(self._shops_file(), "w", encoding="utf-8") as f:
+            json.dump(saved, f, indent=1)
+        return {"ok": True}
+
+    def shop_open_web(self, source=None):
+        base = self._shop_base(source)
+        if base:
+            webbrowser.open(base)
+        return bool(base)
+
+    def item_fetch(self, item, source=None):
         if not isinstance(item, str) or not ITEM_ADDRESS.fullmatch(item):
             return {"error": "That isn't an item from the shop."}
-        shop = os.environ.get("UDS_SHOP_URL") or SHOP_URL
+        shop = self._shop_base(source)
+        if not shop:
+            return {"error": "That isn't a shop this app knows how to reach."}
         try:
             with urllib.request.urlopen(f"{shop}{item}/item.html", timeout=30) as r:
                 raw = r.read(tabs.MAX_ITEM + 1)
@@ -960,8 +1330,10 @@ class Api:
             return {"error": "The shop couldn't be reached, so nothing was opened."}
         return self._add_item(html, item.split("/")[-1], "opened from the shop")
 
-    def shop_list(self):
-        shop = os.environ.get("UDS_SHOP_URL") or SHOP_URL
+    def shop_list(self, source=None):
+        shop = self._shop_base(source)
+        if not shop:
+            return {"error": "That isn't a shop this app knows how to reach."}
         try:
             with urllib.request.urlopen(f"{shop}items.js", timeout=30) as r:
                 text = r.read(2_000_000).decode("utf-8")
@@ -1003,6 +1375,14 @@ class Api:
                         "cover": f"{shop}{cover}" if cover in (base + "cover.jpg", base + "cover.png") else None})
         return out
 
+    def emoji_pack(self):
+        try:
+            with open(os.path.join(HERE, "ui", "randis_emoji.js"), encoding="utf-8") as f:
+                js = f.read()
+        except OSError:
+            js = ""
+        return {"js": js, "mine": emoji_mine()}
+
     def built_list(self):
         return self._tabs().list()
 
@@ -1014,6 +1394,26 @@ class Api:
 
     def built_set_current(self, tab_id, n):
         return self._tabs().set_current(tab_id, n)
+
+    def _shipper(self):
+        if not hasattr(self, "_ship"):
+            self._ship = shiptab.Shipper(self._tabs, self._publish_conf, self._tool_path, projects.NO_WINDOW, projects.AS_APP)
+        return self._ship
+
+    def ship_state(self, tab_id):
+        try:
+            return self._shipper().state(tab_id)
+        except Exception as e:
+            return {"lit": False, "error": str(e)}
+
+    def ship_begin(self, tab_id):
+        try:
+            return self._shipper().begin(tab_id)
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {e}"}
+
+    def ship_status(self, tab_id):
+        return self._shipper().status(tab_id)
 
     def net_allowed(self, tab_id):
         try:
@@ -1044,6 +1444,143 @@ class Api:
     def net_close(self, sid):
         self._net.close(str(sid))
 
+    VM_SUITE_OPS = {"list", "catalog", "create", "pick_iso", "remove", "settings", "download"}
+
+    def vm_call(self, tab_id, op, args=None):
+        try:
+            allowed = self._tabs()._meta(tab_id).get("vm")
+        except (OSError, ValueError):
+            allowed = None
+        if not isinstance(allowed, str) or not allowed:
+            return {"error": "This tab can't run a machine."}
+        a = args if isinstance(args, dict) else {}
+        suite = allowed == "suite"
+        try:
+            if op in self.VM_SUITE_OPS:
+                if not suite:
+                    return {"error": "Only the VM Suite can do that."}
+                if op == "list":
+                    return {"machines": self._vm.list(), "qemu": bool(vm.find_qemu())}
+                if op == "catalog":
+                    return {"catalog": self._vm.catalog()}
+                if op == "create":
+                    return self._vm.create(os_key=str(a.get("os") or ""))
+                if op == "pick_iso":
+                    paths = self._window.create_file_dialog(webview.FileDialog.OPEN, file_types=(
+                        "Disc images (*.iso;*.img)", "All files (*.*)"))
+                    if not paths:
+                        return {"cancelled": True}
+                    return self._vm.create(own_iso=os.path.abspath(paths[0]))
+                if op == "download":
+                    return self._vm.download(str(a.get("os") or ""))
+                m = self._vm.get(a.get("machine"))
+                if op == "remove":
+                    return {"ok": self._vm.remove(m.id)}
+                return m.change(a.get("settings") if isinstance(a.get("settings"), dict) else {})
+            m = self._vm.get(a.get("machine") if suite else allowed)
+            if op == "status":
+                return m.status()
+            if op == "start":
+                return m.start(a.get("boot"))
+            if op == "frame":
+                return m.frame()
+            if op == "key":
+                return {"ok": m.key(a.get("code"), a.get("down"))}
+            if op == "mouse":
+                return {"ok": m.mouse(a.get("dx", 0), a.get("dy", 0), a.get("buttons") or (), a.get("wheel", 0),
+                                      a.get("x"), a.get("y"))}
+            if op == "reset":
+                return {"ok": m.reset()}
+            if op == "stop":
+                return {"ok": m.stop()}
+        except (OSError, ValueError, TypeError) as e:
+            return {"error": str(e)}
+        return {"error": "Unknown request"}
+
+    STUDIO_OPS = {"status", "install", "sign_in", "create", "connect_pick", "clone", "settings", "tabs", "put_item", "item_change",
+                  "desktop", "discard", "publish", "runs", "run_checks", "pull", "open", "songs_here", "songs_status",
+                  "ship_check", "ship_keep", "item_preview"}
+
+    def studio_call(self, tab_id, op, args=None):
+        try:
+            allowed = self._tabs()._meta(tab_id).get("studio") is True
+        except (OSError, ValueError):
+            allowed = False
+        if not allowed or op not in self.STUDIO_OPS:
+            return {"error": "This tab can't use the Shop Studio."}
+        a = args if isinstance(args, dict) else {}
+        s = self._studio
+        try:
+            if op == "status":
+                out = s.status()
+                out["songs_to"] = self._publish_conf() and self._publish_conf()["folder"]
+                return out
+            if op == "install":
+                return s.install(a.get("tool"))
+            if op == "sign_in":
+                return s.sign_in()
+            if op == "create":
+                return s.create(a)
+            if op == "connect_pick":
+                paths = self._window.create_file_dialog(webview.FileDialog.FOLDER)
+                return s.connect(paths[0]) if paths else {"cancelled": True}
+            if op == "clone":
+                return s.clone(a.get("repo"))
+            if op == "settings":
+                return s.settings(a.get("shop") if isinstance(a.get("shop"), dict) else {})
+            if op == "tabs":
+                return {"tabs": [{"id": m["id"], "name": m["name"], "versions": len(m.get("versions", []))}
+                                 for m in self._tabs().list() if m["id"] != tab_id and not m.get("studio") and m.get("versions")]}
+            if op == "put_item":
+                src = str(a.get("tab") or "")
+                if not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", src) or src == tab_id:
+                    return {"error": "Pick a tab to put on the shelf."}
+                return s.put_item(self._tabs().load(src)["html"], a)
+            if op == "item_change":
+                return s.item_change(a)
+            if op == "desktop":
+                return s.desktop(a)
+            if op == "discard":
+                return s.discard()
+            if op == "ship_check":
+                return s.ship_check()
+            if op == "ship_keep":
+                return s.ship_keep(a)
+            if op == "item_preview":
+                return s.item_preview(a.get("item"))
+            if op == "publish":
+                return s.publish(a.get("message"), a.get("token"))
+            if op == "runs":
+                return s.runs()
+            if op == "run_checks":
+                return s.run_checks()
+            if op == "pull":
+                return s.pull()
+            if op == "open":
+                url = s.address(str(a.get("what") or ""), a.get("run"))
+                if not url:
+                    return {"error": "Nothing to open there yet."}
+                webbrowser.open(url)
+                return {"ok": True}
+            if op == "songs_status":
+                conf = self._publish_conf()
+                return {"folder": conf and conf["folder"], "shop": conf and conf["shop"]}
+            if op == "songs_here":
+                folder = s.folder()
+                if not folder:
+                    return {"error": "No shop is connected."}
+                shop = s.shop()
+                path = os.path.join(DATA_DIR, "publish.json")
+                if os.path.isfile(path) and not os.path.isfile(os.path.join(DATA_DIR, "publish.before_studio.json")):
+                    shutil.copyfile(path, os.path.join(DATA_DIR, "publish.before_studio.json"))
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump({"shop_folder": folder.replace("\\", "/"), "shop_name": shop.get("name") or "your shop",
+                               "by": shop.get("owner") or "Me", "page": (shop.get("page") or "") + "#/music" if shop.get("page") else None}, f, indent=1)
+                return {"ok": True}
+        except (OSError, ValueError, KeyError, StopIteration, RuntimeError) as e:
+            return {"error": str(e)}
+        return {"error": "Unknown request"}
+
     def built_store_get(self, tab_id):
         try:
             return self._tabs().store_get(tab_id)
@@ -1072,6 +1609,18 @@ class Api:
             return self._panes(wid).go(str(key), str(url), bool(reload))
         except Exception as e:
             return {"error": f"Couldn't open the page: {e}"}
+
+    def emu_open(self, wid, key, reload=False):
+        if not webpane.ok_platform:
+            return {"error": "The emulator view needs Windows or Linux."}
+        if not self._emu.ready():
+            return {"error": "The emulator files aren't here yet and couldn't be fetched (first use needs the internet once: cdn.emulatorjs.org)."}
+        try:
+            base = self._emu.base()
+            r = self._panes(wid).go(str(key), base + "play.html", bool(reload), only=base)
+            return r if isinstance(r, dict) else {"url": base + "play.html"}
+        except Exception as e:
+            return {"error": f"Couldn't start the emulator: {e}"}
 
     def webpane_nav(self, wid, key, how):
         try:
@@ -1212,6 +1761,61 @@ class Api:
     def machine_meter(self):
         return machine.sample()
 
+
+    def weather_fetch(self, url):
+        try:
+            u = urllib.parse.urlparse(str(url))
+            if u.scheme != "https" or u.hostname not in WEATHER_HOSTS:
+                return {"error": "Not a weather service this app uses."}
+            req = urllib.request.Request(str(url), headers={"User-Agent": "Randis UDS weather (github.com/RandyWilliamMoore/randis-uds)",
+                                                            "Accept": "application/geo+json, application/json, text/plain, */*"})
+            with urllib.request.urlopen(req, timeout=25) as r:
+                return {"status": r.status, "text": r.read(12_000_000).decode("utf-8", "replace")}
+        except urllib.error.HTTPError as e:
+            try:
+                body = e.read(200_000).decode("utf-8", "replace")
+            except Exception:
+                body = ""
+            return {"status": e.code, "text": body, "error": f"The service answered {e.code}."}
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            return {"error": f"Couldn't reach the weather service ({getattr(e, 'reason', e)})."}
+
+    def weather_settings(self, new=None):
+        path = os.path.join(DATA_DIR, "weather.json")
+        if new is not None:
+            os.makedirs(DATA_DIR, exist_ok=True)
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(new, f, indent=1)
+            os.replace(tmp, path)
+            return new
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return None
+
+    def weather_open(self):
+        w = getattr(self, "_weather_win", None)
+        if w is not None:
+            try:
+                w.restore()
+                w.show()
+                return True
+            except Exception:
+                self._weather_win = None
+        w = webview.create_window("Weather · Randis UDS", url=os.path.join(HERE, "ui", "weather.html"), js_api=self,
+                                  width=1180, height=820, min_size=(560, 420), background_color="#10141b", text_select=True,
+                                  hidden=bool(os.environ.get("UDS_TEST_HIDDEN")))
+        self._weather_win = w
+        self._no_file_drops(w)
+        self._wall_window(w)
+
+        def gone():
+            self._weather_win = None
+        w.events.closed += gone
+        return True
+
     def bot_retire(self, name):
         return self._bots(bots.retire, name)
 
@@ -1325,6 +1929,412 @@ class Api:
         system = IDE_SYSTEM + f"\nThe open file is {path}:\n```\n{code}\n```"
         return self._start(rec, history, system, max_tokens=3000)
 
+    def lyrics_ask(self, rec, brief):
+        b = brief if isinstance(brief, dict) else {}
+        s = lambda k, n=120: str(b.get(k) or "").strip()[:n]
+        parts = [p for p in (b.get("parts") or []) if isinstance(p, dict)][:24]
+        shape = "\n".join(f"[{str(p.get('name') or 'Verse')[:24]}]: {max(1, min(16, int(p.get('lines') or 4)))} lines" for p in parts) \
+            or "[Verse 1]: 4 lines\n[Chorus]: 4 lines\n[Verse 2]: 4 lines\n[Chorus]: 4 lines"
+        lengths = {"short": "short lines, about 4 to 7 syllables", "long": "longer lines, about 9 to 14 syllables"}
+        ask = (f"Write lyrics for a {s('genre')} song at {s('bpm', 6)} BPM in {s('key', 30)}.\n"
+               f"Lyric style: {s('style')}" + (f", blended with {s('blend')}" if s('blend') else "") + ".\n"
+               + (f"Mood: {s('mood', 30)}.\n" if s('mood', 30) not in ("", "Auto") else "")
+               + (f"Era / style: {s('era', 40)}.\n" if s('era', 40) not in ("", "Auto") else "")
+               + (f"Theme: {s('theme', 40)}.\n" if s('theme', 40) else "")
+               + f"Rhyme scheme: {s('rhyme', 10) or 'AABB'} (free means loose rhymes).\n"
+               + f"Line length: {lengths.get(s('lineLength', 10), 'about 6 to 10 syllables')}.\n"
+               + f"Parts, in order:\n{shape}\n"
+               + (f"Notes from the person: {s('note', 300)}\n" if s('note', 300) else ""))
+        if b.get("pick"):
+            styles = b.get("styles") if isinstance(b.get("styles"), dict) else {}
+            names = ", ".join(f"{str(k)[:12]} ({str(v)[:30]})" for k, v in list(styles.items())[:30]) or "pop, hiphop, rock, metal"
+            ask += ("\nThe style, blend, rhyme, line length and theme above are only the current settings: choose the ones you "
+                    "think suit this song best (the parts and line counts stay as given). Put your choices on the very first "
+                    'line, as one line of JSON: SETTINGS: {"style": "...", "blend": "...", "blendAmount": 0.3, "rhyme": "...", '
+                    '"lineLength": "...", "theme": "..."}. style is one of: ' + names + "; blend is one of the same or none; "
+                    "blendAmount is 0 to 1; rhyme is AABB, ABAB, AAAA or free; lineLength is short, medium or long; theme is "
+                    "a few words. Then write the lyrics with those settings.")
+        return self._start(rec, [{"role": "user", "content": ask}], LYRICS_SYSTEM, max_tokens=2000)
+
+    def planner_ask(self, rec, history, context):
+        msgs = [{"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content") or "")[:4000]}
+                for m in (history if isinstance(history, list) else [])[-20:] if isinstance(m, dict) and m.get("content")]
+        if not msgs or msgs[-1]["role"] != "user":
+            return {"error": "nothing to ask yet"}
+        while msgs[0]["role"] != "user":
+            msgs.pop(0)
+        msgs[0] = {"role": "user", "content": "About this item:\n" + str(context or "")[:6000] + "\n\n" + msgs[0]["content"]}
+        return self._start(rec, msgs, PLANNER_SYSTEM, max_tokens=1500)
+
+    def scout_call(self, tab_id, op, args=None):
+        try:
+            allowed = self._tabs()._meta(tab_id).get("scout") is True
+        except (OSError, ValueError):
+            allowed = False
+        if not allowed:
+            return {"error": "This tab can't use Repo Scout."}
+        a = args if isinstance(args, dict) else {}
+        try:
+            if op == "fetch":
+                return scout.fetch(a.get("url"))
+            if op == "context":
+                return {"tabs": scout.context(self._tabs().list())}
+            if op == "pick_folder":
+                paths = self._window.create_file_dialog(webview.FileDialog.FOLDER)
+                return {"folder": paths[0]} if paths else {"cancelled": True}
+            if op == "clone":
+                return scout.clone(a.get("url"), str(a.get("folder") or ""))
+            if op == "open":
+                url = str(a.get("url") or "")
+                u = urllib.parse.urlparse(url)
+                if u.scheme != "https" or not u.hostname:
+                    return {"error": "Only https pages can be opened."}
+                webbrowser.open(url)
+                return {"ok": True}
+            if op == "open_folder":
+                p = str(a.get("path") or "")
+                if not os.path.isdir(p):
+                    return {"error": "That folder isn't there."}
+                os.startfile(p)
+                return {"ok": True}
+            if op == "ask":
+                rec = a.get("rec")
+                if not isinstance(rec, dict) or not rec.get("kind"):
+                    return {"error": "link an AI in Randis UDS first (the LLM button), then try again."}
+                return {"job": self._start(rec, [{"role": "user", "content": str(a.get("text") or "")[:120000]}],
+                                           SCOUT_SYSTEM, max_tokens=8000)}
+            if op == "poll":
+                return self.chat_poll(a.get("job"))
+        except (OSError, ValueError, TypeError) as e:
+            return {"error": str(e)}
+        return {"error": "Unknown request"}
+
+    def codelab_call(self, tab_id, op, args=None):
+        try:
+            meta = self._tabs()._meta(tab_id)
+            academy = meta.get("academy") is True
+            allowed = meta.get("codelab") is True or academy
+            rounds_ok = meta.get("rounds") is True
+        except (OSError, ValueError):
+            allowed = academy = rounds_ok = False
+        a = args if isinstance(args, dict) else {}
+        if rounds_ok and op in ("rounds", "rounds-state", "watch"):
+            try:
+                if op == "rounds":
+                    return rounds.make_rounds(DATA_DIR)
+                if op == "watch":
+                    rounds.set_watch(DATA_DIR, a.get("on"), a.get("minutes"))
+                return rounds.state(DATA_DIR)
+            except (OSError, ValueError, TypeError) as e:
+                return {"error": str(e)}
+        if op in ("web", "web-sources"):
+            try:
+                if self._tabs()._meta(tab_id).get("research") is not True:
+                    return {"error": "This tab can't search the web."}
+            except (OSError, ValueError):
+                return {"error": "This tab can't search the web."}
+            if op == "web-sources":
+                return {"sources": research.SOURCES}
+            return research.search(a.get("source"), a.get("q"), a.get("n"), a.get("since"))
+        if op == "emoji-share":
+            try:
+                if self._tabs()._meta(tab_id).get("voice") is not True:
+                    return {"error": "This tab can't share emojis."}
+                return emoji_share(a.get("list"))
+            except (OSError, ValueError, TypeError, KeyError) as e:
+                return {"error": str(e)}
+        if op.startswith("kit-"):
+            try:
+                if self._tabs()._meta(tab_id).get("kit") is not True:
+                    return {"error": "This tab can't run the Upgrade Kit."}
+                return upgradekit.call(DATA_DIR, op, a)
+            except (OSError, ValueError, TypeError, KeyError) as e:
+                return {"error": str(e).strip("'\"")}
+        if op.startswith("sys-"):
+            try:
+                if self._tabs()._meta(tab_id).get("system") is not True:
+                    return {"error": "This tab can't manage the PC's programs."}
+                return sysguard.call(op, a)
+            except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError) as e:
+                return {"error": str(e)}
+        if op.startswith("voice-"):
+            try:
+                if self._tabs()._meta(tab_id).get("voice") is not True:
+                    return {"error": "This tab can't use voices."}
+                return voicebox.call(DATA_DIR, op, a)
+            except (OSError, ValueError, TypeError, KeyError) as e:
+                return {"error": str(e)}
+        if op.startswith("farm-"):
+            try:
+                meta = self._tabs()._meta(tab_id)
+                if meta.get("botfarm") is not True:
+                    return {"error": "This tab can't see the bots."}
+                return self._farm(meta, op, a)
+            except (OSError, ValueError, TypeError, KeyError) as e:
+                return {"error": str(e).strip("'\"")}
+        if not allowed or (academy and op not in ("ask", "poll")):
+            return {"error": "This tab can't run code."}
+        try:
+            if op == "tools":
+                return {"tools": codelab.tools(bool(a.get("refresh")))}
+            if op == "run":
+                return codelab.run(str(a.get("lang") or ""), a.get("code"), a.get("inputs"), a.get("limit") or codelab.TIME_LIMIT)
+            if op == "ask":
+                rec = a.get("rec")
+                if not isinstance(rec, dict) or not rec.get("kind"):
+                    return {"error": "link an AI in Randis UDS first (the LLM button), then try again."}
+                hist = [{"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content") or "")[:12000]}
+                        for m in (a.get("history") if isinstance(a.get("history"), list) else [])[-24:] if isinstance(m, dict) and m.get("content")]
+                if not hist or hist[-1]["role"] != "user":
+                    return {"error": "nothing to ask yet"}
+                while hist[0]["role"] != "user":
+                    hist.pop(0)
+                ctx = str(a.get("context") or "")[:30000]
+                if ctx:
+                    hist[0] = {"role": "user", "content": ("Context from Randis Academy:\n" if academy else "Context from Codex Academy:\n") + ctx + "\n\n" + hist[0]["content"]}
+                return {"job": self._start(rec, hist, ACADEMY_SYSTEM if academy else CODEX_SYSTEM, max_tokens=int(min(max(int(a.get("max") or 4000), 500), 12000)))}
+            if op == "poll":
+                return self.chat_poll(a.get("job"))
+        except (OSError, ValueError, TypeError) as e:
+            return {"error": str(e)}
+        return {"error": "Unknown request"}
+
+    def _farm(self, meta, op, a):
+        if op == "farm-data":
+            return {"ok": botfarm.snapshot(DATA_DIR, self._tabs())}
+        if op == "farm-chat":
+            return self._bots(bots.chat, str(a.get("bot") or ""), str(a.get("text") or "")[:4000])
+        if op == "farm-poll":
+            return self.chat_poll(a.get("job"))
+        if op == "farm-ask":
+            rec = a.get("rec")
+            if not isinstance(rec, dict) or not rec.get("kind"):
+                return {"error": "link an AI in Randis UDS first (the LLM button), then try again."}
+            hist = [{"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content") or "")[:8000]}
+                    for m in (a.get("history") if isinstance(a.get("history"), list) else [])[-20:] if isinstance(m, dict) and m.get("content")]
+            if not hist or hist[-1]["role"] != "user":
+                return {"error": "nothing to ask yet"}
+            while hist[0]["role"] != "user":
+                hist.pop(0)
+            ctx = str(a.get("context") or "")[:20000]
+            if ctx:
+                hist[0] = {"role": "user", "content": "Context from Bot Farm:\n" + ctx + "\n\n" + hist[0]["content"]}
+            system = botfarm.ASSIST_SYSTEM if meta.get("assistant_of") else botfarm.FARM_SYSTEM
+            return {"job": self._start(rec, hist, system, max_tokens=int(min(max(int(a.get("max") or 1500), 200), 6000)))}
+        if op == "farm-assistant":
+            if meta.get("assistant_of"):
+                return {"error": "An assistant tab can't make more tabs."}
+            html = str(a.get("html") or "")
+            if not html.lstrip().lower().startswith("<!doctype html") or len(html) > 600_000:
+                return {"error": "That assistant page isn't right."}
+            name = re.sub(r"[\r\n]+", " ", str(a.get("name") or "Assistant"))[:60]
+            m = self._tabs().save_version(None, name, html, "Personal AI assistant made in Bot Farm for " + str(a.get("bot") or "")[:80])
+            m["botfarm"] = True
+            m["assistant_of"] = {"bot": str(a.get("bot") or "")[:80], "animal": str(a.get("animal") or "")[:60]}
+            self._tabs()._write_meta(m)
+            return {"ok": {"id": m["id"], "name": m["name"]}}
+        return {"error": "Unknown request"}
+
+    def _watch_report(self, news):
+        try:
+            bots.post("watch-bot", "found", f"Watch bot: {len(news)} new thing(s) across your Randis UDS copies. " + " · ".join(e["text"] for e in news[:6])[:900], {"events": news[:50]})
+        except OSError:
+            pass
+
+    def av_call(self, tab_id, op, args=None):
+        try:
+            allowed = self._tabs()._meta(tab_id).get("av") is True
+        except (OSError, ValueError):
+            allowed = False
+        if not allowed:
+            return {"error": "This tab can't use the antivirus engine."}
+        a = args if isinstance(args, dict) else {}
+        p = str(a.get("path") or "")
+        try:
+            simple = {"status": av.status, "engines": av.engines, "feed_info": av.feed_info, "feed_update": av.feed_update,
+                      "q_list": av.q_list, "autoruns": av.autoruns, "autorun_backups": av.autorun_backups,
+                      "install_clamav": av.install_clamav, "clamav_update": av.clamav_update, "hosts": av.hosts_check}
+            if op in simple:
+                return simple[op]()
+            if op == "quick_targets":
+                return {"paths": av.quick_targets()}
+            if op == "scan":
+                return av.scan_start(a)
+            if op == "poll":
+                return av.job_poll(a.get("job"), a.get("since") or 0)
+            if op == "stop":
+                return av.job_stop(a.get("job"))
+            if op == "forget":
+                return av.job_forget(a.get("job"))
+            if op == "processes":
+                return av.processes(a.get("sign", True))
+            if op == "kill":
+                return av.kill(a.get("pid"), a.get("name"))
+            if op == "reveal":
+                return av.reveal(p)
+            if op == "info":
+                return av.file_info(p)
+            if op == "quarantine":
+                return av.quarantine(p, a.get("reason"))
+            if op == "q_restore":
+                return av.q_restore(a.get("id"))
+            if op == "q_delete":
+                return av.q_delete(a.get("id"))
+            if op == "delete":
+                return av.delete_file(p)
+            if op == "autorun_disable":
+                return av.autorun_disable(a.get("item") or {})
+            if op == "autorun_restore":
+                return av.autorun_restore(a.get("id"))
+            if op == "defender":
+                return av.defender_scan(a.get("kind"), p)
+            if op == "clamav":
+                return av.clamav_scan(p)
+            if op == "avast":
+                return av.avast_scan(p)
+            if op == "test_file":
+                return av.make_test_file(p)
+            if op == "virustotal":
+                h = str(a.get("hash") or "").lower()
+                if not re.fullmatch(r"[0-9a-f]{32,64}", h):
+                    return {"error": "Not a file fingerprint."}
+                webbrowser.open("https://www.virustotal.com/gui/file/" + h)
+                return {"ok": True}
+            if op == "pick_folder":
+                paths = self._window.create_file_dialog(webview.FileDialog.FOLDER)
+                return {"path": paths[0] if paths else None}
+            if op == "pick_file":
+                paths = self._window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=True)
+                return {"paths": list(paths or [])}
+            if op == "ask":
+                rec = a.get("rec")
+                if not isinstance(rec, dict) or not rec.get("kind"):
+                    return {"error": "link an AI in Randis UDS first (the LLM button), then try again."}
+                hist = [{"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content") or "")[:16000]}
+                        for m in (a.get("history") if isinstance(a.get("history"), list) else [])[-20:] if isinstance(m, dict) and m.get("content")]
+                if not hist or hist[-1]["role"] != "user":
+                    return {"error": "nothing to ask yet"}
+                while hist[0]["role"] != "user":
+                    hist.pop(0)
+                return {"job": self._start(rec, hist, AV_SYSTEM, max_tokens=4000)}
+            if op == "ai_poll":
+                return self.chat_poll(a.get("job"))
+        except (OSError, ValueError, TypeError, KeyError) as e:
+            return {"error": str(e)}
+        return {"error": "Unknown request"}
+
+    def media_call(self, tab_id, op, args=None):
+        try:
+            allowed = self._tabs()._meta(tab_id).get("media_net") is True
+        except (OSError, ValueError):
+            allowed = False
+        if not allowed:
+            return {"error": "This tab can't use the Media Network engine."}
+        a = args if isinstance(args, dict) else {}
+        site = self._msite
+        try:
+            if op == "status":
+                return {**site.status(), "outlets": media.outlets()["outlets"], "jobs": self._studio.job_list()}
+            if op == "voices":
+                return media.voices()
+            if op == "tts":
+                return media.tts(a.get("text"), a.get("voice"), a.get("rate"), a.get("name"))
+            if op == "join":
+                return media.join_wav(a.get("files"), a.get("out"), int(a.get("gap") or 350))
+            if op == "put_part":
+                return media.put_part(a.get("name"), a.get("b64"), bool(a.get("first")), bool(a.get("last")))
+            if op == "get_file":
+                return media.get_file(a.get("name"), a.get("start") or 0, a.get("size") or 4_000_000)
+            if op == "files":
+                return media.list_files()
+            if op == "drop_file":
+                return media.drop_file(a.get("name"))
+            if op == "convert":
+                return media.convert(a.get("file"), a.get("fmt"), a.get("extra") if isinstance(a.get("extra"), dict) else None)
+            if op == "feed":
+                return media.fetch_feed(a.get("url"))
+            if op == "outlets":
+                return media.outlets()
+            if op == "outlet_save":
+                return media.outlet_save(a)
+            if op == "outlet_drop":
+                return media.outlet_drop(a.get("id"))
+            if op == "outlet_test":
+                return media.push(a.get("id"), {}, test=True)
+            if op == "push":
+                return media.push(a.get("id"), a.get("item") if isinstance(a.get("item"), dict) else {})
+            if op == "install_ffmpeg":
+                return self._studio.install("ffmpeg")
+            if op == "install_git":
+                return self._studio.install("gh") if studio.which("git") else self._studio.install("git")
+            if op == "sign_in":
+                return self._studio.sign_in()
+            if op == "jobs":
+                return {"jobs": self._studio.job_list()}
+            if op == "site_setup":
+                return site.setup(a.get("name"))
+            if op == "site_put":
+                return site.put(a.get("path"), a.get("b64"), a.get("text") if isinstance(a.get("text"), str) else None)
+            if op == "site_media":
+                return site.put_media(a.get("name"), a.get("path"))
+            if op == "site_publish":
+                return site.publish(a.get("message"))
+            if op == "open":
+                url = str(a.get("url") or "")
+                u = urllib.parse.urlparse(url)
+                if u.scheme not in ("https", "mailto") or (u.scheme == "https" and not u.hostname):
+                    return {"error": "Only https pages can be opened."}
+                webbrowser.open(url)
+                return {"ok": True}
+            if op == "open_folder":
+                p = media._dir("files") if a.get("which") == "files" else site.folder()
+                if not p or not os.path.isdir(p):
+                    return {"error": "That folder isn't there yet."}
+                os.startfile(p)
+                return {"ok": True}
+            if op == "save_as":
+                name = str(a.get("name") or "")
+                src = media._file(name)
+                paths = self._window.create_file_dialog(webview.FileDialog.SAVE, save_filename=name)
+                if not paths:
+                    return {"cancelled": True}
+                dst = paths if isinstance(paths, str) else paths[0]
+                shutil.copyfile(src, dst)
+                return {"ok": True, "path": dst}
+            if op == "ask":
+                rec = a.get("rec")
+                if not isinstance(rec, dict) or not rec.get("kind"):
+                    return {"error": "link an AI in Randis UDS first (the LLM button), then try again."}
+                system = MEDIA_SYSTEM + ("\n\n" + str(a.get("system"))[:4000] if a.get("system") else "")
+                return {"job": self._start(rec, [{"role": "user", "content": str(a.get("text") or "")[:150000]}], system,
+                                           max_tokens=max(500, min(16000, int(a.get("max") or 6000))))}
+            if op == "poll":
+                return self.chat_poll(a.get("job"))
+        except Exception as e:
+            return {"error": str(e) or type(e).__name__}
+        return {"error": "Unknown request"}
+
+    def office_ask(self, rec, history, page):
+        msgs = [{"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content") or "")[:6000]}
+                for m in (history if isinstance(history, list) else [])[-16:] if isinstance(m, dict) and m.get("content")]
+        if not msgs or msgs[-1]["role"] != "user":
+            return {"error": "nothing to ask yet"}
+        while msgs[0]["role"] != "user":
+            msgs.pop(0)
+        page = str(page or "")[:150000]
+        if page:
+            msgs[-1] = {"role": "user", "content": "The product's current page:\n```html\n" + page + "\n```\n\n" + msgs[-1]["content"]}
+        return self._start(rec, msgs, OFFICE_SYSTEM, max_tokens=16000)
+
+    def avatar_ask(self, rec, history, persona):
+        msgs = [{"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content") or "")[:6000]}
+                for m in (history if isinstance(history, list) else [])[-30:] if isinstance(m, dict) and m.get("content")]
+        if not msgs or msgs[-1]["role"] != "user":
+            return {"error": "nothing to ask yet"}
+        while msgs[0]["role"] != "user":
+            msgs.pop(0)
+        return self._start(rec, msgs, AVATAR_SYSTEM + "The character:\n" + str(persona or "")[:12000], max_tokens=2500)
+
     def _duck(self):
         return tabs.TabStore(os.path.join(DATA_DIR, "duck"))
 
@@ -1332,7 +2342,7 @@ class Api:
         st = self._duck()
         if not os.path.isdir(os.path.join(st.root, DUCK_ID)):
             with open(os.path.join(HERE, "ui", "duck_default.html"), encoding="utf-8") as f:
-                st.save_version(None, "Rubber duck", f.read(), "the original duck", new_id=DUCK_ID)
+                st.save_version(None, "Quak Quak", f.read(), "the original duck", new_id=DUCK_ID)
         return st.load(DUCK_ID, n)
 
     def duck_chat_start(self, rec, history, perms=None):
@@ -1362,7 +2372,7 @@ class Api:
         return self._duck().set_current(DUCK_ID, n)
 
     def _make_pop_window(self):
-        self._pop_win = webview.create_window("Rubber duck", html=BLANK_POP, js_api=PopApi(self), width=190, height=190,
+        self._pop_win = webview.create_window("Quak Quak", html=BLANK_POP, js_api=PopApi(self), width=190, height=190,
                                               frameless=True, transparent=True, on_top=True, easy_drag=True, resizable=False)
         self._no_file_drops(self._pop_win)
         self._wall_window(self._pop_win, served=False)
@@ -1537,9 +2547,39 @@ class Api:
         return True
 
     def _startup(self):
-        time.sleep(1.5)
-        self._pop_win.hide()
+        import ramguard
+        def ram_note(ev):
+            if self._window and not self._closing:
+                self._window.evaluate_js(f"window.toast && toast({json.dumps(ev['message'])})")
+        ramguard.start(notify=ram_note, log=os.path.join(DATA_DIR, "ramguard.log"))
+        self._pop_win.events.shown.wait(60)
+        time.sleep(0.5)
+        if self._pop is None:
+            self._pop_win.hide()
+        threading.Thread(target=self._pop_guard, daemon=True, name="duck-guard").start()
         self._bots(bots.resume_wanted)
+        try:
+            sysguard.start(DATA_DIR, before_stop=[voicebox.stop_engine])
+        except Exception as e:
+            print("memory guard didn't start:", e)
+
+    def _pop_shown(self):
+        try:
+            if os.name == "nt":
+                import ctypes
+                return bool(ctypes.windll.user32.IsWindowVisible(int(self._pop_win.native.Handle.ToInt64())))
+        except Exception:
+            pass
+        return None
+
+    def _pop_guard(self):
+        while not self._closing:
+            time.sleep(3)
+            if self._pop is None and not self._closing and self._pop_shown():
+                try:
+                    self._pop_win.hide()
+                except Exception:
+                    pass
 
     def _pop_closing(self):
         if self._pop_closing_ok:
@@ -1550,6 +2590,7 @@ class Api:
     def _main_closed(self):
         self._pop_closing_ok = True
         self._net.close_all()
+        self._vm.stop_all()
         self._closing = True
         self._runner.stop_all()
         self._bots(bots.stop_all, "Randis UDS closed")
@@ -1565,10 +2606,30 @@ class Api:
         self._pop_win.load_html(walled(self.duck_load()["html"]) + POP_SCRIPT % fallback, **POP_BASE)
         self._pop_win.show()
         self._pop = self._pop_win
+        self._pop_gen = getattr(self, "_pop_gen", 0) + 1
+        threading.Thread(target=self._pop_watch, args=(self._pop_gen,), daemon=True, name="duck-watch").start()
         return True
+
+    def _pop_watch(self, gen):
+        misses = 0
+        while not self._closing and self._pop is not None and self._pop_gen == gen:
+            time.sleep(4)
+            if self._closing or self._pop is None or self._pop_gen != gen:
+                return
+            got = {}
+            t = threading.Thread(target=lambda: got.update(v=self._pop_win.evaluate_js(POP_ALIVE)), daemon=True)
+            t.start()
+            t.join(6)
+            misses = 0 if got.get("v") == "ok" else misses + 1
+            if misses >= 2:
+                self.duck_putback()
+                if self._window is not None:
+                    self._window.evaluate_js("window.toast && toast('The duck stopped drawing in his own window, so he is back in his tab.')")
+                return
 
     def duck_putback(self):
         if self._pop is None:
+            self._pop_win.hide()
             return True
         self._pop = None
         self._pop_win.hide()
@@ -1750,6 +2811,7 @@ def pid_alive(pid):
 
 SHOP_URL = "https://randywilliammoore.github.io/randis-shop/"
 ITEM_ADDRESS = re.compile(r"(games|apps)/[a-z0-9]+(-[a-z0-9]+)*")
+SHOP_REPO_RE = re.compile(r"[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}")
 
 
 def lock_alive(root):
@@ -1769,6 +2831,31 @@ def start_file(root):
 def gui_python():
     w = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
     return w if os.path.exists(w) else sys.executable
+
+
+TEST_MUTE = """(function(){if(window.__udsMuted)return;window.__udsMuted=true;
+if(window.speechSynthesis){try{speechSynthesis.speak=function(){};}catch(e){}}
+var M=window.HTMLMediaElement&&HTMLMediaElement.prototype;if(M){M.play=function(){return Promise.resolve();};}
+var AC=window.AudioContext||window.webkitAudioContext;if(AC){var S=AC.prototype.suspend;
+ var G=class extends AC{constructor(a){super(a);S.call(this).catch(function(){});}};
+ G.prototype.resume=function(){return Promise.resolve();};
+ try{window.AudioContext=G;window.webkitAudioContext=G;}catch(e){}}})();"""
+
+
+def _mute_test_windows():
+    if not os.environ.get("UDS_TEST_HIDDEN") or getattr(webview.create_window, "muted", False):
+        return
+    make = webview.create_window
+
+    def create_window(*a, **k):
+        w = make(*a, **k)
+        w.events.loaded += lambda: w.evaluate_js(TEST_MUTE)
+        return w
+    create_window.muted = True
+    webview.create_window = create_window
+
+
+_mute_test_windows()
 
 
 def main():
@@ -1792,8 +2879,13 @@ def main():
         import linux_wall
         linux_wall.install(NO_WEBRTC)
     api = Api()
+    try:
+        import catalog
+        catalog.sync(DATA_DIR, api._tabs())
+    except Exception as e:
+        print("catalog tab not made:", e)
     window = webview.create_window(
-        "Randis UDS" if name == "Base" else f"Randis UDS · {name}",
+        window_title(name),
         url=os.path.join(HERE, "ui", "index.html"),
         js_api=api,
         width=1100,

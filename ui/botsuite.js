@@ -481,7 +481,7 @@ function buildBotSuite(tab) {
     log.textContent = "";
     for (const m of talk) { const d = el("div", { className: "suite-say" }, m.msg); d.dataset.who = m.who; log.append(d); }
     if (busy) log.append(el("div", { className: "suite-say muted" }, "The wizard is thinking…"));
-    log.scrollTop = log.scrollHeight;
+    followEnd(log, busy);
   };
   const sendWizard = async () => {
     const text = ask.value.trim();

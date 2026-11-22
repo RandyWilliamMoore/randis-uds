@@ -12,7 +12,7 @@ Copies, clones and derivatives must say so at the very top of their work and lin
 
 **Randis UDS™ is a universal software with no fixed purpose. Describe what you need, and the LLM inside it builds that into the app while you're using it. If you can dream it you can build it.**
 
-![Randis UDS with three tabs open: a notepad, Randis Paint, and the Randis Shop tab listing the shop's games](packaging/screenshot.png)
+![Randis UDS with the + menu open, showing built tabs in labeled sections with their own icons](packaging/screenshot.png)
 
 Link a local model or an online account to start. With no LLM linked, it works as a notepad and text editor.
 
@@ -40,6 +40,14 @@ YouTube: https://www.youtube.com/@Randis9000 and https://www.youtube.com/@Moores
 - Projects: separate copies of the app for separate work, with changes from Base pushed into them
 - Online play for built tabs: a game can link to a friend's copy with a private invite code (see below)
 - Bots: "+ Add a bot" on any tab, or for the whole app, makes a small helper that reads and reports, managed in the Bots tab (see below)
+
+New in 0.1.14:
+
+- Tab sections: the + menu groups built tabs (Games, Create, Learn, Tools, Money & Shop, Bots & AI, Life & Family) in folds that remember how you left them, and every tab has its own icon from the Randis Emoji set
+- Ship button: a built tab with changes your shop doesn't have yet shows a green **Ship** button that stays lit until they're shipped. Pressing it with nothing new says so
+- Hidden credit mark: files a built tab saves out, and tabs shipped to a shop, carry a one-line "Made with Randis UDS" note no viewer shows (see `NOTICE.md`)
+- Support for the new suites in [The Randis Shop](https://randywilliammoore.github.io/randis-shop/): Game Emulator Suite (EmulatorJS, fetched once from its own site the first time you play, then offline), VM Suite (real PCs in a tab with QEMU), Shop Studio (your own shop on GitHub Pages), Codex Academy (lessons and a code runner), Randis Antivirus, Media Network and Repo Scout
+- Voice: tabs can talk and listen; weather; spell check in chat boxes
 
 ## Contact
 
@@ -134,6 +142,16 @@ python tests/item_test.py
 python tests/bots_test.py
 python tests/bots_real_test.py    # one real bot run with your Claude Code (a few seconds of your plan)
 python tests/net_test.py          # needs the internet: it uses a real public relay
+# the tests below for the shop's suites (emu, scout, codelab, av, media) also open that tab, so put it in data/tabs first
+python tests/emu_test.py <Game Emulator Suite page>.html   # the offline emulator (EmulatorJS); the first run fetches its files once
+python tests/vm_test.py           # TempleOS tab and VM Suite (vm.py); boots TempleOS if QEMU is installed. Add "download" to also fetch and boot Tiny Core Linux
+python tests/studio_test.py       # the Shop Studio and shops in the Shop tab, against a pretend GitHub on this computer (needs Git)
+python tests/scout_test.py        # Repo Scout: address rules, which tabs may use it, and the tab with real searches ("offline" skips the web part)
+python tests/codelab_test.py      # Codex Academy: the code runner, every exercise's answer key, and the tab in a browser ("quick" skips the last two)
+python tests/av_test.py           # Randis Antivirus: detections, false-alarm guards, quarantine round trip, and the tab in a browser ("quick" skips the browser)
+python tests/tab_sections_test.py # tab sections, tab icons, Emoji Forge in the + menu
+python tests/credit_mark_test.py  # the hidden credit mark, and the Ship button against a pretend shop (needs Git)
+python tests/media_test.py        # Media Network: voices, audio joining, feeds, outlet secrets kept outside the folder, and the tab in a browser ("offline"/"quick" skip parts)
 ```
 
 ## Known issues

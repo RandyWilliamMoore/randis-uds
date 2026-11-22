@@ -1,0 +1,1040 @@
+<!doctype html>
+<!-- Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Weather · Randis UDS</title>
+<style>
+:root { --bg:#0d0d0d; --panel:#1a1a19; --panel2:#222220; --line:#2c2c2a; --line2:#383835; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+        --blue:#3987e5; --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b; }
+* { box-sizing: border-box; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:13px/1.4 "Segoe UI", system-ui, sans-serif; }
+button, input, select { font:inherit; color:inherit; }
+a { color:#7fb3f0; }
+#origin { padding:4px 12px; font-size:11px; color:var(--muted); border-bottom:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#app { display:grid; grid-template-columns: 290px 1fr; height: calc(100% - 24px); }
+#side { border-right:1px solid var(--line); overflow:auto; padding:12px; background:var(--panel); }
+#main { overflow:auto; padding:14px 18px 40px; }
+h3 { margin:16px 0 6px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+h2 { margin:0; font-size:20px; }
+.in { width:100%; padding:7px 9px; border-radius:7px; border:1px solid var(--line2); background:var(--bg); }
+.in:focus { outline:2px solid var(--blue); outline-offset:-1px; }
+.btn { padding:5px 10px; border-radius:999px; border:1px solid var(--line2); background:var(--panel2); cursor:pointer; white-space:nowrap; }
+.btn:hover { background:#2d2d2a; }
+.btn.pri { background:var(--blue); border-color:var(--blue); color:#fff; }
+.btn.sm { padding:2px 8px; font-size:12px; }
+.list { display:flex; flex-direction:column; gap:2px; margin-top:6px; }
+.row { display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:7px; cursor:pointer; }
+.row:hover { background:var(--panel2); }
+.row.on { background:#203046; }
+.row .nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.row .sub { color:var(--muted); font-size:11px; }
+.ico { border:0; background:transparent; cursor:pointer; color:var(--muted); padding:0 3px; font-size:14px; }
+.ico:hover { color:var(--ink); }
+.units { display:grid; grid-template-columns: auto 1fr; gap:6px 8px; align-items:center; }
+.units label { color:var(--ink2); }
+.units select, .side-sel { padding:4px 6px; border-radius:6px; border:1px solid var(--line2); background:var(--bg); }
+.small { font-size:11px; color:var(--muted); }
+#top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+#top .where { flex:1; min-width:200px; }
+#tabs { display:flex; gap:4px; flex-wrap:wrap; margin:12px 0 14px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+#tabs button { border:0; background:transparent; padding:6px 10px; border-radius:7px; cursor:pointer; color:var(--ink2); }
+#tabs button:hover { background:var(--panel2); color:var(--ink); }
+#tabs button.on { background:var(--blue); color:#fff; }
+.grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(170px,1fr)); gap:8px; }
+.tile { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:9px 11px; }
+.tl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+.tv { font-size:20px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
+.ts { font-size:12px; color:var(--ink2); margin-top:2px; }
+.hero { display:flex; gap:22px; align-items:center; flex-wrap:wrap; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin-bottom:10px; }
+.hero .big { font-size:56px; font-weight:300; line-height:1; font-variant-numeric:tabular-nums; }
+.hero .emo { font-size:52px; }
+.arrow { display:inline-block; transition:none; }
+.chart { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px 10px 6px; margin:10px 0; }
+.ch-head { display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; margin-bottom:4px; }
+.legend { display:flex; gap:12px; flex-wrap:wrap; color:var(--ink2); font-size:12px; }
+.legend i, .tip i { display:inline-block; width:10px; height:3px; border-radius:2px; vertical-align:middle; margin-right:5px; }
+.ch-body { position:relative; }
+.tip { position:absolute; pointer-events:none; background:#0d0d0dee; border:1px solid var(--line2); border-radius:8px; padding:6px 9px; font-size:12px; white-space:nowrap; z-index:5; }
+table.t { border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; font-size:12px; }
+table.t th, table.t td { padding:4px 7px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+table.t th { position:sticky; top:0; background:var(--panel); color:var(--muted); font-weight:600; z-index:1; }
+table.t td:first-child, table.t th:first-child { text-align:left; }
+table.t tr.day td { border-top:2px solid var(--line2); }
+table.t tr.now td { background:#203046; }
+.tbl { max-height:460px; overflow:auto; border:1px solid var(--line); border-radius:10px; margin:10px 0; }
+.alert { border-left:4px solid var(--crit); background:#2a1515; padding:8px 12px; border-radius:8px; margin:6px 0; }
+.alert.watch { border-color:var(--serious); background:#2a1d15; }
+.alert.adv { border-color:var(--warn); background:#2a2415; }
+.alert.st { border-color:var(--blue); background:#152030; }
+.alert summary { cursor:pointer; font-weight:600; }
+pre.prod { white-space:pre-wrap; font:12px/1.45 Consolas, "Cascadia Mono", monospace; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; max-height:560px; overflow:auto; }
+.note { background:#152030; border:1px solid #23406a; border-radius:10px; padding:8px 12px; color:var(--ink2); margin:8px 0; }
+.warnbox { background:#2a2415; border:1px solid #5a4a1a; border-radius:10px; padding:8px 12px; color:var(--ink2); margin:8px 0; }
+.err { color:#f08a8a; }
+.flag { display:inline-block; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:600; }
+.f-ok { background:#0ca30c33; color:#7fe07f; } .f-sca { background:#fab21933; color:#ffd36b; } .f-gale { background:#ec835a44; color:#ffb08f; }
+.f-storm { background:#d03b3b55; color:#ffb3b3; } .f-hurr { background:#7a1fa255; color:#e5b3ff; }
+.cat { display:inline-block; min-width:44px; text-align:center; padding:1px 6px; border-radius:6px; font-weight:700; font-size:11px; }
+.VFR { background:#0ca30c; color:#fff; } .MVFR { background:#3987e5; color:#fff; } .IFR { background:#d03b3b; color:#fff; } .LIFR { background:#b03ad0; color:#fff; }
+.two { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+@media (max-width: 1100px) { .two { grid-template-columns: 1fr; } }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:8px 0; }
+.card h4 { margin:0 0 6px; font-size:14px; }
+.raw { font:12px Consolas, monospace; color:var(--ink); background:var(--bg); padding:6px 8px; border-radius:6px; white-space:pre-wrap; margin:4px 0; }
+.map { position:relative; height:560px; overflow:hidden; border-radius:10px; border:1px solid var(--line); background:#111; cursor:grab; touch-action:none; user-select:none; }
+.map.drag { cursor:grabbing; }
+.mapin, .layer { position:absolute; inset:0; }
+.layer img { position:absolute; width:256px; height:256px; pointer-events:none; }
+.mk { position:absolute; width:12px; height:12px; margin:-6px 0 0 -6px; border-radius:50%; background:#f0efec; border:2px solid #0d0d0d; pointer-events:none; }
+.mk.cur { background:var(--blue); width:16px; height:16px; margin:-8px 0 0 -8px; box-shadow:0 0 0 3px #3987e566; }
+.mk span { position:absolute; left:14px; top:-3px; font-size:11px; color:#fff; text-shadow:0 0 3px #000, 0 0 3px #000; white-space:nowrap; }
+.mapctl { position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:4px; z-index:3; }
+.mapctl button { width:32px; height:32px; border-radius:7px; border:1px solid var(--line2); background:#1a1a19ee; cursor:pointer; font-size:16px; }
+.mapbar { position:absolute; left:10px; bottom:10px; z-index:3; display:flex; gap:8px; align-items:center; background:#1a1a19ee; border:1px solid var(--line2); border-radius:999px; padding:4px 10px; }
+.mapattr { position:absolute; right:6px; bottom:4px; z-index:3; font-size:10px; color:#bbb; background:#0008; padding:1px 5px; border-radius:4px; }
+.pop { position:absolute; z-index:4; background:#1a1a19f5; border:1px solid var(--line2); border-radius:10px; padding:8px 10px; transform:translate(-50%, calc(-100% - 12px)); white-space:nowrap; cursor:default; }
+.gal { display:grid; grid-template-columns: repeat(auto-fill, minmax(360px,1fr)); gap:10px; }
+.gal figure { margin:0; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px; }
+.gal img { width:100%; border-radius:6px; display:block; background:#111; min-height:120px; }
+.gal figcaption { font-size:12px; color:var(--ink2); margin-top:6px; display:flex; justify-content:space-between; gap:8px; }
+.skew { display:grid; grid-template-columns: minmax(420px, 640px) 1fr; gap:12px; align-items:start; }
+@media (max-width: 1100px) { .skew { grid-template-columns: 1fr; } }
+canvas.sk { width:100%; background:var(--panel); border:1px solid var(--line); border-radius:10px; }
+.spin { color:var(--muted); padding:20px 0; }
+.empty { max-width:640px; margin:40px auto; text-align:center; color:var(--ink2); }
+.kv { display:grid; grid-template-columns: auto 1fr; gap:3px 12px; font-variant-numeric:tabular-nums; }
+.kv div:nth-child(odd) { color:var(--muted); }
+.aqi { display:inline-block; padding:2px 9px; border-radius:999px; font-weight:700; }
+</style>
+</head>
+<body>
+<div id="origin">Randis UDS™ by Randy Moore · Original: github.com/RandyWilliamMoore/randis-uds · Support: ko-fi.com/moorescombinatoricsmatrix · Weather data: Open-Meteo (CC BY 4.0), NOAA/NWS, NOAA CO-OPS &amp; NDBC, aviationweather.gov, RainViewer, CARTO/OpenStreetMap</div>
+<div id="app">
+  <aside id="side">
+    <h3 style="margin-top:0">Find a place</h3>
+    <input id="q" class="in" placeholder="City, port, airport, ZIP…" autocomplete="off">
+    <div id="results" class="list"></div>
+    <h3>Or exact coordinates</h3>
+    <div style="display:flex; gap:6px"><input id="ll" class="in" placeholder="28.41, -80.60  or  28°24'N 80°36'W"><button class="btn" id="llgo">Go</button></div>
+    <div id="llerr" class="small err"></div>
+    <h3>My places</h3>
+    <div id="places" class="list"></div>
+    <div class="small" style="margin-top:4px">⌂ = home, shown on the app's top bar. Click a place to look at it.</div>
+    <h3>Units</h3>
+    <div class="units">
+      <label for="u-temp">Temperature</label><select id="u-temp" data-u="temp"><option value="F">°F</option><option value="C">°C</option></select>
+      <label for="u-wind">Wind</label><select id="u-wind" data-u="wind"><option value="mph">mph</option><option value="kt">knots</option><option value="kmh">km/h</option><option value="ms">m/s</option></select>
+      <label for="u-press">Pressure</label><select id="u-press" data-u="press"><option value="inHg">inHg</option><option value="hPa">hPa / mb</option></select>
+      <label for="u-dist">Distance</label><select id="u-dist" data-u="dist"><option value="mi">miles</option><option value="nm">nautical mi</option><option value="km">km</option></select>
+      <label for="u-precip">Rain</label><select id="u-precip" data-u="precip"><option value="in">inches</option><option value="mm">mm</option></select>
+      <label for="u-height">Heights, seas</label><select id="u-height" data-u="height"><option value="ft">feet</option><option value="m">meters</option></select>
+      <label for="u-clock">Clock</label><select id="u-clock" data-u="clock"><option value="12">12 hour</option><option value="24">24 hour</option></select>
+    </div>
+    <h3>Forecast model</h3>
+    <select id="model" class="side-sel" style="width:100%">
+      <option value="best_match">Best match (auto)</option>
+      <option value="gfs_seamless">NOAA GFS / HRRR (US)</option>
+      <option value="ecmwf_ifs025">ECMWF IFS 0.25°</option>
+      <option value="icon_seamless">DWD ICON (Germany)</option>
+      <option value="gem_seamless">GEM (Canada)</option>
+      <option value="ukmo_seamless">UK Met Office</option>
+      <option value="meteofrance_seamless">Météo-France</option>
+      <option value="jma_seamless">JMA (Japan)</option>
+    </select>
+    <div class="small" style="margin-top:4px">Changes the forecast, hourly, 16-day and upper air pages. Compare models by switching.</div>
+    <h3>Data</h3>
+    <button class="btn" id="refresh">↻ Refresh now</button>
+    <div id="updated" class="small" style="margin-top:6px"></div>
+  </aside>
+  <main id="main">
+    <div id="top"><div class="where"><h2 id="pname">Weather</h2><div id="psub" class="small"></div></div><span id="savebtn"></span></div>
+    <nav id="tabs"></nav>
+    <section id="view"></section>
+  </main>
+</div>
+<script>
+"use strict";
+const A = () => (window.pywebview && window.pywebview.api) || null;
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const C = { blue: "#3987e5", orange: "#d95926", aqua: "#199e70", yellow: "#c98500", magenta: "#d55181", green: "#008300", violet: "#9085e9",
+            red: "#e66767", ink: "#f0efec", ink2: "#c3c2b7", muted: "#898781", grid: "#2c2c2a", base: "#383835", surf: "#1a1a19" };
+
+async function get(url, text) {
+  const a = A(); if (!a) throw new Error("The app isn't ready yet.");
+  const r = await a.weather_fetch(url);
+  if (!r) throw new Error("No answer from the app.");
+  if (r.error && (!r.text || (r.status || 0) >= 400 || !r.status)) {
+    let m = r.error;
+    try { const j = JSON.parse(r.text); m += " " + (j.reason || j.detail || j.title || ""); } catch (e) {   }
+    throw new Error(m.trim());
+  }
+  return text ? r.text : JSON.parse(r.text);
+}
+
+const DEF = { places: [], home: 0, units: { temp: "F", wind: "mph", press: "inHg", dist: "mi", precip: "in", height: "ft", clock: "12" }, model: "best_match" };
+let S = JSON.parse(JSON.stringify(DEF));
+let V = null;
+let TAB = "overview";
+const D = {};
+const key = () => V ? `${(+V.lat).toFixed(3)},${(+V.lon).toFixed(3)}` : "";
+const cache = () => (D[key()] ||= {});
+function save() { const a = A(); if (a) Promise.resolve(a.weather_settings(S)).catch(() => {}); }
+
+const U = {
+  t: c => c == null ? null : S.units.temp === "F" ? c * 9 / 5 + 32 : c,
+  dt: c => c == null ? null : S.units.temp === "F" ? c * 9 / 5 : c,
+  tu: () => "°" + S.units.temp,
+  w: k => k == null ? null : ({ kt: k / 1.852, mph: k / 1.609344, ms: k / 3.6, kmh: k })[S.units.wind],
+  wu: () => ({ kt: "kt", mph: "mph", ms: "m/s", kmh: "km/h" })[S.units.wind],
+  p: h => h == null ? null : S.units.press === "inHg" ? h * 0.0295300 : h,
+  pu: () => S.units.press, pd: () => S.units.press === "inHg" ? 2 : 0,
+  d: m => m == null ? null : ({ mi: m / 1609.344, km: m / 1000, nm: m / 1852 })[S.units.dist],
+  du: () => S.units.dist,
+  r: mm => mm == null ? null : S.units.precip === "in" ? mm / 25.4 : mm,
+  ru: () => S.units.precip, rd: () => S.units.precip === "in" ? 2 : 1,
+  sn: cm => cm == null ? null : S.units.precip === "in" ? cm / 2.54 : cm,
+  su: () => S.units.precip === "in" ? "in" : "cm",
+  h: m => m == null ? null : S.units.height === "ft" ? m * 3.28084 : m,
+  hu: () => S.units.height,
+};
+const kt = kmh => kmh == null ? null : kmh / 1.852;
+const n = (v, d = 0) => v == null || isNaN(v) ? "—" : (+v).toFixed(d);
+const fT = c => c == null ? "—" : Math.round(U.t(c)) + "°";
+const fW = k => k == null ? "—" : Math.round(U.w(k)) + " " + U.wu();
+const fP = h => h == null ? "—" : U.p(h).toFixed(U.pd()) + " " + U.pu();
+const fH = m => m == null ? "—" : Math.round(U.h(m)).toLocaleString() + " " + U.hu();
+const fSea = m => m == null ? "—" : U.h(m).toFixed(1) + " " + U.hu();
+const COMP = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+const comp = d => d == null ? "—" : COMP[Math.round(((d % 360) + 360) % 360 / 22.5) % 16];
+const arrow = d => d == null ? "" : `<span class="arrow" style="transform:rotate(${Math.round(d)}deg)" title="from ${Math.round(d)}°">↓</span>`;
+const dirTxt = d => d == null ? "—" : `${arrow(d)} ${comp(d)} ${String(Math.round(d)).padStart(3, "0")}°`;
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const ymd = s => s.slice(0, 10).split("-").map(Number);
+const dayOf = s => { const [y, m, d] = ymd(s); return DAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]; };
+const dateTxt = s => { const [, m, d] = ymd(s); return `${dayOf(s)} ${MON[m - 1]} ${d}`; };
+const hm = s => { if (!s || s.length < 16) return "—"; const H = +s.slice(11, 13), M = s.slice(14, 16);
+  return S.units.clock === "24" ? s.slice(11, 16) : `${(H % 12) || 12}${M !== "00" ? ":" + M : ""}${H < 12 ? "am" : "pm"}`; };
+const fmtTime = s => `${dayOf(s)} ${+s.slice(8, 10)} · ${hm(s)}`;
+const durTxt = sec => sec == null ? "—" : `${Math.floor(sec / 3600)}h ${String(Math.round(sec % 3600 / 60)).padStart(2, "0")}m`;
+function nowIdx(times, cur) {
+  const k = (cur || "").slice(0, 13);
+  let i = times.findIndex(t => t.slice(0, 13) === k);
+  return i < 0 ? 0 : i;
+}
+
+const WMO = { 0: ["Clear", "☀️", "🌙"], 1: ["Mostly clear", "🌤", "🌙"], 2: ["Partly cloudy", "⛅", "☁️"], 3: ["Overcast", "☁️", "☁️"], 45: ["Fog", "🌫", "🌫"],
+  48: ["Freezing fog (rime)", "🌫", "🌫"], 51: ["Light drizzle", "🌦", "🌧"], 53: ["Drizzle", "🌦", "🌧"], 55: ["Heavy drizzle", "🌧", "🌧"],
+  56: ["Light freezing drizzle", "🌧", "🌧"], 57: ["Freezing drizzle", "🌧", "🌧"], 61: ["Light rain", "🌦", "🌧"], 63: ["Rain", "🌧", "🌧"],
+  65: ["Heavy rain", "🌧", "🌧"], 66: ["Light freezing rain", "🌧", "🌧"], 67: ["Freezing rain", "🌧", "🌧"], 71: ["Light snow", "🌨", "🌨"],
+  73: ["Snow", "🌨", "🌨"], 75: ["Heavy snow", "❄️", "❄️"], 77: ["Snow grains", "🌨", "🌨"], 80: ["Light showers", "🌦", "🌧"], 81: ["Showers", "🌧", "🌧"],
+  82: ["Violent showers", "⛈", "⛈"], 85: ["Snow showers", "🌨", "🌨"], 86: ["Heavy snow showers", "❄️", "❄️"], 95: ["Thunderstorm", "⛈", "⛈"],
+  96: ["Thunderstorm, hail", "⛈", "⛈"], 99: ["Severe thunderstorm, hail", "⛈", "⛈"] };
+const wDesc = c => (WMO[c] || ["—"])[0];
+const wIcon = (c, day = 1) => (WMO[c] || ["", "·", "·"])[day ? 1 : 2];
+
+const BF = [[1, "Calm"], [4, "Light air"], [7, "Light breeze"], [11, "Gentle breeze"], [17, "Moderate breeze"], [22, "Fresh breeze"], [28, "Strong breeze"],
+  [34, "Near gale"], [41, "Gale"], [48, "Strong gale"], [56, "Storm"], [64, "Violent storm"], [1e9, "Hurricane force"]];
+const beaufort = k => { if (k == null) return null; for (let i = 0; i < BF.length; i++) if (k < BF[i][0]) return { f: i, name: BF[i][1] }; return { f: 12, name: "Hurricane force" }; };
+const DOUGLAS = [[0.1, 1, "Calm (rippled)"], [0.5, 2, "Smooth"], [1.25, 3, "Slight"], [2.5, 4, "Moderate"], [4, 5, "Rough"], [6, 6, "Very rough"], [9, 7, "High"], [14, 8, "Very high"], [1e9, 9, "Phenomenal"]];
+const douglas = m => { if (m == null) return null; if (m === 0) return { s: 0, name: "Calm (glassy)" }; for (const [lim, s, name] of DOUGLAS) if (m < lim) return { s, name }; };
+function marineFlag(kSus, kGust, waveM) {
+  if (kSus == null) return `<span class="flag">—</span>`;
+  const g = Math.max(kSus, kGust || 0);
+  if (kSus >= 64 || g >= 64) return `<span class="flag f-hurr">Hurricane force</span>`;
+  if (kSus >= 48 || g >= 48) return `<span class="flag f-storm">Storm</span>`;
+  if (kSus >= 34 || g >= 34) return `<span class="flag f-gale">Gale</span>`;
+  if (kSus >= 22 || (waveM != null && waveM >= 2.13)) return `<span class="flag f-sca">Small craft</span>`;
+  return `<span class="flag f-ok">OK</span>`;
+}
+
+const esat = Tc => 6.112 * Math.exp(17.67 * Tc / (Tc + 243.5));
+const dewFromRh = (T, rh) => { if (T == null || rh == null || rh <= 0) return null; const g = Math.log(rh / 100) + 17.67 * T / (T + 243.5); return 243.5 * g / (17.67 - g); };
+const mixR = (Tdc, p) => { const e = esat(Tdc); return 0.622 * e / (p - e); };
+const potT = (Tc, p) => (Tc + 273.15) * Math.pow(1000 / p, 0.2857);
+function lcl(Tc, Tdc, p) {
+  const T = Tc + 273.15, Td = Tdc + 273.15;
+  const Tl = 1 / (1 / (Td - 56) + Math.log(T / Td) / 800) + 56;
+  return { T: Tl - 273.15, p: p * Math.pow(Tl / T, 1 / 0.2857) };
+}
+function moistStep(Tk, p, dp) {
+  const Rd = 287.04, cp = 1005.7, Lv = 2.501e6, eps = 0.622;
+  const f = (T, pp) => { const es = esat(T - 273.15), rs = eps * es / (pp - es); return (1 / pp) * (Rd * T + Lv * rs) / (cp + (Lv * Lv * rs * eps) / (Rd * T * T)); };
+  const k1 = f(Tk, p), k2 = f(Tk + k1 * dp / 2, p + dp / 2), k3 = f(Tk + k2 * dp / 2, p + dp / 2), k4 = f(Tk + k3 * dp, p + dp);
+  return Tk + dp * (k1 + 2 * k2 + 2 * k3 + k4) / 6;
+}
+function moonPhase(d = new Date()) {
+  const P = 29.530588853, ref = Date.UTC(2000, 0, 6, 18, 14);
+  const age = (((d - ref) / 86400000) % P + P) % P, ill = (1 - Math.cos(2 * Math.PI * age / P)) / 2;
+  const names = [["New moon", "🌑"], ["Waxing crescent", "🌒"], ["First quarter", "🌓"], ["Waxing gibbous", "🌔"], ["Full moon", "🌕"], ["Waning gibbous", "🌖"], ["Last quarter", "🌗"], ["Waning crescent", "🌘"]];
+  const [name, emo] = names[Math.round(age / P * 8) % 8];
+  return { age, ill, name, emo };
+}
+function km(a, b, c, d) {
+  const r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(x));
+}
+function bearing(a, b, c, d) { const r = Math.PI / 180; const y = Math.sin((d - b) * r) * Math.cos(c * r), x = Math.cos(a * r) * Math.sin(c * r) - Math.sin(a * r) * Math.cos(c * r) * Math.cos((d - b) * r); return (Math.atan2(y, x) / r + 360) % 360; }
+const distTxt = k => `${(U.d(k * 1000)).toFixed(U.d(k * 1000) < 10 ? 1 : 0)} ${U.du()}`;
+
+function nice(x) { const p = Math.pow(10, Math.floor(Math.log10(x || 1))), f = x / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
+function chart(host, title, t, series, o = {}) {
+  const box = document.createElement("div"); box.className = "chart";
+  box.innerHTML = `<div class="ch-head"><b>${esc(title)}</b>${series.length > 1 ? `<span class="legend">${series.map(s =>
+    `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("")}</span>` : ""}<span class="small">${esc(o.unit || "")}</span></div>
+    <div class="ch-body"><canvas></canvas><div class="tip" hidden></div></div>`;
+  host.appendChild(box);
+  const cv = box.querySelector("canvas"), tip = box.querySelector(".tip"), body = box.querySelector(".ch-body");
+  const H = o.h || 170; let hov = -1, geo = null;
+  const vals = series.flatMap(s => s.v).filter(v => v != null && !isNaN(v));
+  let lo = vals.length ? Math.min(...vals) : 0, hi = vals.length ? Math.max(...vals) : 1;
+  if (o.min0 || series.some(s => s.bar)) lo = Math.min(0, lo);
+  if (o.max != null) hi = Math.max(hi, o.max);
+  const span = o.span || 1;
+  if (hi - lo < span) { const m = (hi + lo) / 2; lo = m - span / 2; hi = m + span / 2; if (o.min0 && lo < 0) { hi -= lo; lo = 0; } }
+  const step = nice((hi - lo) / 4); lo = Math.floor(lo / step + 1e-9) * step; hi = Math.ceil(hi / step - 1e-9) * step; if (hi <= lo) hi = lo + step;
+  const dec = o.dec ?? (step < 0.1 ? 2 : step < 1 ? 1 : 0);
+  function draw() {
+    const W = body.clientWidth; if (!W) return; const dpr = devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
+    const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    const L = 50, R = 10, T = 8, B = 22, pw = W - L - R, ph = H - T - B, N = t.length;
+    const X = i => L + (N <= 1 ? pw / 2 : i * pw / (N - 1)), Y = v => T + ph - (v - lo) / (hi - lo) * ph;
+    geo = { L, pw, N, X };
+    g.font = "11px Segoe UI, sans-serif"; g.lineWidth = 1;
+    for (let v = lo; v <= hi + step / 2; v += step) {
+      const y = Math.round(Y(v)) + .5; g.strokeStyle = Math.abs(v) < 1e-9 && lo < 0 ? C.base : C.grid;
+      g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke();
+      g.fillStyle = C.muted; g.textAlign = "right"; g.textBaseline = "middle"; g.fillText(v.toFixed(dec), L - 6, y);
+    }
+    g.textAlign = "center"; g.textBaseline = "top";
+    const perDay = pw / Math.max(1, N) * 24;
+    for (let i = 0; i < N; i++) {
+      const s = t[i], hh = s.slice(11, 13), daily = s.length <= 10;
+      if (daily) { if (i % Math.max(1, Math.ceil(60 / (pw / N))) === 0) { g.fillStyle = C.ink2; g.fillText(dayOf(s) + " " + (+s.slice(8, 10)), X(i), T + ph + 5); } continue; }
+      if (hh === "00") { const x = Math.round(X(i)) + .5; g.strokeStyle = C.base; g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + ph); g.stroke();
+        if (perDay > 34) { g.fillStyle = C.ink2; g.fillText(dayOf(s) + " " + (+s.slice(8, 10)), x, T + ph + 5); } }
+      else if (hh === "12" && perDay > 120) { g.fillStyle = C.muted; g.fillText(hm(s), X(i), T + ph + 5); }
+    }
+    if (o.now != null && o.now >= 0 && o.now < N) {
+      const x = Math.round(X(o.now)) + .5; g.setLineDash([3, 3]); g.strokeStyle = C.ink2; g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + ph); g.stroke(); g.setLineDash([]);
+      g.fillStyle = C.ink2; g.textAlign = "left"; g.fillText("now", x + 3, T);
+    }
+    const bw = Math.max(1, pw / N - 2);
+    for (const s of series) if (s.bar) { g.fillStyle = s.color; s.v.forEach((v, i) => { if (v == null || v <= 0) return; const y = Y(v), y0 = Y(Math.max(lo, 0)); g.fillRect(X(i) - bw / 2, y, bw, Math.max(1, y0 - y)); }); }
+    for (const s of series) if (!s.bar) {
+      g.strokeStyle = s.color; g.lineWidth = 2; g.setLineDash(s.dash ? [5, 4] : []); g.beginPath(); let pen = false;
+      s.v.forEach((v, i) => { if (v == null || isNaN(v)) { pen = false; return; } const x = X(i), y = Y(v); pen ? g.lineTo(x, y) : g.moveTo(x, y); pen = true; });
+      g.stroke(); g.setLineDash([]);
+    }
+    if (hov >= 0) {
+      const x = X(hov); g.strokeStyle = C.ink2; g.lineWidth = 1; g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + ph); g.stroke();
+      for (const s of series) { const v = s.v[hov]; if (v == null || s.bar) continue; g.fillStyle = s.color; g.strokeStyle = C.surf; g.lineWidth = 2; g.beginPath(); g.arc(x, Y(v), 4, 0, 7); g.fill(); g.stroke(); }
+    }
+  }
+  body.addEventListener("mousemove", e => {
+    if (!geo) return; const r = body.getBoundingClientRect();
+    const i = Math.max(0, Math.min(geo.N - 1, Math.round((e.clientX - r.left - geo.L) / geo.pw * (geo.N - 1))));
+    if (i !== hov) { hov = i; draw(); }
+    tip.hidden = false;
+    const ts = t[i].length <= 10 ? dateTxt(t[i]) : fmtTime(t[i]);
+    tip.innerHTML = `<b>${esc(ts)}</b>` + series.map(s => `<div><i style="background:${s.color}"></i>${esc(s.name)}: <b>${s.v[i] == null || isNaN(s.v[i]) ? "—" : (+s.v[i]).toFixed(o.tipDec ?? dec)}</b> ${esc(o.unit || "")}${s.extra ? " " + s.extra(i) : ""}</div>`).join("");
+    const x = geo.X(i); tip.style.left = (x + 14 + tip.offsetWidth > r.width ? x - 14 - tip.offsetWidth : x + 14) + "px"; tip.style.top = "4px";
+  });
+  body.addEventListener("mouseleave", () => { hov = -1; tip.hidden = true; draw(); });
+  new ResizeObserver(draw).observe(body);
+  return box;
+}
+
+const HV = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "apparent_temperature", "precipitation_probability", "precipitation", "snowfall",
+  "snow_depth", "weather_code", "pressure_msl", "surface_pressure", "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high", "visibility",
+  "wind_speed_10m", "wind_direction_10m", "wind_gusts_10m", "wind_speed_80m", "wind_speed_120m", "wind_direction_120m", "uv_index", "cape", "lifted_index",
+  "convective_inhibition", "freezing_level_height", "boundary_layer_height", "wet_bulb_temperature_2m", "vapour_pressure_deficit", "shortwave_radiation", "is_day"].join(",");
+const DV = ["weather_code", "temperature_2m_max", "temperature_2m_min", "apparent_temperature_max", "apparent_temperature_min", "sunrise", "sunset", "daylight_duration",
+  "uv_index_max", "precipitation_sum", "precipitation_hours", "precipitation_probability_max", "snowfall_sum", "wind_speed_10m_max", "wind_gusts_10m_max",
+  "wind_direction_10m_dominant", "shortwave_radiation_sum", "et0_fao_evapotranspiration"].join(",");
+const CV = "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,dew_point_2m,visibility";
+const LV = [1000, 975, 950, 925, 900, 850, 800, 700, 600, 500, 400, 300, 250, 200, 150, 100];
+const ll = () => `latitude=${(+V.lat).toFixed(4)}&longitude=${(+V.lon).toFixed(4)}`;
+
+async function loadFc(model) {
+  const m = model || S.model;
+  const url = `https://api.open-meteo.com/v1/forecast?${ll()}&timezone=auto&past_days=1&forecast_days=16&current=${CV}&hourly=${HV}&daily=${DV}`
+    + (m && m !== "best_match" ? `&models=${m}` : "");
+  try { return await get(url); }
+  catch (e) { if (m !== "best_match") { const r = await loadFc("best_match"); r._fallback = `The ${m} model couldn't answer here (${e.message}); showing Best match.`; return r; } throw e; }
+}
+async function need(name) {
+  const c = cache();
+  if (c[name] !== undefined) return c[name];
+  if (c["_p_" + name]) return c["_p_" + name];
+  const k = key();
+  const p = (async () => {
+    try { const v = await LOADERS[name](); (D[k] ||= {})[name] = v; return v; }
+    catch (e) { const v = { error: e.message || String(e) }; (D[k] ||= {})[name] = v; return v; }
+    finally { if (D[k]) delete D[k]["_p_" + name]; }
+  })();
+  c["_p_" + name] = p;
+  return p;
+}
+const LOADERS = {
+  fc: () => loadFc(),
+  up: async () => {
+    const vars = [];
+    for (const p of LV) for (const v of ["temperature", "relative_humidity", "dew_point", "wind_speed", "wind_direction", "geopotential_height"]) vars.push(`${v}_${p}hPa`);
+    const m = S.model !== "best_match" ? `&models=${S.model}` : "";
+    const url = `https://api.open-meteo.com/v1/forecast?${ll()}&timezone=auto&forecast_days=4&hourly=temperature_2m,dew_point_2m,surface_pressure,wind_speed_10m,wind_direction_10m,cape,lifted_index,convective_inhibition,freezing_level_height,boundary_layer_height,${vars.join(",")}&wind_speed_unit=kn${m}`;
+    try { return await get(url); } catch (e) { if (m) return get(url.replace(m, "")); throw e; }
+  },
+  marine: () => get(`https://marine-api.open-meteo.com/v1/marine?${ll()}&timezone=auto&past_days=1&forecast_days=8`
+    + `&hourly=wave_height,wave_direction,wave_period,wind_wave_height,wind_wave_direction,wind_wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,`
+    + `secondary_swell_wave_height,secondary_swell_wave_period,secondary_swell_wave_direction,ocean_current_velocity,ocean_current_direction,sea_surface_temperature,sea_level_height_msl`
+    + `&daily=wave_height_max,wave_direction_dominant,wave_period_max,swell_wave_height_max,swell_wave_direction_dominant,wind_wave_height_max`),
+  aq: () => get(`https://air-quality-api.open-meteo.com/v1/air-quality?${ll()}&timezone=auto&forecast_days=4`
+    + `&current=us_aqi,european_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,dust,uv_index,aerosol_optical_depth,alder_pollen,birch_pollen,grass_pollen,ragweed_pollen,olive_pollen,mugwort_pollen`
+    + `&hourly=us_aqi,pm2_5,pm10,ozone,uv_index`),
+  nws: async () => {
+    const pt = await get(`https://api.weather.gov/points/${(+V.lat).toFixed(4)},${(+V.lon).toFixed(4)}`);
+    return pt.properties || pt;
+  },
+  alerts: () => get(`https://api.weather.gov/alerts/active?point=${(+V.lat).toFixed(4)},${(+V.lon).toFixed(4)}`),
+};
+let TIDE_ST = null, BUOY_ST = null, RADAR = null;
+
+function parseLL(s) {
+  s = s.trim().toUpperCase();
+  const dms = [...s.matchAll(/(-?\d+(?:\.\d+)?)\s*[°D]?\s*(?:(\d+(?:\.\d+)?)\s*['M′])?\s*(?:(\d+(?:\.\d+)?)\s*["S″])?\s*([NSEW])?/g)].filter(m => m[0].trim());
+  if (dms.length >= 2) {
+    const v = dms.slice(0, 2).map(m => { let x = Math.abs(+m[1]) + (+(m[2] || 0)) / 60 + (+(m[3] || 0)) / 3600; if (m[1].startsWith("-") || m[4] === "S" || m[4] === "W") x = -x; return { x, h: m[4] }; });
+    let lat = v[0].x, lon = v[1].x;
+    if (v[0].h === "E" || v[0].h === "W" || v[1].h === "N" || v[1].h === "S") [lat, lon] = [lon, lat];
+    if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) return { lat, lon };
+  }
+  return null;
+}
+const llTxt = (lat, lon) => `${Math.abs(lat).toFixed(3)}°${lat >= 0 ? "N" : "S"} ${Math.abs(lon).toFixed(3)}°${lon >= 0 ? "E" : "W"}`;
+const savedIdx = () => V ? S.places.findIndex(p => Math.abs(p.lat - V.lat) < 1e-3 && Math.abs(p.lon - V.lon) < 1e-3) : -1;
+function look(p) { V = { name: p.name, sub: p.sub || "", lat: +p.lat, lon: +p.lon }; S.last = V; save(); renderSide(); render(); }
+function addPlace(p) { if (savedIdx() < 0) { S.places.push({ name: p.name, sub: p.sub || "", lat: +p.lat, lon: +p.lon }); if (S.places.length === 1) S.home = 0; save(); renderSide(); renderTop(); } }
+
+function renderSide() {
+  const si = savedIdx();
+  $("#places").innerHTML = S.places.length ? S.places.map((p, i) => `<div class="row ${i === si ? "on" : ""}" data-i="${i}">
+      <button class="ico" data-home="${i}" title="${i === (S.home || 0) ? "Home place (on the top bar)" : "Make this the home place"}">${i === (S.home || 0) ? "⌂" : "·"}</button>
+      <div class="nm"><div>${esc(p.name)}</div><div class="sub">${esc(p.sub || llTxt(p.lat, p.lon))}</div></div>
+      <button class="ico" data-up="${i}" title="Move up">↑</button><button class="ico" data-del="${i}" title="Remove">×</button></div>`).join("")
+    : `<div class="small">None yet. Search for one, then press ☆ Save.</div>`;
+  for (const k of Object.keys(S.units)) { const e = $(`[data-u="${k}"]`); if (e) e.value = S.units[k]; }
+  $("#model").value = S.model || "best_match";
+}
+$("#places").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (b && b.dataset.home) { S.home = +b.dataset.home; save(); return renderSide(); }
+  if (b && b.dataset.del) { const i = +b.dataset.del; if (!confirm(`Remove ${S.places[i].name} from your places?`)) return; S.places.splice(i, 1); if ((S.home || 0) >= S.places.length) S.home = 0; else if (i < S.home) S.home--; save(); renderSide(); return renderTop(); }
+  if (b && b.dataset.up) { const i = +b.dataset.up; if (!i) return; const [p] = S.places.splice(i, 1); S.places.splice(i - 1, 0, p); if (S.home === i) S.home = i - 1; else if (S.home === i - 1) S.home = i; save(); return renderSide(); }
+  const r = e.target.closest(".row"); if (r) look(S.places[+r.dataset.i]);
+});
+document.querySelectorAll("[data-u]").forEach(s => s.addEventListener("change", () => { S.units[s.dataset.u] = s.value; save(); render(); }));
+$("#model").addEventListener("change", () => { S.model = $("#model").value; save(); for (const k in D) { delete D[k].fc; delete D[k].up; } render(); });
+$("#refresh").addEventListener("click", () => { if (V) delete D[key()]; RADAR = null; render(); });
+
+let qTimer = 0;
+$("#q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(search, 350); });
+$("#q").addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(qTimer); search(); } });
+async function search() {
+  const q = $("#q").value.trim(), box = $("#results");
+  if (q.length < 2) { box.innerHTML = ""; return; }
+  const asLL = parseLL(q);
+  if (asLL) { box.innerHTML = ""; return look({ name: llTxt(asLL.lat, asLL.lon), lat: asLL.lat, lon: asLL.lon }); }
+  box.innerHTML = `<div class="small">Searching…</div>`;
+  try {
+    let j = await get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=en&format=json`);
+    if (!(j.results || []).length && q.includes(",")) j = await get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q.split(",")[0].trim())}&count=10&language=en&format=json`);
+    const res = j.results || [];
+    box._res = res;
+    box.innerHTML = res.length ? res.map((r, i) => `<div class="row" data-r="${i}"><div class="nm"><div>${esc(r.name)}</div><div class="sub">${esc([r.admin1, r.country].filter(Boolean).join(", "))} · ${llTxt(r.latitude, r.longitude)}${r.elevation != null ? " · " + fH(r.elevation) : ""}</div></div></div>`).join("")
+      : `<div class="small">Nothing found. Try a bigger nearby town, or type coordinates.</div>`;
+  } catch (e) { box.innerHTML = `<div class="small err">${esc(e.message)}</div>`; }
+}
+$("#results").addEventListener("click", e => {
+  const r = e.target.closest("[data-r]"); if (!r) return;
+  const x = $("#results")._res[+r.dataset.r];
+  look({ name: x.name, sub: [x.admin1, x.country].filter(Boolean).join(", "), lat: x.latitude, lon: x.longitude });
+  $("#results").innerHTML = ""; $("#q").value = "";
+});
+function goLL() { const p = parseLL($("#ll").value); $("#llerr").textContent = p ? "" : "Couldn't read that. Try 28.41, -80.60"; if (p) look({ name: llTxt(p.lat, p.lon), lat: p.lat, lon: p.lon }); }
+$("#llgo").addEventListener("click", goLL);
+$("#ll").addEventListener("keydown", e => { if (e.key === "Enter") goLL(); });
+
+const TABS = [["overview", "Now"], ["hourly", "Hourly"], ["daily", "16-day"], ["marine", "⚓ Marine"], ["tides", "Tides & buoys"], ["aviation", "✈ Aviation"],
+  ["upper", "Upper air"], ["maps", "Radar & maps"], ["nws", "Forecasts & alerts"], ["air", "Air quality"], ["regions", "Regions"]];
+function renderTop() {
+  $("#pname").textContent = V ? V.name : "Weather";
+  $("#psub").innerHTML = V ? `${esc(V.sub ? V.sub + " · " : "")}${llTxt(V.lat, V.lon)}` : "Pick a place on the left, or a region below.";
+  const si = savedIdx();
+  $("#savebtn").innerHTML = V ? (si < 0 ? `<button class="btn pri" id="savep">☆ Save to my places</button>` : `<span class="small">★ In my places</span>`) : "";
+  const sb = $("#savep"); if (sb) sb.onclick = () => { addPlace(V); renderSide(); renderTop(); };
+  $("#tabs").innerHTML = TABS.map(([k, l]) => `<button data-tab="${k}" class="${k === TAB ? "on" : ""}">${l}</button>`).join("");
+}
+$("#tabs").addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (b) { TAB = b.dataset.tab; render(); } });
+
+let renderN = 0;
+async function render() {
+  renderTop();
+  const n0 = ++renderN, view = $("#view");
+  if (!V && TAB !== "regions") { view.innerHTML = `<div class="empty"><h2>Where to?</h2><p>Search a place on the left, type coordinates, or pick a region here.</p></div><div id="rg"></div>`; return renderRegions($("#rg"), true); }
+  view.innerHTML = `<div class="spin">Loading…</div>`;
+  try {
+    const host = document.createElement("div");
+    await PAGES[TAB](host, () => n0 !== renderN);
+    if (n0 !== renderN) return;
+    view.innerHTML = ""; view.appendChild(host);
+    const t = new Date(); $("#updated").textContent = `Updated ${t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Refreshes every 10 minutes.`;
+  } catch (e) { if (n0 === renderN) view.innerHTML = `<div class="warnbox err">Couldn't load this: ${esc(e.message || e)}</div>`; }
+}
+const H = (host, html) => { host.insertAdjacentHTML("beforeend", html); return host.lastElementChild; };
+const tile = (label, value, sub, title) => `<div class="tile"${title ? ` title="${esc(title)}"` : ""}><div class="tl">${label}</div><div class="tv">${value}</div>${sub ? `<div class="ts">${sub}</div>` : ""}</div>`;
+async function fcOrThrow() { const fc = await need("fc"); if (fc.error) throw new Error(fc.error); return fc; }
+
+const PAGES = {};
+
+PAGES.overview = async host => {
+  const fc = await fcOrThrow(), c = fc.current, h = fc.hourly, d = fc.daily, i = nowIdx(h.time, c.time), di = Math.max(0, d.time.indexOf(c.time.slice(0, 10)));
+  if (fc._fallback) H(host, `<div class="warnbox">${esc(fc._fallback)}</div>`);
+  const alertBox = H(host, `<div id="ov-alerts"></div>`);
+  need("alerts").then(a => { if (a && !a.error) alertBox.innerHTML = alertsHtml(a, true); });
+  const tend = h.pressure_msl[i] != null && h.pressure_msl[i - 3] != null ? h.pressure_msl[i] - h.pressure_msl[i - 3] : null;
+  const tendTxt = tend == null ? "" : `${tend > 0.4 ? "Rising" : tend < -0.4 ? "Falling" : "Steady"} ${tend >= 0 ? "+" : ""}${S.units.press === "inHg" ? (tend * 0.02953).toFixed(2) : tend.toFixed(1)} in 3 h${tend < -3 ? " · falling fast" : ""}`;
+  const mp = moonPhase();
+  const k10 = kt(c.wind_speed_10m), bf = beaufort(k10);
+  const cb = c.temperature_2m != null && c.dew_point_2m != null ? 125 * (c.temperature_2m - c.dew_point_2m) : null;
+  H(host, `<div class="hero"><div class="emo">${wIcon(c.weather_code, c.is_day)}</div><div><div class="big">${fT(c.temperature_2m)}${S.units.temp}</div>
+    <div>${esc(wDesc(c.weather_code))} · feels like ${fT(c.apparent_temperature)}</div></div>
+    <div><div>High ${fT(d.temperature_2m_max[di])} · Low ${fT(d.temperature_2m_min[di])}</div><div class="small">${d.precipitation_probability_max[di] ?? "—"}% chance of rain today · ${n(U.r(d.precipitation_sum[di]), U.rd())} ${U.ru()}</div>
+    <div class="small">Elevation ${fH(fc.elevation)} · ${esc(fc.timezone_abbreviation || fc.timezone || "")} · as of ${hm(c.time)}</div></div></div>`);
+  H(host, `<div class="grid">
+    ${tile("Wind", `${dirTxt(c.wind_direction_10m)}`, `${fW(c.wind_speed_10m)}, gusts ${fW(c.wind_gusts_10m)}<br>Beaufort ${bf ? bf.f + " · " + bf.name : "—"}`)}
+    ${tile("Pressure (sea level)", fP(c.pressure_msl), `${tendTxt}<br>Station ${fP(c.surface_pressure)}`)}
+    ${tile("Dew point", fT(c.dew_point_2m), `Humidity ${c.relative_humidity_2m ?? "—"}% · wet bulb ${fT(h.wet_bulb_temperature_2m[i])}`)}
+    ${tile("Visibility", c.visibility == null ? "—" : `${n(U.d(c.visibility), 1)} ${U.du()}`, c.visibility != null && c.visibility < 1000 ? "Fog: under 1 km" : "")}
+    ${tile("Cloud", `${c.cloud_cover ?? "—"}%`, `Low ${h.cloud_cover_low[i] ?? "—"}% · mid ${h.cloud_cover_mid[i] ?? "—"}% · high ${h.cloud_cover_high[i] ?? "—"}%<br>Est. cloud base ${cb == null ? "—" : fH(cb)}`, "Cloud base estimated from the temperature-dew point spread (125 m per °C).")}
+    ${tile("UV index", n(h.uv_index[i], 1), `Today's max ${n(d.uv_index_max[di], 1)}`)}
+    ${tile("Precipitation", `${n(U.r(c.precipitation), U.rd())} ${U.ru()}`, `Last hour · next hour ${h.precipitation_probability[i + 1] ?? "—"}% chance`)}
+    ${tile("Sun", `${hm(d.sunrise[di])} – ${hm(d.sunset[di])}`, `Daylight ${durTxt(d.daylight_duration[di])} · solar ${n(h.shortwave_radiation[i])} W/m²`)}
+    ${tile("Moon", `${mp.emo} ${Math.round(mp.ill * 100)}%`, `${mp.name} · ${mp.age.toFixed(1)} days old`)}
+    ${tile("Storm energy (CAPE)", `${n(h.cape[i])} J/kg`, `Lifted index ${n(h.lifted_index[i], 1)} · CIN ${n(h.convective_inhibition[i])}`, "CAPE over 1000 with a negative lifted index favors thunderstorms; over 2500 is strong.")}
+    ${tile("Freezing level", fH(h.freezing_level_height[i]), `Mixing height ${fH(h.boundary_layer_height[i])}`)}
+    ${tile("Winds aloft", `${fW(h.wind_speed_120m[i])}`, `at 120 m, from ${comp(h.wind_direction_120m[i])} · 80 m ${fW(h.wind_speed_80m[i])}`)}
+  </div>`);
+  const a = Math.max(0, i - 3), b = Math.min(h.time.length, i + 49), t = h.time.slice(a, b);
+  chart(host, "Next 48 hours: temperature", t, [{ name: "Temperature", color: C.red, v: h.temperature_2m.slice(a, b).map(U.t) },
+    { name: "Feels like", color: C.yellow, v: h.apparent_temperature.slice(a, b).map(U.t), dash: 1 }, { name: "Dew point", color: C.aqua, v: h.dew_point_2m.slice(a, b).map(U.t) }],
+    { unit: U.tu(), now: i - a });
+  chart(host, "Chance of rain", t, [{ name: "Chance", color: C.blue, v: h.precipitation_probability.slice(a, b), bar: 1 }], { unit: "%", now: i - a, max: 100, min0: 1, h: 120 });
+  H(host, `<div class="small">Model: ${esc(S.model)} · Open-Meteo. Hover a chart to read values.</div>`);
+};
+
+PAGES.hourly = async host => {
+  const fc = await fcOrThrow(), h = fc.hourly, i = nowIdx(h.time, fc.current.time);
+  const a = Math.max(0, i - 6), b = Math.min(h.time.length, i + 168), t = h.time.slice(a, b), sl = k => h[k].slice(a, b), o = { now: i - a };
+  H(host, `<div class="note">Seven days, hour by hour. Hover any chart for exact values; the table below has every hour.</div>`);
+  chart(host, "Temperature", t, [{ name: "Temperature", color: C.red, v: sl("temperature_2m").map(U.t) }, { name: "Feels like", color: C.yellow, v: sl("apparent_temperature").map(U.t), dash: 1 },
+    { name: "Dew point", color: C.aqua, v: sl("dew_point_2m").map(U.t) }, { name: "Wet bulb", color: C.violet, v: sl("wet_bulb_temperature_2m").map(U.t), dash: 1 }], { ...o, unit: U.tu() });
+  chart(host, "Wind at 10 m", t, [{ name: "Sustained", color: C.blue, v: sl("wind_speed_10m").map(U.w), extra: j => "from " + comp(h.wind_direction_10m[a + j]) },
+    { name: "Gusts", color: C.orange, v: sl("wind_gusts_10m").map(U.w) }, { name: "At 120 m", color: C.violet, v: sl("wind_speed_120m").map(U.w), dash: 1 }], { ...o, unit: U.wu(), min0: 1 });
+  chart(host, "Pressure at sea level", t, [{ name: "Pressure", color: C.violet, v: sl("pressure_msl").map(U.p) }], { ...o, unit: U.pu(), span: S.units.press === "inHg" ? .2 : 6, dec: U.pd(), tipDec: U.pd() });
+  chart(host, "Chance of precipitation", t, [{ name: "Chance", color: C.blue, v: sl("precipitation_probability"), bar: 1 }], { ...o, unit: "%", max: 100, h: 120 });
+  chart(host, "Precipitation amount", t, [{ name: "Rain + melted snow", color: C.aqua, v: sl("precipitation").map(U.r), bar: 1 }], { ...o, unit: U.ru() + " per hour", h: 120, span: S.units.precip === "in" ? .05 : 1 });
+  chart(host, "Cloud layers", t, [{ name: "Low", color: C.ink2, v: sl("cloud_cover_low") }, { name: "Mid", color: C.blue, v: sl("cloud_cover_mid") }, { name: "High", color: C.magenta, v: sl("cloud_cover_high") }], { ...o, unit: "%", max: 100, min0: 1 });
+  if (sl("cape").some(v => v)) chart(host, "Storm energy (CAPE)", t, [{ name: "CAPE", color: C.orange, v: sl("cape") }], { ...o, unit: "J/kg", min0: 1, h: 130, span: 100 });
+  const rows = [];
+  for (let j = a; j < b; j++) {
+    const s = h.time[j];
+    rows.push(`<tr class="${j === i ? "now" : s.slice(11, 13) === "00" ? "day" : ""}"><td>${esc(fmtTime(s))}</td><td>${wIcon(h.weather_code[j], h.is_day[j])} ${esc(wDesc(h.weather_code[j]))}</td>
+      <td>${fT(h.temperature_2m[j])}</td><td>${fT(h.apparent_temperature[j])}</td><td>${fT(h.dew_point_2m[j])}</td><td>${h.relative_humidity_2m[j] ?? "—"}%</td>
+      <td>${h.precipitation_probability[j] ?? "—"}%</td><td>${n(U.r(h.precipitation[j]), U.rd())}</td><td>${h.snowfall[j] ? n(U.sn(h.snowfall[j]), 1) : ""}</td>
+      <td>${dirTxt(h.wind_direction_10m[j])}</td><td>${n(U.w(h.wind_speed_10m[j]))}</td><td>${n(U.w(h.wind_gusts_10m[j]))}</td>
+      <td>${n(U.p(h.pressure_msl[j]), U.pd())}</td><td>${h.cloud_cover[j] ?? "—"}%</td><td>${h.visibility[j] == null ? "—" : n(U.d(h.visibility[j]), 1)}</td>
+      <td>${n(h.uv_index[j], 1)}</td><td>${n(h.cape[j])}</td><td>${n(U.h(h.freezing_level_height[j]))}</td></tr>`);
+  }
+  H(host, `<div class="tbl"><table class="t"><thead><tr><th>Time</th><th>Sky</th><th>Temp</th><th>Feels</th><th>Dew pt</th><th>RH</th><th>Precip %</th><th>Precip ${U.ru()}</th><th>Snow ${U.su()}</th>
+    <th>Wind from</th><th>Wind ${U.wu()}</th><th>Gust</th><th>Press ${U.pu()}</th><th>Cloud</th><th>Vis ${U.du()}</th><th>UV</th><th>CAPE</th><th>Frz lvl ${U.hu()}</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`);
+};
+
+PAGES.daily = async host => {
+  const fc = await fcOrThrow(), d = fc.daily, today = fc.current.time.slice(0, 10), s = Math.max(0, d.time.indexOf(today));
+  const t = d.time.slice(s);
+  const lo = Math.min(...d.temperature_2m_min.slice(s).filter(v => v != null)), hi = Math.max(...d.temperature_2m_max.slice(s).filter(v => v != null));
+  chart(host, "Daily high and low", t, [{ name: "High", color: C.red, v: d.temperature_2m_max.slice(s).map(U.t) }, { name: "Low", color: C.blue, v: d.temperature_2m_min.slice(s).map(U.t) }], { unit: U.tu() });
+  const rows = t.map((day, k) => {
+    const j = s + k, mn = d.temperature_2m_min[j], mx = d.temperature_2m_max[j];
+    const L = (mn - lo) / (hi - lo || 1) * 100, W = (mx - mn) / (hi - lo || 1) * 100;
+    return `<tr><td><b>${k === 0 ? "Today" : esc(dateTxt(day))}</b></td><td style="text-align:left">${wIcon(d.weather_code[j])} ${esc(wDesc(d.weather_code[j]))}</td>
+      <td>${fT(mn)}</td><td style="width:120px"><div style="position:relative;height:6px;background:#2c2c2a;border-radius:3px"><div style="position:absolute;left:${L}%;width:${Math.max(2, W)}%;height:6px;border-radius:3px;background:linear-gradient(90deg,${C.blue},${C.red})"></div></div></td><td>${fT(mx)}</td>
+      <td>${d.precipitation_probability_max[j] ?? "—"}%</td><td>${n(U.r(d.precipitation_sum[j]), U.rd())}</td><td>${d.snowfall_sum[j] ? n(U.sn(d.snowfall_sum[j]), 1) : ""}</td>
+      <td>${dirTxt(d.wind_direction_10m_dominant[j])}</td><td>${n(U.w(d.wind_speed_10m_max[j]))} / ${n(U.w(d.wind_gusts_10m_max[j]))}</td>
+      <td>${n(d.uv_index_max[j], 1)}</td><td>${hm(d.sunrise[j])}</td><td>${hm(d.sunset[j])}</td><td>${n(U.r(d.et0_fao_evapotranspiration[j]), U.rd())}</td></tr>`;
+  });
+  H(host, `<div class="tbl" style="max-height:none"><table class="t"><thead><tr><th>Day</th><th style="text-align:left">Sky</th><th>Low</th><th></th><th>High</th><th>Rain %</th><th>Precip ${U.ru()}</th><th>Snow ${U.su()}</th>
+    <th>Wind from</th><th>Wind / gust ${U.wu()}</th><th>UV</th><th>Sunrise</th><th>Sunset</th><th>Evap ${U.ru()}</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
+    <div class="small">Days 8–16 come from longer-range model runs and change more from run to run.</div>`);
+};
+
+PAGES.marine = async host => {
+  const [fc, m] = await Promise.all([fcOrThrow(), need("marine")]);
+  H(host, `<div class="warnbox">⚠ Not for navigation. A planning aid from computer models. Before going out, check the official marine forecast and warnings
+    (NWS / Ocean Prediction Center in the US, or your national weather service), and listen to VHF weather radio.</div>`);
+  if (m.error || !m.hourly || !(m.hourly.wave_height || []).some(v => v != null)) {
+    H(host, `<div class="note">No sea data for this point${m.error ? ` (${esc(m.error)})` : ""}. Pick a point on or near open water: search a port, type coordinates, or click the sea on Radar & maps.</div>`);
+  }
+  const h = fc.hourly, i = nowIdx(h.time, fc.current.time);
+  const ok = !m.error && m.hourly;
+  const mh = ok ? m.hourly : null, mi = ok ? nowIdx(mh.time, fc.current.time) : 0, mc = {};
+  if (ok) for (const k2 of Object.keys(mh)) if (k2 !== "time") mc[k2] = mh[k2][mi];
+  const k = kt(h.wind_speed_10m[i]), kg = kt(h.wind_gusts_10m[i]), bf = beaufort(k), ds = douglas(mc.wave_height);
+  H(host, `<div class="grid">
+    ${tile("Wind (knots)", `${dirTxt(h.wind_direction_10m[i])}`, `${n(k)} kt, gusts ${n(kg)} kt<br>Force ${bf ? bf.f + " · " + bf.name : "—"}`)}
+    ${tile("Advisory guide", marineFlag(k, kg, mc.wave_height), "US thresholds: small craft 22–33 kt or seas 7 ft+, gale 34–47, storm 48–63, hurricane force 64+", "A guide from model wind; official advisories are issued by the weather service.")}
+    ${tile("Seas (significant)", fSea(mc.wave_height), `${ds ? "Sea state " + ds.s + " · " + ds.name : "—"}<br>Largest waves about ${mc.wave_height == null ? "—" : fSea(mc.wave_height * 1.9)}`, "Significant wave height is the average of the highest third of waves. The largest single waves can be nearly twice that.")}
+    ${tile("Dominant period", mc.wave_period == null ? "—" : n(mc.wave_period, 1) + " s", `from ${dirTxt(mc.wave_direction)}`)}
+    ${tile("Primary swell", ok ? fSea(mh.swell_wave_height[mi]) : "—", ok ? `${n(mh.swell_wave_period[mi], 1)} s from ${dirTxt(mh.swell_wave_direction[mi])}` : "")}
+    ${tile("Secondary swell", ok ? fSea(mh.secondary_swell_wave_height[mi]) : "—", ok ? `${n(mh.secondary_swell_wave_period[mi], 1)} s from ${dirTxt(mh.secondary_swell_wave_direction[mi])}` : "")}
+    ${tile("Wind waves (chop)", ok ? fSea(mh.wind_wave_height[mi]) : "—", ok ? `${n(mh.wind_wave_period[mi], 1)} s from ${dirTxt(mh.wind_wave_direction[mi])}` : "")}
+    ${tile("Sea surface temp", fT(mc.sea_surface_temperature), "Air " + fT(h.temperature_2m[i]))}
+    ${tile("Surface current", mc.ocean_current_velocity == null ? "—" : `${n(kt(mc.ocean_current_velocity), 1)} kt`, mc.ocean_current_direction == null ? "" : `setting toward ${comp(mc.ocean_current_direction)} ${Math.round(mc.ocean_current_direction)}°`, "Direction is where the current flows to.")}
+    ${tile("Sea level vs mean", mc.sea_level_height_msl == null ? "—" : `${mc.sea_level_height_msl >= 0 ? "+" : ""}${n(U.h(mc.sea_level_height_msl), 1)} ${U.hu()}`, "Tide + surge model, coarse near coasts")}
+    ${tile("Visibility", h.visibility[i] == null ? "—" : `${n(h.visibility[i] / 1852, 1)} nm`, h.visibility[i] != null && h.visibility[i] < 1852 ? "Restricted: under 1 nm" : "")}
+    ${tile("Pressure", fP(h.pressure_msl[i]), h.pressure_msl[i - 3] != null ? `3 h change ${(h.pressure_msl[i] - h.pressure_msl[i - 3]).toFixed(1)} hPa` : "")}
+  </div>`);
+  const a = Math.max(0, i - 6), b = Math.min(h.time.length, i + 168), t = h.time.slice(a, b);
+  chart(host, "Wind (knots)", t, [{ name: "Sustained", color: C.blue, v: h.wind_speed_10m.slice(a, b).map(kt), extra: j => "from " + comp(h.wind_direction_10m[a + j]) },
+    { name: "Gusts", color: C.orange, v: h.wind_gusts_10m.slice(a, b).map(kt) }], { now: i - a, unit: "kt", min0: 1 });
+  if (ok) {
+    const ma = Math.max(0, mi - 6), mb = Math.min(mh.time.length, mi + 168), mt = mh.time.slice(ma, mb), ms = k2 => mh[k2].slice(ma, mb);
+    chart(host, "Wave heights", mt, [{ name: "Significant", color: C.blue, v: ms("wave_height").map(U.h) }, { name: "Swell", color: C.aqua, v: ms("swell_wave_height").map(U.h) },
+      { name: "Wind waves", color: C.orange, v: ms("wind_wave_height").map(U.h) }], { now: mi - ma, unit: U.hu(), min0: 1 });
+    chart(host, "Wave periods", mt, [{ name: "Dominant", color: C.blue, v: ms("wave_period") }, { name: "Swell", color: C.aqua, v: ms("swell_wave_period") }, { name: "Wind waves", color: C.orange, v: ms("wind_wave_period") }], { now: mi - ma, unit: "seconds", min0: 1, h: 140 });
+    if (ms("sea_level_height_msl").some(v => v != null)) chart(host, "Sea level (tide + surge model)", mt, [{ name: "Sea level", color: C.violet, v: ms("sea_level_height_msl").map(U.h) }], { now: mi - ma, unit: U.hu() + " vs mean sea level", h: 130 });
+    const byT = {}; h.time.forEach((s, j) => byT[s] = j);
+    const rows = [];
+    for (let j = mi; j < Math.min(mh.time.length, mi + 120); j += 3) {
+      const s = mh.time[j], w = byT[s], kk = w != null ? kt(h.wind_speed_10m[w]) : null, gg = w != null ? kt(h.wind_gusts_10m[w]) : null, ds2 = douglas(mh.wave_height[j]);
+      rows.push(`<tr class="${s.slice(11, 13) === "00" ? "day" : ""}"><td>${esc(fmtTime(s))}</td><td>${w != null ? dirTxt(h.wind_direction_10m[w]) : "—"}</td><td>${n(kk)}</td><td>${n(gg)}</td><td>${kk != null ? beaufort(kk).f : "—"}</td>
+        <td>${fSea(mh.wave_height[j])}</td><td>${ds2 ? ds2.s : "—"}</td><td>${n(mh.wave_period[j], 1)}</td><td>${dirTxt(mh.wave_direction[j])}</td>
+        <td>${fSea(mh.swell_wave_height[j])} @ ${n(mh.swell_wave_period[j], 0)}s ${comp(mh.swell_wave_direction[j])}</td><td>${fSea(mh.wind_wave_height[j])} @ ${n(mh.wind_wave_period[j], 0)}s</td>
+        <td>${mh.ocean_current_velocity[j] == null ? "—" : n(kt(mh.ocean_current_velocity[j]), 1) + " kt → " + comp(mh.ocean_current_direction[j])}</td>
+        <td>${w != null && h.visibility[w] != null ? n(h.visibility[w] / 1852, 1) : "—"}</td><td>${w != null ? n(U.p(h.pressure_msl[w]), U.pd()) : "—"}</td><td>${marineFlag(kk, gg, mh.wave_height[j])}</td></tr>`);
+    }
+    H(host, `<div class="tbl"><table class="t"><thead><tr><th>Time</th><th>Wind from</th><th>kt</th><th>Gust kt</th><th>Bft</th><th>Seas</th><th>State</th><th>Period s</th><th>Waves from</th>
+      <th>Swell</th><th>Wind waves</th><th>Current</th><th>Vis nm</th><th>Press ${U.pu()}</th><th>Guide</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`);
+  }
+  H(host, `<div class="small">Waves: Open-Meteo marine models (ECMWF WAM, NOAA GFS-Wave, DWD, Météo-France). Wind: ${esc(S.model)}. For tides, buoys and the NWS coastal waters text, open Tides &amp; buoys.</div>`);
+};
+
+PAGES.tides = async (host, stale) => {
+  H(host, `<div class="warnbox">⚠ Not for navigation. Tide predictions are NOAA's astronomical predictions; wind and pressure can push real water levels well above or below them.</div>`);
+  const two = H(host, `<div class="two"><div id="td-tide"></div><div id="td-buoy"></div></div>`);
+  const tideBox = $("#td-tide", two), buoyBox = $("#td-buoy", two);
+  tideBox.innerHTML = `<h3>NOAA tide stations nearby</h3><div class="spin">Finding stations…</div>`;
+  buoyBox.innerHTML = `<h3>NDBC buoys and C-MAN stations nearby</h3><div class="spin">Finding buoys…</div>`;
+  const cwf = H(host, `<div><h3>NWS coastal waters forecast</h3><div class="spin">Looking…</div></div>`);
+  await Promise.all([tidesInto(tideBox, stale), buoysInto(buoyBox, stale), cwfInto(cwf)]);
+};
+async function tidesInto(box) {
+  try {
+    if (!TIDE_ST) { const j = await get("https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"); TIDE_ST = (j.stations || []).map(s => ({ id: s.id, name: s.name, state: s.state, lat: +s.lat, lng: +s.lng })); }
+    const near = TIDE_ST.map(s => ({ ...s, k: km(V.lat, V.lon, s.lat, s.lng) })).sort((a, b) => a.k - b.k).slice(0, 6).filter(s => s.k < 200);
+    if (!near.length) { box.innerHTML = `<h3>NOAA tide stations nearby</h3><div class="note">No NOAA tide station within 200 km. NOAA covers the US and its territories. Outside the US, use the Marine page's sea level curve, or your national hydrographic office.</div>`; return; }
+    box.innerHTML = `<h3>NOAA tide stations nearby</h3><select class="side-sel" id="tide-st">${near.map(s => `<option value="${s.id}">${esc(s.name)}${s.state ? ", " + esc(s.state) : ""} · ${distTxt(s.k)} ${comp(bearing(V.lat, V.lon, s.lat, s.lng))}</option>`).join("")}</select><div id="tide-out"></div>`;
+    const show = async () => {
+      const id = $("#tide-st", box).value, out = $("#tide-out", box);
+      out.innerHTML = `<div class="spin">Loading predictions…</div>`;
+      const now = new Date(), d0 = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+      const uu = S.units.height === "ft" ? "english" : "metric", base = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=RandisUDS&begin_date=${d0}&range=72&datum=MLLW&station=${id}&time_zone=lst_ldt&units=${uu}&format=json`;
+      try {
+        const [hl, cv] = await Promise.all([get(base + "&interval=hilo"), get(base + "&interval=30")]);
+        if (hl.error) throw new Error(hl.error.message || "No predictions");
+        const P = hl.predictions || [], Q = (cv.predictions || []);
+        const nowS = `${d0.slice(0, 4)}-${d0.slice(4, 6)}-${d0.slice(6)}T${String(now.getHours()).padStart(2, "0")}:00`;
+        out.innerHTML = `<div class="tbl" style="max-height:300px"><table class="t"><thead><tr><th>When (station time)</th><th>Tide</th><th>Height ${U.hu()} (MLLW)</th></tr></thead><tbody>
+          ${P.map(p => { const s = p.t.replace(" ", "T"); return `<tr class="${s < nowS ? "" : ""}"><td>${esc(fmtTime(s))}</td><td>${p.type === "H" ? "▲ High" : "▼ Low"}</td><td>${(+p.v).toFixed(2)}</td></tr>`; }).join("")}</tbody></table></div>`;
+        if (Q.length) {
+          const t = Q.map(q => q.t.replace(" ", "T")), ni = t.findIndex(s => s >= nowS);
+          chart(out, "Tide height, next 3 days", t, [{ name: "Predicted", color: C.blue, v: Q.map(q => +q.v) }], { unit: U.hu() + " above MLLW", now: ni, dec: 1, tipDec: 2 });
+        }
+        out.insertAdjacentHTML("beforeend", `<div class="small">Station ${esc(id)} · <a href="https://tidesandcurrents.noaa.gov/noaatidepredictions.html?id=${encodeURIComponent(id)}" target="_blank">NOAA page</a></div>`);
+      } catch (e) { out.innerHTML = `<div class="err small">Couldn't get predictions: ${esc(e.message)}</div>`; }
+    };
+    $("#tide-st", box).addEventListener("change", show);
+    await show();
+  } catch (e) { box.innerHTML = `<h3>NOAA tide stations nearby</h3><div class="err small">Couldn't reach NOAA tides: ${esc(e.message)}</div>`; }
+}
+async function buoysInto(box) {
+  try {
+    if (!BUOY_ST) {
+      const x = new DOMParser().parseFromString(await get("https://www.ndbc.noaa.gov/activestations.xml", true), "text/xml");
+      BUOY_ST = [...x.querySelectorAll("station")].filter(s => s.getAttribute("met") === "y").map(s => ({ id: s.getAttribute("id"), name: s.getAttribute("name"), type: s.getAttribute("type"),
+        owner: s.getAttribute("owner"), lat: +s.getAttribute("lat"), lon: +s.getAttribute("lon") }));
+    }
+    const near = BUOY_ST.map(s => ({ ...s, k: km(V.lat, V.lon, s.lat, s.lon) })).sort((a, b) => a.k - b.k).slice(0, 5).filter(s => s.k < 400);
+    if (!near.length) { box.innerHTML = `<h3>NDBC buoys nearby</h3><div class="note">No reporting NDBC station within 400 km.</div>`; return; }
+    box.innerHTML = `<h3>NDBC buoys and C-MAN stations nearby</h3>`;
+    const res = await Promise.all(near.map(s => get(`https://www.ndbc.noaa.gov/data/realtime2/${encodeURIComponent(s.id.toUpperCase())}.txt`, true).then(t => ({ s, t }), e => ({ s, e }))));
+    for (const { s, t, e } of res) {
+      const head = `<h4>${esc(s.id.toUpperCase())} · ${esc(s.name || "")}</h4><div class="small">${esc(s.type || "")} · ${distTxt(s.k)} ${comp(bearing(V.lat, V.lon, s.lat, s.lon))} · ${llTxt(s.lat, s.lon)} · <a href="https://www.ndbc.noaa.gov/station_page.php?station=${encodeURIComponent(s.id)}" target="_blank">NDBC page</a></div>`;
+      if (e || !t) { box.insertAdjacentHTML("beforeend", `<div class="card">${head}<div class="small">No recent standard data.</div></div>`); continue; }
+      const ob = parseNdbc(t);
+      if (!ob) { box.insertAdjacentHTML("beforeend", `<div class="card">${head}<div class="small">No recent standard data.</div></div>`); continue; }
+      const v = k2 => ob.v[k2] ? ob.v[k2].x : null, age = k2 => ob.v[k2] && ob.v[k2].age > 90 ? ` <span class="small">(${Math.round(ob.v[k2].age / 60)} h old)</span>` : "";
+      const kv = [["Wind", v("WDIR") == null && v("WSPD") == null ? "—" : `${dirTxt(v("WDIR"))} ${n(v("WSPD") * 1.94384)} kt, gust ${n(v("GST") * 1.94384)} kt${age("WSPD")}`],
+        ["Seas", v("WVHT") == null ? "—" : `${fSea(v("WVHT"))}, dominant ${n(v("DPD"), 0)} s, avg ${n(v("APD"), 1)} s, from ${comp(v("MWD"))}${age("WVHT")}`],
+        ["Pressure", v("PRES") == null ? "—" : `${fP(v("PRES"))}${v("PTDY") != null ? ` · 3 h ${v("PTDY") > 0 ? "+" : ""}${v("PTDY")} hPa` : ""}`],
+        ["Air / water", `${fT(v("ATMP"))} / ${fT(v("WTMP"))}${v("DEWP") != null ? ` · dew ${fT(v("DEWP"))}` : ""}`],
+        ["Visibility", v("VIS") == null ? "—" : `${n(v("VIS"), 1)} nm`]];
+      box.insertAdjacentHTML("beforeend", `<div class="card">${head}<div class="small">Latest ${esc(ob.when)} UTC</div><div class="kv" style="margin-top:6px">${kv.map(([a, b]) => `<div>${a}</div><div>${b}</div>`).join("")}</div></div>`);
+    }
+  } catch (e) { box.innerHTML = `<h3>NDBC buoys nearby</h3><div class="err small">Couldn't reach NDBC: ${esc(e.message)}</div>`; }
+}
+function parseNdbc(text) {
+  const lines = text.split("\n").filter(Boolean); if (lines.length < 3) return null;
+  const cols = lines[0].replace(/^#/, "").trim().split(/\s+/), rows = lines.slice(2, 14).map(l => l.trim().split(/\s+/));
+  if (!rows.length) return null;
+  const tOf = r => Date.UTC(+r[0], +r[1] - 1, +r[2], +r[3], +r[4]);
+  const t0 = tOf(rows[0]), v = {};
+  for (let c = 5; c < cols.length; c++) for (const r of rows) { if (r[c] && r[c] !== "MM") { v[cols[c]] = { x: +r[c], age: (t0 - tOf(r)) / 60000 + (Date.now() - t0) / 60000 }; break; } }
+  const r = rows[0];
+  return { when: `${r[0]}-${r[1]}-${r[2]} ${r[3]}:${r[4]}`, v };
+}
+async function cwfInto(box) {
+  try {
+    const p = await need("nws");
+    if (p.error || !p.cwa) { box.innerHTML = `<h3>NWS coastal waters forecast</h3><div class="note">NWS text forecasts cover the US and nearby waters. ${p.error ? "This point isn't in an NWS land area; for offshore waters see the Ocean Prediction Center at ocean.weather.gov." : ""}</div>`; return; }
+    const list = await get(`https://api.weather.gov/products/types/CWF/locations/${p.cwa}`);
+    const g = (list["@graph"] || [])[0];
+    if (!g) { box.innerHTML = `<h3>NWS coastal waters forecast</h3><div class="note">The ${esc(p.cwa)} office doesn't issue a coastal waters forecast (inland office). Try a point on the coast or open water.</div>`; return; }
+    const prod = await get(`https://api.weather.gov/products/${g.id}`);
+    box.innerHTML = `<h3>NWS coastal waters forecast · ${esc(p.cwa)} · issued ${esc(new Date(prod.issuanceTime).toLocaleString())}</h3><pre class="prod">${esc(prod.productText)}</pre>`;
+  } catch (e) { box.innerHTML = `<h3>NWS coastal waters forecast</h3><div class="err small">${esc(e.message)}</div>`; }
+}
+
+PAGES.aviation = async host => {
+  const d = 1.6, bb = `${(V.lat - d).toFixed(2)},${(V.lon - d * 1.3).toFixed(2)},${(V.lat + d).toFixed(2)},${(V.lon + d * 1.3).toFixed(2)}`;
+  H(host, `<div class="warnbox">⚠ Not an official briefing. Get a standard briefing (1800wxbrief.com in the US) before flight.</div>`);
+  let mets;
+  try { mets = await get(`https://aviationweather.gov/api/data/metar?bbox=${bb}&format=json&hours=3`); }
+  catch (e) { H(host, `<div class="err">Couldn't reach aviationweather.gov: ${esc(e.message)}</div>`); return; }
+  const seen = new Set(), list = [];
+  for (const m of (mets || []).sort((a, b) => (b.obsTime || 0) - (a.obsTime || 0))) { if (seen.has(m.icaoId)) continue; seen.add(m.icaoId); list.push({ ...m, k: km(V.lat, V.lon, m.lat, m.lon) }); }
+  list.sort((a, b) => a.k - b.k);
+  const top = list.slice(0, 8);
+  if (!top.length) { H(host, `<div class="note">No airports reporting within about 175 km. Aviation reports are worldwide but need an airport with a weather station.</div>`); return; }
+  let tafs = [];
+  try { tafs = await get(`https://aviationweather.gov/api/data/taf?ids=${top.map(m => m.icaoId).join(",")}&format=json`); } catch (e) {   }
+  const tafOf = {}; for (const t of tafs || []) if (t && t.icaoId && !tafOf[t.icaoId]) tafOf[t.icaoId] = t.rawTAF;
+  for (const m of top) {
+    const cat = m.fltCat || flightCat(m), alt = m.altim == null ? null : m.altim > 100 ? m.altim : m.altim * 33.8639;
+    const elevFt = m.elev != null ? m.elev * 3.28084 : null;
+    let da = null;
+    if (alt != null && elevFt != null && m.temp != null) { const pa = elevFt + (1013.25 - alt) * 27.3; da = pa + 118.8 * (m.temp - (15 - 1.98 * pa / 1000)); }
+    const clouds = (m.clouds || []).map(c => `${c.cover}${c.base != null ? " " + c.base.toLocaleString() + " ft" : ""}`).join(", ") || "Clear";
+    H(host, `<div class="card"><h4><span class="cat ${esc(cat)}">${esc(cat || "?")}</span> ${esc(m.icaoId)} · ${esc(m.name || "")}</h4>
+      <div class="small">${distTxt(m.k)} ${comp(bearing(V.lat, V.lon, m.lat, m.lon))} · field ${elevFt == null ? "—" : Math.round(elevFt).toLocaleString() + " ft"} · ${esc(m.reportTime || "")} UTC</div>
+      <div class="raw">${esc(m.rawOb || "")}</div>
+      <div class="kv"><div>Wind</div><div>${m.wdir === "VRB" ? "Variable" : dirTxt(+m.wdir)} ${m.wspd ?? "—"} kt${m.wgst ? ", gust " + m.wgst + " kt" : ""}</div>
+      <div>Visibility</div><div>${esc(m.visib ?? "—")} sm</div><div>Clouds</div><div>${esc(clouds)}</div>
+      <div>Temp / dew</div><div>${m.temp ?? "—"} °C / ${m.dewp ?? "—"} °C${m.temp != null && m.dewp != null ? ` · spread ${(m.temp - m.dewp).toFixed(0)} °C${m.temp - m.dewp <= 2 ? " (fog/low cloud risk)" : ""}` : ""}</div>
+      <div>Altimeter</div><div>${alt == null ? "—" : `${(alt * 0.02953).toFixed(2)} inHg · ${Math.round(alt)} hPa`}</div>
+      ${m.wxString ? `<div>Weather</div><div>${esc(m.wxString)}</div>` : ""}
+      <div>Density altitude</div><div>${da == null ? "—" : Math.round(da).toLocaleString() + " ft"}</div></div>
+      ${tafOf[m.icaoId] ? `<div class="small" style="margin-top:6px">Forecast (TAF)</div><div class="raw">${esc(tafOf[m.icaoId]).replace(/ (FM\d{6}|TEMPO|BECMG|PROB\d\d)/g, "\n  $1")}</div>` : ""}</div>`);
+  }
+  H(host, `<div class="small">VFR: ceiling over 3,000 ft and visibility over 5 sm · MVFR: 1,000–3,000 ft or 3–5 sm · IFR: 500–999 ft or 1–3 sm · LIFR: under 500 ft or under 1 sm. Source: aviationweather.gov.</div>`);
+};
+function flightCat(m) {
+  const ceil = Math.min(...(m.clouds || []).filter(c => /BKN|OVC|OVX/.test(c.cover)).map(c => c.base ?? 1e9), 1e9);
+  const vs = String(m.visib ?? "10").replace("+", ""), vis = vs.includes("/") ? (s => { const [a, b] = s.split(" ").pop().split("/"); return (+a / +b) + (s.includes(" ") ? +s.split(" ")[0] : 0); })(vs) : +vs;
+  if (ceil < 500 || vis < 1) return "LIFR"; if (ceil < 1000 || vis < 3) return "IFR"; if (ceil <= 3000 || vis <= 5) return "MVFR"; return "VFR";
+}
+
+PAGES.upper = async host => {
+  const up = await need("up");
+  if (up.error) throw new Error(up.error);
+  const h = up.hourly, nowS = (cache().fc && cache().fc.current) ? cache().fc.current.time : null;
+  let i = nowS ? nowIdx(h.time, nowS) : 0;
+  H(host, `<div class="note">For forecasters: a model sounding (Skew-T log-P) from ${esc(S.model)}, with stability indices. Pick the hour. Temperatures on the diagram are °C, winds in knots.</div>`);
+  const sel = H(host, `<div style="margin:8px 0"><label class="small">Hour </label><select class="side-sel" id="up-h">${h.time.map((t, j) => `<option value="${j}" ${j === i ? "selected" : ""}>${esc(fmtTime(t))}</option>`).join("")}</select></div>`);
+  const wrap = H(host, `<div class="skew"><canvas class="sk" width="640" height="700"></canvas><div id="up-side"></div></div>`);
+  const draw = () => { i = +$("#up-h", sel).value; drawSkew($("canvas", wrap), h, i); upperSide($("#up-side", wrap), h, i); };
+  $("#up-h", sel).addEventListener("change", draw);
+  draw();
+  const t = h.time;
+  chart(host, "Freezing level and mixing height", t, [{ name: "Freezing level", color: C.blue, v: h.freezing_level_height.map(U.h) }, { name: "Mixing height", color: C.orange, v: h.boundary_layer_height.map(U.h) }], { unit: U.hu(), min0: 1, now: i });
+  chart(host, "500 hPa height (troughs and ridges)", t, [{ name: "500 hPa height", color: C.violet, v: h.geopotential_height_500hPa }], { unit: "m", now: i, span: 60 });
+  chart(host, "Temperature at 850 hPa (~1.5 km)", t, [{ name: "850 hPa", color: C.red, v: h.temperature_850hPa }], { unit: "°C", now: i, span: 4 });
+};
+function levels(h, i) {
+  const ps = h.surface_pressure[i] || 1013;
+  return LV.filter(p => p <= ps + 1).map(p => {
+    const T = h[`temperature_${p}hPa`][i], rh = h[`relative_humidity_${p}hPa`][i];
+    let Td = h[`dew_point_${p}hPa`] ? h[`dew_point_${p}hPa`][i] : null; if (Td == null) Td = dewFromRh(T, rh);
+    return { p, T, Td, rh, ws: h[`wind_speed_${p}hPa`][i], wd: h[`wind_direction_${p}hPa`][i], z: h[`geopotential_height_${p}hPa`][i] };
+  }).filter(l => l.T != null);
+}
+function drawSkew(cv, h, i) {
+  const dpr = devicePixelRatio || 1, W = 640, Ht = 700; cv.width = W * dpr; cv.height = Ht * dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Ht);
+  const L = 46, R = 70, T = 14, B = 30, pw = W - L - R, ph = Ht - T - B, PB = 1050, PT = 100;
+  const Y = p => T + ph * Math.log(PB / p) / Math.log(PB / PT);
+  const X = (t, p) => L + (t + 40) / 90 * pw + (T + ph - Y(p)) * 0.9;
+  g.save(); g.beginPath(); g.rect(L, T, pw, ph); g.clip();
+  g.lineWidth = 1;
+  for (let t = -120; t <= 50; t += 10) { g.strokeStyle = t === 0 ? "#3987e580" : C.grid; g.beginPath(); g.moveTo(X(t, PB), Y(PB)); g.lineTo(X(t, PT), Y(PT)); g.stroke(); }
+  g.strokeStyle = "#d9592640"; g.setLineDash([]);
+  for (let th = 250; th <= 460; th += 10) { g.beginPath(); for (let p = PB; p >= PT; p -= 10) { const t = th * Math.pow(p / 1000, 0.2857) - 273.15; p === PB ? g.moveTo(X(t, p), Y(p)) : g.lineTo(X(t, p), Y(p)); } g.stroke(); }
+  g.strokeStyle = "#199e7040"; g.setLineDash([4, 4]);
+  for (let t0 = -16; t0 <= 36; t0 += 4) { let tk = t0 + 273.15; g.beginPath(); g.moveTo(X(t0, 1000), Y(1000)); for (let p = 1000; p > 200; p -= 10) { tk = moistStep(tk, p, -10); g.lineTo(X(tk - 273.15, p - 10), Y(p - 10)); } g.stroke(); }
+  g.setLineDash([]);
+  for (const p of [1000, 925, 850, 700, 500, 400, 300, 250, 200, 150, 100]) { g.strokeStyle = C.base; g.beginPath(); g.moveTo(L, Y(p)); g.lineTo(L + pw, Y(p)); g.stroke(); }
+  const lv = levels(h, i);
+  const line = (key, color) => { g.strokeStyle = color; g.lineWidth = 2.5; g.beginPath(); lv.forEach((l, j) => { if (l[key] == null) return; j ? g.lineTo(X(l[key], l.p), Y(l.p)) : g.moveTo(X(l[key], l.p), Y(l.p)); }); g.stroke(); };
+  const T0 = h.temperature_2m[i], Td0 = h.dew_point_2m[i], p0 = h.surface_pressure[i];
+  let L0 = null;
+  if (T0 != null && Td0 != null && p0 != null) {
+    L0 = lcl(T0, Td0, p0); const th = potT(T0, p0);
+    g.strokeStyle = C.ink2; g.lineWidth = 1.5; g.setLineDash([6, 4]); g.beginPath(); g.moveTo(X(T0, p0), Y(p0));
+    for (let p = p0; p > L0.p; p -= 5) g.lineTo(X(th * Math.pow(p / 1000, 0.2857) - 273.15, p), Y(p));
+    let tk = L0.T + 273.15; g.lineTo(X(L0.T, L0.p), Y(L0.p));
+    for (let p = L0.p; p > PT; p -= 5) { tk = moistStep(tk, p, -5); g.lineTo(X(tk - 273.15, p - 5), Y(p - 5)); }
+    g.stroke(); g.setLineDash([]);
+  }
+  if (lv.length) {
+    lv.unshift({ p: p0 || lv[0].p, T: T0, Td: Td0, ws: (h.wind_speed_10m[i]), wd: h.wind_direction_10m[i], sfc: 1 });
+    line("Td", "#199e70"); line("T", C.red);
+  }
+  if (L0) { g.fillStyle = C.ink; g.font = "11px Segoe UI"; g.textAlign = "left"; g.fillText("— LCL", X(L0.T, L0.p) + 6, Y(L0.p) + 4); }
+  g.restore();
+  g.fillStyle = C.muted; g.font = "11px Segoe UI"; g.textAlign = "right"; g.textBaseline = "middle";
+  for (const p of [1000, 925, 850, 700, 500, 400, 300, 250, 200, 150, 100]) g.fillText(p, L - 5, Y(p));
+  g.textAlign = "center"; g.textBaseline = "top";
+  for (let t = -40; t <= 50; t += 10) { const x = X(t, PB); if (x >= L && x <= L + pw) g.fillText(t + "°", x, T + ph + 6); }
+  g.strokeStyle = C.base; g.strokeRect(L, T, pw, ph);
+  for (const l of lv) if (l.ws != null && l.wd != null) barb(g, L + pw + 36, Y(l.p), l.ws, l.wd);
+  g.fillStyle = C.ink2; g.textAlign = "left"; g.textBaseline = "top";
+  g.fillStyle = C.red; g.fillText("Temperature", L + 6, T + 4); g.fillStyle = "#199e70"; g.fillText("Dew point", L + 90, T + 4); g.fillStyle = C.ink2; g.fillText("- - Surface parcel", L + 160, T + 4);
+}
+function barb(g, x, y, k, dir) {
+  g.save(); g.translate(x, y); g.rotate(dir * Math.PI / 180); g.strokeStyle = C.ink; g.fillStyle = C.ink; g.lineWidth = 1.4;
+  if (k < 2.5) { g.beginPath(); g.arc(0, 0, 4, 0, 7); g.stroke(); g.restore(); return; }
+  const len = 28; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -len); g.stroke();
+  let r = Math.round(k / 5) * 5, pos = -len;
+  while (r >= 50) { g.beginPath(); g.moveTo(0, pos); g.lineTo(12, pos + 3); g.lineTo(0, pos + 7); g.fill(); pos += 8; r -= 50; }
+  while (r >= 10) { g.beginPath(); g.moveTo(0, pos); g.lineTo(13, pos - 6); g.stroke(); pos += 5; r -= 10; }
+  if (r >= 5) { if (pos === -len) pos += 5; g.beginPath(); g.moveTo(0, pos); g.lineTo(7, pos - 3); g.stroke(); }
+  g.restore();
+}
+function upperSide(box, h, i) {
+  const lv = levels(h, i), at = p => lv.find(l => l.p === p) || {};
+  const a850 = at(850), a700 = at(700), a500 = at(500);
+  const K = a850.T != null && a500.T != null && a700.Td != null ? (a850.T - a500.T) + a850.Td - (a700.T - a700.Td) : null;
+  const TT = a850.T != null && a850.Td != null && a500.T != null ? a850.T + a850.Td - 2 * a500.T : null;
+  const lapse = a850.T != null && a500.T != null && a850.z && a500.z ? (a850.T - a500.T) / ((a500.z - a850.z) / 1000) : null;
+  const lapse7 = a700.T != null && a500.T != null && a700.z && a500.z ? (a700.T - a500.T) / ((a500.z - a700.z) / 1000) : null;
+  let shear = null;
+  if (a500.ws != null && h.wind_speed_10m[i] != null) {
+    const v = (s, d) => [-s * Math.sin(d * Math.PI / 180), -s * Math.cos(d * Math.PI / 180)];
+    const [u1, v1] = v(h.wind_speed_10m[i], h.wind_direction_10m[i]), [u2, v2] = v(a500.ws, a500.wd);
+    shear = Math.hypot(u2 - u1, v2 - v1);
+  }
+  let pw = 0, prev = null;
+  const prof = [{ p: h.surface_pressure[i], Td: h.dew_point_2m[i] }, ...lv];
+  for (const l of prof) { if (l.Td == null || l.p == null) continue; const q = mixR(l.Td, l.p); if (prev) pw += (prev.q + q) / 2 * (prev.p - l.p) * 100 / 9.81; prev = { q, p: l.p }; }
+  const L0 = h.temperature_2m[i] != null && h.dew_point_2m[i] != null ? lcl(h.temperature_2m[i], h.dew_point_2m[i], h.surface_pressure[i]) : null;
+  const kTxt = K == null ? "" : K < 20 ? "storms unlikely" : K < 30 ? "isolated storms" : K < 40 ? "scattered to numerous storms" : "numerous storms, heavy rain";
+  const ttTxt = TT == null ? "" : TT < 44 ? "storms unlikely" : TT < 50 ? "storms possible" : TT < 55 ? "strong storms possible" : "severe storms possible";
+  box.innerHTML = `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+    ${tile("CAPE (surface)", `${n(h.cape[i])} J/kg`, h.cape[i] > 2500 ? "Strong instability" : h.cape[i] > 1000 ? "Moderate instability" : h.cape[i] > 250 ? "Weak instability" : "Stable / little")}
+    ${tile("Lifted index", n(h.lifted_index[i], 1), h.lifted_index[i] < -6 ? "Very unstable" : h.lifted_index[i] < -3 ? "Unstable" : h.lifted_index[i] < 0 ? "Slightly unstable" : "Stable")}
+    ${tile("CIN (cap)", `${n(h.convective_inhibition[i])} J/kg`, "Bigger means a stronger lid on storms")}
+    ${tile("K index", n(K), kTxt)}
+    ${tile("Total totals", n(TT), ttTxt)}
+    ${tile("Lapse rate 850–500", lapse == null ? "—" : lapse.toFixed(1) + " °C/km", lapse7 == null ? "" : `700–500: ${lapse7.toFixed(1)} °C/km${lapse7 > 7 ? " (steep)" : ""}`)}
+    ${tile("Shear sfc–500 hPa", shear == null ? "—" : Math.round(shear) + " kt", shear == null ? "" : shear >= 40 ? "Supports supercells" : shear >= 25 ? "Organized storms" : "Weak")}
+    ${tile("Precipitable water", `${n(U.r(pw), U.rd())} ${U.ru()}`, "Water in the column")}
+    ${tile("LCL (cloud base)", L0 ? `${Math.round(L0.p)} hPa` : "—", L0 ? `${fT(L0.T)}${U.tu().slice(1)} at the base` : "")}
+    ${tile("Freezing level", fH(h.freezing_level_height[i]), "Mixing height " + fH(h.boundary_layer_height[i]))}
+  </div>
+  <div class="tbl" style="max-height:330px"><table class="t"><thead><tr><th>hPa</th><th>Height m</th><th>Temp °C</th><th>Dew °C</th><th>RH</th><th>Wind</th><th>kt</th></tr></thead><tbody>
+  ${lv.map(l => `<tr><td>${l.p}</td><td>${n(l.z)}</td><td>${n(l.T, 1)}</td><td>${n(l.Td, 1)}</td><td>${l.rh ?? "—"}%</td><td>${dirTxt(l.wd)}</td><td>${n(l.ws)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+PAGES.maps = async host => {
+  H(host, `<div class="note">Drag to move, scroll or +/− to zoom, click anywhere to get its weather. Radar: RainViewer (global, past 2 hours).</div>`);
+  const m = H(host, `<div class="map" tabindex="0"><div class="mapin"><div class="layer" id="lb"></div><div class="layer" id="lr" style="opacity:.75"></div><div class="layer" id="lm"></div></div>
+    <div class="mapctl"><button data-z="1" title="Zoom in">+</button><button data-z="-1" title="Zoom out">−</button><button data-home title="Back to this place">◎</button></div>
+    <div class="mapbar"><button class="btn sm" id="rplay">▶ Loop</button><label class="small"><input type="checkbox" id="rshow" checked> Radar</label><span class="small" id="rtime"></span></div>
+    <div class="mapattr">© OpenStreetMap contributors © CARTO · Radar © RainViewer</div></div>`);
+  const st = { lat: V.lat, lon: V.lon, z: 6, frames: [], fi: 0, play: 0, host: "" };
+  try { if (!RADAR || Date.now() - RADAR.at > 300000) { RADAR = await get("https://api.rainviewer.com/public/weather-maps.json"); RADAR.at = Date.now(); }
+    st.host = RADAR.host; st.frames = (RADAR.radar && RADAR.radar.past) || []; st.fi = st.frames.length - 1; } catch (e) { $("#rtime", m).textContent = "Radar unavailable: " + e.message; }
+  const TS = 256, ws = z => TS * Math.pow(2, z);
+  const px = (lat, lon, z) => { const s = Math.sin(lat * Math.PI / 180); return [(lon + 180) / 360 * ws(z), (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * ws(z)]; };
+  const geo = (x, y, z) => { const n2 = Math.PI - 2 * Math.PI * y / ws(z); return [180 / Math.PI * Math.atan(Math.sinh(n2)), x / ws(z) * 360 - 180]; };
+  let frameTiles = [];
+  function draw() {
+    const w = m.clientWidth, h = m.clientHeight, [cx, cy] = px(st.lat, st.lon, st.z), ox = cx - w / 2, oy = cy - h / 2, N = Math.pow(2, st.z);
+    const x0 = Math.floor(ox / TS), x1 = Math.floor((ox + w) / TS), y0 = Math.max(0, Math.floor(oy / TS)), y1 = Math.min(N - 1, Math.floor((oy + h) / TS));
+    let base = "", rad = "";
+    const fr = st.frames[st.fi], showR = $("#rshow", m).checked && fr;
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) {
+      const wx = ((x % N) + N) % N, l = x * TS - ox, t = y * TS - oy;
+      base += `<img src="https://${"abcd"[(wx + y) % 4]}.basemaps.cartocdn.com/dark_all/${st.z}/${wx}/${y}.png" style="left:${l}px;top:${t}px">`;
+      if (showR) rad += `<img src="${st.host}${fr.path}/256/${st.z}/${wx}/${y}/2/1_1.png" style="left:${l}px;top:${t}px" onerror="this.remove()">`;
+    }
+    $("#lb", m).innerHTML = base; $("#lr", m).innerHTML = rad;
+    const mk = (p, cls, label) => { const [x, y] = px(p.lat, p.lon, st.z); return `<div class="mk ${cls}" style="left:${x - ox}px;top:${y - oy}px"><span>${esc(label)}</span></div>`; };
+    $("#lm", m).innerHTML = S.places.map(p => mk(p, "", p.name)).join("") + mk(V, "cur", V.name);
+    if (fr) $("#rtime", m).textContent = "Radar " + new Date(fr.time * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    $(".mapin", m).style.transform = "";
+  }
+  let drag = null;
+  m.addEventListener("pointerdown", e => { if (e.target.closest("button,input,label,.pop")) return; drag = { x: e.clientX, y: e.clientY, moved: 0 }; m.setPointerCapture(e.pointerId); m.classList.add("drag"); });
+  m.addEventListener("pointermove", e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved = Math.max(drag.moved, Math.hypot(dx, dy)); $(".mapin", m).style.transform = `translate(${dx}px,${dy}px)`; });
+  m.addEventListener("pointerup", e => {
+    if (!drag) return; m.classList.remove("drag");
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y, moved = drag.moved; drag = null;
+    if (moved > 4) { const [cx, cy] = px(st.lat, st.lon, st.z); [st.lat, st.lon] = geo(cx - dx, cy - dy, st.z); st.lon = ((st.lon + 540) % 360) - 180; st.lat = Math.max(-84, Math.min(84, st.lat)); return draw(); }
+    const r = m.getBoundingClientRect(), [cx, cy] = px(st.lat, st.lon, st.z), [la, lo] = geo(cx - r.width / 2 + (e.clientX - r.left), cy - r.height / 2 + (e.clientY - r.top), st.z);
+    const lon2 = ((lo + 540) % 360) - 180;
+    m.querySelectorAll(".pop").forEach(p => p.remove());
+    const pop = document.createElement("div"); pop.className = "pop"; pop.style.left = (e.clientX - r.left) + "px"; pop.style.top = (e.clientY - r.top) + "px";
+    pop.innerHTML = `<div class="small">${llTxt(la, lon2)}</div><button class="btn sm pri">Weather here</button> <button class="btn sm">✕</button>`;
+    const [go, x] = pop.querySelectorAll("button");
+    go.onclick = () => { TAB = "overview"; look({ name: llTxt(la, lon2), lat: +la.toFixed(4), lon: +lon2.toFixed(4) }); };
+    x.onclick = () => pop.remove();
+    m.appendChild(pop);
+  });
+  const zoom = dz => { st.z = Math.max(2, Math.min(7, st.z + dz)); m.querySelectorAll(".pop").forEach(p => p.remove()); draw(); };
+  m.addEventListener("wheel", e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1 : -1); }, { passive: false });
+  m.querySelectorAll("[data-z]").forEach(b => b.onclick = () => zoom(+b.dataset.z));
+  m.querySelector("[data-home]").onclick = () => { st.lat = V.lat; st.lon = V.lon; draw(); };
+  $("#rshow", m).onchange = draw;
+  $("#rplay", m).onclick = () => {
+    if (st.play) { clearInterval(st.play); st.play = 0; $("#rplay", m).textContent = "▶ Loop"; st.fi = st.frames.length - 1; return draw(); }
+    if (st.frames.length < 2) return;
+    $("#rplay", m).textContent = "■ Stop"; st.fi = Math.max(0, st.frames.length - 6);
+    st.play = setInterval(() => { if (!document.body.contains(m)) return clearInterval(st.play); st.fi = st.fi + 1 >= st.frames.length ? Math.max(0, st.frames.length - 6) : st.fi + 1; draw(); }, 900);
+  };
+  requestAnimationFrame(draw);
+  new ResizeObserver(() => { if (!drag) draw(); }).observe(m);
+
+  const hr = Math.floor(Date.now() / 600000);
+  const IMG = [
+    ["Satellite (NOAA GOES)", [["GOES-East · US · GeoColor", "https://cdn.star.nesdis.gov/GOES19/ABI/CONUS/GEOCOLOR/1250x750.jpg"],
+      ["GOES-East · US · infrared (band 13)", "https://cdn.star.nesdis.gov/GOES19/ABI/CONUS/13/1250x750.jpg"],
+      ["GOES-East · US · water vapor (band 9)", "https://cdn.star.nesdis.gov/GOES19/ABI/CONUS/09/1250x750.jpg"],
+      ["GOES-West · Pacific US · GeoColor", "https://cdn.star.nesdis.gov/GOES18/ABI/CONUS/GEOCOLOR/1250x750.jpg"],
+      ["GOES-East · full disk", "https://cdn.star.nesdis.gov/GOES19/ABI/FD/GEOCOLOR/1808x1808.jpg"]]],
+    ["Surface analysis, fronts and the oceans", [["WPC North America surface analysis", "https://www.wpc.ncep.noaa.gov/sfc/namussfcwbg.gif"],
+      ["OPC Atlantic surface analysis", "https://ocean.weather.gov/A_sfc_full_ocean_color.png"],
+      ["OPC Pacific surface analysis", "https://ocean.weather.gov/P_sfc_full_ocean_color.png"]]],
+    ["Storms and tropics", [["SPC day 1 convective outlook", "https://www.spc.noaa.gov/products/outlook/day1otlk.gif"],
+      ["NHC Atlantic tropical outlook (7 day)", "https://www.nhc.noaa.gov/xgtwo/two_atl_7d0.png"],
+      ["NHC East Pacific tropical outlook (7 day)", "https://www.nhc.noaa.gov/xgtwo/two_pac_7d0.png"]]]];
+  for (const [title, imgs] of IMG) {
+    H(host, `<h3>${esc(title)}</h3>`);
+    H(host, `<div class="gal">${imgs.map(([c, u]) => `<figure><img loading="lazy" src="${u}?t=${hr}" alt="${esc(c)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'small',textContent:'Couldn\\'t load this image right now.'}))"><figcaption><span>${esc(c)}</span><a href="${u}" target="_blank">Full size</a></figcaption></figure>`).join("")}</div>`);
+  }
+};
+
+function alertsHtml(a, brief) {
+  const f = (a.features || []).map(x => x.properties);
+  if (!f.length) return brief ? "" : `<div class="note">No active NWS alerts for this point.</div>`;
+  return f.map(p => {
+    const cls = /Warning/.test(p.event) ? "" : /Watch/.test(p.event) ? "watch" : /Advisory/.test(p.event) ? "adv" : "st";
+    return `<details class="alert ${cls}"><summary>⚠ ${esc(p.event)} · until ${esc(p.ends || p.expires ? new Date(p.ends || p.expires).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : "further notice")}</summary>
+      <div class="small">${esc(p.headline || "")}</div><pre class="prod" style="max-height:340px">${esc(p.description || "")}${p.instruction ? "\n\nWHAT TO DO\n" + esc(p.instruction) : ""}</pre></details>`;
+  }).join("");
+}
+PAGES.nws = async host => {
+  const p = await need("nws");
+  const al = await need("alerts");
+  H(host, `<h3>Active alerts</h3>`);
+  H(host, al.error ? `<div class="note">NWS alerts cover the US and its waters. ${esc(al.error)}</div>` : `<div>${alertsHtml(al)}</div>`);
+  if (p.error || !p.forecast) { H(host, `<div class="note">The NWS text forecast and forecast discussion cover the United States. For other countries, the Now, Hourly and 16-day pages use global models.</div>`); return; }
+  H(host, `<div class="small">NWS office ${esc(p.cwa)} · nearest radar ${esc(p.radarStation || "—")} · ${esc(p.relativeLocation?.properties?.city || "")}, ${esc(p.relativeLocation?.properties?.state || "")}</div>`);
+  const two = H(host, `<div class="two"><div id="nws-fc"><h3>NWS forecast</h3><div class="spin">Loading…</div></div><div id="nws-afd"><h3>Area forecast discussion</h3><div class="spin">Loading…</div></div></div>`);
+  const fcBox = $("#nws-fc", two), afdBox = $("#nws-afd", two);
+  await Promise.all([
+    get(p.forecast).then(f => { fcBox.innerHTML = `<h3>NWS forecast</h3>` + (f.properties.periods || []).map(x => `<div class="card"><h4>${esc(x.name)} · ${x.temperature}°${esc(x.temperatureUnit)} · ${esc(x.windSpeed)} ${esc(x.windDirection)}</h4><div>${esc(x.detailedForecast)}</div></div>`).join(""); },
+      e => { fcBox.innerHTML = `<h3>NWS forecast</h3><div class="err small">${esc(e.message)}</div>`; }),
+    get(`https://api.weather.gov/products/types/AFD/locations/${p.cwa}`).then(l => { const g = (l["@graph"] || [])[0]; if (!g) throw new Error("No discussion"); return get(`https://api.weather.gov/products/${g.id}`); })
+      .then(pr => { afdBox.innerHTML = `<h3>Area forecast discussion · issued ${esc(new Date(pr.issuanceTime).toLocaleString())}</h3><div class="small">The forecasters' own reasoning: models, confidence, timing.</div><pre class="prod">${esc(pr.productText)}</pre>`; },
+        e => { afdBox.innerHTML = `<h3>Area forecast discussion</h3><div class="err small">${esc(e.message)}</div>`; })]);
+};
+
+const AQI = [[50, "Good", "#00e400", "#000"], [100, "Moderate", "#ffff00", "#000"], [150, "Unhealthy for sensitive groups", "#ff7e00", "#000"], [200, "Unhealthy", "#ff0000", "#fff"], [300, "Very unhealthy", "#8f3f97", "#fff"], [1e9, "Hazardous", "#7e0023", "#fff"]];
+const aqiCat = v => AQI.find(a => v <= a[0]);
+PAGES.air = async host => {
+  const a = await need("aq");
+  if (a.error) throw new Error(a.error);
+  const c = a.current || {}, cat = c.us_aqi != null ? aqiCat(c.us_aqi) : null;
+  H(host, `<div class="hero"><div><div class="tl">US air quality index</div><div class="big">${n(c.us_aqi)}</div></div>
+    ${cat ? `<span class="aqi" style="background:${cat[2]};color:${cat[3]}">${cat[1]}</span>` : ""}<div class="small">European AQI ${n(c.european_aqi)} · UV ${n(c.uv_index, 1)} · aerosol depth ${n(c.aerosol_optical_depth, 2)}</div></div>`);
+  const pol = ["alder", "birch", "grass", "ragweed", "olive", "mugwort"].filter(k => c[k + "_pollen"] != null);
+  H(host, `<div class="grid">${tile("PM2.5", `${n(c.pm2_5, 1)}`, "µg/m³ · fine smoke/dust")}${tile("PM10", n(c.pm10, 1), "µg/m³")}${tile("Ozone", n(c.ozone), "µg/m³")}
+    ${tile("Nitrogen dioxide", n(c.nitrogen_dioxide, 1), "µg/m³")}${tile("Sulphur dioxide", n(c.sulphur_dioxide, 1), "µg/m³")}${tile("Carbon monoxide", n(c.carbon_monoxide), "µg/m³")}${tile("Dust", n(c.dust), "µg/m³")}
+    ${pol.map(k => tile(k[0].toUpperCase() + k.slice(1) + " pollen", n(c[k + "_pollen"], 1), "grains/m³")).join("")}</div>`);
+  if (!pol.length) H(host, `<div class="small">Pollen counts are only modeled for Europe.</div>`);
+  const h = a.hourly, i = nowIdx(h.time, c.time || "");
+  chart(host, "US AQI forecast", h.time, [{ name: "US AQI", color: C.orange, v: h.us_aqi }], { now: i, min0: 1, unit: "AQI" });
+  chart(host, "Particles", h.time, [{ name: "PM2.5", color: C.violet, v: h.pm2_5 }, { name: "PM10", color: C.aqua, v: h.pm10 }], { now: i, min0: 1, unit: "µg/m³" });
+};
+
+const REGIONS = [
+  ["Ports and waters", [["Gulf of Mexico (central)", 26, -90], ["Cape Hatteras offshore", 35.2, -75.0], ["Port of Miami", 25.77, -80.17], ["Chesapeake Bay mouth", 36.98, -76.0],
+    ["Gulf of Maine", 43, -68.5], ["Columbia River bar", 46.25, -124.1], ["San Francisco Bay entrance", 37.8, -122.55], ["Gulf of Alaska", 57, -145], ["Hawaiian waters", 21, -157.5],
+    ["Great Lakes: Lake Michigan", 44, -87], ["Caribbean Sea", 15, -75], ["Panama Canal (Pacific)", 8.85, -79.5], ["Grand Banks", 45, -50], ["English Channel", 50.2, -1.5],
+    ["North Sea", 56, 3], ["Bay of Biscay", 45, -5], ["Strait of Gibraltar", 35.95, -5.6], ["Red Sea north", 27.5, 34], ["Strait of Hormuz", 26.5, 56.4], ["Strait of Malacca", 3, 100.5],
+    ["South China Sea", 14, 114], ["Tasman Sea", -38, 160], ["Cape of Good Hope", -34.6, 18.3], ["Drake Passage", -58, -65], ["Southern Ocean (Kerguelen)", -49, 70]]],
+  ["Weather regions", [["Tornado Alley: Oklahoma City", 35.47, -97.52], ["Gulf Coast: Houston", 29.76, -95.37], ["Rockies: Denver", 39.74, -104.99], ["Pacific NW: Seattle", 47.61, -122.33],
+    ["Desert SW: Phoenix", 33.45, -112.07], ["Northeast: New York", 40.71, -74.01], ["Florida: Tampa", 27.95, -82.46], ["Upper Midwest: Minneapolis", 44.98, -93.27],
+    ["Alaska: Anchorage", 61.22, -149.9], ["Mount Washington", 44.27, -71.3], ["London", 51.51, -0.13], ["Tokyo", 35.68, 139.69], ["Sydney", -33.87, 151.21], ["Mumbai (monsoon)", 19.08, 72.88]]]];
+PAGES.regions = async host => renderRegions(host, false);
+async function renderRegions(host, bare) {
+  if (S.places.length) {
+    const box = H(host, `<div><h3>My places now</h3><div class="spin">Loading…</div></div>`);
+    try {
+      const ps = S.places;
+      let j = await get(`https://api.open-meteo.com/v1/forecast?latitude=${ps.map(p => (+p.lat).toFixed(3)).join(",")}&longitude=${ps.map(p => (+p.lon).toFixed(3)).join(",")}&timezone=auto&current=${CV}`);
+      if (!Array.isArray(j)) j = [j];
+      box.innerHTML = `<h3>My places now</h3><div class="tbl" style="max-height:none"><table class="t"><thead><tr><th>Place</th><th style="text-align:left">Sky</th><th>Temp</th><th>Dew pt</th><th>Wind</th><th>Gust</th><th>Pressure</th><th>Vis</th><th>Precip</th><th></th></tr></thead><tbody>
+        ${j.map((r, k) => { const c = r.current || {}; return `<tr><td><b>${esc(ps[k].name)}</b></td><td style="text-align:left">${wIcon(c.weather_code, c.is_day)} ${esc(wDesc(c.weather_code))}</td><td>${fT(c.temperature_2m)}</td><td>${fT(c.dew_point_2m)}</td>
+          <td>${dirTxt(c.wind_direction_10m)} ${fW(c.wind_speed_10m)}</td><td>${fW(c.wind_gusts_10m)}</td><td>${fP(c.pressure_msl)}</td><td>${c.visibility == null ? "—" : n(U.d(c.visibility), 1) + " " + U.du()}</td><td>${n(U.r(c.precipitation), U.rd())} ${U.ru()}</td>
+          <td><button class="btn sm" data-look="${k}">Open</button></td></tr>`; }).join("")}</tbody></table></div>`;
+      box.querySelectorAll("[data-look]").forEach(b => b.onclick = () => { TAB = "overview"; look(S.places[+b.dataset.look]); });
+    } catch (e) { box.innerHTML = `<h3>My places now</h3><div class="err small">${esc(e.message)}</div>`; }
+  }
+  for (const [title, list] of REGIONS) {
+    H(host, `<h3>${esc(title)}</h3>`);
+    const g = H(host, `<div class="grid">${list.map(([nm, la, lo], k) => `<div class="tile" style="cursor:pointer" data-k="${k}"><div><b>${esc(nm)}</b></div><div class="small">${llTxt(la, lo)}</div></div>`).join("")}</div>`);
+    g.addEventListener("click", e => { const t = e.target.closest("[data-k]"); if (!t) return; const [nm, la, lo] = list[+t.dataset.k]; TAB = title.startsWith("Ports") ? "marine" : "overview"; look({ name: nm, lat: la, lon: lo }); });
+  }
+  if (bare) H(host, `<div class="small" style="margin-top:10px">Ports and waters open on the Marine page.</div>`);
+}
+
+async function start() {
+  try { const s = await A().weather_settings(); if (s) S = { ...DEF, ...s, units: { ...DEF.units, ...(s.units || {}) } }; } catch (e) {   }
+  const h = S.places[S.home || 0];
+  V = S.last || (h ? { ...h } : null);
+  renderSide(); render();
+  setInterval(() => { if (!V || document.hidden) return; delete D[key()]; if (TAB !== "maps") render(); }, 600000);
+}
+let started = false;
+const go = () => { if (started || !A()) return; started = true; start(); };
+window.addEventListener("pywebviewready", go);
+if (A()) go();
+</script>
+</body>
+</html>

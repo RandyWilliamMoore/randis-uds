@@ -1,0 +1,100 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Randis certificate reader</title><style>body{font:15px/1.5 system-ui,Segoe UI,sans-serif;max-width:860px;margin:24px auto;padding:0 16px;color:#1b2430;background:#f6f8fb}h1{margin:.2em 0}table{border-collapse:collapse;margin:8px 0}td,th{border:1px solid #c9d3df;padding:3px 10px;text-align:left}.ok,.bad{padding:10px 14px;border-radius:6px;margin:10px 0}.ok{background:#e3f6e8;border:1px solid #64b77a}.bad{background:#fbe6e6;border:1px solid #d06a6a}.sm{font-size:12.5px;color:#506070}code{font-size:12px;word-break:break-all}button{font:inherit;padding:6px 14px;cursor:pointer}textarea{width:100%;min-height:70px}.att{font-size:12px;color:#506070;border-top:1px solid #c9d3df;margin-top:24px;padding-top:6px}@media print{.noprint{display:none}}</style></head><body>
+<h1>🔐 Randis progress certificate reader</h1>
+<p>Open a Randis progress certificate (the <code>.json</code> file, or the printable <code>.html</code> page). Everything is checked right here in this page: no internet, nothing sent anywhere. Every hash is re-done, and the current level and the week-by-week history are recomputed from the sessions inside.</p>
+<p><input type="file" id="f" accept=".json,.html,.htm"> <label class="sm">Earlier certificates by the same person (optional, to check the history wasn't rewritten): <input type="file" id="e" multiple accept=".json,.html,.htm"></label></p>
+<textarea id="t" placeholder="…or paste the certificate's text here"></textarea><p><button id="go">✔ Check</button></p><div id="out"></div>
+<p class="sm">What this proves: the file hasn&#39;t been changed since it was issued (any edit to a score, date, level, name or the evidence fails the check), and the current level and history really follow from the sessions inside. What it doesn&#39;t prove: it&#39;s self-issued on the holder&#39;s own computer with no outside authority, so someone who rewrites the program could make a file that passes; the proof-of-work makes that take effort, not impossible. Scores are practice tasks, not a normed IQ. To be sure, watch the holder do a few sessions live.</p><p class="att">Randis UDS™ by Randy Moore. Original: <a href="https://github.com/RandyWilliamMoore/randis-uds">github.com/RandyWilliamMoore/randis-uds</a> · Support: <a href="https://ko-fi.com/moorescombinatoricsmatrix">ko-fi.com/moorescombinatoricsmatrix</a></p>
+<script>const SHA_K = new Uint32Array([1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298]), SHA_W = new Uint32Array(64), SHA_H = new Int32Array(8), SHA_ENC = new TextEncoder(), SHA_HEX = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
+let SHA_BUF = new Uint32Array(64);
+const PC_V = 1, PC_ZEROS = "00000", PC_TYPE = "randis-progress-cert";
+function sha256(str) {
+  const m = SHA_ENC.encode(String(str)), l = m.length, n = ((l + 8) >> 6) + 1 << 4;
+  if (SHA_BUF.length < n) SHA_BUF = new Uint32Array(n * 2);
+  const w = SHA_BUF; w.fill(0, 0, n);
+  for (let i = 0; i < l; i++) w[i >> 2] |= m[i] << (24 - (i & 3) * 8);
+  w[l >> 2] |= 0x80 << (24 - (l & 3) * 8); w[n - 1] = l * 8; w[n - 2] = Math.floor(l / 0x20000000);
+  const H = SHA_H, W = SHA_W, K = SHA_K;
+  H[0] = 0x6a09e667; H[1] = 0xbb67ae85; H[2] = 0x3c6ef372; H[3] = 0xa54ff53a; H[4] = 0x510e527f; H[5] = 0x9b05688c; H[6] = 0x1f83d9ab; H[7] = 0x5be0cd19;
+  for (let j = 0; j < n; j += 16) {
+    for (let t = 0; t < 16; t++) W[t] = w[j + t];
+    for (let t = 16; t < 64; t++) { const a = W[t - 15], b = W[t - 2]; W[t] = (W[t - 16] + ((a >>> 7 | a << 25) ^ (a >>> 18 | a << 14) ^ (a >>> 3)) + W[t - 7] + ((b >>> 17 | b << 15) ^ (b >>> 19 | b << 13) ^ (b >>> 10))) | 0; }
+    let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+    for (let t = 0; t < 64; t++) {
+      const t1 = (h + ((e >>> 6 | e << 26) ^ (e >>> 11 | e << 21) ^ (e >>> 25 | e << 7)) + ((e & f) ^ (~e & g)) + K[t] + W[t]) | 0;
+      const t2 = (((a >>> 2 | a << 30) ^ (a >>> 13 | a << 19) ^ (a >>> 22 | a << 10)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    H[0] += a; H[1] += b; H[2] += c; H[3] += d; H[4] += e; H[5] += f; H[6] += g; H[7] += h;
+  }
+  let o = "";
+  for (let i = 0; i < 8; i++) { const x = H[i]; o += SHA_HEX[x >>> 24 & 255] + SHA_HEX[x >>> 16 & 255] + SHA_HEX[x >>> 8 & 255] + SHA_HEX[x & 255]; }
+  return o;
+}
+function pcStats(ev, doms, upto) {
+  const dom = {};
+  doms.forEach(dd => { const ss = ev.filter(e => e[3] === dd[0] && e[1] <= upto).slice(-6); if (!ss.length) return; let a = 0, w = 0; ss.forEach((s, i) => { a += s[4] * (i + 1); w += i + 1; }); dom[dd[0]] = Math.round(a / w * 10) / 10; });
+  const v = Object.values(dom);
+  return { dom, index: v.length ? Math.round(v.reduce((s, x) => s + x, 0) / v.length * 10) / 10 : null };
+}
+function pcWeek(d) { const t = new Date(d + "T00:00:00Z"), k = (t.getUTCDay() + 6) % 7; t.setUTCDate(t.getUTCDate() - k); return t.toISOString().slice(0, 10); }
+function pcAddDays(d, n) { const t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); }
+function pcCurrent(ev, doms) {
+  const st = pcStats(ev, doms, "9999-99-99"), days = [...new Set(ev.map(e => e[1]))].sort(), lv = {};
+  ev.forEach(e => { lv[e[2]] = e[5]; });
+  let best = 0, run = 0; days.forEach((d, i) => { run = i && pcAddDays(days[i - 1], 1) === d ? run + 1 : 1; best = Math.max(best, run); });
+  return { index: st.index, dom: st.dom, sessions: ev.length, minutes: Math.round(ev.reduce((s, e) => s + (e[6] || 0), 0) / 60), days: days.length, bestStreak: best, first: days[0] || null, last: days[days.length - 1] || null, levels: lv };
+}
+function pcHistory(ev, doms) {
+  if (!ev.length) return [];
+  const out = []; let w = pcWeek(ev[0][1]); const end = pcWeek(ev[ev.length - 1][1]);
+  for (let k = 0; k < 520 && w <= end; k++, w = pcAddDays(w, 7)) {
+    const we = pcAddDays(w, 6), inw = ev.filter(e => e[1] >= w && e[1] <= we), st = pcStats(ev, doms, we);
+    out.push({ w, n: inw.length, min: Math.round(inw.reduce((s, e) => s + (e[6] || 0), 0) / 60), index: st.index, dom: st.dom });
+  }
+  return out;
+}
+function pcChain(ev, sha) { const hs = []; let h = "genesis"; ev.forEach(e => { h = sha(h + "|" + JSON.stringify(e)); hs.push(h); }); return hs; }
+function pcSealBody(c, sha) { return sha(JSON.stringify([c.type, c.v, c.holder, c.app, c.issued, c.at, c.doms, c.n, c.root, c.current, c.history, c.stated, c.prev, c.rule])); }
+function pcId(h) { return "RP-" + h.slice(5, 21).toUpperCase().match(/.{4}/g).join("-"); }
+function pcExtract(text) {
+  const t = String(text || ""), m = t.match(/<script type="application\/json" id="randis-cert">([\s\S]*?)<\/script>/);
+  try { return JSON.parse(m ? m[1].replace(/<\\\//g, "</") : t); } catch (e) { return null; }
+}
+function pcVerify(c, sha, earlier) {
+  const out = [], add = (ok, text) => out.push({ ok, text }), same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  if (!c || c.type !== PC_TYPE || !Array.isArray(c.ev) || !Array.isArray(c.doms) || !c.seal || !c.rule) return { ok: false, out: [{ ok: false, text: "This isn't a Randis progress certificate." }] };
+  add(c.v === PC_V, "Format version " + c.v);
+  add(String(c.rule.sealZeros || "").length >= PC_ZEROS.length && /^0+$/.test(c.rule.sealZeros), "Uses the full proof-of-work (" + String(c.rule.sealZeros || "").length + " leading zeros)");
+  const hs = pcChain(c.ev, sha), root = hs.length ? hs[hs.length - 1] : "genesis";
+  add(c.n === c.ev.length && root === c.root, root === c.root ? "Evidence chain recomputed: all " + c.ev.length + " sessions hash to the stated root" : "Evidence chain doesn't match: a session was changed, added or removed");
+  const order = c.ev.every((e, k) => (k === 0 || (e[0] >= c.ev[k - 1][0] && e[1] >= c.ev[k - 1][1])) && e[0] <= c.at);
+  add(order, order ? "Sessions are in time order and all before the issue time" : "Sessions are out of order or dated after the certificate");
+  const okSc = c.ev.every(e => typeof e[4] === "number" && e[4] >= 0 && e[4] <= 100 && (e[6] || 0) >= 0 && (e[6] || 0) < 7200);
+  add(okSc, okSc ? "Every score is 0-100 and every session length is sensible" : "Some scores or session lengths are out of range");
+  const cur = pcCurrent(c.ev, c.doms);
+  add(same(cur, c.current), same(cur, c.current) ? "Current level recomputed from the evidence: training index " + (cur.index == null ? "—" : cur.index) + ", " + cur.sessions + " sessions, " + cur.minutes + " min" : "The current numbers don't match the evidence (edited)");
+  const hist = pcHistory(c.ev, c.doms);
+  add(same(hist, c.history), same(hist, c.history) ? "History recomputed: " + hist.length + " weeks match" : "The week-by-week history doesn't match the evidence (edited)");
+  (c.prev || []).forEach(p => add(p.n <= hs.length && (p.n === 0 ? p.root === "genesis" : hs[p.n - 1] === p.root), "Earlier certificate " + p.id + " (" + p.issued + "): " + (p.n <= hs.length && (p.n === 0 || hs[p.n - 1] === p.root) ? "its evidence is the start of this one, unchanged" : "its evidence was rewritten since")));
+  (earlier || []).forEach(e => { if (!e || e.type !== PC_TYPE) return; const ok = e.holder === c.holder && e.n <= hs.length && (e.n === 0 || hs[e.n - 1] === e.root); add(ok, "Loaded earlier file " + e.id + ": " + (ok ? "same holder, and its history is unchanged inside this one" : "doesn't line up with this one")); });
+  const sh = sha(pcSealBody(c, sha) + ":" + c.seal.z);
+  add(sh === c.seal.h && sh.startsWith(c.rule.sealZeros) && c.id === pcId(sh), sh === c.seal.h ? "Seal matches: holder, dates, numbers and evidence are exactly as issued (" + c.id + ")" : "Seal doesn't match: the name, date, numbers or evidence was edited");
+  add(!!String(c.holder || "").trim(), "Holder: " + (c.holder || "(no name)"));
+  return { ok: out.every(x => x.ok), out, cur };
+}
+function escH(s) { return String(s ?? "").replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]); }
+function pcReport(c, text, earlier) {
+  const v = pcVerify(c, sha256, earlier), cur = c && c.current;
+  return '<div class="' + (v.ok ? "ok" : "bad") + '"><h2>' + (v.ok ? "✔ Checks out" : "✘ Does not check out") + "</h2>" + v.out.map(x => "<div>" + (x.ok ? "✔ " : "✘ ") + escH(x.text) + "</div>").join("") +
+    (text ? "<p class=sm>SHA-256 of this file: <code>" + sha256(text) + "</code><br>Compare it with the holder's certificate log.</p>" : "") + "</div>" +
+    (v.ok && cur ? "<h3>" + escH(c.holder) + " · " + escH(c.app) + " · issued " + escH(c.issued) + "</h3><p>Training index <b>" + (cur.index ?? "—") + "</b> · " + cur.sessions + " sessions · " + cur.minutes + " min · " + cur.days + " days (" + escH(cur.first) + " to " + escH(cur.last) + ") · best run " + cur.bestStreak + " days in a row</p>" +
+      "<table><tr><th>Skill</th><th>Score now</th></tr>" + c.doms.map(d => "<tr><td>" + escH(d[1]) + "</td><td>" + (cur.dom[d[0]] ?? "—") + "</td></tr>").join("") + "</table>" +
+      "<h3>Week by week</h3><table><tr><th>Week of</th><th>Sessions</th><th>Minutes</th><th>Index at week end</th></tr>" + c.history.map(h => "<tr><td>" + h.w + "</td><td>" + h.n + "</td><td>" + h.min + "</td><td>" + (h.index ?? "—") + "</td></tr>").join("") + "</table>" +
+      "<p class=sm>Stated by the app (not recomputed): " + escH(Object.entries(c.stated || {}).filter(e => e[0] !== "note").map(e => e[0] + " " + e[1]).join(" · ")) + "</p>" : "");
+}
+let earlier = [];
+const run = text => { const c = pcExtract(text); document.getElementById("out").innerHTML = pcReport(c, text, earlier); };
+const read = f => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result)); fr.readAsText(f); });
+document.getElementById("e").onchange = async ev => { earlier = []; for (const f of ev.target.files) earlier.push(pcExtract(await read(f))); if (document.getElementById("t").value) run(document.getElementById("t").value); };
+document.getElementById("f").onchange = async ev => { const f = ev.target.files[0]; if (!f) return; const t = await read(f); document.getElementById("t").value = t; run(t); };
+document.getElementById("go").onclick = () => run(document.getElementById("t").value);</script></body></html>

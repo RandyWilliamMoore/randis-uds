@@ -130,11 +130,11 @@ def app_running():
 
 def take_open_link(args):
     for a in args:
-        m = re.fullmatch(r"randisuds://open/?\?item=((?:games|apps)/[a-z0-9]+(?:-[a-z0-9]+)*)/?", a)
+        m = re.fullmatch(r"randisuds://open/?\?item=((?:games|apps)/[a-z0-9]+(?:-[a-z0-9]+)*)/?(?:&shop=([A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}))?/?", a)
         if m:
             os.makedirs(os.path.join(HERE, "data"), exist_ok=True)
             with open(os.path.join(HERE, "data", "open_request.json"), "w", encoding="utf-8") as f:
-                json.dump({"item": m.group(1), "time": time.time()}, f)
+                json.dump({"item": m.group(1), "shop": m.group(2), "time": time.time()}, f)
             return True
     return False
 

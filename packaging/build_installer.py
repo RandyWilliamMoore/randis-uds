@@ -21,7 +21,10 @@ def write_uninstall_list(app):
         f.write("\n".join(lines) + "\n")
 
 
-def main(embed_zip):
+def main(embed_zip, edition="developer"):
+    sys.path.insert(0, ROOT)
+    import edition as editions
+    assert edition in editions.EDITIONS, f"unknown edition {edition!r}: one of {', '.join(editions.EDITIONS)}"
     want = "".join(map(str, sys.version_info[:2]))
     with zipfile.ZipFile(embed_zip) as z:
         assert f"python{want}.dll" in z.namelist(), f"the embed zip isn't for Python {want}"
@@ -43,6 +46,10 @@ def main(embed_zip):
     os.makedirs(app)
     tar = subprocess.run(["git", "archive", "HEAD"], cwd=ROOT, capture_output=True, check=True).stdout
     with tarfile.open(fileobj=io.BytesIO(tar)) as t:
+        if edition != editions.DEFAULT:
+            names = {m.name for m in t.getmembers()}
+            app_py = t.extractfile("app.py").read().decode("utf-8", "replace") if "app.py" in names else ""
+            assert "edition.py" in names and "import edition" in app_py,                 "the last commit has no edition code: commit app.py + edition.py (+ catalog.py) before a marketplace build"
         for m in t.getmembers():
             if m.isfile() and not m.name.startswith(LEFT_OUT):
                 dest = os.path.join(app, *m.name.split("/"))
@@ -56,6 +63,9 @@ def main(embed_zip):
         shutil.move(data, user_data)
     else:
         os.makedirs(user_data)
+    if edition != editions.DEFAULT:
+        with open(os.path.join(user_data, "edition.json"), "w", encoding="utf-8") as f:
+            json.dump({"edition": edition}, f)
     shipped = {}
     for here, _, files in os.walk(app):
         for name in files:
@@ -66,10 +76,20 @@ def main(embed_zip):
         json.dump(shipped, f, indent=0, sort_keys=True)
     write_uninstall_list(app)
 
-    subprocess.run([MAKENSIS, "/V2", f"/DVersion={version}", f"/DStage={STAGE}", f"/DOutDir={OUT}", os.path.join(ROOT, "packaging", "randis_uds.nsi")], check=True)
-    exe = os.path.join(OUT, f"RandisUDS-Setup-{version}.exe")
+    subprocess.run([MAKENSIS, "/V2", f"/DVersion={version}", f"/DStage={STAGE}", f"/DOutDir={OUT}", f"/DEdition={edition}", os.path.join(ROOT, "packaging", "randis_uds.nsi")], check=True)
+    exe = os.path.join(OUT, f"{setup_name(edition)}-{version}.exe")
     print(exe, f"{os.path.getsize(exe) / 1024 / 1024:.1f} MB")
 
 
+def setup_name(edition):
+    return "RandisUDS-Marketplace-Setup" if edition == "marketplace" else "RandisUDS-Setup"
+
+
 if __name__ == "__main__":
-    main(sys.argv[1])
+    args = sys.argv[1:]
+    ed = "developer"
+    if "--edition" in args:
+        i = args.index("--edition")
+        ed = args[i + 1]
+        del args[i:i + 2]
+    main(args[0], ed)

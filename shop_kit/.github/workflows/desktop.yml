@@ -1,0 +1,92 @@
+name: Desktop versions
+
+on:
+  push:
+    tags: ["*-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+          - os: ubuntu-24.04
+            name: linux
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Which item and version
+        shell: bash
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          echo "SLUG=${TAG%-v*}" >> "$GITHUB_ENV"
+          echo "VERSION=${TAG##*-v}" >> "$GITHUB_ENV"
+
+      - name: Python and the builder (Windows)
+        if: matrix.name == 'windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the builder (Windows)
+        if: matrix.name == 'windows'
+        run: pip install pywebview pyinstaller
+
+      - name: Install the builder (Linux)
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install pywebview pyinstaller
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Build
+        shell: bash
+        run: |
+          python tools/make_desktop.py "$SLUG" build
+          cd build
+          SEP=":"; [ "$RUNNER_OS" = "Windows" ] && SEP=";"
+          pyinstaller --onefile --windowed --name "$SLUG" --add-data "item.html${SEP}." app.py
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir out
+          if [ "${{ matrix.name }}" = "windows" ]; then
+            cp "build/dist/$SLUG.exe" "out/$SLUG-$VERSION-windows.exe"
+          else
+            tar -czf "out/$SLUG-$VERSION-linux-x64.tar.gz" -C build/dist "$SLUG"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: out/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Put them on a release page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          python3 tools/make_desktop.py --notes "${TAG%-v*}" > notes.md
+          gh release create "$TAG" out/* --title "${TAG%-v*} ${TAG##*-v}" --notes-file notes.md \
+            || gh release upload "$TAG" out/* --clobber
