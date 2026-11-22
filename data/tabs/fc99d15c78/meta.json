@@ -1,6 +1,6 @@
 {
  "id": "fc99d15c78",
- "name": "Randis Paint (v1)",
+ "name": "Randis Paint",
  "created": 1793252683.7768497,
  "origin_chat": null,
  "versions": [
@@ -13,9 +13,6 @@
   }
  ],
  "current": 1,
- "old_names": [
-  "Randis Paint"
- ],
  "icon": "tab-paint",
  "section": "Create"
 }
