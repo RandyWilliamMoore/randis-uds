@@ -10,12 +10,13 @@
 <link rel="stylesheet" href="browser.css">
 <link rel="stylesheet" href="select.css">
 <link rel="stylesheet" href="meter.css">
+<link rel="stylesheet" href="shopskins.css">
 <link rel="stylesheet" href="bots.css">
 <link rel="stylesheet" href="vendor/pdfjs/textlayer.css">
 <link rel="stylesheet" href="ext.css">
 </head>
 <body>
-  <header id="origin"><span id="origin-what">Randis UDS™ by Randy Moore</span> · Original: <a id="origin-link" href="#">github.com/RandyWilliamMoore/randis-uds</a> · Support: <a id="origin-support" href="#">ko-fi.com/moorescombinatoricsmatrix</a></header>
+  <header id="origin"><span id="origin-main"><span id="origin-what">Randis UDS™ by Randy Moore</span> · Original: <a id="origin-link" href="#">github.com/RandyWilliamMoore/randis-uds</a> · Support: <span id="origin-zap" aria-hidden="true">⚡➤</span><a id="origin-support" href="#">ko-fi.com/moorescombinatoricsmatrix</a></span><span class="fun-lane" id="fun-sub" aria-hidden="true"><span class="fun-roll fun-rainbow">★彡 (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ 👍 LIKE &amp; SUBSCRIBE! 🔔 ~*~ ♪┏(・o･)┛♪ 🎉 thanks for being here 💖 ✧ﾟ･:*ヽ(◕ヮ◕ヽ) 彡★</span></span><span id="fun-right" aria-hidden="true"><span id="fun-holiday"></span><span class="fun-lane" id="fun-ideas"><span class="fun-roll fun-rainbow" id="fun-ideas-text"></span></span></span></header>
   <div id="tabbar">
     <img id="app-logo" src="logo/uds-base-mark.png" alt="Randis UDS" title="Randis UDS">
     <div class="menu-wrap">
@@ -26,9 +27,10 @@
     <div class="menu-wrap">
       <button id="newtab" title="New tab (Ctrl+T)" aria-haspopup="true">+</button>
       <div id="newtab-menu" class="menu" hidden>
+        <div class="menu-label">Basics</div>
         <button data-kind="chat" data-needs-llm>Chat</button>
         <button data-kind="ide">IDE</button>
-        <button data-kind="duck" data-needs-llm>Rubber duck</button>
+        <button data-kind="duck" data-needs-llm>Quak Quak</button>
         <button data-kind="notepad">Notepad</button>
         <button data-kind="pdf">PDF</button>
         <button data-kind="shop">Randis Shop</button>
@@ -87,6 +89,7 @@
         <h1>What would you like to do?</h1>
         <div class="composer">
           <textarea rows="3" placeholder="Ask anything. Enter sends, Shift+Enter makes a new line." aria-label="First message"></textarea>
+          <button class="pill img-pick" type="button" title="Add an image (or paste one with Ctrl+V, or drop one here)">🖼</button>
           <button class="pill primary" data-act="start-send">Send</button>
         </div>
         <button class="pill" data-act="open-item">Open a game or app file</button>
@@ -113,10 +116,18 @@
           <select class="llm-pick" aria-label="LLM for this chat"></select>
         </div>
         <div class="msgs"></div>
+        <div class="run-bar" hidden>
+          <span class="run-spin" aria-hidden="true"></span>
+          <div class="run-info"><div class="run-what"></div><div class="run-meter muted small"></div></div>
+          <button class="pill" data-act="pause" title="Really pauses the reply&#39;s process; Resume carries on">Pause</button>
+          <button class="pill" data-act="stop" title="Stop this reply (the queue waits)">Stop</button>
+          <button class="pill" data-act="restart" title="Stop it and ask the same thing again">Restart</button>
+        </div>
+        <div class="run-queue" hidden></div>
         <div class="composer">
-          <textarea rows="2" placeholder="Message. Enter sends, Shift+Enter makes a new line." aria-label="Message"></textarea>
+          <textarea rows="2" placeholder="Message. Enter sends, Shift+Enter makes a new line. While a reply runs, Enter queues it." aria-label="Message"></textarea>
+          <button class="pill img-pick" type="button" title="Add an image (or paste one with Ctrl+V, or drop one here)">🖼</button>
           <button class="pill primary" data-act="send">Send</button>
-          <button class="pill" data-act="stop" hidden>Stop</button>
         </div>
       </div>
     </section>
@@ -135,9 +146,10 @@
       <div class="built-body">
       <div class="built-stage">
       <pre class="build-log" hidden></pre>
-      <iframe sandbox="allow-scripts allow-modals allow-forms" allow="midi" csp="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'" title="Built tab"></iframe>
+      <iframe sandbox="allow-scripts allow-modals allow-forms allow-pointer-lock" allow="midi" csp="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'" title="Built tab"></iframe>
       </div>
       <aside class="duck-studio tab-studio" hidden>
+        <div class="studio-grip" title="Drag to make the chat wider or narrower"></div>
         <div class="studio-head">
           <strong>Chat about this tab</strong>
           <span style="flex:1"></span>
@@ -147,6 +159,7 @@
         <div class="studio-log"></div>
         <div class="composer">
           <textarea class="modify" rows="2" aria-label="Message about this tab"></textarea>
+          <button class="pill img-pick" type="button" title="Add an image (or paste one with Ctrl+V, or drop one here)">🖼</button>
           <button class="pill primary" data-act="modify">Send</button>
           <button class="pill" data-act="stop" hidden>Stop</button>
         </div>
@@ -158,7 +171,7 @@
   <template id="duck-tpl">
     <section class="pane duck">
       <div class="duck-stage">
-        <iframe sandbox="allow-scripts" csp="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'" title="Rubber duck"></iframe>
+        <iframe sandbox="allow-scripts" csp="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'" title="Quak Quak"></iframe>
         <div class="duck-out" hidden>
           <p>The duck is out on your desktop. Drag him anywhere; double-click him to put him back.</p>
           <button class="pill" data-act="putback">Put him back</button>
@@ -177,6 +190,7 @@
         <div class="studio-log"><p class="muted small">Tell the LLM how to change the duck or his space: a hat, colors, planets, a quack sound, a voice. Every change is a new version you can roll back.</p></div>
         <div class="composer">
           <textarea rows="2" placeholder="e.g. give him a pirate hat" aria-label="Change the duck"></textarea>
+          <button class="pill img-pick" type="button" title="Add an image (or paste one with Ctrl+V, or drop one here)">🖼</button>
           <button class="pill primary" data-act="duck-send">Send</button>
           <button class="pill" data-act="stop" hidden>Stop</button>
         </div>
@@ -217,6 +231,7 @@
           <div class="ask-log"><p class="muted small">Ask about the open file, or ask for a change. A reply with code gets a "Use this code" button; Ctrl+Z undoes it.</p></div>
           <div class="composer">
             <textarea rows="2" placeholder="e.g. add a function that adds two numbers" aria-label="Ask the LLM"></textarea>
+          <button class="pill img-pick" type="button" title="Add an image (or paste one with Ctrl+V, or drop one here)">🖼</button>
             <button class="pill primary" data-act="ask-send">Send</button>
             <button class="pill" data-act="stop" hidden>Stop</button>
           </div>
@@ -251,16 +266,29 @@
 <script src="boot_watch.js"></script>
 <script src="vendor/codemirror/codemirror.js"></script>
 <script src="pong.js"></script>
+<script src="mediarelay.js"></script>
 <script src="app.js"></script>
+<script src="paste.js"></script>
+<script src="hscroll.js"></script>
 <script src="browser.js"></script>
 <script src="select.js"></script>
+<script src="spell.js"></script>
 <script src="boot_guard.js"></script>
 <script src="tabchat.js"></script>
+<script src="improve.js"></script>
+<script src="shipbtn.js"></script>
+<script src="randis_emoji.js"></script>
+<script>try { RandisEmoji.observe(document.body); } catch (e) {}</script>
 <script src="pdf.js"></script>
+<script src="shopfx.js"></script>
+<script src="shop_randis.js"></script>
+<script src="shopaudio.js"></script>
+<script src="shopads.js"></script>
 <script src="shop.js"></script>
 <script src="bots.js"></script>
 <script src="botsuite.js"></script>
 <script src="meter.js"></script>
+<script src="weather.js"></script>
 <script src="update.js"></script>
 <script src="ext.js"></script>
 </body>

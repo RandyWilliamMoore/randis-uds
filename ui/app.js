@@ -187,10 +187,13 @@ function closeTab(id) {
   if (i < 0) return;
   const tab = state.tabs[i];
   if (tab.dirty && tab.text && !confirm(`"${tab.title}" has unsaved changes. Close it anyway?`)) return;
-  if (tab.job) api() && api().chat_stop(tab.job);
+  if (tab.job && tab.kind !== "chat") api() && api().chat_stop(tab.job);
   if (tab.kind === "duck") Pong.stop();
   if (tab.run) api() && api().ide_run_stop(tab.run);
+  if (tab.webPanes && api()) clearWebFrames(tab, true);
+  mediaStopOwner("t" + tab.id);
   tab.pane.remove();
+  chatViews.delete(tab);
   state.tabs.splice(i, 1);
   dropEmptyGroups();
   if (!state.tabs.length) {
@@ -221,6 +224,10 @@ function findGroup(id) { return state.groups.find(g => g.id === id) || null; }
 
 const TAB_ICONS = { chat: "💬", ide: "🧰", notepad: "🗒️", duck: "🦆", built: "🧩", welcome: "➕" };
 function tabIcon(t) { return TAB_ICONS[t.kind] || "📄"; }
+const TAB_RMO = {"chat": "tab-chat", "ide": "tab-ide", "notepad": "tab-notepad", "duck": "tab-duck", "pdf": "tab-pdf", "shop": "tab-shop", "bots": "tab-bots", "botsuite": "tab-botsuite", "welcome": "tab-welcome", "built": "tab-built"};
+function builtMeta(t) { return t && t.kind === "built" && t.builtId ? (state.built || []).find(b => b.id === t.builtId) : null; }
+function tabRmo(t) { const m = builtMeta(t), n = (m && m.icon) || TAB_RMO[t.kind]; return window.RandisEmoji && n && RandisEmoji.has(n) ? n : null; }
+function fillTabIcon(span, t) { const n = tabRmo(t); if (n) span.innerHTML = RandisEmoji.html(n, "16px"); else span.textContent = tabIcon(t); }
 
 function renderTabs() {
   const bar = $("#tabs");
@@ -241,12 +248,12 @@ function renderTabs() {
     el.title = t.path || t.title;
     const title = document.createElement("span");
     title.className = "title";
-    title.textContent = (t.dirty ? "● " : "") + (t.job ? "… " : "") + (t.kind === "welcome" ? "New tab" : t.title);
+    title.textContent = (t.dirty ? "● " : "") + (t.job ? "… " : "") + (t.kind === "welcome" ? "New tab" : ((builtMeta(t) || {}).name || t.title) + (t.kind === "built" && t.builtId ? verTag(t.builtId) : ""));
     const x = document.createElement("button");
     x.className = "close"; x.textContent = "×"; x.title = "Close (Ctrl+W)";
     x.addEventListener("click", e => { e.stopPropagation(); closeTab(t.id); });
     const icon = document.createElement("span");
-    icon.className = "tab-icon"; icon.textContent = tabIcon(t);
+    icon.className = "tab-icon"; fillTabIcon(icon, t);
     el.classList.toggle("marked", !!(t.dirty || t.job));
     el.append(icon, title, x);
     el.addEventListener("mousedown", e => { if (e.button === 1) { e.preventDefault(); closeTab(t.id); } });
@@ -344,7 +351,9 @@ function adoptTabs(payload) {
   for (const c of payload.chats || []) {
     const i = state.chats.findIndex(x => x.id === c.id);
     if (i >= 0) state.chats[i] = c; else state.chats.unshift(c);
+    for (const t of chatTabs(c.id)) { renderMessages(t); renderHistory(t); }
   }
+  scheduleSave();
   let last = null;
   for (const t of payload.tabs || []) { const { id, ...rest } = t; last = addTab(t.kind, Object.assign(rest, { id: nextId, group: null })); }
   if (last) selectTab(last.id);
@@ -548,6 +557,16 @@ function openModal(title, body) {
 function closeModal() { $("#modal").hidden = true; }
 
 function el(tag, props = {}, text = "") { const e = Object.assign(document.createElement(tag), props); if (text) e.textContent = text; return e; }
+function followEnd(box, force) {
+  if (!box) return;
+  if (!box._follow) {
+    box._follow = { on: true };
+    box.addEventListener("scroll", () => { box._follow.on = box.scrollHeight - box.scrollTop - box.clientHeight < 40; }, { passive: true });
+    box.addEventListener("wheel", e => { if (e.deltaY < 0) box._follow.on = false; }, { passive: true });
+  }
+  if (force) box._follow.on = true;
+  if (box._follow.on) box.scrollTop = box.scrollHeight;
+}
 
 async function linkLocal() {
   const a = api(); if (!a) return toast("Linking needs the app window.");
@@ -635,14 +654,15 @@ async function afterClaudeCode(reload) {
   if (!reload) return;
   if (reload.tabs) {
     await refreshBuilt();
-    for (const t of state.tabs) if (t.kind === "built" && t.builtId) loadBuilt(t);
+    const ids = reload.tab_ids && reload.tab_ids.map(s => s.toLowerCase());
+    for (const t of state.tabs) if (t.kind === "built" && t.builtId && (!ids || ids.includes(String(t.builtId).toLowerCase()))) loadBuilt(t);
     for (const t of state.tabs) if (t.kind === "chat") renderHistory(t);
   }
   if (reload.duck) for (const t of state.tabs) if (t.kind === "duck") loadDuck(t);
 }
 
 async function ccRestore(tab, m, which) {
-  if (tab.job) return toast("Wait for the reply to finish, or press Stop.");
+  if (tab.job || runs[tab.chatId]) return toast("Wait for the reply to finish, or press Stop.");
   const undo = which === "undo";
   const r = await api().cc_restore(undo ? m.cc.before : m.cc.after, undo ? "undo of a Claude Code turn" : "redo of a Claude Code turn");
   if (r.error) return toast(r.error);
@@ -708,7 +728,7 @@ $("#modal").addEventListener("click", async e => {
   if (t.dataset.act === "claude-check") claudeCheck();
   if (t.dataset.act === "claude-link") tryLink({ kind: "claude", key: $("#modal input.api-key").value.trim(), model: $("#modal select.claude-model").value });
   if (t.dataset.act === "item-open-go") {
-    const r = await api().item_fetch(t.dataset.item);
+    const r = await api().item_fetch(t.dataset.item, t.dataset.shop || null);
     closeModal();
     if (r.error) return toast(r.error);
     return openItem(r.meta);
@@ -733,6 +753,7 @@ function findChat(id) { return state.chats.find(c => c.id === id) || null; }
 function buildChat(tab) {
   const pane = $("#chat-tpl").content.firstElementChild.cloneNode(true);
   tab.pane = pane;
+  chatViews.add(tab);
   const ta = $(".composer textarea", pane);
   ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendFromComposer(tab); } });
   pane.addEventListener("click", e => {
@@ -740,7 +761,7 @@ function buildChat(tab) {
     if (!t) return;
     const act = t.dataset.act;
     if (act === "send") sendFromComposer(tab);
-    else if (act === "stop" && tab.job) api().chat_stop(tab.job);
+    else if (RUN_ACTS.includes(act)) runAct(tab, act, t);
     else if (act === "newchat") showChat(tab, newChat().id);
     else if (act === "collapse" || act === "expand") {
       pane.classList.toggle("side-hidden", act === "collapse");
@@ -767,12 +788,11 @@ function fillLlmPick(tab) {
 }
 
 function showChat(tab, chatId) {
-  if (tab.job) return toast("Wait for the reply to finish, or press Stop.");
   const other = state.tabs.find(t => t !== tab && t.chatId === chatId);
   if (other) return selectTab(other.id);
   tab.chatId = chatId;
   tab.title = findChat(chatId).title;
-  renderMessages(tab); renderHistory(tab); renderTabs(); scheduleSave();
+  renderMessages(tab); renderHistory(tab); renderTabs(); scheduleSave(); paintRun(findChat(chatId));
   $(".composer textarea", tab.pane).focus();
 }
 
@@ -798,7 +818,8 @@ function renderMessages(tab) {
   const chat = findChat(tab.chatId);
   if (!chat.messages.length) box.appendChild(el("p", { className: "muted empty" }, "What would you like to do?"));
   for (const m of chat.messages) box.appendChild(bubble(m));
-  box.scrollTop = box.scrollHeight;
+  followEnd(box);
+  paintRun(chat);
 }
 
 function bubble(m) {
@@ -806,6 +827,11 @@ function bubble(m) {
   b.textContent = m.error ? "⚠ " + m.error + (m.content ? "\n\n" + m.content : "") : (m.content || m.status || "…");
   b._msg = m;
   if (m.pending && m.content && m.status && m.kind === "claudecode") b.appendChild(el("div", { className: "muted small cc-status" }, m.status));
+  const foot = [m.note, m.took && !m.pending ? "took " + fmtSecs(m.took.secs) + (m.took.out ? " · " + fmtTok(m.took.in) + " in · " + fmtTok(m.took.out) + " out tokens" : "") : ""].filter(Boolean).join(" · ");
+  if (foot) b.dataset.foot = foot;
+  if (m.role === "assistant" && !m.pending && (m.error || m.note)) {
+    const r = el("button", { className: "pill retry", title: "Ask the same thing again" }); r.setAttribute("aria-label", "Retry"); r.dataset.act = "retry"; b.appendChild(r);
+  }
   if (m.cc && !m.pending) b.appendChild(ccInfo(m));
   if (m.role === "assistant" && !m.pending && !m.error && /```html|<html/i.test(m.content)) {
     const open = el("button", { className: "pill open-tab" }, m.builtId ? "Open its tab" : "Open as tab");
@@ -818,7 +844,7 @@ function bubble(m) {
 function sendFromComposer(tab) {
   const ta = $(".composer textarea", tab.pane);
   const text = ta.value.trim();
-  if (!text || tab.job) return;
+  if (!text) return;
   if (!activeLlm()) return toast(NEEDS_LLM);
   ta.value = "";
   sendMessage(tab, text);
@@ -830,42 +856,231 @@ function startChatFromWelcome(tab, text) {
   sendMessage(tab, text);
 }
 
-async function sendMessage(tab, text) {
-  const chat = findChat(tab.chatId);
+const runs = {};
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+const chatViews = new Set();
+function chatTabs(chatId) {
+  const out = [];
+  for (const v of chatViews) {
+    if (!v.pane || !v.pane.isConnected) continue;
+    if (v.chatId === chatId) out.push(v);
+  }
+  return out;
+}
+
+function sendMessage(tab, text) { return sendToChat(findChat(tab.chatId), text, tab); }
+
+async function sendToChat(chat, text, tab) {
+  if (!chat) return;
   const rec = activeLlm();
+  if (!rec) return toast(NEEDS_LLM);
+  if (runs[chat.id]) {
+    (chat.queue = chat.queue || []).push(text);
+    paintRun(chat); scheduleSave();
+    return;
+  }
   if (!chat.messages.length) {
     chat.title = text.length > 40 ? text.slice(0, 40) + "…" : text;
-    tab.title = chat.title;
+    for (const t of chatTabs(chat.id)) t.title = chat.title;
+    if (tab) tab.title = chat.title;
   }
   const history = chat.messages.filter(m => !m.error && m.content);
   chat.messages.push({ role: "user", content: text });
+  for (const t of chatTabs(chat.id)) if (t.pane) followEnd($(".msgs", t.pane), true);
   const reply = { role: "assistant", content: "", status: "starting", pending: true, llm: rec.name, kind: rec.kind };
   chat.messages.push(reply);
-  renderMessages(tab); renderHistory(tab);
-  setBusy(tab, "starting");
-  let r;
+  const run = runs[chat.id] = { job: null, reply, paused: false, seen: Date.now(), meter: null };
+  for (const t of chatTabs(chat.id)) { renderMessages(t); renderHistory(t); }
+  paintRun(chat); renderTabs(); scheduleSave();
   try {
-    tab.job = await api().chat_start(rec, history.concat([{ role: "user", content: text }]), chat.id, tabPerms(tab));
-    renderTabs();
-    for (;;) {
-      await new Promise(res => setTimeout(res, 120));
-      r = await api().chat_poll(tab.job);
-      reply.content = r.text; reply.status = r.status;
-      if (r.extra) reply.cc = r.extra;
-      updateLastBubble(tab, reply);
-      if (r.done) break;
-    }
-    if (r.error) reply.error = r.error;
+    run.job = await api().chat_start(rec, history.concat([{ role: "user", content: text }]), chat.id, tabPerms(tab || chatTabs(chat.id)[0] || {}));
   } catch (e) {
     reply.error = String(e);
+    return finishRun(chat, run);
   }
+  if (run.stopped || run.restart != null) api().chat_stop(run.job);
+  followRun(chat, run);
+}
+
+async function followRun(chat, run) {
+  const reply = run.reply;
+  let r = null, fails = 0;
+  for (;;) {
+    await sleep(400);
+    try {
+      r = await api().chat_poll(run.job);
+      fails = 0;
+    } catch (e) {
+      if (++fails < 25) { paintRun(chat); continue; }
+      r = { done: true, error: "Lost touch with the app: " + e };
+    }
+    run.seen = Date.now();
+    reply.content = r.text || reply.content; reply.status = r.status;
+    run.meter = r.meter || run.meter;
+    run.paused = !!(r.meter && r.meter.paused);
+    if (r.extra) reply.cc = r.extra;
+    for (const t of chatTabs(chat.id)) updateLastBubble(t, reply);
+    paintRun(chat);
+    if (r.done) break;
+  }
+  if (r.error && !run.stopped && run.restart == null) reply.error = r.error;
+  finishRun(chat, run);
+}
+
+async function finishRun(chat, run) {
+  const reply = run.reply, m = run.meter;
+  if (m) reply.took = { secs: m.elapsed, out: m.tokens_out || 0, in: m.tokens_in || 0 };
+  if (run.stopped && !reply.error) reply.note = "Stopped by you.";
   delete reply.pending; delete reply.status;
-  tab.job = null;
-  updateLastBubble(tab, reply);
-  setBusy(tab, null);
-  renderTabs(); scheduleSave();
-  logShot("chats", chat.id, chat.title, reply.error ? "error" : "reply");
+  delete runs[chat.id];
+  if (run.restart != null) {
+    const i = chat.messages.indexOf(reply);
+    if (i > 0) chat.messages.splice(i - 1, 2);
+    for (const t of chatTabs(chat.id)) renderMessages(t);
+    return sendToChat(chat, run.restart);
+  }
+  for (const t of chatTabs(chat.id)) updateLastBubble(t, reply);
+  if (run.stopped) chat.queueHeld = true;
+  paintRun(chat); renderTabs(); scheduleSave();
+  if (typeof logShot === "function") logShot("chats", chat.id, chat.title, reply.error ? "error" : "reply");
   if (reply.cc) await afterClaudeCode(reply.cc.reload);
+  nextInQueue(chat);
+}
+
+function nextInQueue(chat) {
+  if (runs[chat.id] || chat.queueHeld || !chat.queue || !chat.queue.length) return paintRun(chat);
+  sendToChat(chat, chat.queue.shift());
+}
+
+function lastUserText(chat, before) {
+  const i = before == null ? chat.messages.length : chat.messages.indexOf(before);
+  for (let k = i - 1; k >= 0; k--) if (chat.messages[k].role === "user") return chat.messages[k].content;
+  return null;
+}
+
+function runAct(tab, act, target) {
+  const chat = findChat(tab.chatId), run = chat && runs[chat.id];
+  if (!chat) return;
+  if (act === "stop" && run) { run.stopped = true; if (run.job) api().chat_stop(run.job); paintRun(chat); }
+  else if (act === "pause" && run && run.job) {
+    api().chat_pause(run.job, !run.paused).then(p => { run.paused = !!p; paintRun(chat); });
+  }
+  else if (act === "restart" && run) { run.restart = lastUserText(chat, run.reply) || ""; if (run.job) api().chat_stop(run.job); paintRun(chat); }
+  else if (act === "retry" && !run) {
+    const m = target.closest(".msg")._msg, i = chat.messages.indexOf(m);
+    const text = lastUserText(chat, m);
+    if (i < 1 || text == null) return;
+    chat.messages.splice(i - 1, 2);
+    renderMessages(tab);
+    sendToChat(chat, text, tab);
+  }
+  else if (act === "q-drop") { chat.queue.splice(+target.dataset.i, 1); paintRun(chat); scheduleSave(); }
+  else if (act === "q-up") { const i = +target.dataset.i; if (i > 0) chat.queue.splice(i - 1, 0, chat.queue.splice(i, 1)[0]); paintRun(chat); scheduleSave(); }
+  else if (act === "q-edit") {
+    const ta = $(".composer textarea", tab.pane);
+    ta.value = chat.queue.splice(+target.dataset.i, 1)[0]; ta.focus(); paintRun(chat); scheduleSave();
+  }
+  else if (act === "q-run") { chat.queueHeld = false; nextInQueue(chat); scheduleSave(); }
+  else if (act === "q-hold") { chat.queueHeld = true; paintRun(chat); scheduleSave(); }
+  else if (act === "q-clear") { chat.queue = []; chat.queueHeld = false; paintRun(chat); scheduleSave(); }
+}
+const RUN_ACTS = ["stop", "pause", "restart", "retry", "q-drop", "q-up", "q-edit", "q-run", "q-hold", "q-clear"];
+
+function fmtSecs(s) {
+  s = Math.max(0, Math.round(s || 0));
+  return s < 60 ? s + "s" : s < 3600 ? Math.floor(s / 60) + "m " + (s % 60) + "s" : Math.floor(s / 3600) + "h " + Math.floor(s % 3600 / 60) + "m";
+}
+function fmtTok(n) { return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n); }
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function meterText(run) {
+  const m = run.meter || {}, bits = [];
+  const quiet = (Date.now() - run.seen) / 1000;
+  const secs = m.elapsed == null ? null : m.elapsed + (run.paused ? 0 : (Date.now() - run.seen) / 1000);
+  bits.push(secs == null ? "starting" : fmtSecs(secs));
+  if (m.tokens_out || m.tokens_in) bits.push("↑ " + fmtTok(m.tokens_in || 0) + " in · ↓ " + fmtTok(m.tokens_out || 0) + " out tokens");
+  if (m.cpu != null) bits.push("CPU " + m.cpu + "% · RAM " + m.ram_mb + " MB" + (m.procs > 1 ? " (" + m.procs + " processes)" : ""));
+  if (m.where === "server") bits.push("model runs on the provider's GPUs");
+  if (m.gpu) bits.push((m.where === "pc" ? "GPU " : "this PC's GPU ") + m.gpu.util + "% · " + (m.gpu.mem_mb / 1024).toFixed(1) + "/" + (m.gpu.total_mb / 1024).toFixed(0) + " GB");
+  else if (m.where === "pc") bits.push("no GPU use measured (CPU only)");
+  if (quiet > 3) bits.push("⚠ no word from the app for " + Math.round(quiet) + "s");
+  return bits.join(" · ");
+}
+
+function paintRun(chat) {
+  const run = runs[chat.id], q = chat.queue || [];
+  for (const t of chatTabs(chat.id)) {
+    t.job = run ? (run.job || "starting") : null;
+    const bar = $(".run-bar", t.pane), qbox = $(".run-queue", t.pane);
+    if (!bar || !qbox) continue;
+    bar.hidden = !run;
+    if (run) {
+      bar.classList.toggle("paused", run.paused);
+      bar.classList.toggle("stalled", (Date.now() - run.seen) / 1000 > 3);
+      $(".run-what", t.pane).textContent = run.paused ? "Paused" : run.stopped ? "Stopping…" : run.restart != null ? "Restarting…"
+        : cap((run.reply.status || "working").replace(/^waiting for a free turn.*/, "waiting for a free slot (other chats are working)")) + "…";
+      $(".run-meter", t.pane).textContent = meterText(run);
+      const p = $("[data-act=pause]", t.pane);
+      p.textContent = run.paused ? "Resume" : "Pause";
+      p.disabled = !run.job;
+    }
+    qbox.textContent = "";
+    qbox.hidden = !q.length;
+    if (q.length) {
+      const head = el("div", { className: "run-q-head muted small" },
+        (chat.queueHeld ? "Queue held · " : "Queued, runs next · ") + q.length + " waiting ");
+      for (const [act, label] of [[chat.queueHeld ? "q-run" : "q-hold", chat.queueHeld ? "Run queue" : "Hold"], ["q-clear", "Clear"]]) {
+        const b = el("button", { className: "pill" }, label); b.dataset.act = act; head.appendChild(b);
+      }
+      qbox.appendChild(head);
+      q.forEach((text, i) => {
+        const row = el("div", { className: "run-q-item" }, el("span", { className: "run-q-text" }, (i + 1) + ". " + text));
+        for (const [act, label, tip] of [["q-up", "↑", "Move up"], ["q-edit", "✎", "Edit"], ["q-drop", "✕", "Remove"]]) {
+          const b = el("button", { className: "icon", title: tip }, label); b.dataset.act = act; b.dataset.i = i; row.appendChild(b);
+        }
+        qbox.appendChild(row);
+      });
+    }
+    const send = $("[data-act=send]", t.pane);
+    if (send) send.textContent = run ? "Queue" : "Send";
+  }
+}
+
+setInterval(() => { for (const id in runs) { const c = findChat(id); if (c) paintRun(c); } }, 1000);
+
+async function adoptRunning() {
+  let live = [];
+  try { if (api() && api().chat_running) live = await api().chat_running(); } catch (e) { live = []; }
+  const by = {};
+  for (const j of live || []) if (j.chat) by[j.chat] = j;
+  const follow = [];
+  for (const c of state.chats) {
+    const j = by[c.id], last = c.messages[c.messages.length - 1];
+    let reply = null;
+    if (j && !runs[c.id]) {
+      reply = last && last.role === "assistant" && (last.pending || (!last.content && last.error)) ? last : null;
+      if (!reply) { reply = { role: "assistant", content: "", llm: "", kind: "" }; c.messages.push(reply); }
+      delete reply.error;
+      Object.assign(reply, { pending: true, status: j.status, content: j.text || "" });
+      follow.push([c, reply, j.job]);
+    }
+    for (const m of c.messages) if (m.pending && m !== reply) {
+      delete m.pending; delete m.status;
+      if (!m.content) m.error = "Interrupted: the app closed before the reply finished. Press Retry to ask again.";
+      else m.note = "Cut off: the app closed before this reply finished.";
+    }
+  }
+  return follow;
+}
+function followAdopted(follow) {
+  for (const [c, reply, job] of follow) {
+    const run = runs[c.id] = { job, reply, paused: false, seen: Date.now(), meter: null };
+    for (const t of chatTabs(c.id)) renderMessages(t);
+    paintRun(c);
+    followRun(c, run);
+  }
+  for (const c of state.chats) if (!runs[c.id] && c.queue && c.queue.length) paintRun(c);
 }
 
 function logShot(kind, id, title, why) {
@@ -885,7 +1100,7 @@ function updateLastBubble(tab, m) {
   const box = $(".msgs", tab.pane);
   const last = box.lastElementChild;
   if (last) last.replaceWith(bubble(m));
-  box.scrollTop = box.scrollHeight;
+  followEnd(box);
 }
 
 function setBusy(tab, status) {
@@ -893,20 +1108,36 @@ function setBusy(tab, status) {
   $("[data-act=stop]", tab.pane).hidden = !status;
 }
 
-async function refreshBuilt() { state.built = await api().built_list(); }
+async function refreshBuilt() { state.built = await api().built_list(); if ($("#tabs")) renderTabs(); }
+
+function verTag(id) { const m = (state.built || []).find(b => b.id === id); return m && m.current ? " v" + m.current : ""; }
 
 function nameFrom(text) {
   const t = text.replace(/^(please\s+)?(make|build|create)\s+(me\s+)?(a|an)\s+(new\s+)?(tab\s+)?(that|with|for)?\s*/i, "").trim() || text;
   return t.length > 28 ? t.slice(0, 28) + "…" : t.charAt(0).toUpperCase() + t.slice(1);
 }
 
+function menuOpen() { try { return JSON.parse(localStorage.getItem("uds.menuOpen") || "{}") || {}; } catch (e) { return {}; } }
 function renderBuiltMenu() {
   const box = $("#built-menu");
   box.textContent = "";
   if (!state.built.length) return;
   box.appendChild(document.createElement("hr"));
-  box.appendChild(el("div", { className: "menu-label" }, "Your tabs"));
-  for (const m of state.built) { const b = el("button", {}, "▣ " + m.name); b.dataset.built = m.id; box.appendChild(b); }
+  const SECS = ["Basics", "Games", "Create", "Learn", "Tools", "Money & Shop", "Life & Family", "Bots & AI"], open = menuOpen(), by = {};
+  for (const m of state.built) { const s = SECS.includes(m.section) && m.section !== "Basics" ? m.section : "Other"; (by[s] = by[s] || []).push(m); }
+  for (const s of [...SECS, "Other"]) {
+    const list = (by[s] || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+    if (!list.length) continue;
+    const det = el("details", { className: "menu-sec" }); det.open = !!open[s]; det.dataset.sec = s;
+    det.appendChild(el("summary", { className: "menu-label" }, s + " (" + list.length + ")"));
+    for (const m of list) {
+      const b = el("button", {}); b.dataset.built = m.id;
+      const ic = el("span", { className: "tab-icon" }); fillTabIcon(ic, { kind: "built", builtId: m.id });
+      b.append(ic, document.createTextNode(" " + m.name + (m.current ? " v" + m.current : ""))); det.appendChild(b);
+    }
+    det.addEventListener("toggle", () => { const o = menuOpen(); o[s] = det.open; try { localStorage.setItem("uds.menuOpen", JSON.stringify(o)); } catch (e) {} });
+    box.appendChild(det);
+  }
 }
 
 async function refreshTemplates() { state.templates = await api().template_list(); }
@@ -975,6 +1206,19 @@ function buildBuilt(tab) {
   input.placeholder = tab.builtId ? "Ask or describe a change, e.g. make the buttons bigger" : "Describe the tab you want";
   input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runBuild(tab, input.value.trim()); } });
   const studio = $(".tab-studio", pane);
+  const grow = () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight + 2, innerHeight * 0.55) + "px"; };
+  input.addEventListener("input", grow);
+  const savedW = +localStorage.getItem("udsTabChatW");
+  if (savedW >= 300) studio.style.width = savedW + "px";
+  const grip = $(".studio-grip", pane);
+  grip.addEventListener("pointerdown", e => {
+    e.preventDefault(); grip.setPointerCapture(e.pointerId); grip.classList.add("drag");
+    const x0 = e.clientX, w0 = studio.offsetWidth;
+    $("iframe", pane).style.pointerEvents = "none";
+    const move = ev => { studio.style.width = Math.max(300, Math.min(innerWidth * 0.8, w0 + x0 - ev.clientX)) + "px"; };
+    const up = () => { grip.removeEventListener("pointermove", move); grip.classList.remove("drag"); $("iframe", pane).style.pointerEvents = ""; localStorage.setItem("udsTabChatW", studio.offsetWidth); };
+    grip.addEventListener("pointermove", move); grip.addEventListener("pointerup", up, { once: true });
+  });
   pane.addEventListener("click", async e => {
     const act = e.target.dataset.act;
     if (act === "chat-toggle") { studio.hidden = !studio.hidden; if (!studio.hidden) { await tabChatLoad(tab); input.focus(); } }
@@ -1019,7 +1263,7 @@ function fillVersions(tab, meta, n) {
   const sel = $(".versions", tab.pane);
   sel.textContent = "";
   for (const v of meta.versions.slice().reverse()) {
-    const label = `v${v.n} · ${v.note.length > 36 ? v.note.slice(0, 36) + "…" : v.note}`;
+    const label = `v${v.n}${v.uds ? " · UDS " + v.uds : ""} · ${v.note.length > 36 ? v.note.slice(0, 36) + "…" : v.note}`;
     sel.appendChild(el("option", { value: v.n, selected: v.n === n }, label));
   }
 }
@@ -1041,11 +1285,13 @@ function watchShopLinks() {
   if (WIN || !api()) return;
   setInterval(async () => {
     const a = api(); if (!a || !$("#modal").hidden) return;
-    const item = await a.item_request();
-    if (!item) return;
+    let req = await a.item_request();
+    if (!req) return;
+    if (typeof req === "string") req = { item: req, shop: null, shop_name: "the Randis Shop" };
+    const item = req.item, from = req.shop_name || req.shop || "the Randis Shop";
     const go = el("button", { className: "pill primary" }, "Open it");
-    go.dataset.act = "item-open-go"; go.dataset.item = item;
-    openModal("Open this from the Randis Shop?", [el("p", {}, `A link asked to open ${item.split("/").pop()} from the shop. Open it as a tab here?`),
+    go.dataset.act = "item-open-go"; go.dataset.item = item; go.dataset.shop = req.shop || "";
+    openModal(`Open this from ${from}?`, [el("p", {}, `A link asked to open ${item.split("/").pop()} from ${from}${req.shop ? ` (${req.shop.split("/")[0].toLowerCase()}.github.io/${req.shop.split("/")[1]})` : ""}. Open it as a tab here?`),
       el("p", { className: "muted" }, "It runs walled off: no internet and no access to your files. If you link an LLM to edit it, remember its text could try to mislead the LLM."), go]);
   }, 1500);
 }
@@ -1059,11 +1305,15 @@ function webAddressOk(u) {
 function builtTabOf(src) {
   return state.tabs.find(t => t.kind === "built" && t.builtId && t.pane && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === src);
 }
+mediaRelayStart(src => {
+  const t = builtTabOf(src); if (!t) return null;
+  return { key: "t" + t.id, ok: !!t.media, mark: on => t.pane && t.pane.classList.toggle("media-live", !!on),
+    post: (m, tr) => { const f = t.pane && $("iframe", t.pane); if (f && f.contentWindow) f.contentWindow.postMessage(m, "*", tr || []); } };
+});
 function tellPage(tab, msg) { const f = tab.pane && $("iframe", tab.pane); if (f && f.contentWindow) f.contentWindow.postMessage(msg, "*"); }
 function paneKey(tab, id) { return tab.builtId + ":" + String(id).slice(0, 40); }
-function clearWebFrames(tab) {
-  for (const id of Object.keys(tab.webPanes || {})) api().webpane_close(WIN, paneKey(tab, id));
-  tab.webPanes = {};
+function clearWebFrames(tab, all) {
+  for (const [id, p] of Object.entries(tab.webPanes || {})) if (all || !p.local) { api().webpane_close(WIN, paneKey(tab, id)); delete tab.webPanes[id]; }
 }
 window.webPaneEvent = info => {
   const tab = state.tabs.find(t => t.kind === "built" && t.builtId && info.key.startsWith(t.builtId + ":"));
@@ -1083,7 +1333,7 @@ function syncPanes() {
     const box = page && page.getClientRects().length ? page.getBoundingClientRect() : null;
     for (const [id, p] of Object.entries(tab.webPanes)) {
       let x = 0, y = 0, w = 0, h = 0, show = false;
-      if (box && p.rect && p.shown && p.url && tab.web) {
+      if (box && p.rect && p.shown && p.url && (tab.web || p.local)) {
         const r = p.rect, W = box.width, H = box.height;
         const lx = Math.min(Math.max(0, r.x), W), ly = Math.min(Math.max(0, r.y), H);
         const left = box.left + lx, top = box.top + ly, rw = Math.min(r.w, W - lx), rh = Math.min(r.h, H - ly);
@@ -1100,11 +1350,27 @@ function syncPanes() {
 setInterval(syncPanes, 150);
 window.addEventListener("message", async e => {
   const d = e.data;
-  if (!d || typeof d.uds !== "string" || !/^(web|store)/.test(d.uds) || !api()) return;
+  if (!d || typeof d.uds !== "string" || !/^(web|store|emu)/.test(d.uds) || !api()) return;
   const tab = builtTabOf(e.source);
   if (!tab) return;
   if (d.uds === "store-get") return tellPage(tab, { uds: "store", data: await api().built_store_get(tab.builtId) });
   if (d.uds === "store-set") { const r = await api().built_store_set(tab.builtId, d.data); if (r && r.error) tellPage(tab, { uds: "store-error", note: r.error }); return; }
+  if (d.uds === "emu" || d.uds === "emu-close") {
+    if (typeof api().emu_open !== "function") return tellPage(tab, { uds: "emu-error", note: "Close and reopen the app to use the offline emulator." });
+    tab.webPanes = tab.webPanes || {};
+    const id = "emu:" + String(d.id || "main").slice(0, 30);
+    if (d.uds === "emu-close") { if (tab.webPanes[id]) { delete tab.webPanes[id]; api().webpane_close(WIN, paneKey(tab, id)); } return; }
+    const p = tab.webPanes[id] = tab.webPanes[id] || { url: "", shown: false, rect: null, local: true };
+    if (d.open && (!p.url || d.reload)) {
+      const r = await api().emu_open(WIN, paneKey(tab, id), !!d.reload);
+      if (!r || r.error) { delete tab.webPanes[id]; return tellPage(tab, { uds: "emu-error", note: (r && r.error) || "Couldn't start the emulator." }); }
+      p.url = r.url; tellPage(tab, { uds: "emu-ready" });
+    }
+    if (d.rect) p.rect = { x: +d.rect.x || 0, y: +d.rect.y || 0, w: +d.rect.w || 0, h: +d.rect.h || 0 };
+    if (d.show !== undefined) p.shown = !!d.show;
+    syncPanes();
+    return;
+  }
   if (d.uds === "web-hello") { tab.webHello = true; return tellPage(tab, { uds: "web-state", on: !!tab.web }); }
   if (!tab.webHello) return;
   if (!tab.web) return tellPage(tab, { uds: "web-state", on: false });
@@ -1168,6 +1434,93 @@ window.addEventListener("message", async e => {
   post(r.error ? { done: true, error: r.error } : { done: true, text: r.text || "" });
 });
 
+let plannerBusy = false;
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "planner-ask" || !api()) return;
+  const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
+  if (!tab) return;
+  const id = String(e.data.id || "").slice(0, 40);
+  const post = m => { try { e.source.postMessage(Object.assign({ uds: "planner", id }, m), "*"); } catch (_) {} };
+  if (typeof api().planner_ask !== "function")
+    return post({ done: true, error: "Randis UDS needs a restart first: close the app and open it again (Reload isn't enough)." });
+  const rec = activeLlm();
+  if (!rec) return post({ done: true, error: "link an AI in Randis UDS first (the LLM button), then try again." });
+  if (plannerBusy) return post({ done: true, error: "already answering another item; wait for it to finish." });
+  plannerBusy = true;
+  post({ status: `Asking ${rec.name}…` });
+  let r = { text: "", error: null };
+  try {
+    const job = await api().planner_ask(rec, Array.isArray(e.data.history) ? e.data.history : [], String(e.data.context || ""));
+    if (job && job.error) throw new Error(job.error);
+    for (;;) {
+      await new Promise(res => setTimeout(res, 300));
+      r = await api().chat_poll(job);
+      if (r.done) break;
+      post({ status: `${rec.name} is writing…`, text: r.text || "" });
+    }
+  } catch (err) { r = { text: "", error: String(err.message || err) }; }
+  plannerBusy = false;
+  post(r.error ? { done: true, error: r.error } : { done: true, text: r.text || "" });
+});
+
+let officeBusy = false;
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "office-ask" || !api()) return;
+  const tab = builtTabOf(e.source);
+  if (!tab) return;
+  const id = String(e.data.id || "").slice(0, 40);
+  const post = m => { try { e.source.postMessage(Object.assign({ uds: "office", id }, m), "*"); } catch (_) {} };
+  if (typeof api().office_ask !== "function")
+    return post({ done: true, error: "Randis UDS needs a restart first: close the app and open it again (Reload isn't enough)." });
+  const rec = activeLlm();
+  if (!rec) return post({ done: true, error: "link an AI in Randis UDS first (the LLM button), then try again." });
+  if (officeBusy) return post({ done: true, error: "already building a product; wait for it to finish." });
+  officeBusy = true;
+  post({ status: `Asking ${rec.name}…` });
+  let r = { text: "", error: null };
+  try {
+    const job = await api().office_ask(rec, Array.isArray(e.data.history) ? e.data.history : [], String(e.data.page || ""));
+    if (job && job.error) throw new Error(job.error);
+    for (;;) {
+      await new Promise(res => setTimeout(res, 300));
+      r = await api().chat_poll(job);
+      if (r.done) break;
+      post({ status: `${rec.name} is writing…`, text: r.text || "" });
+    }
+  } catch (err) { r = { text: "", error: String(err.message || err) }; }
+  officeBusy = false;
+  post(r.error ? { done: true, error: r.error } : { done: true, text: r.text || "" });
+});
+
+let avatarBusy = false;
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "avatar-ask" || !api()) return;
+  const tab = builtTabOf(e.source);
+  if (!tab) return;
+  const id = String(e.data.id || "").slice(0, 40);
+  const post = m => { try { e.source.postMessage(Object.assign({ uds: "avatar", id }, m), "*"); } catch (_) {} };
+  if (typeof api().avatar_ask !== "function")
+    return post({ done: true, error: "Randis UDS needs a restart first: close the app and open it again (Reload isn't enough)." });
+  const rec = activeLlm();
+  if (!rec) return post({ done: true, error: "link an AI in Randis UDS first (the LLM button), then try again." });
+  if (avatarBusy) return post({ done: true, error: "still answering the last message; wait for it to finish." });
+  avatarBusy = true;
+  post({ status: `Asking ${rec.name}…` });
+  let r = { text: "", error: null };
+  try {
+    const job = await api().avatar_ask(rec, Array.isArray(e.data.history) ? e.data.history : [], String(e.data.persona || ""));
+    if (job && job.error) throw new Error(job.error);
+    for (;;) {
+      await new Promise(res => setTimeout(res, 250));
+      r = await api().chat_poll(job);
+      if (r.done) break;
+      post({ status: `${rec.name} is writing…`, text: r.text || "" });
+    }
+  } catch (err) { r = { text: "", error: String(err.message || err) }; }
+  avatarBusy = false;
+  post(r.error ? { done: true, error: r.error } : { done: true, text: r.text || "" });
+});
+
 let exportBusy = false;
 window.addEventListener("message", async e => {
   if (!e.data || e.data.uds !== "export-file" || !api()) return;
@@ -1199,6 +1552,40 @@ window.addEventListener("message", async e => {
     toast("Saved " + r.name);
   } catch (err) { reply(false, "Save failed: " + err + ". The file is still here; press Save to try again."); }
   finally { exportBusy = false; }
+});
+
+const folderJobs = new Map();
+window.addEventListener("message", async e => {
+  if (!e.data || !["export-folder", "folder-file", "folder-done"].includes(e.data.uds) || !api()) return;
+  const tab = builtTabOf(e.source);
+  if (!tab) return;
+  const d = e.data;
+  const post = m => { try { e.source.postMessage(m, "*"); } catch (_) {} };
+  const old = "Randis UDS needs a restart before it can save into a folder: close the app and open it again (Reload isn't enough).";
+  if (d.uds === "folder-done") { const t = folderJobs.get(tab); folderJobs.delete(tab); if (t && api().folder_export_close) await api().folder_export_close(t); return; }
+  if (d.uds === "export-folder") {
+    if (typeof api().folder_export_open !== "function") return post({ uds: "folder", ok: false, note: old });
+    const r = await api().folder_export_open(String(d.name || ""));
+    if (!r) return post({ uds: "folder", ok: false, note: "No folder chosen." });
+    if (r.error) return post({ uds: "folder", ok: false, note: r.error });
+    folderJobs.set(tab, r.token);
+    return post({ uds: "folder", ok: true, path: r.path });
+  }
+  const reply = (ok, note) => post({ uds: "folder-wrote", seq: d.seq, ok, note: note || "" });
+  const token = folderJobs.get(tab);
+  if (!token) return reply(false, "Pick a folder first.");
+  if (!(d.data instanceof Blob)) return reply(false, "Nothing to save.");
+  try {
+    const PIECE = 3 * 1024 * 1024;
+    for (let at = 0; ; at += PIECE) {
+      const last = at + PIECE >= d.data.size;
+      const b64 = await new Promise((ok, bad) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1] || ""); fr.onerror = () => bad(fr.error); fr.readAsDataURL(d.data.slice(at, at + PIECE)); });
+      const p = await api().folder_export_part(token, String(d.path || ""), b64, at === 0, last);
+      if (!p || p.error) return reply(false, (p && p.error) || "no answer");
+      if (last) break;
+    }
+    reply(true);
+  } catch (err) { reply(false, String(err)); }
 });
 
 let publishBusy = false;
@@ -1309,6 +1696,100 @@ window.addEventListener("message", async e => {
   finally { publishBusy = false; }
 });
 
+const VM_OPS = new Set(["status", "start", "frame", "key", "mouse", "reset", "stop", "list", "catalog", "create", "pick_iso", "remove", "settings", "download"]);
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "vm" || !VM_OPS.has(e.data.op) || !api() || typeof api().vm_call !== "function") {
+    if (e.data && e.data.uds === "vm" && api() && typeof api().vm_call !== "function")
+      e.source.postMessage({ uds: "vm", id: e.data.id, r: { error: "Close Randis UDS and open it again to finish setting this up." } }, "*");
+    return;
+  }
+  const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
+  if (!tab) return;
+  let r; try { r = await api().vm_call(tab.builtId, e.data.op, e.data.args || {}); } catch (err) { r = { error: String(err) }; }
+  try { e.source.postMessage({ uds: "vm", id: e.data.id, r }, "*"); } catch (_) {}
+});
+
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "studio" || !api()) return;
+  const tab = builtTabOf(e.source);
+  if (!tab) return;
+  let r;
+  if (typeof api().studio_call !== "function") r = { error: "Close Randis UDS and open it again to finish setting this up." };
+  else { try { r = await api().studio_call(tab.builtId, String(e.data.op || ""), e.data.args || {}); } catch (err) { r = { error: String(err) }; } }
+  if (e.data.op === "put_item" || e.data.op === "songs_here") refreshBuilt && refreshBuilt();
+  try { e.source.postMessage({ uds: "studio", id: e.data.id, r }, "*"); } catch (_) {}
+});
+
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "codelab" || !api()) return;
+  const tab = builtTabOf(e.source);
+  if (!tab) return;
+  const op = String(e.data.op || ""), args = Object.assign({}, e.data.args || {});
+  let r;
+  if (typeof api().codelab_call !== "function") r = { error: "Close Randis UDS and open it again to finish setting this up." };
+  else {
+    if (op === "ask" || op === "farm-ask") { const rec = activeLlm(); if (!rec) r = { error: "link an AI in Randis UDS first (the LLM button), then try again." }; else args.rec = rec; }
+    if (!r) { try { r = await api().codelab_call(tab.builtId, op, args); } catch (err) { r = { error: String(err) }; } }
+    if (op === "farm-ask" && r && r.job && !r.error) r.ai = activeLlm() ? activeLlm().name : "AI";
+    if (op === "farm-assistant" && r && r.ok) refreshBuilt && refreshBuilt();
+    if (op === "ask" && r && r.job && typeof r.job === "object") r = r.job;
+    if (op === "ask" && r && !r.error && !r.job) r = { error: "The AI didn't start." };
+    if (op === "ask" && r && r.job) r.ai = activeLlm() ? activeLlm().name : "AI";
+  }
+  try { e.source.postMessage({ uds: "codelab", id: e.data.id, r }, "*"); } catch (_) {}
+});
+
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "av" || !api()) return;
+  const tab = builtTabOf(e.source);
+  if (!tab) return;
+  const op = String(e.data.op || ""), args = Object.assign({}, e.data.args || {});
+  let r;
+  if (typeof api().av_call !== "function") r = { error: "Close Randis UDS and open it again to finish setting this up." };
+  else {
+    if (op === "ask") { const rec = activeLlm(); if (!rec) r = { error: "link an AI in Randis UDS first (the LLM button), then try again." }; else args.rec = rec; }
+    if (!r) { try { r = await api().av_call(tab.builtId, op, args); } catch (err) { r = { error: String(err) }; } }
+    if (op === "ask" && r && r.job && typeof r.job === "object") r = r.job;
+    if (op === "ask" && r && !r.error && !r.job) r = { error: "The AI didn't start." };
+    if (op === "ask" && r && r.job) r.ai = activeLlm() ? activeLlm().name : "AI";
+  }
+  try { e.source.postMessage({ uds: "av", id: e.data.id, r }, "*"); } catch (_) {}
+});
+
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "media" || !api()) return;
+  const tab = builtTabOf(e.source);
+  if (!tab) return;
+  const op = String(e.data.op || ""), args = Object.assign({}, e.data.args || {});
+  let r;
+  if (typeof api().media_call !== "function") r = { error: "Close Randis UDS and open it again to finish setting this up." };
+  else {
+    if (op === "ask") { const rec = activeLlm(); if (!rec) r = { error: "link an AI in Randis UDS first (the LLM button), then try again." }; else args.rec = rec; }
+    if (!r) { try { r = await api().media_call(tab.builtId, op, args); } catch (err) { r = { error: String(err) }; } }
+    if (op === "ask" && r && r.job && typeof r.job === "object") r = r.job;
+    if (op === "ask" && r && !r.error && !r.job) r = { error: "The AI didn't start." };
+    if (op === "ask" && r && r.job) r.ai = activeLlm() ? activeLlm().name : "AI";
+  }
+  try { e.source.postMessage({ uds: "media", id: e.data.id, r }, "*"); } catch (_) {}
+});
+
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "scout" || !api()) return;
+  const tab = builtTabOf(e.source);
+  if (!tab) return;
+  const op = String(e.data.op || ""), args = Object.assign({}, e.data.args || {});
+  let r;
+  if (typeof api().scout_call !== "function") r = { error: "Close Randis UDS and open it again to finish setting this up." };
+  else {
+    if (op === "ask") { const rec = activeLlm(); if (!rec) r = { error: "link an AI in Randis UDS first (the LLM button), then try again." }; else args.rec = rec; }
+    if (!r) { try { r = await api().scout_call(tab.builtId, op, args); } catch (err) { r = { error: String(err) }; } }
+    if (op === "ask" && r && r.job && typeof r.job === "object") r = r.job;
+    if (op === "ask" && r && !r.error && !r.job) r = { error: "The AI didn't start." };
+    if (op === "ask" && r && r.job) r.ai = activeLlm() ? activeLlm().name : "AI";
+  }
+  try { e.source.postMessage({ uds: "scout", id: e.data.id, r }, "*"); } catch (_) {}
+});
+
 const NET_ABC = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const netLinks = new Map();
 const netB64 = u => { let s = ""; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode(...u.subarray(i, i + 8192)); return btoa(s); };
@@ -1412,16 +1893,61 @@ window.addEventListener("message", async e => {
   netPump(L);
 });
 
+const SOUND_GUARD = `<script>(function(){
+var live=false,ctxs=[],held=new Set(),M=window.HTMLMediaElement&&HTMLMediaElement.prototype,P=M&&M.play,Q=M&&M.pause;
+var AC=window.AudioContext||window.webkitAudioContext,R=AC&&AC.prototype.resume,S=AC&&AC.prototype.suspend;
+function wake(e){if(live||!e.isTrusted)return;live=true;
+ ctxs.forEach(function(c){if(c.__want&&c.state==="suspended")R.call(c).catch(function(){});});
+ held.forEach(function(m){try{var p=P.call(m);if(p&&p.catch)p.catch(function(){});}catch(x){}});held.clear();}
+["pointerdown","mousedown","touchstart","keydown","click"].forEach(function(t){addEventListener(t,wake,true);});
+if(AC){
+ AC.prototype.resume=function(){this.__want=true;return live?R.call(this):Promise.resolve();};
+ AC.prototype.suspend=function(){this.__want=false;return S.call(this);};
+ var G=class extends AC{constructor(a){super(a);this.__want=true;ctxs.push(this);if(!live)S.call(this).catch(function(){});}};
+ try{window.AudioContext=G;window.webkitAudioContext=G;}catch(x){}}
+if(M){
+ M.play=function(){if(live)return P.call(this);held.add(this);return Promise.resolve();};
+ M.pause=function(){held.delete(this);return Q.call(this);};
+ document.addEventListener("play",function(e){if(!live&&e.target instanceof HTMLMediaElement){held.add(e.target);Q.call(e.target);}},true);}
+if(window.speechSynthesis){var SP=speechSynthesis.speak.bind(speechSynthesis);
+ try{speechSynthesis.speak=function(u){if(live)SP(u);};}catch(x){}}
+})();<\/script>`;
+
+let EMOJI_PACK = null;
+async function emojiPack(fresh) {
+  if (EMOJI_PACK && !fresh) return EMOJI_PACK;
+  try { EMOJI_PACK = api() && api().emoji_pack ? await api().emoji_pack() : null; } catch (e) { EMOJI_PACK = null; }
+  try { if (EMOJI_PACK && window.RandisEmoji) EMOJI_PACK.mine.forEach(e => { if (!RandisEmoji.has(e.name)) RandisEmoji.add(e.name, e.tags, e.inner, "shared"); }); } catch (e) {}
+  return EMOJI_PACK;
+}
+function withEmoji(html) {
+  const P = EMOJI_PACK; if (!P || !P.js) return html;
+  const mine = JSON.stringify(P.mine || []).replace(/</g, "\\u003c");
+  return String(html || "") + `<script>/* Randis Emoji (shared by the app) */if(!window.RandisEmoji){${P.js}
+};(function(){try{var R=window.RandisEmoji;(${mine}).forEach(function(e){try{if(!R.has(e.name))R.add(e.name,e.tags,e.inner,"shared")}catch(x){}});var go=function(){if(!window.__rmoObs){window.__rmoObs=1;R.observe(document.body)}};document.body?go():addEventListener("DOMContentLoaded",go)}catch(e){}})();<\/script>`;
+}
+function withSoundGuard(html) {
+  html = String(html || "");
+  for (const re of [/<head\b[^>]*>/i, /<html\b[^>]*>/i, /^\s*<!doctype[^>]*>/i]) {
+    const m = re.exec(html);
+    if (m) return html.slice(0, m.index + m[0].length) + SOUND_GUARD + html.slice(m.index + m[0].length);
+  }
+  return SOUND_GUARD + html;
+}
+
 async function loadBuilt(tab) {
   const a = api(); if (!a) return;
   netEnd(tab);
   const r = await a.built_load(tab.builtId);
   if (r.error) return buildStatus(tab, r.error, true);
-  clearWebFrames(tab);
+  await emojiPack(true);
+  clearWebFrames(tab, true);
   tab.webHello = false;
   tab.web = !!r.meta.web;
   $(".web-on", tab.pane).checked = tab.web;
-  $("iframe", tab.pane).srcdoc = r.html;
+  mediaStopOwner("t" + tab.id); tab.media = r.meta.media === true;
+  $("iframe", tab.pane).setAttribute("allow", tab.media ? "midi; camera; microphone" : "midi");
+  $("iframe", tab.pane).srcdoc = withMedia(withSoundGuard(withEmoji(r.html)), tab.media);
   $("iframe", tab.pane).hidden = false;
   $(".build-log", tab.pane).hidden = true;
   $(".built-body", tab.pane).classList.remove("no-page");
@@ -1455,7 +1981,7 @@ function tabChatSave(tab) {
 function tabLog(tab, who, text, err) {
   const log = $(".tab-studio .studio-log", tab.pane);
   const m = el("div", { className: "msg " + (who === "you" ? "user" : "assistant") + (err ? " error" : "") }, text);
-  log.appendChild(m); log.scrollTop = log.scrollHeight;
+  log.appendChild(m); followEnd(log, who === "you");
   return m;
 }
 
@@ -1492,7 +2018,7 @@ async function runBuild(tab, request) {
   if (!tab.chat && !(await tabChatLoad(tab))) return toast("Close Randis UDS and open it again to use the tab chat.");
   const isNew = !tab.builtId;
   const input = $(".modify", tab.pane), frame = $("iframe", tab.pane), log = $(".tab-studio .studio-log", tab.pane);
-  input.value = "";
+  input.value = ""; input.style.height = "";
   const history = [...tab.chat.slice(-12), { role: "user", content: request }].filter(m => !m.error)
     .map(m => ({ role: m.role, content: (m.content || "(no words)") + (m.version ? `\n[The app saved this change as version ${m.version}.]` : "") }));
   tab.chat.push({ role: "user", content: request });
@@ -1515,7 +2041,7 @@ async function runBuild(tab, request) {
                             : r.status && r.status !== "writing" ? r.status : "";
       view.note.hidden = !view.note.textContent;
       buildStatus(tab, tabHasPage(r.text) ? `writing the new page… ${code} characters` : (r.status || "writing") + "…");
-      if (atEnd) log.scrollTop = log.scrollHeight;
+      if (atEnd) followEnd(log);
       if (r.done) break;
     }
   } catch (e) { r.error = String(e); }
@@ -1553,7 +2079,7 @@ async function runBuild(tab, request) {
   tab.chat.push(msg);
   tabChatSave(tab);
   logShot("tabs", tab.builtId, tab.title, msg.error ? "error" : "reply");
-  log.scrollTop = log.scrollHeight;
+  followEnd(log);
   if (frame.hidden && tab.builtId) frame.hidden = false;
   renderTabs(); scheduleSave();
 }
@@ -1730,11 +2256,11 @@ async function ideRun(tab) {
     await new Promise(res => setTimeout(res, 150));
     r = await api().ide_run_poll(tab.run);
     out.textContent = `> ${tab.path}\n` + r.out;
-    out.scrollTop = out.scrollHeight;
+    followEnd(out);
     if (r.done) break;
   }
   out.textContent += `\n[exit code ${r.code}]`;
-  out.scrollTop = out.scrollHeight;
+  followEnd(out);
   tab.run = null;
   $("[data-act=run]", tab.pane).hidden = false; $("[data-act=runstop]", tab.pane).hidden = true;
   ideStatus(tab);
@@ -1742,17 +2268,32 @@ async function ideRun(tab) {
 
 function firstCode(text) { const m = /```[\w+-]*\s*\n([\s\S]*?)```/.exec(text || ""); return m ? m[1] : null; }
 
-async function ideAsk(tab) {
+function askLater(tab, text, ta) {
+  ta.value = "";
+  (tab.askQ = tab.askQ || []).push(text);
+  toast("Queued: it is asked when this reply is done (" + tab.askQ.length + " waiting)");
+}
+function askNext(tab, send) { if (tab.askQ && tab.askQ.length) send(tab.askQ.shift()); }
+function workingLine(r, t0, tab) {
+  const m = r.meter;
+  const line = m ? meterText({ meter: m, seen: Date.now(), paused: !!m.paused }) : fmtSecs((Date.now() - t0) / 1000);
+  const n = (tab.askQ || []).length;
+  return "working · " + line + (n ? " · " + n + " waiting" : "");
+}
+
+async function ideAsk(tab, queued) {
   const ta = $(".ide-ask textarea", tab.pane);
-  const q = ta.value.trim();
-  if (!q || tab.job) return;
+  const q = queued != null ? queued : ta.value.trim();
+  if (!q) return;
+  if (tab.job) return askLater(tab, q, ta);
   const rec = activeLlm();
   if (!rec) return toast(NEEDS_LLM);
-  ta.value = "";
+  if (queued == null) ta.value = "";
+  const t0 = Date.now();
   const log = $(".ask-log", tab.pane);
   log.appendChild(el("div", { className: "msg user" }, q));
   const m = el("div", { className: "msg assistant" }, "asking " + rec.name + "…");
-  log.appendChild(m); log.scrollTop = log.scrollHeight;
+  log.appendChild(m); followEnd(log, true);
   const history = tab.ask.concat([{ role: "user", content: q }]);
   $("[data-act=ask-send]", tab.pane).hidden = true; $(".ide-ask [data-act=stop]", tab.pane).hidden = false;
   let r = { text: "", error: null };
@@ -1763,11 +2304,13 @@ async function ideAsk(tab) {
       await new Promise(res => setTimeout(res, 120));
       r = await api().chat_poll(tab.job);
       m.textContent = r.text || r.status;
-      log.scrollTop = log.scrollHeight;
+      m.dataset.foot = workingLine(r, t0, tab);
+      followEnd(log);
       if (r.done) break;
     }
   } catch (e) { r.error = String(e); }
   tab.job = null;
+  delete m.dataset.foot;
   $("[data-act=ask-send]", tab.pane).hidden = false; $(".ide-ask [data-act=stop]", tab.pane).hidden = true;
   if (r.error) { m.textContent = "⚠ " + r.error + (r.text ? "\n\n" + r.text : ""); m.classList.add("error"); }
   else {
@@ -1776,6 +2319,7 @@ async function ideAsk(tab) {
     if (code !== null) { const b = el("button", { className: "pill open-tab" }, "Use this code"); b.dataset.act = "use-code"; b._code = code; m.appendChild(b); }
   }
   renderTabs();
+  askNext(tab, t => ideAsk(tab, t));
 }
 
 const DUCK_KEYS = '<script>addEventListener("keydown",function(e){if(e.ctrlKey&&e.shiftKey&&e.altKey&&e.code==="KeyG"){e.preventDefault();' +
@@ -1784,7 +2328,7 @@ const DUCK_KEYS = '<script>addEventListener("keydown",function(e){if(e.ctrlKey&&
 function openDuck() {
   const t = state.tabs.find(x => x.kind === "duck");
   if (t) return selectTab(t.id);
-  addTab("duck", { title: "Rubber duck" });
+  addTab("duck", { title: "Quak Quak" });
 }
 
 function buildDuck(tab) {
@@ -1818,7 +2362,8 @@ function buildDuck(tab) {
 async function loadDuck(tab) {
   const a = api(); if (!a) return;
   const r = await a.duck_load();
-  $(".duck-stage iframe", tab.pane).srcdoc = r.html + DUCK_KEYS;
+  if (!EMOJI_PACK) await emojiPack();
+  $(".duck-stage iframe", tab.pane).srcdoc = withSoundGuard(withEmoji(r.html)) + DUCK_KEYS;
   const sel = $(".duck-studio .versions", tab.pane);
   sel.textContent = "";
   for (const v of r.meta.versions.slice().reverse()) {
@@ -1839,7 +2384,7 @@ window.duckBack = () => { duckOut(false); for (const t of state.tabs) if (t.kind
 function duckLog(tab, who, text, err) {
   const log = $(".studio-log", tab.pane);
   const m = el("div", { className: "msg " + (who === "you" ? "user" : "assistant") + (err ? " error" : "") }, text);
-  log.appendChild(m); log.scrollTop = log.scrollHeight;
+  log.appendChild(m); followEnd(log, who === "you");
   return m;
 }
 
@@ -1860,13 +2405,15 @@ function renderDuckChat(tab) {
 
 const hasPage = text => /```|<!doctype html|<html/i.test(text);
 
-async function duckSend(tab) {
+async function duckSend(tab, queued) {
   const ta = $(".duck-studio textarea", tab.pane);
-  const req = ta.value.trim();
-  if (!req || tab.job) return;
+  const req = queued != null ? queued : ta.value.trim();
+  if (!req) return;
+  if (tab.job) return askLater(tab, req, ta);
   const rec = activeLlm();
   if (!rec) return toast(NEEDS_LLM);
-  ta.value = "";
+  if (queued == null) ta.value = "";
+  const t0 = Date.now();
   const history = [...state.duckChat.slice(-12), { role: "user", content: req }].filter(m => !m.error)
     .map(m => ({ role: m.role, content: (m.content || "(no words)") + (m.version ? `\n[The app saved this change as version ${m.version}.]` : "") }));
   state.duckChat.push({ role: "user", content: req });
@@ -1887,8 +2434,9 @@ async function duckSend(tab) {
       const code = r.text.length - view.words.textContent.length;
       view.note.textContent = hasPage(r.text) ? `writing the new duck… ${code} characters`
                             : r.status && r.status !== "writing" ? r.status : "";
-      view.note.hidden = !view.note.textContent;
-      if (atEnd) log.scrollTop = log.scrollHeight;
+      view.note.textContent = [view.note.textContent, workingLine(r, t0, tab)].filter(Boolean).join(" · ");
+      view.note.hidden = false;
+      if (atEnd) followEnd(log);
       if (r.done) break;
     }
   } catch (e) { r.error = String(e); }
@@ -1916,9 +2464,10 @@ async function duckSend(tab) {
     fold.appendChild(el("pre", { className: "studio-live" }, r.text));
   }
   state.duckChat.push(msg);
-  logShot("duck", "duck", "Rubber duck", msg.error ? "error" : "reply");
-  log.scrollTop = log.scrollHeight;
+  logShot("duck", "duck", "Quak Quak", msg.error ? "error" : "reply");
+  followEnd(log);
   renderTabs(); scheduleSave();
+  askNext(tab, t => duckSend(tab, t));
 }
 
 function startPong(tab) {
@@ -2135,6 +2684,9 @@ $("#projects-menu").addEventListener("click", async e => {
         : "Opening it in its own window…");
 });
 document.addEventListener("click", e => { if (!e.target.closest(".menu-wrap")) toggleMenu("#none"); });
+document.addEventListener("pointerdown", e => { const m = $("#ctx-menu"); if (m && !m.hidden && !m.contains(e.target)) m.hidden = true; }, true);
+window.addEventListener("blur", () => { const m = $("#ctx-menu"); if (m) m.hidden = true; });
+document.addEventListener("scroll", () => { const m = $("#ctx-menu"); if (m) m.hidden = true; }, true);
 
 $("#newtab-menu").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
@@ -2148,7 +2700,7 @@ $("#newtab-menu").addEventListener("click", e => {
 const FEATURES = [
   { kind: "chat", label: "Chat", needsLlm: true, open: () => addTab("chat") },
   { kind: "ide", label: "IDE", open: () => addTab("ide") },
-  { kind: "duck", label: "Rubber duck", needsLlm: true, open: () => openDuck() },
+  { kind: "duck", label: "Quak Quak", needsLlm: true, open: () => openDuck() },
   { kind: "notepad", label: "Notepad", open: () => addTab("notepad") },
   { kind: "add", label: "Add new item (build a tab by chat)", needsLlm: true, open: () => openBuildDialog() },
 ];
@@ -2187,6 +2739,13 @@ function renderMainMenu() {
     row.append(sw, open);
     m.appendChild(row);
   }
+  m.appendChild(el("div", { className: "menu-label" }, "Permissions"));
+  const prow = el("div", { className: "feature-row" }), psw = el("input", { type: "checkbox", title: "On or off" });
+  psw.addEventListener("click", e => e.stopPropagation());
+  psw.addEventListener("change", async () => { await window.pywebview.api.media_permission(psw.checked); toast(psw.checked ? "Microphone and camera: allowed for this app's pages" : "Microphone and camera: blocked"); });
+  window.pywebview.api.media_permission(null).then(v => { psw.checked = !!v; }).catch(() => { psw.disabled = true; });
+  prow.append(psw, el("span", { className: "feature-open", title: "Lets this app's pages (Voice Studio, his recordings, Sight, Vision Lab) use them without the browser's pop-up" }, "Microphone and camera: always allow"));
+  m.appendChild(prow);
   m.appendChild(el("div", { className: "menu-label" }, "Your system"));
   const sys = el("div", { className: "os-switch", role: "radiogroup" });
   for (const [os, label] of [["windows", "Windows"], ["linux", "Linux"]]) {
@@ -2297,11 +2856,64 @@ async function applyOrigin() {
   try {
     if (api() && await api().is_derivative()) document.getElementById("origin-what").textContent = "A derivative of Randis UDS™ by Randy Moore";
   } catch (e) {   }
+  applyFunStrip();
+}
+
+function applyFunStrip() {
+  const now = new Date(), y = now.getFullYear(), day = 864e5;
+  const nth = (m, wd, n) => { const d = new Date(y, m, 1); d.setDate(1 + (wd - d.getDay() + 7) % 7 + 7 * (n - 1)); return d; };
+  const easter = (() => { const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3),
+    h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    return new Date(y, Math.floor((h + l - 7 * m + 114) / 31) - 1, (h + l - 7 * m + 114) % 31 + 1); })();
+  const days = [
+    [new Date(y, 0, 1), "🎆", "New Year's Day", "🎆 Happy New Year! 🥂 ✨ new year, new apps ✨"], [new Date(y, 1, 14), "💘", "Valentine's Day", "💘 Happy Valentine's Day! 💌 (｡♥‿♥｡)"],
+    [new Date(y, 2, 17), "☘️", "St. Patrick's Day", "☘️ Happy St. Patrick's Day! 🍀 🌈💰"], [easter, "🐣", "Easter", "🐣 Happy Easter! 🌷 🥚🐰"],
+    [nth(4, 0, 2), "💐", "Mother's Day", "💐 Happy Mother's Day! 💖"], [nth(5, 0, 3), "👔", "Father's Day", "👔 Happy Father's Day! 🛠️"],
+    [new Date(y, 6, 4), "🎆", "the 4th of July", "🎆 Happy 4th of July! 🇺🇸 🌭🎇"], [new Date(y, 9, 31), "🎃", "Halloween", "🎃 Happy Halloween! 👻 🦇🍬"],
+    [new Date(y, 10, 11), "🎖️", "Veterans Day", "🎖️ Veterans Day: thank you for your service! 🇺🇸"], [nth(10, 4, 4), "🦃", "Thanksgiving", "🦃 Happy Thanksgiving! 🥧 🍂 grateful for you 🧡"],
+    [new Date(y, 11, 25), "🎄", "Christmas", "🎄 Merry Christmas! 🎅 ☃️ 🎁 Happy Holidays! ✨"], [new Date(y, 11, 31), "🥳", "New Year's Eve", "🥳 Happy New Year's Eve! 🎆"],
+  ];
+  const today = new Date(y, now.getMonth(), now.getDate());
+  const near = days.map(([d, ...rest]) => [Math.round((d - today) / day), ...rest]).filter(([n]) => n >= 0 && n <= 21).sort((a, b) => a[0] - b[0]).slice(0, 2);
+  const m = now.getMonth();
+  const season = m === 11 || m <= 1 ? "winter" : m <= 4 ? "spring" : m <= 7 ? "summer" : "fall";
+  const idle = { winter: "❄️ ☃️ cozy winter vibes ☕ ❄️", spring: "🌸 🌷 happy spring! 🐝 🌼", summer: "☀️ 🏖️ happy summer! 🍉 😎", fall: "🍂 🍁 happy fall, y'all! 🎃 🍎" };
+  const say = ([n, emoji, name, onDay]) => n === 0 ? onDay : `${emoji} ${name} ${n === 1 ? "is tomorrow!" : `in ${n} days!`}`;
+  const colors = {
+    "New Year's Day": [["#ffd54f", "#e0e0e0", "#ffd54f"], ["#b8860b", "#555", "#b8860b"]], "New Year's Eve": [["#ffd54f", "#e0e0e0", "#ffd54f"], ["#b8860b", "#555", "#b8860b"]],
+    "Valentine's Day": [["#ff5c8a", "#ff9ec0", "#ff3b5c"], ["#c2185b", "#d81b60", "#b71c1c"]], "St. Patrick's Day": [["#4caf50", "#ffd54f", "#81c784"], ["#1b5e20", "#9a7d0a", "#2e7d32"]],
+    "Easter": [["#f8bbd0", "#b3e5fc", "#fff59d", "#c5e1a5"], ["#ad1457", "#0277bd", "#9e9d24", "#558b2f"]], "Mother's Day": [["#f48fb1", "#ce93d8"], ["#ad1457", "#6a1b9a"]],
+    "Father's Day": [["#64b5f6", "#90a4ae"], ["#0d47a1", "#37474f"]], "the 4th of July": [["#ff5252", "#ffffff", "#448aff"], ["#c62828", "#555", "#1565c0"]],
+    "Halloween": [["#ff9800", "#b388ff", "#ff9800"], ["#e65100", "#4a148c", "#e65100"]], "Veterans Day": [["#ff5252", "#ffffff", "#448aff"], ["#c62828", "#555", "#1565c0"]],
+    "Thanksgiving": [["#ff9800", "#ffca28", "#d2691e"], ["#bf360c", "#8d6e00", "#6d3b1a"]], "Christmas": [["#ff5252", "#66bb6a", "#ff5252"], ["#c62828", "#2e7d32", "#c62828"]],
+    winter: [["#81d4fa", "#ffffff", "#81d4fa"], ["#01579b", "#455a64", "#01579b"]], spring: [["#f8bbd0", "#aed581"], ["#ad1457", "#33691e"]],
+    summer: [["#ffeb3b", "#4fc3f7"], ["#a07800", "#0277bd"]], fall: [["#ff9800", "#ffca28", "#d2691e"], ["#bf360c", "#8d6e00", "#6d3b1a"]],
+  };
+  const part = (text, key) => { const s = document.createElement("span"), [onDark, onLight] = colors[key];
+    s.style.setProperty("--theme-dark", `linear-gradient(90deg, ${onDark.join(", ")})`); s.style.setProperty("--theme-light", `linear-gradient(90deg, ${onLight.join(", ")})`);
+    text.split(/((?:\p{Extended_Pictographic}|\p{Regional_Indicator}|️|‍)+)/u).forEach((bit, i) => { if (!bit) return;
+      const b = document.createElement("span"); b.textContent = bit; b.className = i % 2 ? "fun-emoji" : "fun-theme"; s.append(b); });
+    return s; };
+  const box = document.getElementById("fun-holiday"), list = near.length ? near.map(h => [say(h), h[2]]) : [[idle[season], season]];
+  box.replaceChildren(document.createTextNode("✧･ﾟ "));
+  list.forEach(([text, key], i) => { if (i) box.append("  ·  "); box.append(part(text, key)); });
+  box.append(" ﾟ･✧");
+  const ideas = {
+    winter: ["🎁 a gift list with budgets", "🍪 a cookie recipe box", "🎄 an advent countdown", "☃️ a snowfall screensaver", "🥳 a New Year's resolution tracker", "📬 a holiday card address book", "🧣 a cozy reading log", "💘 a Valentine's card maker"],
+    spring: ["🌱 a garden planting planner", "🧹 a spring cleaning checklist", "🐣 an egg hunt map", "🌧️ a rain-day game", "🌷 a bloom tracker", "🎓 a graduation countdown"],
+    summer: ["🏕️ a camping packing list", "🍉 a cookout planner", "🗺️ a road trip budget", "🎇 a fireworks show toy", "📚 a summer reading race", "🌞 a sunscreen timer"],
+    fall: ["🦃 a Thanksgiving menu planner", "🥧 a who's-bringing-what potluck list", "🙏 a gratitude journal", "🎁 a holiday gift tracker", "🍂 a falling-leaves screensaver", "🏈 a football pick'em board", "🎄 a Christmas countdown", "🛍️ a Black Friday deal list"],
+  }[season];
+  document.getElementById("fun-ideas-text").textContent = "💡 build me: " + ideas.join("  ✦  ") + "  ✦  just ask in the chat! 🤖✨";
+  const pace = () => document.querySelectorAll("#origin .fun-roll").forEach(el => {
+    if (el.offsetWidth) el.style.animationDuration = `30s, ${Math.max(15, el.offsetWidth / 28).toFixed(1)}s`; });
+  pace(); addEventListener("resize", pace);
 }
 
 async function start() {
   await applyOrigin();
   await applyLogo();
+  emojiPack();
   if (WIN && api()) return startWindow();
   let session = null;
   try {
@@ -2317,11 +2929,8 @@ async function start() {
     state.activeLlm = session.activeLlm || (state.llms[0] && state.llms[0].id) || null;
     state.chats = session.chats || [];
     state.duckChat = session.duckChat || [];
-    for (const c of state.chats) for (const m of c.messages) if (m.pending) {
-      delete m.pending; delete m.status;
-      if (!m.content) m.error = "Interrupted: the app closed before the reply finished.";
-    }
   }
+  const follow = await adoptRunning();
   renderLinked();
   applyFeatures();
   showSystem();
@@ -2333,6 +2942,7 @@ async function start() {
   } else {
     addTab("welcome");
   }
+  followAdopted(follow);
   tellWatcher();
   maybeFirstRun();
   watchShopLinks();
