@@ -103,7 +103,7 @@
   --s-card: #c0c0c0; --s-card-border: 2px solid; --s-radius: 0; --s-line: #808080;
   --s-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
   --s-accent: #c0c0c0; --s-accent-text: #000; --s-btn: #c0c0c0; --s-btn-text: #000; --s-btn-border: 0; --s-btn-radius: 0;
-  --s-font: "Microsoft Sans Serif", Tahoma, sans-serif; --s-card-solid: #fff; --s-text-solid: #000;
+  --s-font: Tahoma, sans-serif; --s-card-solid: #fff; --s-text-solid: #000;
 }
 .shop[data-skin="win95"] .shop-card { border-color: #dfdfdf #0a0a0a #0a0a0a #dfdfdf; padding: 3px 3px 8px; font-size: 12px; }
 .shop[data-skin="win95"] .shop-card > * { margin-left: 4px; margin-right: 4px; }

@@ -12,7 +12,7 @@ Copies, clones and derivatives must say so at the very top of their work and lin
 
 **Randis UDS™ is a universal software with no fixed purpose. Describe what you need, and the LLM inside it builds that into the app while you're using it. If you can dream it you can build it.**
 
-![Randis UDS with the + menu open, showing built tabs in labeled sections with their own icons](packaging/screenshot.png)
+![Randis UDS in a shop skin with the 🎨 skins menu open](packaging/screenshot.png)
 
 Link a local model or an online account to start. With no LLM linked, it works as a notepad and text editor.
 
@@ -40,6 +40,12 @@ YouTube: https://www.youtube.com/@Randis9000 and https://www.youtube.com/@Moores
 - Projects: separate copies of the app for separate work, with changes from Base pushed into them
 - Online play for built tabs: a game can link to a friend's copy with a private invite code (see below)
 - Bots: "+ Add a bot" on any tab, or for the whole app, makes a small helper that reads and reports, managed in the Bots tab (see below)
+- Skins: the 🎨 button in the tab bar restyles the whole app with any of the 29 Randis Shop skins, or with a theme of your own ("+ Add a theme…": your colours and font, ✎ to change it). Your pick stays after a restart
+
+New in 0.1.15:
+
+- Skins menu (🎨) for the whole app, with your own themes
+- The skins have their own names and joke badges (Half-Baked, Notflix, Pear OS, Waffles 95 and more) instead of other companies' names and logos
 
 New in 0.1.14:
 
@@ -151,6 +157,7 @@ python tests/codelab_test.py      # Codex Academy: the code runner, every exerci
 python tests/av_test.py           # Randis Antivirus: detections, false-alarm guards, quarantine round trip, and the tab in a browser ("quick" skips the browser)
 python tests/tab_sections_test.py # tab sections, tab icons, Emoji Forge in the + menu
 python tests/credit_mark_test.py  # the hidden credit mark, and the Ship button against a pretend shop (needs Git)
+python tests/appskins_test.py     # the 🎨 skins menu and your own themes in a browser; no brand names in the skins ("quick" skips the browser)
 python tests/media_test.py        # Media Network: voices, audio joining, feeds, outlet secrets kept outside the folder, and the tab in a browser ("offline"/"quick" skip parts)
 ```
 
