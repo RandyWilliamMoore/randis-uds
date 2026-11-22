@@ -176,6 +176,10 @@ function findGroup(id) { return state.groups.find(g => g.id === id) || null; }
 
 const TAB_ICONS = { chat: "💬", ide: "🧰", notepad: "🗒️", duck: "🦆", built: "🧩", welcome: "➕" };
 function tabIcon(t) { return TAB_ICONS[t.kind] || "📄"; }
+const TAB_RMO = {"chat": "tab-chat", "ide": "tab-ide", "notepad": "tab-notepad", "duck": "tab-duck", "pdf": "tab-pdf", "shop": "tab-shop", "bots": "tab-bots", "botsuite": "tab-botsuite", "welcome": "tab-welcome", "built": "tab-built"};
+function builtMeta(t) { return t && t.kind === "built" && t.builtId ? (state.built || []).find(b => b.id === t.builtId) : null; }
+function tabRmo(t) { const m = builtMeta(t), n = (m && m.icon) || TAB_RMO[t.kind]; return window.RandisEmoji && n && RandisEmoji.has(n) ? n : null; }
+function fillTabIcon(span, t) { const n = tabRmo(t); if (n) span.innerHTML = RandisEmoji.html(n, "16px"); else span.textContent = tabIcon(t); }
 
 function renderTabs() {
   const bar = $("#tabs");
@@ -196,12 +200,12 @@ function renderTabs() {
     el.title = t.path || t.title;
     const title = document.createElement("span");
     title.className = "title";
-    title.textContent = (t.dirty ? "● " : "") + (t.job ? "… " : "") + (t.kind === "welcome" ? "New tab" : t.title);
+    title.textContent = (t.dirty ? "● " : "") + (t.job ? "… " : "") + (t.kind === "welcome" ? "New tab" : ((builtMeta(t) || {}).name || t.title));
     const x = document.createElement("button");
     x.className = "close"; x.textContent = "×"; x.title = "Close (Ctrl+W)";
     x.addEventListener("click", e => { e.stopPropagation(); closeTab(t.id); });
     const icon = document.createElement("span");
-    icon.className = "tab-icon"; icon.textContent = tabIcon(t);
+    icon.className = "tab-icon"; fillTabIcon(icon, t);
     el.classList.toggle("marked", !!(t.dirty || t.job));
     el.append(icon, title, x);
     el.addEventListener("mousedown", e => { if (e.button === 1) { e.preventDefault(); closeTab(t.id); } });
@@ -835,13 +839,27 @@ function nameFrom(text) {
   return t.length > 28 ? t.slice(0, 28) + "…" : t.charAt(0).toUpperCase() + t.slice(1);
 }
 
+function menuOpen() { try { return JSON.parse(localStorage.getItem("uds.menuOpen") || "{}") || {}; } catch (e) { return {}; } }
 function renderBuiltMenu() {
   const box = $("#built-menu");
   box.textContent = "";
   if (!state.built.length) return;
   box.appendChild(document.createElement("hr"));
-  box.appendChild(el("div", { className: "menu-label" }, "Your tabs"));
-  for (const m of state.built) { const b = el("button", {}, "▣ " + m.name); b.dataset.built = m.id; box.appendChild(b); }
+  const SECS = ["Basics", "Games", "Create", "Learn", "Tools", "Money & Shop", "Life & Family", "Bots & AI"], open = menuOpen(), by = {};
+  for (const m of state.built) { const s = SECS.includes(m.section) && m.section !== "Basics" ? m.section : "Other"; (by[s] = by[s] || []).push(m); }
+  for (const s of [...SECS, "Other"]) {
+    const list = (by[s] || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+    if (!list.length) continue;
+    const det = el("details", { className: "menu-sec" }); det.open = !!open[s]; det.dataset.sec = s;
+    det.appendChild(el("summary", { className: "menu-label" }, s + " (" + list.length + ")"));
+    for (const m of list) {
+      const b = el("button", {}); b.dataset.built = m.id;
+      const ic = el("span", { className: "tab-icon" }); fillTabIcon(ic, { kind: "built", builtId: m.id });
+      b.append(ic, document.createTextNode(" " + m.name + (m.current ? " v" + m.current : ""))); det.appendChild(b);
+    }
+    det.addEventListener("toggle", () => { const o = menuOpen(); o[s] = det.open; try { localStorage.setItem("uds.menuOpen", JSON.stringify(o)); } catch (e) {} });
+    box.appendChild(det);
+  }
 }
 
 async function refreshTemplates() { state.templates = await api().template_list(); }

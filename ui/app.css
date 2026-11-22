@@ -59,6 +59,11 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .menu-right { left: auto; right: 0; }
 .menu button { display: block; width: 100%; text-align: left; padding: 7px 10px; border-radius: 6px; }
 .menu button:hover { background: var(--hover); }
+#newtab-menu { max-height: 75vh; overflow-y: auto; }
+.menu-sec > summary { cursor: pointer; list-style: none; user-select: none; }
+.menu-sec > summary::before { content: "▸ "; } .menu-sec[open] > summary::before { content: "▾ "; }
+.menu-sec > summary:hover { color: var(--fg, inherit); }
+.tab-icon img.rmo { vertical-align: -3px !important; }
 .menu button[data-needs-llm]::after { content: " · needs LLM"; color: var(--muted); font-size: 12px; }
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
 
