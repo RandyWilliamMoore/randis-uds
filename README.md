@@ -35,6 +35,7 @@ YouTube: https://www.youtube.com/@Randis9000 and https://www.youtube.com/@Moores
 - A PDF tab: read, make from text or pictures, merge, rotate, reorder, and add a drawn or typed signature (a picture on the page, not a certificate signature)
 - A snapshot before every Claude Code turn, so each turn can be undone
 - Projects: separate copies of the app for separate work, with changes from Base pushed into them
+- Skins: the 🎨 button in the tab bar restyles the whole app with any of the 29 Randis Shop skins, or with a theme of your own ("+ Add a theme…": your colours and font, ✎ to change it). Your pick stays after a restart
 
 ## Contact
 
@@ -99,6 +100,7 @@ python tests/origin_test.py
 python tests/first_run_test.py
 python tests/pdf_test.py
 python tests/ui_test.py --no-real
+python tests/appskins_test.py   # the 🎨 skins menu and your own themes (needs playwright; "quick" skips the browser)
 ```
 
 ## Known issues
