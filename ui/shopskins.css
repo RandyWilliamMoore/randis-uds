@@ -76,7 +76,6 @@
   --s-font: Bahnschrift, "Trebuchet MS", sans-serif; --s-card-solid: #110b00; --s-text-solid: #ffb000;
 }
 .shop[data-skin="hl"] .shop-main { text-shadow: 0 0 6px rgba(255,160,0,.45); }
-.shop[data-skin="hl"] .shop-bar h2::before { content: "\03bb  "; font-size: 1.3em; }
 .shop[data-skin="hl"] .shop-main h3 { text-transform: uppercase; letter-spacing: 3px; }
 .shop[data-skin="hl"] .shop-card img { filter: sepia(1) saturate(3) hue-rotate(-10deg) brightness(.95); }
 .shop[data-skin="hl"] .shop-card:hover img { filter: none; }
@@ -512,3 +511,30 @@
 .shop-theme-ed input[type=color] { grid-column: 2 / 4; width: 100%; height: 26px; padding: 0 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
 .shop-theme-ed .ss-sl input[type=range] + b { grid-column: 3; }
 .shop-theme-ed input:disabled { opacity: .35; }
+
+.shop[data-skin] .shop-bar::before { display: inline-flex; align-items: center; gap: 4px; width: max-content; font: 700 13px/1.2 "Segoe UI", Arial, sans-serif; letter-spacing: 1px; text-transform: uppercase; padding: 3px 9px; border: 1.5px dashed currentColor; border-radius: 999px; opacity: .9; transform: rotate(-2deg); -webkit-text-fill-color: currentColor; text-shadow: none; filter: none; }
+.shop[data-skin="steam"] .shop-bar::before { content: "\2668 \FE0F   STEEMED HAMS GAME STORE"; }
+.shop[data-skin="sc2"] .shop-bar::before { content: "\1F6F8   SPACE PAPERWORK II"; }
+.shop[data-skin="halo"] .shop-bar::before { content: "\1F369   GREEN DONUT 360"; }
+.shop[data-skin="hl"] .shop-bar::before { content: url("parody_half_baked.svg") " HALF-BAKED"; }
+.shop[data-skin="temple"] .shop-bar::before { content: "\1F56F \FE0F   HOLY 16 COLOURS"; }
+.shop[data-skin="win95"] .shop-bar::before { content: "\1F9C7   WAFFLES 95"; }
+.shop[data-skin="xp"] .shop-bar::before { content: "\1F9C7   WAFFLES XD"; }
+.shop[data-skin="mac9"] .shop-bar::before { content: "\1F350   PEAR OS 9\BE "; }
+.shop[data-skin="macos"] .shop-bar::before { content: "\1F350   PEAR OS: EXTRA BLURRY"; }
+.shop[data-skin="material"] .shop-bar::before { content: "\1F97D   GOGGLE CARDS"; }
+.shop[data-skin="matrix"] .shop-bar::before { content: "\1F944   THERE IS NO SHOP"; }
+.shop[data-skin="lcars"] .shop-bar::before { content: "\1FA90   UNITED SHOP OF PLANETS"; }
+.shop[data-skin="pipboy"] .shop-bar::before { content: "\1F44D   WRIST-BOY 3000"; }
+.shop[data-skin="tron"] .shop-bar::before { content: "\1F94F   FRISBEE GRID"; }
+.shop[data-skin="jarvis"] .shop-bar::before { content: "\1FAD6   HOLO-BUTLER (UNPAID)"; }
+.shop[data-skin="cyber"] .shop-bar::before { content: "\1F6D2   CYBERSHOPPER 2O77\BD "; }
+.shop[data-skin="bloomberg"] .shop-bar::before { content: "\1F354   BLOOMBURGER TERMINAL"; }
+.shop[data-skin="doom"] .shop-bar::before { content: "\1F608   GLOOM"; }
+.shop[data-skin="minecraft"] .shop-bar::before { content: "\1F954   DIGGY DIGGY CRAFT"; }
+.shop[data-skin="wii"] .shop-bar::before { content: "\1F3B3   OUI MENU"; }
+.shop[data-skin="xmb"] .shop-bar::before { content: "\1F4CE   PLAY-STATIONERY"; }
+.shop[data-skin="netflix"] .shop-bar::before { content: "\1F37F   NOTFLIX"; }
+.shop[data-skin="barbie"] .shop-bar::before { content: "\1F3CB \FE0F   BARBELL DREAMGYM"; }
+.shop[data-skin="aero"] .shop-bar::before { content: "\1FAE7   BUBBLE OS"; }
+.shop[data-skin="hl"] .shop-bar::before { color: #ffa000; }
