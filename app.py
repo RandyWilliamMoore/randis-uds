@@ -2369,7 +2369,12 @@ class Api:
         st = self._duck()
         if not os.path.isdir(os.path.join(st.root, DUCK_ID)):
             with open(os.path.join(HERE, "ui", "duck_default.html"), encoding="utf-8") as f:
-                st.save_version(None, "Quak Quak", f.read(), "the original duck", new_id=DUCK_ID)
+                st.save_version(None, "Quak Quak", f.read(), "the 3D duck", new_id=DUCK_ID)
+        else:
+            meta = st._meta(DUCK_ID)
+            if len(meta["versions"]) == 1 and meta["versions"][0].get("note") == "the original duck":
+                with open(os.path.join(HERE, "ui", "duck_default.html"), encoding="utf-8") as f:
+                    st.save_version(DUCK_ID, None, f.read(), "the 3D duck")
         return st.load(DUCK_ID, n)
 
     def duck_chat_start(self, rec, history, perms=None):

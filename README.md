@@ -42,6 +42,11 @@ YouTube: https://www.youtube.com/@Randis9000 and https://www.youtube.com/@Moores
 - Bots: "+ Add a bot" on any tab, or for the whole app, makes a small helper that reads and reports, managed in the Bots tab (see below)
 - Skins: the 🎨 button in the tab bar restyles the whole app with any of the 29 Randis Shop skins, or with a theme of your own ("+ Add a theme…": your colours and font, ✎ to change it). Your pick stays after a restart
 
+New in 0.1.17:
+
+- Quak Quak is the 3D duck in every new copy (he was still the old 2D duck). Copies that kept the old duck unchanged get the 3D one as his next version; the 2D one stays in his versions
+- The 3D duck's Pop me out works (he froze in the pop-out window)
+
 New in 0.1.16:
 
 - Every game and app in the Randis Shop comes ready in the installer as its own tab, in its section with its icon (25 games, 39 apps)

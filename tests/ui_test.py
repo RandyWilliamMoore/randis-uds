@@ -415,7 +415,15 @@ def _run(w):
     after = ImageGrab.grab()
     import ctypes.wintypes as wt
     rect = wt.RECT()
-    ctypes.windll.user32.GetWindowRect(ctypes.windll.user32.FindWindowW(None, "Quak Quak"), ctypes.byref(rect))
+    hits = []
+    def _seen(h, _):
+        name = ctypes.create_unicode_buffer(64)
+        ctypes.windll.user32.GetWindowTextW(h, name, 64)
+        if name.value == "Quak Quak" and ctypes.windll.user32.IsWindowVisible(h):
+            hits.append(h)
+        return True
+    ctypes.windll.user32.EnumWindows(ctypes.WINFUNCTYPE(ctypes.c_bool, wt.HWND, wt.LPARAM)(_seen), 0)
+    ctypes.windll.user32.GetWindowRect(hits[0] if hits else ctypes.windll.user32.FindWindowW(None, "Quak Quak"), ctypes.byref(rect))
     x, y, w, h = rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top
     corner = [(x + 3, y + 3), (x + w - 4, y + 3), (x + 3, y + h - 4), (x + w - 4, y + h - 4)]
     same = sum(before.getpixel(p) == after.getpixel(p) for p in corner if 0 <= p[0] < before.width and 0 <= p[1] < before.height)

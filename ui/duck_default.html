@@ -5,61 +5,519 @@
 <meta charset="utf-8">
 <title>Quak Quak</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden;
+  html, body { margin: 0; height: 100%; overflow: hidden; user-select: none;
                background: radial-gradient(ellipse at 30% 20%, #1b2340 0%, #0b0e1a 60%, #05060c 100%); }
   #stars { position: fixed; inset: 0; width: 100%; height: 100%; }
-  #duck { position: absolute; left: 50%; top: 50%; width: min(42vmin, 260px); height: min(42vmin, 260px);
-          transform: translate(-50%, -50%); animation: float 6s ease-in-out infinite; cursor: pointer; }
-  @keyframes float { 0%, 100% { transform: translate(-50%, -53%) rotate(-4deg); } 50% { transform: translate(-50%, -46%) rotate(4deg); } }
+
+  #duck { position: fixed; inset: 0; overflow: hidden; }
+  #duck canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #say { position: absolute; left: 50%; top: 20%; pointer-events: none; }
+  #say .b { position: relative; transform: translate(-50%, -100%); opacity: 0; transform-origin: 50% 100%;
+            background: #fff; border: 1.5px solid #222; border-radius: 14px; padding: 4px 12px; white-space: nowrap;
+            font: bold 15px system-ui, sans-serif; color: #222; }
+  #say .b::after { content: ""; position: absolute; left: 50%; bottom: -8px; margin-left: -6px; width: 10px; height: 10px;
+                   background: #fff; border-right: 1.5px solid #222; border-bottom: 1.5px solid #222; transform: rotate(45deg); }
+  #say.show .b { animation: say 1.8s ease-out; }
+  #say.small .b { font-size: 12px; padding: 3px 9px; }
+  @keyframes say {
+    0% { opacity: 0; transform: translate(-50%, -100%) scale(.5); } 12% { opacity: 1; transform: translate(-50%, -100%) scale(1.06); }
+    20% { transform: translate(-50%, -100%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -100%) translateY(-4px); }
+  }
+  #hint { position: fixed; left: 0; right: 0; bottom: 10px; text-align: center; pointer-events: none;
+          font: 12px system-ui, sans-serif; color: #c8d0ff; opacity: .75; transition: opacity 2s; }
+  #hint.dim { opacity: .3; }
 </style>
 </head>
 <body>
 <canvas id="stars"></canvas>
-<svg id="duck" viewBox="0 0 200 200" aria-label="Quak Quak, the duck">
-  <path d="M40 120 L16 90 L60 106 Z" fill="#F5C518"/>
-  <ellipse cx="98" cy="132" rx="70" ry="44" fill="#FFD43B"/>
-  <ellipse cx="88" cy="134" rx="34" ry="20" fill="#F5C518" transform="rotate(-12 88 134)"/>
-  <circle cx="122" cy="72" r="38" fill="#FFD43B"/>
-  <path d="M152 70 Q182 70 186 80 Q178 92 150 88 Z" fill="#FF8C1A"/>
-  <path d="M152 80 Q172 84 184 81" stroke="#D96A00" stroke-width="2" fill="none"/>
-  <circle id="eye" cx="134" cy="62" r="11" fill="#fff"/>
-  <g id="pupil"><circle cx="134" cy="62" r="5.5" fill="#111"/><circle cx="136" cy="60" r="1.8" fill="#fff"/></g>
-  <circle cx="140" cy="82" r="6" fill="#FFB0A0" opacity=".55"/>
-  <ellipse cx="106" cy="52" rx="10" ry="5" fill="#fff" opacity=".35" transform="rotate(-30 106 52)"/>
-</svg>
+<div id="duck" aria-label="Quak Quak, the duck">
+  <canvas id="gl"></canvas>
+  <canvas id="fx"></canvas>
+  <div id="say"><div class="b" id="sayText">Quack quack!</div></div>
+</div>
+<div id="hint">Click me first · arrows move · W A S D turn · drag to spin · scroll to zoom · Q quack · F fire · R reset · Ctrl+Alt+Shift+S asteroids</div>
 <script>
-  const cv = document.getElementById("stars"), cx = cv.getContext("2d");
+(() => {
+  const $ = id => document.getElementById(id);
+  const TAU = Math.PI * 2, rnd = (a, b) => a + Math.random() * (b - a);
+
+  const sc = $("stars"), sx = sc.getContext("2d");
   let stars = [];
-  function resize() {
-    cv.width = innerWidth; cv.height = innerHeight;
+  function resizeStars() {
+    sc.width = innerWidth; sc.height = innerHeight;
     stars = Array.from({ length: Math.round(innerWidth * innerHeight / 5000) },
-      () => ({ x: Math.random() * cv.width, y: Math.random() * cv.height, r: Math.random() * 1.4 + .3, p: Math.random() * 6.3 }));
+      () => ({ x: Math.random() * sc.width, y: Math.random() * sc.height, r: Math.random() * 1.4 + .3, p: Math.random() * 6.3 }));
   }
-  function draw(t) {
-    cx.clearRect(0, 0, cv.width, cv.height);
+  function drawStars(t) {
+    sx.clearRect(0, 0, sc.width, sc.height);
     for (const s of stars) {
-      cx.globalAlpha = .45 + .55 * Math.abs(Math.sin(t / 1400 + s.p));
-      cx.fillStyle = "#fff"; cx.beginPath(); cx.arc(s.x, s.y, s.r, 0, 6.3); cx.fill();
+      sx.globalAlpha = .45 + .55 * Math.abs(Math.sin(t / 1400 + s.p));
+      sx.fillStyle = "#fff"; sx.beginPath(); sx.arc(s.x, s.y, s.r, 0, 6.3); sx.fill();
     }
-    requestAnimationFrame(draw);
   }
-  addEventListener("resize", resize); resize(); requestAnimationFrame(draw);
+  addEventListener("resize", resizeStars); resizeStars();
 
-  const eye = document.getElementById("eye"), pupil = document.getElementById("pupil");
-  function look(x, y) {
-    const r = eye.getBoundingClientRect(), ex = r.left + r.width / 2, ey = r.top + r.height / 2;
-    const dx = x - ex, dy = y - ey, d = Math.hypot(dx, dy) || 1, m = Math.min(4.5, d / 30);
-    pupil.setAttribute("transform", `translate(${dx / d * m} ${dy / d * m})`);
-  }
-  addEventListener("mousemove", e => look(e.clientX, e.clientY));
-  document.addEventListener("mouseleave", () => pupil.setAttribute("transform", "translate(-1.5 0.5)"));
-
-  document.getElementById("duck").addEventListener("click", () => {
-    const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain();
-    o.type = "sawtooth"; o.frequency.setValueAtTime(620, a.currentTime); o.frequency.exponentialRampToValueAtTime(260, a.currentTime + .18);
-    g.gain.setValueAtTime(.25, a.currentTime); g.gain.exponentialRampToValueAtTime(.001, a.currentTime + .22);
-    o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + .24);
+  const id4 = () => { const m = new Float32Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; };
+  const mul = (...ms) => ms.reduce((a, b) => {
+    const o = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+      let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s;
+    }
+    return o;
   });
+  const T = (x, y, z) => { const m = id4(); m[12] = x; m[13] = y; m[14] = z; return m; };
+  const S = (x, y, z) => { const m = id4(); m[0] = x; m[5] = y; m[10] = z; return m; };
+  const Rx = a => { const m = id4(), c = Math.cos(a), s = Math.sin(a); m[5] = c; m[6] = s; m[9] = -s; m[10] = c; return m; };
+  const Ry = a => { const m = id4(), c = Math.cos(a), s = Math.sin(a); m[0] = c; m[2] = -s; m[8] = s; m[10] = c; return m; };
+  const Rz = a => { const m = id4(), c = Math.cos(a), s = Math.sin(a); m[0] = c; m[1] = s; m[4] = -s; m[5] = c; return m; };
+  function persp(fov, asp, n, f) {
+    const t = 1 / Math.tan(fov / 2), m = new Float32Array(16);
+    m[0] = t / asp; m[5] = t; m[10] = (f + n) / (n - f); m[11] = -1; m[14] = 2 * f * n / (n - f); return m;
+  }
+  const xf = (m, [x, y, z], w = 1) => [m[0] * x + m[4] * y + m[8] * z + m[12] * w, m[1] * x + m[5] * y + m[9] * z + m[13] * w,
+                                       m[2] * x + m[6] * y + m[10] * z + m[14] * w, m[3] * x + m[7] * y + m[11] * z + m[15] * w];
+  const cross = (u, v) => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+  const norm3 = v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); };
+  function normalMat(m) {
+    const a = [m[0], m[1], m[2]], b = [m[4], m[5], m[6]], c = [m[8], m[9], m[10]];
+    return new Float32Array([...cross(b, c), ...cross(c, a), ...cross(a, b)]);
+  }
+  const qax = (x, y, z, a) => { const s = Math.sin(a / 2); return [x * s, y * s, z * s, Math.cos(a / 2)]; };
+  const qmul = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+                          a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
+  const qnorm = q => { const l = Math.hypot(...q) || 1; return q.map(v => v / l); };
+  function qslerp(a, b, t) {
+    let d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+    if (d < 0) { b = b.map(v => -v); d = -d; }
+    if (d > .9995) return qnorm(a.map((v, i) => v + (b[i] - v) * t));
+    const th = Math.acos(d), s = Math.sin(th), wa = Math.sin((1 - t) * th) / s, wb = Math.sin(t * th) / s;
+    return a.map((v, i) => v * wa + b[i] * wb);
+  }
+  function qmat([x, y, z, w]) {
+    const m = id4();
+    m[0] = 1 - 2 * (y * y + z * z); m[1] = 2 * (x * y + z * w); m[2] = 2 * (x * z - y * w);
+    m[4] = 2 * (x * y - z * w); m[5] = 1 - 2 * (x * x + z * z); m[6] = 2 * (y * z + x * w);
+    m[8] = 2 * (x * z + y * w); m[9] = 2 * (y * z - x * w); m[10] = 1 - 2 * (x * x + y * y);
+    return m;
+  }
+
+  const glc = $("gl"), gl = glc.getContext("webgl", { alpha: true, antialias: true, premultipliedAlpha: true });
+  const VS = `attribute vec3 p; uniform mat4 uM, uVP; uniform mat3 uN; varying vec3 vN, vW;
+    void main() { vec4 w = uM * vec4(p, 1.); vW = w.xyz; vN = uN * p; gl_Position = uVP * w; }`;
+  const FS = `precision highp float; uniform vec3 uC, uEye; uniform float uShine, uSpec, uE; varying vec3 vN, vW;
+    void main() {
+      vec3 n = normalize(vN), v = normalize(uEye - vW), L = normalize(vec3(-.5, .8, .6));
+      float d = max(dot(n, L), 0.), s = pow(max(dot(n, normalize(L + v)), 0.), uShine) * uSpec;
+      float fill = max(dot(n, normalize(vec3(.7, .1, .6))), 0.) * .22;
+      float rim = pow(1. - max(dot(n, v), 0.), 3.) * (.35 + .65 * max(dot(n, normalize(vec3(.6, -.3, -.7))), 0.));
+      vec3 c = uC * (.24 + .86 * d + fill) + vec3(s) + vec3(.45, .55, 1.) * rim * .55;
+      gl_FragColor = vec4(mix(c, uC, uE), 1.);
+    }`;
+  let prog, U = {}, nIdx = 0;
+  if (gl) {
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+    prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+    gl.linkProgram(prog); gl.useProgram(prog);
+    for (const n of ["uM", "uVP", "uN", "uC", "uEye", "uShine", "uSpec", "uE"]) U[n] = gl.getUniformLocation(prog, n);
+    const LAT = 22, LON = 32, pos = [], idx = [];
+    for (let i = 0; i <= LAT; i++) for (let j = 0; j <= LON; j++) {
+      const th = i / LAT * Math.PI, ph = j / LON * TAU;
+      pos.push(Math.sin(th) * Math.cos(ph), Math.cos(th), Math.sin(th) * Math.sin(ph));
+    }
+    for (let i = 0; i < LAT; i++) for (let j = 0; j < LON; j++) {
+      const a = i * (LON + 1) + j, b = a + LON + 1; idx.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+    nIdx = idx.length;
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pos), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0);
+    gl.enable(gl.DEPTH_TEST); gl.clearColor(0, 0, 0, 0);
+  }
+
+  const YEL = [1, .8, .16], YEL2 = [.98, .7, .1], ORA = [1, .48, .06], ORA2 = [.86, .36, .04], WHT = [.97, .97, .95], BLK = [.02, .02, .03];
+  const P = (t, r, s) => mul(T(...t), Rz(r[2]), Ry(r[1]), Rx(r[0]), S(...s));
+  const HEAD = [.55, .78, 0], BEAK_TIP = [1.32, .7, 0];
+  function duckParts(open, blink) {
+    const shiny = { shine: 40, spec: .45, e: 0 };
+    const parts = [
+      { m: P([0, 0, 0], [0, 0, 0], [1, .6, .72]), c: YEL, ...shiny },
+      { m: P([-.92, .3, 0], [0, 0, -.7], [.32, .15, .26]), c: YEL, ...shiny },
+      { m: P([-.1, .14, .6], [0, 0, -.22], [.5, .26, .14]), c: YEL2, ...shiny },
+      { m: P([-.1, .14, -.6], [0, 0, -.22], [.5, .26, .14]), c: YEL2, ...shiny },
+      { m: P(HEAD, [0, 0, 0], [.44, .44, .44]), c: YEL, ...shiny },
+      { m: P([.42, 1.22, 0], [0, 0, .5], [.05, .14, .035]), c: YEL, ...shiny },
+      { m: P([1.02, .7, 0], [0, 0, -.06], [.3, .085, .2]), c: ORA, shine: 30, spec: .35, e: 0 },
+      { m: mul(T(.8, .64, 0), Rz(-open), T(.18, 0, 0), S(.25, .06, .17)), c: ORA2, shine: 30, spec: .25, e: 0 },
+    ];
+    for (const s of [1, -1]) {
+      const d = norm3([.5, .32, .8 * s]), at = k => HEAD.map((h, i) => h + d[i] * k);
+      parts.push({ m: P(at(.35), [0, 0, 0], [.12, .12 * blink, .12]), c: WHT, shine: 80, spec: .7, e: 0 });
+      parts.push({ m: P(at(.45), [0, 0, 0], [.066, .066 * blink, .066]), c: BLK, shine: 100, spec: .9, e: 0 });
+      if (blink > .5) { const p = at(.505); parts.push({ m: P([p[0] - .015, p[1] + .025, p[2]], [0, 0, 0], [.02, .02, .02]), c: [1, 1, 1], shine: 1, spec: 0, e: 1 }); }
+    }
+    return parts;
+  }
+  function drawDuck(W, VP, eye, open, blink) {
+    gl.uniformMatrix4fv(U.uVP, false, VP); gl.uniform3fv(U.uEye, eye);
+    for (const p of duckParts(open, blink)) {
+      const M = mul(W, p.m);
+      gl.uniformMatrix4fv(U.uM, false, M); gl.uniformMatrix3fv(U.uN, false, normalMat(M));
+      gl.uniform3fv(U.uC, p.c); gl.uniform1f(U.uShine, p.shine); gl.uniform1f(U.uSpec, p.spec); gl.uniform1f(U.uE, p.e);
+      gl.drawElements(gl.TRIANGLES, nIdx, gl.UNSIGNED_SHORT, 0);
+    }
+  }
+
+  let ac, noiseBuf, bus;
+  function setup() {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const comp = ac.createDynamicsCompressor(); comp.connect(ac.destination);
+    bus = ac.createGain(); bus.gain.value = .22; bus.connect(comp);
+    const rev = ac.createConvolver(), n = Math.round(ac.sampleRate * .4), ir = ac.createBuffer(2, n, ac.sampleRate);
+    for (let c = 0; c < 2; c++) { const ch = ir.getChannelData(c); for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3); }
+    rev.buffer = ir; const wet = ac.createGain(); wet.gain.value = .12;
+    bus.connect(rev).connect(wet).connect(comp);
+  }
+  function audio() { if (!ac) setup(); if (ac.state === "suspended") ac.resume(); return ac.currentTime + .02; }
+  function noise() { const s = ac.createBufferSource(); s.buffer = noiseBuf; return s; }
+  function filt(type, f, q) { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q || .7; return b; }
+  function gain(v) { const g = ac.createGain(); g.gain.value = v; return g; }
+
+  function quack(t, p, len) {
+    const v1 = t + len;
+    const env = ac.createGain(); env.connect(bus);
+    env.gain.setValueAtTime(.0001, t);
+    env.gain.exponentialRampToValueAtTime(1, t + .04);
+    env.gain.linearRampToValueAtTime(.7, v1 - .05);
+    env.gain.exponentialRampToValueAtTime(.001, v1);
+
+    const o = ac.createOscillator(); o.type = "sawtooth";
+    o.frequency.setValueAtTime(p * .85, t);
+    o.frequency.linearRampToValueAtTime(p * 1.03, t + .05);
+    o.frequency.linearRampToValueAtTime(p * .8, v1);
+    const jit = noise(); jit.connect(filt("lowpass", 40)).connect(gain(p * .03)).connect(o.frequency);
+
+    const trem = gain(.9), lfo = ac.createOscillator(); lfo.frequency.value = 26 + Math.random() * 6;
+    lfo.connect(gain(.1)).connect(trem.gain);
+    o.connect(filt("lowpass", 2200)).connect(trem);
+
+    for (const [fs, f, fe, q, v] of [[380, 800, 480, 3, 2.2], [750, 1250, 900, 4, 2.6], [2200, 2400, 2200, 5, .6]]) {
+      const bp = filt("bandpass", fs, q);
+      bp.frequency.setValueAtTime(fs, t);
+      bp.frequency.exponentialRampToValueAtTime(f, t + .05);
+      bp.frequency.setValueAtTime(f, v1 - .04);
+      bp.frequency.exponentialRampToValueAtTime(fe, v1);
+      trem.connect(bp).connect(gain(v)).connect(env);
+    }
+    const br = noise(); br.connect(filt("bandpass", 1400, 1)).connect(gain(.05)).connect(env);
+
+    const ck = noise(), cg = ac.createGain();
+    cg.gain.setValueAtTime(.12, v1 - .01); cg.gain.exponentialRampToValueAtTime(.001, v1 + .025);
+    ck.connect(filt("lowpass", 1400)).connect(cg).connect(bus);
+
+    for (const n of [o, jit, lfo, br]) { n.start(t); n.stop(v1 + .02); }
+    ck.start(v1 - .01); ck.stop(v1 + .04);
+  }
+  function whoosh(vol = 1) {
+    const t = audio(), n = noise(), bp = filt("bandpass", 2500, 1.2), g = ac.createGain();
+    bp.frequency.setValueAtTime(2500, t); bp.frequency.exponentialRampToValueAtTime(350, t + .35);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.9 * vol, t + .03); g.gain.exponentialRampToValueAtTime(.001, t + .4);
+    n.connect(bp).connect(g).connect(bus); n.start(t); n.stop(t + .45);
+    const o = ac.createOscillator(), og = ac.createGain();
+    o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(45, t + .3);
+    og.gain.setValueAtTime(.5 * vol, t); og.gain.exponentialRampToValueAtTime(.001, t + .3);
+    o.connect(og).connect(bus); o.start(t); o.stop(t + .32);
+  }
+  function boom(size) {
+    const t = audio(), n = noise(), lp = filt("lowpass", 1400), g = ac.createGain(), len = .3 + size * .15;
+    lp.frequency.setValueAtTime(1400, t); lp.frequency.exponentialRampToValueAtTime(70, t + len);
+    g.gain.setValueAtTime(.4 + size * .25, t); g.gain.exponentialRampToValueAtTime(.001, t + len);
+    n.connect(lp).connect(g).connect(bus); n.start(t); n.stop(t + len + .05);
+  }
+
+  const duck = $("duck"), fxc = $("fx"), fx = fxc.getContext("2d"), say = $("say"), sayText = $("sayText"), hint = $("hint");
+  const FOV = .52, START_Q = qnorm(qax(0, 1, 0, -.6));
+  let q = START_Q, pos = [0, 0], vel = [0, 0], dist = 8, roll = 0, popTarget = null;
+  let quackT = -9, blinkAt = 2, blinkT = -9, now = 0, last = 0;
+  let fires = [], embers = [], game = null, saved = null, nudge = [0, 0], nudgeAt = 0;
+  let view = { W: 1, H: 1, VP: id4(), P5: 1 };
+  const keys = {};
+  const popped = () => !!$("__pop");
+  setTimeout(() => hint.classList.add("dim"), 7000);
+
+  function replay(el, cls) { el.classList.remove(cls); void el.getBoundingClientRect(); el.classList.add(cls); }
+  sayText.addEventListener("animationend", () => say.classList.remove("show"));
+  function speak(text) { sayText.textContent = text; replay(say, "show"); }
+  function doQuack(low) {
+    const t = audio(), p = (270 + Math.random() * 30) * (low ? .75 : 1);
+    quack(t, p, .19); quack(t + .28, p * .96, .17);
+    quackT = now; speak(low ? "Quaa…" : "Quack quack!");
+  }
+
+  function project(p) {
+    const c = xf(view.VP, p), w = c[3] || 1e-6;
+    return { x: (c[0] / w * .5 + .5) * view.W, y: (.5 - c[1] / w * .5) * view.H, ppw: view.P5 * view.H / 2 / w, w };
+  }
+
+  function duckMatrix(scale, bob) {
+    const tt = now - quackT, k = tt < .6 ? .07 * Math.sin(tt * 22) * Math.exp(-tt * 6) : 0;
+    return mul(T(pos[0], pos[1] + bob, 0), Rz(roll), qmat(q), S(scale, scale, scale),
+               T(0, -.6, 0), S(1 + k, 1 - k, 1 + k), T(0, .6, 0), T(-.05, -.32, 0));
+  }
+
+  function shootFire() {
+    const W = duckMatrix(1, 0), tip = xf(W, BEAK_TIP), dir = norm3(xf(mul(Rz(roll), qmat(q)), [1, 0, 0], 0));
+    const sp = popped() ? 3 : 7;
+    fires.push({ p: tip.slice(0, 3), v: dir.map(d => d * sp), life: popped() ? 1.1 : 1.8, r: .2 });
+    quackT = now - .05; whoosh();
+  }
+  function fireSprite(x, y, r, a) {
+    if (r < .5 || a <= 0) return;
+    const g = fx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(255,255,225,${a})`); g.addColorStop(.3, `rgba(255,205,70,${a})`);
+    g.addColorStop(.62, `rgba(255,95,15,${a * .6})`); g.addColorStop(1, "rgba(190,20,0,0)");
+    fx.fillStyle = g; fx.beginPath(); fx.arc(x, y, r, 0, TAU); fx.fill();
+  }
+  function updateFires(dt) {
+    for (const f of fires) {
+      f.life -= dt; for (let i = 0; i < 3; i++) f.p[i] += f.v[i] * dt;
+      for (let i = 0; i < 2; i++) embers.push({ p: f.p.map(v => v + rnd(-.06, .06)), v: [rnd(-.4, .4), rnd(-.2, .6), rnd(-.4, .4)], life: .45, max: .45, r: rnd(.05, .11) });
+      if (f.life <= 0) for (let i = 0; i < 24; i++)
+        embers.push({ p: f.p.slice(), v: [rnd(-2, 2), rnd(-2, 2), rnd(-2, 2)], life: .6, max: .6, r: rnd(.06, .16) });
+    }
+    fires = fires.filter(f => f.life > 0);
+    for (const e of embers) { e.life -= dt; for (let i = 0; i < 3; i++) e.p[i] += e.v[i] * dt; }
+    embers = embers.filter(e => e.life > 0);
+  }
+  function drawFires() {
+    fx.globalCompositeOperation = "lighter";
+    for (const e of embers) { const s = project(e.p); if (s.w > 0) fireSprite(s.x, s.y, e.r * s.ppw * (e.life / e.max + .3), e.life / e.max); }
+    for (const f of fires) {
+      const s = project(f.p); if (s.w <= 0) continue;
+      const fl = 1 + .15 * Math.sin(now * 40);
+      fireSprite(s.x, s.y, f.r * 2.2 * s.ppw * fl, 1); fireSprite(s.x, s.y, f.r * s.ppw, 1);
+    }
+    fx.globalCompositeOperation = "source-over";
+  }
+
+  const gk = () => Math.min(view.W, view.H) / 800;
+  function makeRock(x, y, size) {
+    const r = [0, 16, 32, 62][size] * gk(), a = rnd(0, TAU), sp = rnd(40, 100) * (4 - size) * .6 * gk(), n = 10 + (Math.random() * 4 | 0);
+    return { x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r, size, rot: 0, spin: rnd(-1.2, 1.2),
+             pts: Array.from({ length: n }, (_, i) => [i / n * TAU, rnd(.72, 1.15)]) };
+  }
+  function newShip() { return { x: view.W / 2, y: view.H / 2, vx: 0, vy: 0, a: -Math.PI / 2 * 0, inv: 2.5, thrust: false }; }
+  function startGame() {
+    if (!saved) saved = { q, pos: pos.slice(), dist };
+    game = { ship: newShip(), rocks: [], shots: [], parts: [], score: 0, lives: 3, wave: 0, over: false, next: .5, cool: 0, respawn: 0 };
+    fires = []; embers = []; hint.hidden = true; speak("Let's go!");
+  }
+  function endGame() {
+    game = null; hint.hidden = false;
+    if (saved) { q = saved.q; pos = saved.pos; dist = saved.dist; saved = null; }
+  }
+  function burst(g, x, y, n, hot) {
+    for (let i = 0; i < n; i++) { const a = rnd(0, TAU), s = rnd(30, 260) * gk();
+      g.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(.4, .9), max: .9, r: rnd(1.5, 4) * gk() * (hot ? 2 : 1), hot }); }
+  }
+  const wrap = (o, m) => { o.x = (o.x + view.W + m * 2) % (view.W + m * 2) - m; o.y = (o.y + view.H + m * 2) % (view.H + m * 2) - m; };
+  function shipR() { return .9 * .24 * view.P5 * view.H / 2 / 8; }
+  function updateGame(dt) {
+    const g = game, s = g.ship;
+    if (s) {
+      const turn = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+      s.a += turn * 4.5 * dt;
+      s.thrust = !!(keys.ArrowUp || keys.KeyW);
+      if (s.thrust) { s.vx += Math.cos(s.a) * 520 * gk() * dt; s.vy += Math.sin(s.a) * 520 * gk() * dt; }
+      const f = Math.exp(-.6 * dt); s.vx *= f; s.vy *= f;
+      s.x += s.vx * dt; s.y += s.vy * dt; wrap(s, 30); s.inv -= dt;
+      g.cool -= dt;
+      if ((keys.KeyF || keys.Space) && g.cool <= 0 && g.shots.length < 6) {
+        const R = shipR() * 1.25;
+        g.shots.push({ x: s.x + Math.cos(s.a) * R, y: s.y + Math.sin(s.a) * R, vx: Math.cos(s.a) * 700 * gk() + s.vx, vy: Math.sin(s.a) * 700 * gk() + s.vy, life: .9 });
+        g.cool = .2; whoosh(.45);
+      }
+    } else if (!g.over && (g.respawn -= dt) <= 0) g.ship = newShip();
+    for (const b of g.shots) { b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt; wrap(b, 4); }
+    for (const r of g.rocks) { r.x += r.vx * dt; r.y += r.vy * dt; r.rot += r.spin * dt; wrap(r, r.r); }
+    for (const b of g.shots) for (const r of g.rocks) if (!r.dead && b.life > 0 && Math.hypot(b.x - r.x, b.y - r.y) < r.r) {
+      b.life = 0; r.dead = true; g.score += [0, 100, 50, 20][r.size]; burst(g, r.x, r.y, 10 + r.size * 6, false); boom(r.size);
+      if (r.size > 1) g.rocks.push(makeRock(r.x, r.y, r.size - 1), makeRock(r.x, r.y, r.size - 1));
+    }
+    if (g.ship && g.ship.inv <= 0) for (const r of g.rocks) if (!r.dead && Math.hypot(g.ship.x - r.x, g.ship.y - r.y) < r.r + shipR() * .8) {
+      burst(g, g.ship.x, g.ship.y, 40, true); boom(3); g.ship = null; g.lives--; g.respawn = 1.6;
+      doQuack(true);
+      if (g.lives <= 0) g.over = true;
+      break;
+    }
+    g.shots = g.shots.filter(b => b.life > 0); g.rocks = g.rocks.filter(r => !r.dead);
+    for (const p of g.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+    g.parts = g.parts.filter(p => p.life > 0);
+    if (!g.rocks.length && !g.over && (g.next -= dt) <= 0) {
+      g.wave++; g.next = 1.5;
+      for (let i = 0; i < 3 + g.wave; i++) {
+        let x, y, tries = 0; do { x = rnd(0, view.W); y = rnd(0, view.H); } while (Math.hypot(x - view.W / 2, y - view.H / 2) < Math.min(220 * gk(), Math.min(view.W, view.H) * .4) && ++tries < 50);
+        g.rocks.push(makeRock(x, y, 3));
+      }
+    }
+    if (g.ship) {
+      const a = -g.ship.a, right = Math.cos(g.ship.a) >= 0;
+      const target = right ? qmul(qax(0, 0, 1, a), qax(0, 1, 0, -.4)) : qmul(qax(0, 0, 1, a - Math.PI), qax(0, 1, 0, Math.PI + .4));
+      q = qslerp(q, target, 1 - Math.exp(-12 * dt));
+      const ppw = view.P5 * view.H / 2 / 8;
+      pos = [(g.ship.x - view.W / 2) / ppw, -(g.ship.y - view.H / 2) / ppw];
+    }
+  }
+  function drawGame() {
+    const g = game, k = gk();
+    for (const r of g.rocks) {
+      fx.save(); fx.translate(r.x, r.y); fx.rotate(r.rot); fx.beginPath();
+      r.pts.forEach(([a, m], i) => fx[i ? "lineTo" : "moveTo"](Math.cos(a) * r.r * m, Math.sin(a) * r.r * m));
+      fx.closePath();
+      const gr = fx.createRadialGradient(-r.r * .3, -r.r * .3, r.r * .1, 0, 0, r.r * 1.1);
+      gr.addColorStop(0, "#7d7688"); gr.addColorStop(1, "#2a2632");
+      fx.fillStyle = gr; fx.fill(); fx.strokeStyle = "#b9b2c8"; fx.lineWidth = 1.5; fx.stroke(); fx.restore();
+    }
+    fx.globalCompositeOperation = "lighter";
+    for (const p of g.parts) {
+      if (p.hot) fireSprite(p.x, p.y, p.r * 2, p.life / p.max);
+      else { fx.globalAlpha = p.life / p.max; fx.fillStyle = "#d8d0e8"; fx.fillRect(p.x, p.y, p.r, p.r); fx.globalAlpha = 1; }
+    }
+    for (const b of g.shots) { fireSprite(b.x, b.y, 11 * k, 1); fireSprite(b.x - b.vx * .015, b.y - b.vy * .015, 7 * k, .6); }
+    const s = g.ship;
+    if (s && s.thrust) {
+      const R = shipR() * 1.05, x = s.x - Math.cos(s.a) * R, y = s.y - Math.sin(s.a) * R;
+      fireSprite(x, y, (14 + Math.random() * 8) * k, 1);
+      fireSprite(x - Math.cos(s.a) * 12 * k, y - Math.sin(s.a) * 12 * k, (9 + Math.random() * 6) * k, .7);
+    }
+    fx.globalCompositeOperation = "source-over";
+    fx.fillStyle = "#e8ecff"; fx.font = "bold 18px system-ui, sans-serif"; fx.textAlign = "left";
+    fx.fillText(`Score ${g.score}`, 16, 28);
+    fx.fillText("🦆".repeat(Math.max(0, g.lives)), 16, 54);
+    fx.textAlign = "right"; fx.font = "13px system-ui, sans-serif"; fx.fillStyle = "#aab4e8";
+    fx.fillText(`Wave ${g.wave} · ←→ turn · ↑ thrust · F/Space fire · Q quack · Esc quit`, view.W - 16, 26);
+    if (g.over) {
+      fx.textAlign = "center"; fx.fillStyle = "#fff"; fx.font = "bold 40px system-ui, sans-serif";
+      fx.fillText("GAME OVER", view.W / 2, view.H / 2 - 10);
+      fx.font = "16px system-ui, sans-serif"; fx.fillText(`Score ${g.score} · F to play again · Esc to leave`, view.W / 2, view.H / 2 + 24);
+    }
+  }
+
+  const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+  const FACE = { KeyW: qax(0, 1, 0, Math.PI / 2), KeyA: qax(0, 1, 0, Math.PI), KeyS: qax(0, 1, 0, -Math.PI / 2), KeyD: qax(0, 1, 0, 0) };
+  addEventListener("keydown", e => {
+    if (e.ctrlKey && e.altKey && e.shiftKey && e.code === "KeyS") {
+      e.preventDefault(); if (!popped()) game ? endGame() : startGame(); return;
+    }
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (ARROWS[e.code] || e.code === "Space") e.preventDefault();
+    keys[e.code] = true;
+    if (e.repeat) return;
+    if (e.code === "KeyQ") doQuack();
+    if (game) {
+      if (e.code === "Escape") endGame();
+      else if (game.over && (e.code === "KeyF" || e.code === "Enter" || e.code === "Space")) startGame();
+      return;
+    }
+    if (e.code === "KeyF") shootFire();
+    if (popped() && FACE[e.code]) popTarget = FACE[e.code];
+    if (e.code === "KeyR" && !popped()) { q = START_Q; pos = [0, 0]; vel = [0, 0]; dist = 8; }
+  });
+  addEventListener("keyup", e => { keys[e.code] = false; });
+  addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
+
+  let drag = null;
+  duck.addEventListener("pointerdown", e => { if (e.button === 0) drag = { x: e.clientX, y: e.clientY, moved: false }; });
+  addEventListener("pointermove", e => {
+    if (!drag || popped() || game) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true; drag.x = e.clientX; drag.y = e.clientY;
+    q = qnorm(qmul(qax(1, 0, 0, dy * .01), qmul(qax(0, 1, 0, dx * .01), q)));
+  });
+  addEventListener("pointerup", e => {
+    if (drag && !drag.moved && !game) {
+      const s = project([pos[0], pos[1], 0]);
+      if (popped() || Math.hypot(e.clientX - s.x, e.clientY - s.y) < 1.4 * s.ppw) doQuack();
+    }
+    drag = null;
+  });
+  addEventListener("wheel", e => {
+    if (popped() || game) return;
+    e.preventDefault(); dist = Math.min(18, Math.max(4, dist * Math.exp(e.deltaY * .001)));
+  }, { passive: false });
+
+  function frame(ts) {
+    now = ts / 1000; const dt = Math.min(.05, now - last || 0); last = now;
+    drawStars(ts);
+    const dpr = devicePixelRatio || 1, W = duck.clientWidth || 1, H = duck.clientHeight || 1, isPop = popped();
+    for (const c of [glc, fxc]) if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+    if (isPop && game) endGame();
+
+    const ax = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0), ay = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0);
+    let bob = 0, scale = 1, tilt = .2, camDist = dist;
+    if (game) { updateGame(dt); tilt = 0; camDist = 8; scale = .24; roll = 0; }
+    else if (isPop) {
+      camDist = 6; pos = [0, 0];
+      nudge[0] += ax * 420 * dt; nudge[1] -= ay * 420 * dt;
+      const api = window.pywebview && window.pywebview.api;
+      if (now - nudgeAt > .03 && (Math.abs(nudge[0]) >= 1 || Math.abs(nudge[1]) >= 1) && api && api.nudge) {
+        const nx = Math.trunc(nudge[0]), ny = Math.trunc(nudge[1]); nudge[0] -= nx; nudge[1] -= ny; nudgeAt = now;
+        api.nudge(nx, ny);
+      }
+      roll += ((ax || ay ? Math.sin(now * 14) * .12 : 0) - roll) * Math.min(1, dt * 10);
+      if (popTarget) q = qslerp(q, popTarget, 1 - Math.exp(-8 * dt));
+    } else {
+      const r = 2.4 * dt;
+      if (keys.KeyA) q = qmul(qax(0, 1, 0, r), q);
+      if (keys.KeyD) q = qmul(qax(0, 1, 0, -r), q);
+      if (keys.KeyW) q = qmul(qax(1, 0, 0, -r), q);
+      if (keys.KeyS) q = qmul(qax(1, 0, 0, r), q);
+      q = qnorm(q);
+      const f = 1 - Math.exp(-8 * dt);
+      vel[0] += (ax * 3.2 - vel[0]) * f; vel[1] += (ay * 3.2 - vel[1]) * f;
+      pos[0] += vel[0] * dt; pos[1] += vel[1] * dt;
+      const hh = Math.tan(FOV / 2) * dist, hw = hh * W / H;
+      pos[0] = Math.max(-Math.max(0, hw - 1.3), Math.min(Math.max(0, hw - 1.3), pos[0]));
+      pos[1] = Math.max(-Math.max(0, hh - 1.1), Math.min(Math.max(0, hh - 1.1), pos[1]));
+      roll += (-vel[0] * .06 + Math.sin(now * 1.05) * .06 - roll) * Math.min(1, dt * 4);
+      bob = Math.sin(now * 1.6) * .1;
+    }
+
+    const Pm = persp(FOV, W / H, .1, 100);
+    const VP = mul(Pm, T(0, 0, -camDist), Rx(tilt));
+    view = { W, H, VP, P5: Pm[5] };
+    const eye = [0, camDist * Math.sin(tilt), camDist * Math.cos(tilt)];
+
+    if (now > blinkAt) { blinkT = now; blinkAt = now + rnd(2.5, 6.5); }
+    const blink = now - blinkT < .13 ? .12 : 1;
+    const bk = t => t >= 0 && t < .24 ? Math.sin(t / .24 * Math.PI) * .45 : 0;
+    const open = Math.max(bk(now - quackT), bk(now - quackT - .28));
+
+    const Wm = duckMatrix(scale, bob);
+    if (gl) {
+      gl.viewport(0, 0, glc.width, glc.height); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      const hidden = game && (!game.ship || (game.ship.inv > 0 && Math.floor(now * 10) % 2));
+      if (!hidden) drawDuck(Wm, VP, eye, open, blink);
+    }
+    fx.setTransform(dpr, 0, 0, dpr, 0, 0); fx.clearRect(0, 0, W, H);
+    updateFires(dt); drawFires();
+    if (game) drawGame();
+
+    const top = project(xf(Wm, [HEAD[0], HEAD[1] + .55, 0]));
+    say.classList.toggle("small", isPop);
+    const bw = isPop ? 50 : 70;
+    say.style.left = Math.max(bw, Math.min(W - bw, top.x)) + "px";
+    say.style.top = Math.max(isPop ? 30 : 40, Math.min(H - 10, top.y)) + "px";
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  setTimeout(() => { quackT = now; speak("Hi there!"); }, 600);
+})();
 </script>
 </body>
 </html>
