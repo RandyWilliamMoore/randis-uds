@@ -1117,6 +1117,17 @@ function nameFrom(text) {
   return t.length > 28 ? t.slice(0, 28) + "…" : t.charAt(0).toUpperCase() + t.slice(1);
 }
 
+function appName(n) { return String(n || "").replace(/\s*(\(v\d+\)|\bv\d+(\.\d+)*)\s*$/i, "").trim() || String(n || ""); }
+function menuApps(list) {
+  const best = {}, last = m => Math.max(m.created || 0, ...((m.versions || []).map(v => v.time || 0)));
+  for (const m of list || []) {
+    const k = appName(m.name).toLowerCase().replace(/\s+/g, " "), b = best[k];
+    const s = [(m.versions || []).length, last(m)], bs = b && [(b.versions || []).length, last(b)];
+    if (!b || s[0] > bs[0] || (s[0] === bs[0] && s[1] > bs[1])) best[k] = m;
+  }
+  return Object.values(best);
+}
+
 function menuOpen() { try { return JSON.parse(localStorage.getItem("uds.menuOpen") || "{}") || {}; } catch (e) { return {}; } }
 function renderBuiltMenu() {
   const box = $("#built-menu");
@@ -1124,7 +1135,7 @@ function renderBuiltMenu() {
   if (!state.built.length) return;
   box.appendChild(document.createElement("hr"));
   const SECS = ["Basics", "Games", "Create", "Learn", "Tools", "Money & Shop", "Life & Family", "Bots & AI"], open = menuOpen(), by = {};
-  for (const m of state.built) { const s = SECS.includes(m.section) && m.section !== "Basics" ? m.section : "Other"; (by[s] = by[s] || []).push(m); }
+  for (const m of menuApps(state.built)) { const s = SECS.includes(m.section) && m.section !== "Basics" ? m.section : "Other"; (by[s] = by[s] || []).push(m); }
   for (const s of [...SECS, "Other"]) {
     const list = (by[s] || []).slice().sort((a, b) => a.name.localeCompare(b.name));
     if (!list.length) continue;
@@ -1133,7 +1144,7 @@ function renderBuiltMenu() {
     for (const m of list) {
       const b = el("button", {}); b.dataset.built = m.id;
       const ic = el("span", { className: "tab-icon" }); fillTabIcon(ic, { kind: "built", builtId: m.id });
-      b.append(ic, document.createTextNode(" " + m.name + (m.current ? " v" + m.current : ""))); det.appendChild(b);
+      b.append(ic, document.createTextNode(" " + appName(m.name) + (m.current ? " v" + m.current : ""))); det.appendChild(b);
     }
     det.addEventListener("toggle", () => { const o = menuOpen(); o[s] = det.open; try { localStorage.setItem("uds.menuOpen", JSON.stringify(o)); } catch (e) {} });
     box.appendChild(det);

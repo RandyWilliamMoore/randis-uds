@@ -884,6 +884,15 @@ class Api:
             return {"error": "That isn't a page this app can open."}
         title = re.search(r"<title[^>]*>(.*?)</title>", html[:20000], re.I | re.S)
         name = (unescape(title.group(1)).strip() if title else "") or name
+        have = self._tabs().same_app(name[:60])
+        if have:
+            try:
+                cur = self._tabs().load(have["id"])
+                if isinstance(cur, dict) and cur.get("html") == html:
+                    return {"meta": have}
+            except (OSError, ValueError, StopIteration):
+                pass
+            return {"meta": self._tabs().save_version(have["id"], None, html, note)}
         return {"meta": self._tabs().save_version(None, name[:60], html, note)}
 
     def item_open_file(self):

@@ -42,6 +42,16 @@ def uds_version():
         return None
 
 
+def base_name(name):
+    n = re.sub(r"\s*(\(v\d+\)|\bv\d+(\.\d+)*)\s*$", "", str(name or "").strip(), flags=re.I)
+    return " ".join(n.lower().split())
+
+
+def last_edit(meta):
+    v = meta.get("versions") or []
+    return max([x.get("time") or 0 for x in v] + [meta.get("created") or 0])
+
+
 class TabStore:
     def __init__(self, root):
         self.root = root
@@ -70,6 +80,16 @@ class TabStore:
                 except (OSError, ValueError):
                     pass
         return sorted(out, key=lambda m: m["created"], reverse=True)
+
+    def same_app(self, name):
+        key = base_name(name)
+        best = None
+        for m in self.list():
+            if key and base_name(m.get("name")) == key:
+                score = (len(m.get("versions") or []), last_edit(m))
+                if best is None or score > best[0]:
+                    best = (score, m)
+        return best[1] if best else None
 
     def save_version(self, tab_id, name, html, note, origin_chat=None, new_id=None):
         if tab_id is None:

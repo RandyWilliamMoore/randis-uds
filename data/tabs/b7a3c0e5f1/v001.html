@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Browser</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#1e1f22;color:#e6e6e6;font:14px system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
+#tabs{display:flex;gap:2px;padding:6px 6px 0;background:#17181a;overflow-x:auto}
+.tab{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#2b2d31;border-radius:6px 6px 0 0;cursor:pointer;max-width:200px;white-space:nowrap}
+.tab.on{background:#1e1f22}
+.tab span{overflow:hidden;text-overflow:ellipsis}
+.tab b{font-weight:normal;opacity:.6;padding:0 3px;border-radius:3px}
+.tab b:hover{opacity:1;background:#444}
+#nav{display:flex;gap:4px;padding:6px;align-items:center}
+button{background:#2b2d31;color:#e6e6e6;border:1px solid #3a3c42;border-radius:5px;padding:5px 9px;cursor:pointer}
+button:hover{background:#3a3c42}
+button:disabled{opacity:.35;cursor:default}
+button.on{background:#5865f2;border-color:#5865f2}
+#addr{flex:1;background:#2b2d31;color:#e6e6e6;border:1px solid #3a3c42;border-radius:5px;padding:6px 10px;outline:none}
+#addr:focus{border-color:#5865f2}
+#main{flex:1;display:flex;min-height:0}
+#view{flex:1;position:relative;background:#fff}
+.cover{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#1e1f22;color:#e6e6e6;text-align:center;padding:20px}
+.cover h2{font-weight:500;margin:0 0 8px}
+.cover p{color:#9a9ca3;margin:0;max-width:420px;line-height:1.4}
+.cover[hidden]{display:none}
+#chat{width:300px;display:flex;flex-direction:column;border-left:1px solid #3a3c42;background:#1e1f22}
+#chat.hide{display:none}
+#chatHead{padding:8px 10px;border-bottom:1px solid #3a3c42;display:flex;justify-content:space-between;align-items:center;font-weight:500}
+#log{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+.msg{padding:6px 9px;border-radius:8px;max-width:90%;white-space:pre-wrap;word-wrap:break-word;line-height:1.35}
+.me{align-self:flex-end;background:#5865f2;color:#fff}
+.bot{align-self:flex-start;background:#2b2d31}
+#chatIn{display:flex;gap:4px;padding:6px;border-top:1px solid #3a3c42}
+#msg{flex:1;background:#2b2d31;color:#e6e6e6;border:1px solid #3a3c42;border-radius:5px;padding:6px 8px;outline:none}
+#msg:focus{border-color:#5865f2}
+</style>
+</head>
+<body>
+<div id="tabs"></div>
+<div id="nav">
+  <button id="back" title="Back">&#8592;</button>
+  <button id="fwd" title="Forward">&#8594;</button>
+  <button id="rel" title="Reload">&#8635;</button>
+  <button id="home" title="Home">&#8962;</button>
+  <input id="addr" placeholder="Type a web address or search words, then press Enter">
+  <button id="go">Go</button>
+  <button id="ext" title="Open this page in your web browser">&#8599;</button>
+  <button id="chatBtn" title="Show or hide chat (Ctrl+J)">&#128172; Chat</button>
+</div>
+<div id="main">
+  <div id="view">
+    <div id="start" class="cover"><div><h2>New tab</h2><p>Type an address or search above.</p></div></div>
+    <div id="off" class="cover" hidden><div><h2>Web view is off</h2><p>This tab can't show websites until you tick <b>Web view</b> in the bar above this page.</p></div></div>
+  </div>
+  <div id="chat" class="hide">
+    <div id="chatHead"><span>Chat</span><button id="clr" title="Clear chat">Clear</button></div>
+    <div id="log"></div>
+    <div id="chatIn"><input id="msg" placeholder="Type a message or 'help'"><button id="send">Send</button></div>
+  </div>
+</div>
+
+<script>
+var tabs = [], cur = null, nid = 1, webOn = false;
+var $ = function(id){return document.getElementById(id)};
+function tell(m){ try { parent.postMessage(m, '*'); } catch(e){} }
+
+function toUrl(t){
+  t = t.trim();
+  if (!t) return '';
+  if (/^[a-z]+:\/\//i.test(t)) return t;
+  if (/^[^\s]+\.[a-z]{2,}(\/.*)?$/i.test(t) || /^localhost(:\d+)?/.test(t)) return 'https://' + t;
+  return 'https://duckduckgo.com/?q=' + encodeURIComponent(t);
+}
+function title(u){
+  if (!u) return 'New tab';
+  try { return new URL(u).hostname.replace(/^www\./,''); } catch(e){ return u; }
+}
+function rect(){ var r = $('view').getBoundingClientRect(); return {x:r.left, y:r.top, w:r.width, h:r.height}; }
+function urlOf(t){ return t.url; }
+function here(){ return cur ? urlOf(cur) : ''; }
+
+function paint(reload){
+  var u = here();
+  $('start').hidden = !!u;
+  $('off').hidden = !u || webOn;
+  if (!webOn) return;
+  tabs.forEach(function(t){
+    if (t === cur) tell(reload === true ? {uds:'web', id:t.id, url:urlOf(t), rect:rect(), show:!!urlOf(t)} : {uds:'web', id:t.id, rect:rect(), show:!!urlOf(t)});
+    else tell({uds:'web', id:t.id, show:false});
+  });
+}
+function newTab(u){
+  var t = {id:'t' + (nid++), url:'', last:'', title:'', back:false, fwd:false};
+  tabs.push(t);
+  show(t);
+  if (u) open(u);
+}
+function closeTab(t){
+  var i = tabs.indexOf(t);
+  tabs.splice(i,1);
+  if (webOn) tell({uds:'web-close', id:t.id});
+  if (!tabs.length) return newTab();
+  if (cur === t) show(tabs[Math.max(0,i-1)]); else draw();
+}
+function show(t){ cur = t; draw(); paint(); }
+function open(u){
+  u = toUrl(u);
+  if (!u) return;
+  cur.url = cur.last = u; cur.title = '';
+  draw(); paint(true);
+}
+function draw(){
+  var bar = $('tabs'); bar.innerHTML = '';
+  tabs.forEach(function(t){
+    var d = document.createElement('div');
+    d.className = 'tab' + (t===cur ? ' on' : '');
+    var u = urlOf(t);
+    d.innerHTML = '<span></span><b title="Close tab">&#10005;</b>';
+    d.firstChild.textContent = t.title || title(u);
+    d.title = u || 'New tab';
+    d.onclick = function(){ show(t); };
+    d.lastChild.onclick = function(e){ e.stopPropagation(); closeTab(t); };
+    bar.appendChild(d);
+  });
+  var plus = document.createElement('button');
+  plus.textContent = '+'; plus.title = 'New tab';
+  plus.onclick = function(){ newTab(); $('addr').focus(); };
+  bar.appendChild(plus);
+  $('addr').value = here();
+  $('back').disabled = !(cur.back || (!cur.url && cur.last));
+  $('fwd').disabled = !cur.fwd;
+}
+function popOut(){ var u = here(); if (!u) return false; if (!webOn){ addMsg('bot', 'Tick Web view in the bar above first.'); return false; } tell({uds:'web-pop', url:u}); return true; }
+function goBack(){
+  if (!cur.url && cur.last){ cur.url = cur.last; draw(); paint(); return true; }
+  if (cur.back){ tell({uds:'web', id:cur.id, nav:'back'}); return true; }
+}
+function goFwd(){ if (cur.fwd){ tell({uds:'web', id:cur.id, nav:'forward'}); return true; } }
+function reload(){ if (here()) tell({uds:'web', id:cur.id, nav:'reload'}); }
+function goHome(){ cur.url = ''; cur.fwd = false; draw(); paint(); }
+
+var chatLog = [];
+function save(){ tell({uds:'store-set', data:{chat: chatLog.slice(-200)}}); }
+function addMsg(who, text, keep){
+  var d = document.createElement('div');
+  d.className = 'msg ' + who; d.textContent = text;
+  $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight;
+  if (keep !== false){ chatLog.push({w:who, t:text}); save(); }
+}
+var HELP = 'Things I can do:\n• open <address> — go to a site\n• search <words> — search the web\n• new tab [address]\n• close tab\n• back / forward / reload / home\n• where — show the current address\n• tabs — list open tabs\n• pop out — open this page in your web browser\n• clear — clear this chat\nAnything else is kept here as a note.';
+function offNote(){ return webOn ? '' : '\n(Web view is off: tick it in the bar above to see the page.)'; }
+function reply(t){
+  var s = t.trim(), l = s.toLowerCase(), m;
+  if (l === 'help' || l === '?') return HELP;
+  if ((m = s.match(/^(open|go to|go|visit)\s+(.+)$/i))){ open(m[2]); return 'Opening ' + toUrl(m[2]) + offNote(); }
+  if ((m = s.match(/^(search|find|look up)\s+(.+)$/i))){ open('https://duckduckgo.com/?q=' + encodeURIComponent(m[2])); return 'Searching for "' + m[2] + '"' + offNote(); }
+  if ((m = l.match(/^new tab\s*(.*)$/))){ var a = s.slice(7).trim(); newTab(a || undefined); return a ? 'Opened ' + toUrl(a) + ' in a new tab' : 'Opened a new tab'; }
+  if (l === 'close tab' || l === 'close'){ closeTab(cur); return 'Tab closed'; }
+  if (l === 'back') return goBack() ? 'Went back' : 'Nothing to go back to';
+  if (l === 'forward') return goFwd() ? 'Went forward' : 'Nothing to go forward to';
+  if (l === 'reload' || l === 'refresh'){ reload(); return 'Reloaded'; }
+  if (l === 'home'){ goHome(); return 'Home'; }
+  if (l === 'pop out' || l === 'popout') return popOut() ? 'Opened in your web browser' : (here() ? 'Not opened' : 'This tab is on the start page');
+  if (l === 'where' || l === 'url') return here() || 'This tab is on the start page';
+  if (l === 'tabs') return tabs.map(function(t,i){ return (i+1) + '. ' + (urlOf(t) || 'New tab') + (t===cur ? '  (current)' : ''); }).join('\n');
+  if (/^(hi|hello|hey)\b/.test(l)) return 'Hi! Type "help" to see what I can do.';
+  return 'Saved as a note. (Type "help" for commands.)';
+}
+function send(){
+  var t = $('msg').value; if (!t.trim()) return;
+  $('msg').value = '';
+  if (t.trim().toLowerCase() === 'clear'){ clearChat(); return; }
+  addMsg('me', t);
+  addMsg('bot', reply(t));
+}
+function clearChat(){ chatLog = []; save(); $('log').innerHTML = ''; addMsg('bot', 'Chat cleared. Type "help" for commands.', false); }
+function toggleChat(){
+  var c = $('chat'); c.classList.toggle('hide');
+  var on = !c.classList.contains('hide');
+  $('chatBtn').classList.toggle('on', on);
+  if (on) $('msg').focus();
+  paint();
+}
+
+window.addEventListener('message', function(e){
+  var d = e.data; if (!d || !d.uds) return;
+  if (d.uds === 'web-state'){ var was = webOn; webOn = !!d.on; if (webOn !== was){ if (webOn) tabs.forEach(function(t){ if (t.url && t !== cur) tell({uds:'web', id:t.id, url:t.url, show:false}); }); paint(true); } else { $('off').hidden = !here() || webOn; } }
+  if (d.uds === 'web-url'){
+    var t = tabs.filter(function(x){ return x.id === d.id; })[0];
+    if (t && t.url){ t.url = t.last = d.url || t.url; t.title = d.title || ''; t.back = !!d.back; t.fwd = !!d.fwd; draw(); }
+  }
+  if (d.uds === 'web-refused') addMsg('bot', d.url + " can't be shown here: only websites on the internet (http or https) open in this tab.");
+  if (d.uds === 'store' && d.data){
+    if (Array.isArray(d.data.chat) && !chatLog.length){ chatLog = d.data.chat; $('log').innerHTML = ''; chatLog.forEach(function(m){ addMsg(m.w, m.t, false); }); }
+  }
+  if (d.uds === 'store-error') addMsg('bot', d.note, false);
+});
+addMsg('bot', 'Hi! I can open sites, search and manage tabs. Type "help".', false);
+
+$('send').onclick = send;
+$('msg').onkeydown = function(e){ if (e.key === 'Enter') send(); };
+$('clr').onclick = clearChat;
+$('chatBtn').onclick = toggleChat;
+
+$('addr').onkeydown = function(e){ if (e.key === 'Enter') open(this.value); };
+$('go').onclick = function(){ open($('addr').value); };
+$('back').onclick = goBack;
+$('fwd').onclick = goFwd;
+$('rel').onclick = reload;
+$('home').onclick = goHome;
+$('ext').onclick = popOut;
+document.addEventListener('keydown', function(e){
+  if (e.ctrlKey && e.key === 't'){ e.preventDefault(); newTab(); $('addr').focus(); }
+  if (e.ctrlKey && e.key === 'w'){ e.preventDefault(); closeTab(cur); }
+  if (e.ctrlKey && e.key === 'l'){ e.preventDefault(); $('addr').select(); }
+  if (e.ctrlKey && e.key === 'j'){ e.preventDefault(); toggleChat(); }
+});
+if (window.ResizeObserver) new ResizeObserver(function(){ paint(); }).observe($('view'));
+window.addEventListener('resize', function(){ paint(); });
+
+newTab();
+tell({uds:'web-hello'});
+tell({uds:'store-get'});
+$('addr').focus();
+</script>
+</body>
+</html>
