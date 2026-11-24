@@ -1463,6 +1463,37 @@ window.addEventListener("message", async e => {
   post(r.error ? { done: true, error: r.error } : { done: true, text: r.text || "" });
 });
 
+let mcmBusy = false;
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "mcm-ask" || !api()) return;
+  const tab = builtTabOf(e.source);
+  if (!tab) return;
+  const id = String(e.data.id || "").slice(0, 40);
+  const post = m => { try { e.source.postMessage(Object.assign({ uds: "mcm", id }, m), "*"); } catch (_) {} };
+  const rec = activeLlm();
+  if (!rec) return post({ done: true, error: "link an AI in Randis UDS first (the LLM button), then try again." });
+  if (mcmBusy) return post({ done: true, error: "busy: the AI is still answering the last MCM job." });
+  const hist = Array.isArray(e.data.history) ? e.data.history : [];
+  mcmBusy = true;
+  post({ status: `Asking ${rec.name}…` });
+  let r = { text: "", error: null };
+  try {
+    let job;
+    if (typeof api().mcm_ask === "function") job = await api().mcm_ask(rec, hist, String(e.data.task || ""));
+    else if (typeof api().planner_ask === "function") job = await api().planner_ask(rec, hist, "MCM Software task. Ignore the todo-tree framing and follow these instructions exactly:\n" + String(e.data.task || ""));
+    else throw new Error("Randis UDS needs a restart first: close the app and open it again.");
+    if (job && job.error) throw new Error(job.error);
+    for (;;) {
+      await new Promise(res => setTimeout(res, 300));
+      r = await api().chat_poll(job);
+      if (r.done) break;
+      post({ status: `${rec.name} is writing…`, text: r.text || "" });
+    }
+  } catch (err) { r = { text: "", error: String(err.message || err) }; }
+  mcmBusy = false;
+  post(r.error ? { done: true, error: r.error, ai: rec.name } : { done: true, text: r.text || "", ai: rec.name });
+});
+
 let officeBusy = false;
 window.addEventListener("message", async e => {
   if (!e.data || e.data.uds !== "office-ask" || !api()) return;

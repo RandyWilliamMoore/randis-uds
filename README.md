@@ -42,6 +42,11 @@ YouTube: https://www.youtube.com/@Randis9000 and https://www.youtube.com/@Moores
 - Bots: "+ Add a bot" on any tab, or for the whole app, makes a small helper that reads and reports, managed in the Bots tab (see below)
 - Skins: the 🎨 button in the tab bar restyles the whole app with any of the 29 Randis Shop skins, or with a theme of your own ("+ Add a theme…": your colours and font, ✎ to change it). Your pick stays after a restart
 
+New in 0.1.16:
+
+- Every game and app in the Randis Shop comes ready in the installer as its own tab, in its section with its icon (25 games, 39 apps)
+- MCM Software support (its AI helper) and 15 more Randis Emoji tab icons
+
 New in 0.1.15:
 
 - Skins menu (🎨) for the whole app, with your own themes

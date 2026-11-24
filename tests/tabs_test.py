@@ -1,5 +1,6 @@
 # Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds
 import json, os, shutil, sys, time
+os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = (os.environ.get("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "") + " --mute-audio").strip()
 UDS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, UDS)
 import tabs

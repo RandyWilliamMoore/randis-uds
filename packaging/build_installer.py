@@ -63,6 +63,15 @@ def main(embed_zip, edition="developer"):
         shutil.move(data, user_data)
     else:
         os.makedirs(user_data)
+    import shop_items
+    shop_dir = os.environ.get("UDS_SHOP_DIR") or os.path.join(os.path.dirname(ROOT), "randis_marketplace")
+    assert os.path.isdir(os.path.join(shop_dir, ".git")), f"no shop folder at {shop_dir}: set UDS_SHOP_DIR to the randis-shop clone"
+    shipped_names = []
+    for d in os.listdir(os.path.join(user_data, "tabs")) if os.path.isdir(os.path.join(user_data, "tabs")) else []:
+        with open(os.path.join(user_data, "tabs", d, "meta.json"), encoding="utf-8") as f:
+            shipped_names.append(json.load(f).get("name", ""))
+    added = shop_items.add(user_data, shop_dir, os.path.join(ROOT, "data"), version, skip_names=shipped_names)
+    print(f"{len(added)} shop items added as tabs")
     if edition != editions.DEFAULT:
         with open(os.path.join(user_data, "edition.json"), "w", encoding="utf-8") as f:
             json.dump({"edition": edition}, f)

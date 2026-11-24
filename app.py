@@ -18,6 +18,19 @@ import webbrowser
 from html import unescape
 
 import webview
+
+def _mute_test_audio():
+    main = os.path.abspath(sys.argv[0]) if sys.argv and sys.argv[0] else ""
+    in_tests = os.path.basename(os.path.dirname(main)).lower() == "tests"
+    if not (os.environ.get("UDS_TEST_HIDDEN") or in_tests):
+        return
+    args = os.environ.get("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "")
+    if "--mute-audio" not in args:
+        os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = (args + " --mute-audio").strip()
+
+
+_mute_test_audio()
+
 from wsgiref.simple_server import WSGIServer
 
 WSGIServer.request_queue_size = 128
@@ -181,6 +194,11 @@ PLANNER_SYSTEM = ("You are a planning helper inside a life-planning todo tree. T
                   "it and break it down. Keep answers short and practical, in plain words. When you suggest steps they could "
                   "add, put each on its own line starting with '- [ ] ' (at most 12), and indent sub-steps by two spaces. "
                   "Don't use tools or change any files; just answer.")
+MCM_SYSTEM = ("You are the MCM Innovation Engine inside MCM Software, a built tab of Randis UDS: Moore's Combinatorics Matrix, "
+              "Randy Moore's method of making invention ideas by combining two precursor words. You are given one exact task "
+              "(write ideas, grade an idea, rewrite a failed idea, write an art prompt or card text, critique a set). Follow "
+              "the task's format exactly, output only what it asks for, English only, no preamble. Don't use tools or change "
+              "any files; just answer.")
 AVATAR_SYSTEM = ("You are the voice and mind of an animated avatar inside a built tab of Randis UDS (an AI assistant, a VTuber "
                  "co-host or a character). Stay in the character the person designed, described below. Answer in plain spoken "
                  "words that sound good read aloud: short paragraphs, no markdown tables or code unless asked. You may start a "
@@ -2334,6 +2352,15 @@ class Api:
         while msgs[0]["role"] != "user":
             msgs.pop(0)
         return self._start(rec, msgs, AVATAR_SYSTEM + "The character:\n" + str(persona or "")[:12000], max_tokens=2500)
+
+    def mcm_ask(self, rec, history, task):
+        msgs = [{"role": "assistant" if m.get("role") == "assistant" else "user", "content": str(m.get("content") or "")[:12000]}
+                for m in (history if isinstance(history, list) else [])[-12:] if isinstance(m, dict) and m.get("content")]
+        if not msgs or msgs[-1]["role"] != "user":
+            return {"error": "nothing to ask yet"}
+        while msgs[0]["role"] != "user":
+            msgs.pop(0)
+        return self._start(rec, msgs, MCM_SYSTEM + ("\n\n" + str(task)[:8000] if task else ""), max_tokens=4000)
 
     def _duck(self):
         return tabs.TabStore(os.path.join(DATA_DIR, "duck"))
