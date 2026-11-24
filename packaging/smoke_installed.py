@@ -34,6 +34,8 @@ def run(w):
         check("the neutral logo shows", until("document.getElementById('app-logo').src.includes('uds-base-mark')"), js("document.getElementById('app-logo').src"))
         check("the first tab is the welcome page", js("current().kind") == "welcome", js("current().kind"))
         check("Randis Paint is offered", until("(document.getElementById('newtab').click(), document.getElementById('built-menu').textContent.includes('Randis Paint'))", 8), js("JSON.stringify(state.built)"))
+        js("window.pywebview.api.duck_load().then(d => window.__duck3d = d.html.includes('getContext(\"webgl\"'))")
+        check("Quak Quak is the 3D duck", until("window.__duck3d === true", 10), js("window.__duck3d"))
         check("every shop game and app comes with it", (js("state.built.length") or 0) >= 64, js("state.built.length"))
         js("(() => { const m = [...document.querySelectorAll('#built-menu [data-built]')].find(b => b.textContent.includes('Randis Paint')); if (document.getElementById('newtab-menu').hidden) document.getElementById('newtab').click(); m.click(); })()")
         check("Randis Paint opens", until("current().kind === 'built' && current().title === 'Randis Paint'", 10), js("current().title"))
