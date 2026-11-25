@@ -1,0 +1,404 @@
+<!doctype html>
+<!-- Made with Randis UDS by Randy Moore - https://github.com/RandyWilliamMoore/randis-uds - https://ko-fi.com/moorescombinatoricsmatrix -->
+<html lang="en"><head><meta charset="utf-8"><title>MCM Software</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#f7f5ff;--bg2:#ffffff;--panel:#ffffff;--panel2:#f3efff;--line:#e2dcf5;--text:#251f3d;--muted:#6e6890;--acc:#6b46c1;--acc2:#9f7aea;--gold:#f59f00;--teal:#0ca678;--blue:#1c7ed6;--red:#e03131;--green:#2f9e44;--pink:#e64980;--r:12px}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,sans-serif}
+body{display:flex;flex-direction:column}
+a{color:var(--acc);cursor:pointer;text-decoration:none}a:hover{text-decoration:underline}
+header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:linear-gradient(90deg,#6b46c1,#9f7aea 55%,#f06595);color:#fff;box-shadow:0 3px 14px #6b46c133}
+.logo{font-weight:800;letter-spacing:.4px;font-size:18px;white-space:nowrap;display:flex;align-items:center;gap:10px}
+.logo .mk{width:36px;height:36px;border-radius:10px;background:#fff;color:var(--acc);display:grid;place-items:center;font-size:16px;font-weight:900}
+.logo small{display:block;font-weight:500;font-size:11.5px;opacity:.9;letter-spacing:0}
+.aipill{margin-left:auto;font-size:12px;display:flex;gap:8px;align-items:center;background:#ffffff26;border-radius:20px;padding:4px 12px}
+.dot{width:9px;height:9px;border-radius:50%;background:#ffe066;display:inline-block}.dot.on{background:#8ce99a;box-shadow:0 0 8px #8ce99a}.dot.busy{background:#fff;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.wrap{flex:1;display:flex;min-height:0}
+nav{width:200px;flex:none;background:var(--bg2);border-right:1px solid var(--line);overflow:auto;padding:8px 8px}
+nav .grp{font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin:12px 8px 4px}
+nav a{display:flex;gap:8px;align-items:center;padding:7px 10px;border-radius:9px;color:var(--text);font-size:13.5px}
+nav a:hover{background:var(--panel2);text-decoration:none}nav a.on{background:var(--acc);color:#fff}
+nav a .n{margin-left:auto;font-size:11px;opacity:.75}
+main{flex:1;overflow:auto;padding:18px 24px 60px}
+h1{font-size:23px;margin:0 0 4px}h2{font-size:16px;margin:22px 0 8px;color:var(--acc)}h3{font-size:14px;margin:0 0 6px}
+.sub{color:var(--muted);margin:0 0 14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:0 4px 16px #6b46c10d}
+.grid{display:grid;gap:12px}.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}.g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}.g4{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.kpi{border-radius:var(--r);padding:12px 14px;color:#fff}.kpi .v{font-size:26px;font-weight:800}.kpi .l{font-size:12.5px;opacity:.95}.kpi .s{font-size:11.5px;opacity:.85}
+.k1{background:linear-gradient(135deg,#6b46c1,#9f7aea)}.k2{background:linear-gradient(135deg,#0ca678,#38d9a9)}.k3{background:linear-gradient(135deg,#f59f00,#ffd43b);color:#3b2a00}.k4{background:linear-gradient(135deg,#e64980,#ff8cc6)}
+button{font:inherit;font-size:13px;background:#fff;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--acc);color:var(--acc)}button.pri{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:700}button.pri:hover{background:#553c9a;color:#fff}
+button.sm{padding:3px 9px;font-size:12px}button.bad{color:var(--red)}button.bad:hover{border-color:var(--red)}button:disabled{opacity:.45;cursor:default}
+input,select,textarea{font:inherit;font-size:13px;background:#fcfbff;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+input:focus,select:focus,textarea:focus{outline:2px solid #d0bfff;border-color:var(--acc)}
+textarea{width:100%;resize:vertical}input[type=range]{padding:0;accent-color:var(--acc)}input[type=checkbox]{accent-color:var(--acc)}
+label{font-size:12px;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.grow{flex:1}
+.muted{color:var(--muted)}.small{font-size:12px}.tiny{font-size:11px}
+.pill{display:inline-block;padding:1px 9px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);font-size:11.5px;margin:1px}
+.pill.g{background:#ebfbee;border-color:#8ce99a;color:#2b8a3e}.pill.r{background:#fff5f5;border-color:#ffa8a8;color:#c92a2a}.pill.y{background:#fff9db;border-color:#ffe066;color:#9c6b00}.pill.b{background:#e7f5ff;border-color:#a5d8ff;color:#1864ab}
+table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px}th{color:var(--muted);font-weight:600;font-size:12px}
+tr.click:hover td{background:var(--panel2);cursor:pointer}
+.bar{height:8px;background:#efeaff;border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),#f06595)}
+.idea{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:10px}
+.idea .t{font-weight:700;font-size:15px}.idea .body{white-space:pre-wrap;margin:6px 0}
+.grade{font-weight:800;font-size:20px;min-width:52px;text-align:center;border-radius:10px;padding:2px 6px}
+.gA{background:#d3f9d8;color:#2b8a3e}.gB{background:#d0ebff;color:#1864ab}.gC{background:#fff3bf;color:#946200}.gD{background:#ffe8cc;color:#c2410c}.gF{background:#ffe3e3;color:#c92a2a}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--acc);color:#fff;padding:8px 18px;border-radius:20px;z-index:99;max-width:80%;box-shadow:0 6px 18px #6b46c155}
+.mx{border-collapse:separate;border-spacing:2px;width:auto}.mx td,.mx th{padding:0;border:0;font-size:10.5px}.mx td{width:17px;height:17px;border-radius:4px;background:#efeaff;cursor:pointer}
+.mx td:hover{outline:2px solid var(--gold)}.mx th.v{writing-mode:vertical-rl;transform:rotate(180deg);height:86px;color:var(--muted);font-weight:500}.mx th.h{text-align:right;padding-right:6px;color:var(--muted);font-weight:500;white-space:nowrap}
+.slider{display:grid;grid-template-columns:150px 1fr 30px;gap:8px;align-items:center;font-size:12px}
+.stream{white-space:pre-wrap;background:#faf8ff;border:1px dashed var(--line);border-radius:9px;padding:10px;max-height:260px;overflow:auto;font-size:12px;color:#3d3566;margin:0}
+.warn{background:#fff9db;border:1px solid #ffe066;border-radius:9px;padding:8px 12px;color:#7a5200;font-size:13px}
+.ok{background:#ebfbee;border:1px solid #8ce99a;border-radius:9px;padding:8px 12px;color:#2b8a3e;font-size:13px}
+.get{background:linear-gradient(90deg,#f3efff,#fff0f6);border:1px solid #d0bfff;border-radius:10px;padding:10px 12px;font-size:13px;margin:8px 0}
+.get b{color:var(--acc)}
+.spark{font-size:22px;font-weight:800;text-align:center;padding:14px;border-radius:12px;background:linear-gradient(135deg,#fff0f6,#f3efff);border:1px dashed #d0bfff;margin:8px 0}
+.spark span{color:var(--acc)}.spark i{font-style:normal;color:var(--pink);margin:0 8px}
+details summary{cursor:pointer;color:var(--acc)}
+.foot{margin-top:26px;color:var(--muted);font-size:12px;text-align:center}
+</style></head><body>
+<header><div class="logo"><span class="mk">MC</span><div>MCM Software<small>Moore's Combinatorics Matrix · cross two words, spark new ideas</small></div></div>
+<div class="aipill"><span id="aidot" class="dot"></span><span id="aitxt">AI: checking…</span><span id="store" class="tiny"></span></div></header>
+<div class="wrap"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+const WORDS = {
+ starter: ["water","wood","glass","magnets","honey","salt","light","sound","paper","cotton","wool","clay","stone","cork","bamboo","rubber","copper","ice","sand","wind","solar","seeds","mushrooms","moss","feathers","shells","wax","silk","steel","soap","ink","music","maps","games","clocks","mirrors","bubbles","kites","gardens","bicycles","bread","tea","coffee","rain","snow","stars","batteries","origami"],
+ things: ["chair","lamp","backpack","umbrella","bottle","pillow","shoe","cup","window","door","bench","spoon","blanket","pencil","ladder","bucket","helmet","wallet","tent","rope","basket","phone stand","plant pot","lunch box","doorbell","mailbox","bookshelf","mug","toothbrush","keychain"],
+ pos: {nouns: ["garden","robot","library","river","kitchen","rocket","puzzle","market","forest","school","stage","harbor"], verbs: ["fold","glow","share","grow","float","sort","mix","bounce","teach","repair","balance","collect"], adjectives: ["tiny","sticky","floating","silent","edible","foldable","glowing","shared","seasonal","modular","solar","bouncy"]}};
+const DIMS = [
+ {k:"A",name:"Scale",vals:["Quantum","Atomic","Nano","Micro","Cellular","Human","City","Planetary","Stellar","Galactic","Universal"],note:"From the tiniest to the largest. Conceptual, not literal: a Nano idea thinks in nano-level principles."},
+ {k:"B",name:"Quantity",vals:["One","Pair","Few","Dozen","Hundred","Thousand","Million","Array","Mesh","Network","Swarm","Field"],note:"One instance up to a whole field of them."},
+ {k:"C",name:"Dimension",vals:["0D-Point","1D-Line","2D-Surface","3D-Volume","4D-Spacetime","Topological","Fractal"],note:"A point, a line, a surface, a volume, time, shape-rules and patterns."},
+ {k:"D",name:"State",vals:["Solid","Liquid","Gas","Plasma","Information","Potential","Concept"],note:"Solid matter through to pure ideas."},
+ {k:"E",name:"Context",vals:["Physical","Biological","Chemical","Mechanical","Electrical","Thermal","Optical","Material","Economic","Social","Ecological","Mathematical","Computational","Problem-Solution","Artistic","Playful"],note:"Which world the idea lives in."},
+ {k:"F",name:"Abstraction",vals:["Functional-Solution","Platform-Potential","Market-Creation","Conceptual-Property","Impossible-Made-Possible"],note:"The abstraction ladder: direct fix, platform, new category, principle, paradigm shift."},
+ {k:"G",name:"Definition",vals:["Literal-Meaning","Physical-Property","Chemical-Composition","Functional-Role","Technical-Term","Historical-Context","Metaphorical","Verb-Form","Adjective-Form","Conceptual-Essence"],note:"Which meaning of the word: dictionary, property, chemistry, role, jargon, history, metaphor, verb, adjective, essence."}];
+const DEF_EX = [["Literal-Meaning","Dictionary definition","Screw made of wood"],["Physical-Property","Measurable characteristic","Hardness of wood threading"],["Chemical-Composition","Molecular structure","Cellulose + lignin threading"],["Functional-Role","What it does","Joins wood pieces"],["Technical-Term","Specialist terminology","Thread pitch in wood"],["Historical-Context","Origin and evolution","Traditional wood joinery"],["Metaphorical","Symbolic reading","Natural bonding principle"],["Verb-Form","Action or process","To wood-screw (joining)"],["Adjective-Form","Descriptive quality","Wood-screw-like threading"],["Conceptual-Essence","Pure idea","The concept of threaded joining"]];
+const COORDS = [["Human","One","3D-Volume","Solid","Problem-Solution","Functional-Solution","Literal-Meaning"],["Human","Pair","2D-Surface","Information","Social","Platform-Potential","Functional-Role"],["Micro","Swarm","Fractal","Liquid","Biological","Conceptual-Property","Metaphorical"],["City","Network","1D-Line","Information","Economic","Market-Creation","Verb-Form"],["Nano","Array","2D-Surface","Solid","Material","Functional-Solution","Physical-Property"],["Human","Few","4D-Spacetime","Liquid","Artistic","Conceptual-Property","Adjective-Form"],["Planetary","Field","3D-Volume","Gas","Ecological","Impossible-Made-Possible","Conceptual-Essence"],["Cellular","Dozen","3D-Volume","Liquid","Chemical","Functional-Solution","Chemical-Composition"],["Human","Hundred","Topological","Concept","Playful","Market-Creation","Metaphorical"],["City","Mesh","2D-Surface","Potential","Electrical","Platform-Potential","Technical-Term"],["Atomic","Pair","0D-Point","Solid","Mathematical","Conceptual-Property","Conceptual-Essence"],["Human","One","2D-Surface","Solid","Thermal","Functional-Solution","Historical-Context"]];
+const PRINCIPLES = [["Explode every dimension","See all the meanings, scales, quantities, shapes and states of each word before you combine them."],["Follow the spark","When a pair feels oddly exciting, stay there. Surprise usually means unexplored value."],["Climb the abstraction ladder","Go from a literal fix, to a platform, to a new market, to a principle, to the impossible made possible."],["Think in hyperspace","Every pair is not one idea but a whole space of them, one for each point in the seven dimensions."],["Core to sea to stars","Try the same pair at the tiniest scale, at human scale and at cosmic scale."]];
+const SEVEN_Q = ["What unique properties emerge?","What hard problem does this solve?","What makes it hard to copy?","How could you prove it works?","What gets better as it grows?","What bigger idea does it unlock?","What becomes possible that was impossible?"];
+const FIVE_Q = [["mat","Specific material","a real material, formula or trade name"],["size","Exact size","numbers with units: mm, cm, °C, g"],["proc","Specific process","how it is made or how it works, step by step"],["phys","Named principle","capillary action, the Doppler effect, thermal diffusion…"],["perf","Measured result","%, hours, cycles, times faster: numbers with units"]];
+const RUBRICS = {
+ card10:{name:"Idea scorecard (10)",src:"Ten quick questions, all equal weight.",dims:[["NOVELTY","How unique compared with what exists?"],["FEASIBILITY","How realistic with today's tools?"],["MARKET_SIZE","How many people would want it?"],["CLARITY","How clear and easy to understand?"],["SPECIFICITY","How detailed and specific?"],["BARRIERS","How hard for others to copy?"],["IMPACT","How much it helps the people who use it"],["SCALABILITY","How easily it can grow"],["MONETIZATION","How clear the way it earns money is"],["EXECUTION","How well it explains how to make it"]]},
+ weighted:{name:"Weighted scorecard (10)",src:"Innovation and abstraction leverage count double; a high number on the ↓ rows is worse, so they are flipped.",dims:[["TECHNICAL_FEASIBILITY","Can it be built with current or near-future tech?"],["MARKET_SIZE","Size of the market"],["COMPETITIVE_ADVANTAGE","How defensible is it?"],["COMPLEXITY","How hard to make? (high = hard)",1,1],["REGULATION","Rules and approvals needed (high = more)",1,1],["TIMELINE","Time to launch (high = longer)",1,1],["CAPITAL","Money needed (high = more)",1,1],["SCALABILITY","How well it scales"],["INNOVATION","How new is it?",2],["ABSTRACTION_LEVERAGE","How much the bigger idea multiplies its value",2]]}};
+const OUTPUTS = ["Product","Tool","Kit","Toy","App","Service","Game","Course","Material","Device","Event","Subscription box"];
+const BIZ = ["One-time purchase","Subscription","Freemium","Rental","Licensing","Marketplace fee"];
+const CUST = ["Families","Students","Small shops","Schools","Makers","Gardeners","Travellers","Cafes"];
+const TIPS = [["Short prompts beat long rule lists","Listing words the AI must not use makes it use them more. Ask for what you want, not what you don't."],["Grade in a separate step","Asking for a score in the same prompt bends the idea toward the score. Write first, judge afterwards."],["One fresh conversation per idea","Long chats make ideas drift together. A new chat for each idea keeps them different."],["Ask for a new material each time","AI models have favourite materials. Tell it which ones are already used and ask for another."],["Name the barrier","\"Proprietary process\" says nothing. Name a law of physics, a real cost, a rule or a patent."],["Show the market maths","Round numbers are decoration. Ask for units per year × price per unit."],["Never print the scaffolding","The 7D coordinate steers the thinking. It should never show up in the idea text."],["Skip self-pairs","A word combined with itself wastes a whole row of ideas."]];
+const SAMPLE_IDEAS = [
+ {a:"water",b:"magnets",title:"Drip-Stop Magnetic Faucet Ring",text:"A 40 mm ring of ferrite magnets sealed in food-safe silicone clips around any kitchen faucet. Inside the spout sits a 3 mm stainless steel ball. When the tap closes, the magnetic attraction principle pulls the ball up against the opening and catches the last drops, stopping 95% of after-drips that leave rings on the sink. The sleeve is injection molded in two halves and pressed together around the magnets, so there are no batteries and nothing to wire. Home stores could sell 2 million units per year × $8 per unit. The edge is a design patent on the snap-fit ring plus a tooling cost of only $0.90 per unit that keeps the price low.",scores:{card10:{NOVELTY:7,FEASIBILITY:9,MARKET_SIZE:6,CLARITY:9,SPECIFICITY:8,BARRIERS:5,IMPACT:6,SCALABILITY:8,MONETIZATION:8,EXECUTION:8}}},
+ {a:"honey",b:"glass",title:"Slow-Pour Honey Hourglass",text:"A borosilicate glass jar shaped like a 15 cm hourglass with a 6 mm neck that lets honey flow at a steady speed. Turn it over and a tea-sized portion of about 7 g drips into the cup in 30 seconds, so nothing sticky runs down the side. The jar is blown into a mold, then annealed so it handles boiling water. It works because of viscosity: honey's thick flow through a narrow neck follows Poiseuille's law, so the pour is the same every time. Tea shops and gift stores could sell 500,000 units per year × $18. The barrier is the patented neck shape tuned to honey's flow.",scores:{card10:{NOVELTY:8,FEASIBILITY:8,MARKET_SIZE:5,CLARITY:9,SPECIFICITY:8,BARRIERS:6,IMPACT:5,SCALABILITY:7,MONETIZATION:7,EXECUTION:7}}},
+ {a:"bamboo",b:"sound",title:"Bamboo Horn Phone Speaker",text:"A 30 cm section of bamboo with a slot cut into one side turns any phone into a room-filling speaker without electricity. The hollow tube works as an acoustic horn: the resonance of the 5 cm wide chamber boosts the phone's sound by about 10 dB, roughly twice as loud to the ear. Each piece is cut, sanded, heat-treated at 180 °C to stop splitting, and finished with beeswax. Bamboo grows fast, so the material is cheap and friendly to the planet. Gift and camping stores could sell 300,000 units per year × $25. The barrier is a carefully tuned chamber length kept in a registered design.",scores:{}},
+ {a:"salt",b:"light",title:"Glow Garden Salt Crystals",text:"A kit for growing your own night-light: kids pour warm salt water into a 12 cm acrylic dome and watch crystals form on a cotton string over 7 days. A tiny 0.5 W LED in the base shines up through the crystals, and the light scatters through every face of the crystal, so the room fills with sparkles. The kit uses table salt, alum for faster growth, and a USB powered base that runs for 10,000 hours. It is a science lesson and a lamp in one box. Toy and museum shops could sell 400,000 kits per year × $22. The edge is the patented base that holds the string at the right height.",scores:{}},
+ {a:"kites",b:"solar",title:"Sun-Charging Beach Kite",text:"A 1.2 m delta kite with thin solar film panels sewn into its nylon sail. While it flies at 30 m, above the shade of people and umbrellas, it charges a 2,000 mAh battery in the handle through a light conductive line. The photoelectric effect in the film turns sunshine into about 4 W, enough to top up a phone 50% in two hours of flying. Panels are laminated onto the fabric, then stitched so they bend in the wind without cracking. Beach and outdoor stores could sell 150,000 units per year × $60. The barrier is the patented conductive flying line.",scores:{}}];
+const MODES = {
+ balanced:["Balanced (recommended)","A clear idea with a new material each time, a named barrier, honest market maths and a word range.",[90,130]],
+ card:["Card format","A plain-words everyday idea laid out as NAME, HOOK, three short paragraphs, SOLVES, MARKET and EDGE.",[150,200]],
+ tech7d:["7D technical","Opening, technical mechanism (the five questions), market and abstraction leverage, steered by a 7D coordinate.",[90,130]],
+ plain:["Plain words","Easy reading level: everyday words, starts with an analogy, says what it does and who uses it.",[80,120]],
+ oneliner:["One-liner","Catalog style: [Name] - [what it is or does] for [who or where].",[8,45]],
+ freeform:["Freeform","No guide rails at all: just the pair and a paragraph.",[50,220]]};
+const KEY = "mcm-matrix-v1";
+const store = {mem: {}, ok: false,
+  get(k) { try { const v = localStorage.getItem(k); this.ok = true; return v; } catch (e) { this.ok = false; return this.mem[k] == null ? null : this.mem[k]; } },
+  set(k, v) { this.mem[k] = v; try { localStorage.setItem(k, v); this.ok = true; } catch (e) { this.ok = false; } }};
+const HOST = window.parent !== window;
+const DEFAULTS = () => ({v:1, ideas:[], custom:[], bank:"starter", nextId:1, genA:"water", genB:"magnets",
+  cfg:{mode:"balanced", coordUse:2, perCombo:10, wMin:90, wMax:130, rubric:"card10", passGrade:60, row:1, volume:1}});
+let S = DEFAULTS(), saveT = null, PAGE = "home", ARG = null, APP = false, AI = {name:"", busy:false};
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
+const attr = s => esc(s).replace(/\n/g, "&#10;");
+const js = s => esc(JSON.stringify(String(s)));
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const now = () => Date.now();
+const fmtN = n => Number(n).toLocaleString();
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const words = t => (String(t).match(/[A-Za-z0-9][A-Za-z0-9'’\-.%$]*/g) || []);
+const wc = t => words(t).length;
+function toast(m, ms = 3000) { const t = document.createElement("div"); t.className = "toast"; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
+function download(name, data, type = "text/plain") { const b = new Blob([data], {type: type + ";charset=utf-8"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
+function pickFile(accept, cb) { const i = document.createElement("input"); i.type = "file"; i.accept = accept; i.onchange = () => i.files[0] && cb(i.files[0]); i.click(); }
+function copy(t) { const fall = () => { const a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand("copy"); toast("Copied."); } catch (e) { toast("Select the text and copy it by hand."); } a.remove(); };
+  try { if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => toast("Copied."), fall); else fall(); } catch (e) { fall(); } }
+function save() { clearTimeout(saveT); saveT = setTimeout(saveNow, 300); }
+function saveNow() { store.set(KEY, JSON.stringify(S)); const st = $("#store"); if (st) st.textContent = store.ok ? "· saved" : "· kept while open (Export to keep)"; }
+function sampleIdeas() { return SAMPLE_IDEAS.map((x, k) => Object.assign({id: "i" + (k + 1), n: 1, mode: "balanced", ai: "sample", created: now() - (5 - k) * 60000, hist: []}, JSON.parse(JSON.stringify(x)))); }
+function boot() { let d = null; try { d = JSON.parse(store.get(KEY) || "null"); } catch (e) { d = null; }
+  const D = DEFAULTS(); S = Object.assign(D, d && typeof d === "object" ? d : {}); S.cfg = Object.assign(D.cfg, (d && d.cfg) || {});
+  if (!d) { S.ideas = sampleIdeas(); S.nextId = S.ideas.length + 1; S.ideas.forEach(i => i.mat = mainMaterial(i.text)); }
+  navDraw(); go(PAGE); saveNow(); aiDraw(); }
+const GETAPP = `<div class="get">🚀 <b>Get the Randis UDS app for this (it uses your linked AI).</b> Here in the browser you can copy the prompt into any AI chat you like, then paste the answer back below. <a href="https://github.com/RandyWilliamMoore/randis-uds" target="_blank" rel="noopener">About the app</a></div>`;
+const AIJOBS = {};
+window.addEventListener("message", e => { const d = e.data; if (!d || typeof d !== "object") return;
+  if (d.uds === "store" || d.uds === "store-error") { APP = true; aiDraw(); }
+  if (d.uds === "store-none") { APP = false; aiDraw(); }
+  if (d.uds === "mcm" && AIJOBS[d.id]) AIJOBS[d.id](d); });
+function ask(prompt, task = "", onPart) { return new Promise((res, rej) => {
+  if (!APP) return rej(new Error("Get the Randis UDS app for this (it uses your linked AI)."));
+  const id = "m" + now() + Math.random().toString(36).slice(2, 6); let got = false;
+  AI.busy = true; aiDraw();
+  const t = setTimeout(() => { if (!got) { delete AIJOBS[id]; AI.busy = false; aiDraw(); rej(new Error("The app's AI didn't answer. Link an AI with the app's LLM button, then try again.")); } }, 8000);
+  AIJOBS[id] = d => { got = true; clearTimeout(t);
+    if (d.status && onPart) onPart(d.text || "", d.status);
+    if (d.done) { delete AIJOBS[id]; AI.busy = false; if (d.ai) AI.name = d.ai; aiDraw(); d.error ? rej(new Error(d.error)) : res(String(d.text || "").trim()); } };
+  parent.postMessage({uds: "mcm-ask", id, history: [{role: "user", content: prompt}], task}, "*"); }); }
+function aiDraw() { const d = $("#aidot"), t = $("#aitxt"); if (!d) return; d.className = "dot" + (AI.busy ? " busy" : APP ? " on" : "");
+  t.textContent = AI.busy ? "AI working…" : APP ? "AI: " + (AI.name || "the app's linked AI") : "AI: copy & paste mode"; }
+
+const PAGES = [["Make", [["home","🏠","Dashboard"],["matrix","▦","Matrix"],["gen","⚡","Generator"],["write","✍️","Write by hand"]]],
+ ["Judge", [["library","📚","Library"],["grade","🎯","Grader"]]],
+ ["Know", [["coords","🧭","7D coordinates"],["method","🧠","Method"],["data","💾","Save & export"]]]];
+function navDraw() { const counts = {library: S.ideas.length};
+  $("#nav").innerHTML = PAGES.map(([g, list]) => `<div class="grp">${g}</div>` + list.map(([id, ic, nm]) => `<a class="${PAGE === id ? "on" : ""}" onclick="go('${id}')">${ic} ${nm}${counts[id] ? `<span class="n">${fmtN(counts[id])}</span>` : ""}</a>`).join("")).join(""); }
+function go(p, arg) { PAGE = p; ARG = arg === undefined ? null : arg; navDraw(); const m = $("#main"); m.scrollTop = 0; try { m.innerHTML = (VIEWS[p] || VIEWS.home)(ARG) + `<div class="foot">MCM Software · Moore's Combinatorics Matrix · made with Randis UDS</div>`; } catch (e) { m.innerHTML = `<div class="warn">This page hit a problem: ${esc(e.message)}</div>`; } (AFTER[p] || (() => {}))(ARG); }
+function rerender() { const m = $("#main"), y = m.scrollTop; go(PAGE, ARG); m.scrollTop = y; }
+const VIEWS = {}, AFTER = {};
+const idea = id => S.ideas.find(i => i.id === id);
+const comboKey = (a, b) => a + " + " + b;
+function newIdea(o) { const i = Object.assign({id: "i" + (S.nextId++), created: now(), scores: {}, hist: []}, o); S.ideas.push(i); return i; }
+function ideasOf(a, b) { return S.ideas.filter(i => i.a === a && i.b === b); }
+
+const BANKS = {starter:["Starter words","Forty-eight friendly everyday words to cross with each other."],
+ things:["Everyday things","Thirty objects from around the house. Cross them to reinvent the ordinary."],
+ mixed:["Starter + things + mine","Every word in both lists plus your own."],
+ pos:["Word-combo","Nouns, verbs and adjectives. Random pairs always mix two different kinds of word."],
+ custom:["My words","Your own words. Add them on this page."]};
+function uniq(a) { const s = new Set(), o = []; for (const w of a) { const k = String(w).trim().toLowerCase(); if (k && !s.has(k)) { s.add(k); o.push(String(w).trim()); } } return o; }
+function bankWords(b = S.bank) { if (b === "starter") return uniq(WORDS.starter); if (b === "things") return uniq(WORDS.things); if (b === "mixed") return uniq(WORDS.starter.concat(WORDS.things, S.custom));
+  if (b === "pos") return uniq(Object.values(WORDS.pos).flat()); return uniq(S.custom); }
+function posPair() { const ks = Object.keys(WORDS.pos), k1 = pick(ks); let k2 = pick(ks); while (k2 === k1) k2 = pick(ks); return [pick(WORDS.pos[k1]), pick(WORDS.pos[k2])]; }
+function randomCombo() { if (S.bank === "pos") return posPair(); const w = bankWords(); if (w.length < 2) return ["water", "magnets"]; const a = pick(w); let b = pick(w); while (b === a) b = pick(w); return [a, b]; }
+function volumeCombos(row, vol, per = 10) { const w = bankWords(), a = w[(row - 1) % Math.max(1, w.length)], cols = w.filter(x => x !== a); return {a, combos: cols.slice((vol - 1) * per, vol * per).map(b => [a, b]), vols: Math.max(1, Math.ceil(cols.length / per))}; }
+function coverage() { const m = {}; for (const i of S.ideas) { const k = comboKey(i.a, i.b); m[k] = (m[k] || 0) + 1; } return m; }
+
+VIEWS.matrix = () => { const w = bankWords(), cov = coverage(), A = ARG || {}, r0 = +(A.r0 || 0), c0 = +(A.c0 || 0), n = 24;
+  const rows = w.slice(r0, r0 + n), cols = w.slice(c0, c0 + n), per = S.cfg.perCombo;
+  const cell = (a, b) => { if (a === b) return `<td title="self-pair (skipped)" style="background:#fff;cursor:default"></td>`; const k = (cov[comboKey(a, b)] || 0) + (cov[comboKey(b, a)] || 0), f = Math.min(1, k / per);
+    return `<td title="${attr(a + " + " + b + " · " + k + " idea(s)")}" style="${k ? `background:rgba(107,70,193,${.5 + .5 * f})` : ""}" onclick='go("gen",{a:${js(a)},b:${js(b)}})'></td>`; };
+  const pv = volumeCombos(S.cfg.row, S.cfg.volume, 10);
+  const N = w.length, ord = N * (N - 1), un = N * (N - 1) / 2, tot = ord * per;
+  return `<h1>▦ The Matrix</h1><p class="sub">Every word crossed with every other word. Pick a word list, then click any square to make ideas for that pair. Darker squares already have ideas.</p>
+  <div class="row" style="margin-bottom:10px">${Object.entries(BANKS).map(([k, v]) => `<button class="${S.bank === k ? "pri" : ""}" onclick="S.bank='${k}';S.cfg.row=1;S.cfg.volume=1;save();go('matrix')">${esc(v[0])}</button>`).join("")}</div>
+  <p class="small muted">${esc(BANKS[S.bank][1])} <b>${fmtN(N)}</b> words.</p>
+  ${N < 2 ? `<div class="warn">This list needs at least 2 words. Add some under "My words" below.</div>` : `
+  <div class="card"><div class="row"><b>Coverage grid</b><span class="small muted">rows ${r0 + 1}-${Math.min(N, r0 + n)} · columns ${c0 + 1}-${Math.min(N, c0 + n)} of ${N}</span>
+   <button class="sm" onclick="go('matrix',{r0:${Math.max(0, r0 - n)},c0:${c0}})">▲ rows</button><button class="sm" onclick="go('matrix',{r0:${Math.min(Math.max(0, N - 1), r0 + n)},c0:${c0}})">▼ rows</button>
+   <button class="sm" onclick="go('matrix',{r0:${r0},c0:${Math.max(0, c0 - n)}})">◀ cols</button><button class="sm" onclick="go('matrix',{r0:${r0},c0:${Math.min(Math.max(0, N - 1), c0 + n)}})">cols ▶</button>
+   <button class="sm pri" onclick="const c=randomCombo();go('gen',{a:c[0],b:c[1]})">🎲 Random pair</button>
+   <input id="mxfind" placeholder="jump to word…" style="width:150px" onkeydown="if(event.key==='Enter'){const i=bankWords().findIndex(x=>x.toLowerCase().includes(this.value.toLowerCase()));if(i>=0)go('matrix',{r0:i,c0:${c0}});else toast('Not in this list.')}"></div>
+   <div style="overflow:auto;margin-top:8px"><table class="mx"><tr><th></th>${cols.map(c => `<th class="v">${esc(c)}</th>`).join("")}</tr>
+   ${rows.map(a => `<tr><th class="h">${esc(a)}</th>${cols.map(b => cell(a, b)).join("")}</tr>`).join("")}</table></div></div>`}
+  <div class="grid g2" style="margin-top:12px">
+  <div class="card"><h3>📚 Production navigator</h3><p class="small muted">Work through the matrix in order: each row word meets 10 column words per volume, and self-pairs are skipped.</p>
+   <div class="row"><label>Row</label><input type="number" min="1" max="${Math.max(1, N)}" value="${S.cfg.row}" style="width:70px" onchange="S.cfg.row=clamp(+this.value||1,1,${Math.max(1, N)});save();rerender()"><label>Volume</label><input type="number" min="1" max="${pv.vols}" value="${S.cfg.volume}" style="width:70px" onchange="S.cfg.volume=clamp(+this.value||1,1,${pv.vols});save();rerender()"><span class="small muted">of ${pv.vols}</span></div>
+   <p>Row word: <b>${esc(pv.a || "—")}</b></p>
+   <table>${pv.combos.map(([a, b], k) => { const d = cov[comboKey(a, b)] || 0; return `<tr class="click" onclick='go("gen",{a:${js(a)},b:${js(b)}})'><td>${k + 1}</td><td>${esc(a)} + <b>${esc(b)}</b></td><td style="width:120px"><div class="bar"><i style="width:${Math.min(100, 100 * d / per)}%"></i></div></td><td class="small">${d}/${per}</td></tr>`; }).join("")}</table>
+   <div class="row" style="margin-top:8px"><button onclick="download('mcm_volume_prompts.txt',volumePrompts())">⬇ All prompts for this volume (.txt)</button><span class="small muted">${pv.combos.length} pairs × ${per} ideas</span></div></div>
+  <div class="card"><h3>🧮 Matrix maths</h3><p class="small muted">How big this word list's matrix is at ${per} ideas per pair (set on the Generator).</p>
+   <table><tr><td>Words (N)</td><td><b>${fmtN(N)}</b></td></tr><tr><td>Ordered pairs (A+B ≠ B+A, no self-pairs)</td><td><b>${fmtN(ord)}</b></td></tr><tr><td>Unordered pairs</td><td>${fmtN(un)}</td></tr><tr><td>With self-pairs (N²)</td><td>${fmtN(N * N)}</td></tr>
+   <tr><td>Total ideas (ordered × ${per})</td><td><b>${fmtN(tot)}</b></td></tr><tr><td>Volumes of 10 pairs</td><td>${fmtN(Math.ceil(ord / 10))}</td></tr><tr><td>Books of 500 ideas</td><td>${fmtN(Math.ceil(tot / 500))}</td></tr><tr><td>Ideas made so far</td><td>${fmtN(S.ideas.length)} (${(100 * S.ideas.length / Math.max(1, tot)).toFixed(3)}%)</td></tr>
+   <tr><td>At one idea a minute</td><td>${fmtN(Math.round(tot / 60))} hours</td></tr></table>
+   <p class="tiny muted">Add one more word and you add 2 × N new ordered pairs. That is why a short list already holds thousands of ideas.</p></div></div>
+  <div class="card" style="margin-top:12px"><h3>✏️ My words <span class="small muted">(${S.custom.length})</span></h3><p class="small muted">Add words of your own, one per line or separated by commas. They also join the "Starter + things + mine" list.</p>
+   <textarea id="cw" rows="3" placeholder="e.g. mycelium, origami, tidal power"></textarea><div class="row" style="margin-top:6px"><button onclick="addWords()">Add</button><button onclick="pickFile('.txt,.csv',f=>f.text().then(t=>{$('#cw').value=t;addWords()}))">Import a .txt/.csv</button><button onclick="download('mcm_words_${S.bank}.txt',bankWords().join('\\n'))">⬇ Export this list</button>${S.custom.length ? `<button class="bad" onclick="if(confirm('Remove all ${S.custom.length} of your words?')){S.custom=[];save();rerender()}">Clear my words</button>` : ""}</div>
+   ${S.custom.length ? `<p style="margin-top:8px">${S.custom.map(w => `<span class="pill">${esc(w)} <a onclick='S.custom=S.custom.filter(x=>x!==${js(w)});save();rerender()'>×</a></span>`).join("")}</p>` : ""}</div>`; };
+function addWords() { const t = $("#cw").value.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean); const before = S.custom.length; S.custom = uniq(S.custom.concat(t)); save(); toast(`Added ${S.custom.length - before} word(s).`); rerender(); }
+function volumePrompts() { const pv = volumeCombos(S.cfg.row, S.cfg.volume, 10); return pv.combos.map(([a, b]) => Array.from({length: S.cfg.perCombo}, (_, k) => `===== ${a} + ${b} · idea ${k + 1} =====\n` + buildPrompt(S.cfg.mode, k + 1, a, b, {coord: coordFor(k + 1), spec: outSpec(k + 1, S.cfg.mode)})).join("\n\n")).join("\n\n"); }
+
+function coordFor(n) { return COORDS[(n - 1) % COORDS.length]; }
+function outSpec(n, mode) { if (mode === "freeform") return {}; const o = {type: OUTPUTS[(n - 1) % OUTPUTS.length]}; if (n >= 4) { o.biz = BIZ[(n * 7) % BIZ.length]; o.cust = CUST[(n * 3) % CUST.length]; } return o; }
+function lens(c, use) { if (!c || use < 2) return ""; const [A, B, C, D, E, F, G] = c, lo = s => s.toLowerCase().replace(/-/g, " ");
+  return use === 2 ? `Think about it at ${lo(A)} scale, as ${lo(B)} instance(s), in a ${lo(E)} context, aiming for ${lo(F)}, reading the words in their ${lo(G)} sense. Never write these labels in the idea. `
+    : `Use this 7D coordinate as your thinking lens (never print it): Scale ${A} × Quantity ${B} × Dimension ${C} × State ${D} × Context ${E} × Abstraction ${F} × Definition ${G}. `; }
+function buildPrompt(mode, n, a, b, o = {}) { const c = o.coord, use = S.cfg.coordUse, sp = o.spec || {}, r = MODES[mode] ? MODES[mode][2] : [90, 130], wMin = mode === "balanced" || mode === "tech7d" ? S.cfg.wMin : r[0], wMax = mode === "balanced" || mode === "tech7d" ? S.cfg.wMax : r[1], used = (o.used || []).slice(-10);
+  const spec = sp.type ? `\nOUTPUT TYPE: ${sp.type}${sp.biz ? `\nBUSINESS: ${sp.biz} for ${sp.cust}` : ""}\n` : "";
+  if (mode === "freeform") return `Generate idea #${n} combining: ${a} + ${b}\n\nThis could be an invention, product, service, business, activity, game, or piece of content.\n\nWrite a paragraph describing it. Start with a short title on its own line.`;
+  if (mode === "oneliner") return `Generate idea #${n} combining: ${a} + ${b}\n${spec}\nCreate a ${sp.type || "product"} that combines ${a} and ${b}.\n${lens(c, use)}\nFormat:\nIDEA ${n}: [Name] - [What it is/does] for [who uses it/where]\n\nOne sentence. Be specific and practical.`;
+  if (mode === "plain") return `Generate idea #${n} combining: ${a} + ${b}\n${spec}\nCreate a ${sp.type || "product"} that combines ${a} and ${b}.\n${lens(c, use)}\nWrite it so a curious 15-year-old understands every word:\n• Use everyday words, no jargon\n• Start with an analogy: "Works like a ___"\n• Say what it does and who uses it\n• Use simple materials you could buy in a store or online\n• Include a practical benefit: saves money, saves time, or is just fun\n\nLength: ${wMin}-${wMax} words in one paragraph.\n\nFormat:\nIDEA ${n}: [Simple title]\n\n[the idea]\n\nOutput only the idea.`;
+  if (mode === "card") return `Respond in English only. Write invention idea ${n} combining '${a}' and '${b}'. ${lens(c, use)}The idea must solve a problem ordinary people meet every day, at home, at work or on the go. ${used.length ? `Use a different primary material from these already used: ${used.join(", ")}. ` : ""}Write for a smart person who has never worked in a lab: plain words, no jargon. Output in this exact format, no extra text:\n\nNAME: [2-4 word product name]\nHOOK: [one sentence: what it does for the user]\n[3 short paragraphs: the everyday problem, how it works in plain words, why it matters]\nSOLVES: [the everyday problem]\nMARKET: [units per year] × $[price per unit]\nEDGE: [one specific reason it is hard to copy: a real cost, a patent, a law of physics or a data advantage]\n\nTotal ${wMin}-${wMax} words. No brackets in the idea text.`;
+  if (mode === "tech7d") { const C = c || COORDS[0];
+    return `You are an idea engine using Moore's Combinatorics Matrix.\n\nWrite idea ${n} for the combination: ${a} + ${b}\nIts point in 7-dimensional space (use it to steer the idea; never print these labels): Scale ${C[0]} · Quantity ${C[1]} · Dimension ${C[2]} · State ${C[3]} · Context ${C[4]} · Abstraction ${C[5]} · Definition ${C[6]}.\n\nSTRUCTURE (${wMin}-${wMax} words total):\nLine 1: a descriptive title (3-8 words).\nThen one paragraph with:\n- Opening: how ${a} and ${b} combine at that scale and quantity.\n- Technical mechanism answering all five: 1) the specific material, 2) the specific size with units, 3) the process step by step, 4) the named principle, 5) a measured result with units.\n- Market: who pays, shown as units per year × price per unit.\n- Abstraction leverage: the barrier that stops copies and the bigger category it opens.\n${used.length ? `Use a primary material not already used: ${used.join(", ")}.\n` : ""}Output only the title and the paragraph.`; }
+  return `Respond in English only. Give me invention idea number ${n} combining '${a}' and '${b}'. ${lens(c, use)}${spec ? `Make it a ${sp.type}${sp.biz ? ` sold as ${sp.biz.toLowerCase()} to ${sp.cust.toLowerCase()}` : ""}. ` : ""}Use a different primary material than earlier ideas${used.length ? ` (already used: ${used.join(", ")})` : ""}. Include one specific reason why the idea is hard to copy: name a law of physics, a manufacturing cost, a rule or a patent. If you give a market size, show it as units per year × price per unit. Write about ${wMin}-${wMax} words. Put a short title on the first line. Just write the idea directly.`; }
+
+const TAG_INLINE = /\[[\w\s\-\/]+\](?:\s*[x×]\s*\[[\w\s\-\/]+\])+/g;
+function cleanText(t) { return String(t).replace(/\r/g, "").replace(/^\s*(sure|certainly|here'?s|here is|okay)[^\n]*\n+/i, "").replace(TAG_INLINE, "").replace(/\*\*/g, "").replace(/\n{3,}/g, "\n\n").trim(); }
+function parseIdea(raw, mode) { const t = cleanText(raw); const o = {};
+  if (mode === "card") { const f = k => { const m = t.match(new RegExp("^\\s*" + k + ":\\s*(.+)$", "mi")); return m ? m[1].trim().replace(/^\[|\]$/g, "") : ""; };
+    o.card = {name: f("NAME"), hook: f("HOOK"), solves: f("SOLVES"), market: f("MARKET"), edge: f("EDGE")};
+    o.title = o.card.name || "Untitled"; o.text = t.replace(/^\s*NAME:.*\n?/mi, "").trim(); return o; }
+  const L = t.split("\n"), first = (L[0] || "").trim();
+  const m = first.match(/^(?:#+\s*)?(?:IDEA\s*#?\d+\s*[:.\-–]\s*)?(.{2,90})$/i);
+  if (mode === "oneliner") { const mm = t.match(/^(?:IDEA\s*#?\d+\s*[:.\-–]\s*)?(.+?)\s+[-–—]\s+(.+)$/is); o.title = mm ? mm[1].trim() : first.replace(/^IDEA\s*#?\d+\s*[:.\-–]\s*/i, "").slice(0, 60); o.text = mm ? mm[2].trim() : t; return o; }
+  if (L.length > 1 && m && wc(first) <= 12) { o.title = m[1].replace(/^title\s*:\s*/i, "").replace(/[*#"]/g, "").trim(); o.text = L.slice(1).join("\n").trim(); }
+  else { o.title = words(t).slice(0, 6).join(" "); o.text = t; }
+  o.text = o.text.replace(/^IDEA\s*#?\d+\s*[:.\-–]\s*/i, ""); return o; }
+
+const RE_Q = /\bquantum\b/i, RE_QOK = /\b(tunnel\w*|confinement|superposition|entangle\w*)\b/i;
+const RE_MSPEC = /(\$\s*\d|\d+\s*(?:nm|mm|cm|eV|kJ|°C|K)\b|law\b|Bragg|Hall\s+effect|Curie|Arrhenius|\bFDA\b|\bUL\b|\bCE mark|patent(?:ed|s)?\b|registered design|regulat\w+\s+(?:approval|clearance)|network\s+effect|data\s+(?:moat|advantage)|tooling\s+cost)/i;
+const RE_MGEN = /\b(difficult\s+to\s+replicate|hard\s+to\s+replicate|proprietary\s+(?:process|technology)|significant\s+barrier|technological\s+lead|strong\s+barrier\s+to\s+entry|unique\s+combination)\b/i;
+const MATS = ["graphene","silicon","silica","titanium dioxide","alumina","zinc oxide","copper","aluminum","aluminium","stainless steel","steel","brass","bronze","nickel","titanium","silver","gold","tungsten","magnesium","lithium","borosilicate glass","borosilicate","glass","sapphire","quartz","ceramic","porcelain","carbon fiber","kevlar","nylon","polyethylene","polypropylene","polycarbonate","acrylic","silicone","epoxy","polyurethane","rubber","latex","cellulose","mycelium","bamboo","cork","wood","beeswax","paraffin","shellac","resin","gelatin","agar","hemp","wool","silk","cotton","linen","leather","clay","concrete","cement","gypsum","ferrite","hydrogel","aerogel","diamond","basalt","salt","sugar","wax","paper","cardboard","honey","alum"];
+function mainMaterial(t) { const low = String(t).toLowerCase(); let best = null, bi = 1e9;
+  for (const m of MATS) { const i = low.search(new RegExp("\\b" + m.replace(/ /g, "\\s") + "\\b")); if (i >= 0 && i < bi) { bi = i; best = m; } } return best; }
+function jacc(a, b) { const A = new Set(words(a.toLowerCase()).filter(w => w.length > 3)), B = new Set(words(b.toLowerCase()).filter(w => w.length > 3)); let x = 0; for (const w of A) if (B.has(w)) x++; return x / Math.max(1, A.size + B.size - x); }
+function checkIdea(i) { const t = (i.title || "") + "\n" + (i.text || ""), body = i.text || "", out = [], add = (k, sev, msg) => out.push({k, sev, msg}), mode = i.mode || "balanced", rng = MODES[mode] ? MODES[mode][2] : [S.cfg.wMin, S.cfg.wMax];
+  const lo = mode === "balanced" || mode === "tech7d" ? S.cfg.wMin : rng[0], hi = mode === "balanced" || mode === "tech7d" ? S.cfg.wMax : rng[1], n = wc(body);
+  if (i.a && i.a === i.b) add("self_pair", 1, "Self-pair: both words are the same.");
+  if (TAG_INLINE.test(t)) add("coordinate_tags", 3, "Coordinate labels were printed in the text."); TAG_INLINE.lastIndex = 0;
+  if (!i.hand && n < lo * .85) add("too_short", 1, `Short: ${n} words (aim ${lo}-${hi}).`); else if (n > hi * 1.15) add("too_long", 1, `Long: ${n} words (aim ${lo}-${hi}).`);
+  if (RE_Q.test(t) && !RE_QOK.test(t)) add("quantum_vague", 2, "'Quantum' used without naming tunneling, confinement, superposition or entanglement.");
+  if (/\bgraphene\b/i.test(t)) add("graphene", 1, "Mentions graphene, a favourite of AI models. Is there a fresher material?");
+  if (mode !== "oneliner") { const tail = mode === "card" && i.card ? i.card.edge || "" : t; if (RE_MGEN.test(tail) && !RE_MSPEC.test(tail)) add("barrier_vague", 2, "Vague barrier ('proprietary process', 'hard to replicate'): name the real one."); else if (!RE_MSPEC.test(tail) && !RE_MGEN.test(tail)) add("barrier_missing", 2, "No barrier: why can't others copy it?"); }
+  const mk = t.match(/\$\s?\d[\d.,]*\s*(?:billion|million|trillion|[BMT]\b)/gi) || []; if (mk.length && !/(×|\bx\b|\bper unit\b|\bunits\b|\bper year\b|according to)/i.test(t)) add("market_round", 1, "Market figure with no maths or source.");
+  if (mode === "card") { const c = i.card || {}; ["name", "hook", "solves", "market", "edge"].forEach(k => { if (!c[k]) add("missing_" + k, 2, `Card line missing: ${k.toUpperCase()}.`); }); }
+  const sibs = S.ideas.filter(x => x !== i && x.a === i.a && x.b === i.b && x.created < (i.created || 1e15));
+  let worst = 0, wid = null; for (const s of sibs) { const j = jacc(s.text || "", body); if (j > worst) { worst = j; wid = s; } } if (worst > .42) add("repeat", 2, `Too similar to "${wid.title}" (${Math.round(worst * 100)}% word overlap).`);
+  const mm = mainMaterial(body); if (mm && sibs.some(s => s.mat && s.mat.toLowerCase() === mm.toLowerCase())) add("material_repeat", 1, `Primary material "${mm}" was already used for this pair.`);
+  return out; }
+function gateHits(t) { t = String(t); return {mat: !!(mainMaterial(t) || /\b(alloy|polymer|oxide|composite|fiber|resin|ceramic|membrane|film|foam|fabric)\b/i.test(t)),
+  size: /\d[\d.,]*\s?(nm|µm|μm|mm|cm|m|km|in|inch(es)?|ft|°C|°F|g|kg|mg|L|mL|m²)\b/i.test(t),
+  proc: /\b(deposit\w*|sinter\w*|anneal\w*|laminat\w*|extrud\w*|cur(e|ed|ing)|etch\w*|coat\w*|mold\w*|mould\w*|weav\w*|cast(ing)?|spray\w*|print\w*|ferment\w*|press(ed|ing)?|bond\w*|machin\w*|stamp\w*|embed\w*|stitch\w*|sew\w*|blown|cut|sand\w*|heat-treated|grow\w*)\b/i.test(t),
+  phys: /\b(effect|law|principle|resonance|piezoelectric|thermoelectric|faraday|bernoulli|capillary|diffusion|convection|conduction|induction|fluorescence|photoelectric|triboelectric|hysteresis|doppler|tunneling|phase change|latent heat|evaporative|osmo\w*|adsorption|catalys\w*|viscosity|buoyancy|friction|scatter\w*)\b/i.test(t),
+  perf: /\d[\d.,]*\s?(%|percent|W\b|kW|mW|V\b|mAh|Hz|dB|lm|lux|psi|hours?|minutes|seconds|years?|cycles|times)/i.test(t),
+  market: /\$\s?\d/.test(t) && /\b(store|shop|market|industr|retail|consumer|compan|families|schools|cafes|units)\w*/i.test(t),
+  lever: /\b(moat|barrier|network effect|patent\w*|regulat\w*|exclusiv\w*|registered design|cannot be (copied|replicated)|category|platform)\b/i.test(t)}; }
+const failing = i => checkIdea(i).some(c => c.sev >= 2);
+
+function rubricScore(sc, rid) { const R = RUBRICS[rid]; if (!sc || !R) return null; let s = 0, w = 0; for (const d of R.dims) { const v = sc[d[0]]; if (v == null) continue; const wt = d[2] || 1, x = d[3] ? 11 - v : v; s += wt * (x - 1) / 9; w += wt; } return w ? Math.round(100 * s / w) : null; }
+function autoScore(i) { const g = gateHits((i.title || "") + " " + (i.text || "")), ch = checkIdea(i); let s = 30 + 10 * Object.values(g).filter(Boolean).length; ch.forEach(c => s -= c.sev >= 3 ? 20 : c.sev === 2 ? 10 : 4); return clamp(s, 0, 100); }
+function overall(i) { const r = i.scores || {}; for (const k of [S.cfg.rubric, "card10", "weighted"]) { const v = rubricScore(r[k], k); if (v != null) return v; } return autoScore(i); }
+const isGraded = i => Object.keys(i.scores || {}).some(k => rubricScore(i.scores[k], k) != null);
+const letter = s => s >= 85 ? "A" : s >= 70 ? "B" : s >= 55 ? "C" : s >= 40 ? "D" : "F";
+const gradeBox = i => { const s = overall(i); return `<div class="grade g${letter(s)}" title="${isGraded(i) ? "Scorecard grade" : "Auto score (not graded yet)"}">${letter(s)}<div class="tiny">${s}${isGraded(i) ? "" : "*"}</div></div>`; };
+function parseScores(t, rid) { const out = {}; for (const d of RUBRICS[rid].dims) { const re = new RegExp(d[0].replace(/_/g, "[_ ]?") + "\\s*[:=\\-]\\s*(\\d{1,2})", "i"), m = String(t).match(re); if (m) { const v = +m[1]; if (v >= 1 && v <= 10) out[d[0]] = v; } } return Object.keys(out).length >= Math.ceil(RUBRICS[rid].dims.length * .6) ? out : null; }
+function gradePrompt(i, rid) { const R = RUBRICS[rid]; return `You are evaluating an invention idea. Rate it on ${R.dims.length} dimensions from 1 to 10.\n\nIDEA:\n${i.title}\n${i.text}\n\nWORDS COMBINED: ${i.a} + ${i.b}\n\nRate these (1 = poor, 10 = excellent${R.dims.some(d => d[3]) ? "; for the ones marked (high = …) give the plain amount" : ""}):\n${R.dims.map((d, k) => `${k + 1}. ${d[0]} - ${d[1]}`).join("\n")}\n\nRespond only with scores in this format:\n${R.dims.map(d => `${d[0]}: 7`).join("\n")}\n\nThen one line starting WHY: with the single biggest weakness.`; }
+
+function ideaCard(i) { const ch = checkIdea(i); return `<div class="idea"><div class="row">${gradeBox(i)}<div class="grow"><div class="t">${esc(i.title)}</div><div class="small muted">${esc(i.a)} + ${esc(i.b)} · ${esc((MODES[i.mode] || ["by hand"])[0])}${i.ai ? " · " + esc(i.ai) : ""}</div></div><button class="sm" onclick="go('grade','${i.id}')">Open</button></div>
+  ${i.card && i.card.hook ? `<div class="small" style="margin-top:6px;color:var(--acc)"><i>${esc(i.card.hook)}</i></div>` : ""}<div class="body small">${esc(i.text)}</div>
+  ${ch.length ? `<div>${ch.map(c => `<span class="pill ${c.sev >= 2 ? "r" : "y"}" title="${attr(c.msg)}">${esc(c.k.replace(/_/g, " "))}</span>`).join("")}</div>` : `<span class="pill g">passes all checks</span>`}</div>`; }
+
+VIEWS.gen = () => { const A = ARG || {}; if (A.a) { S.genA = A.a; S.genB = A.b; save(); } const a = S.genA || "water", b = S.genB || "magnets", m = S.cfg.mode, w = bankWords();
+  return `<h1>⚡ Generator</h1><p class="sub">Two words in, ideas out. Build the prompt for each idea, run it in an AI, paste the answer back, and every idea is checked for the usual weak spots.</p>
+  <div class="spark">${esc(a)}<i>+</i><span>${esc(b)}</span></div>
+  <datalist id="wl">${w.map(x => `<option value="${attr(x)}">`).join("")}</datalist>
+  <div class="grid g2"><div class="card"><h3>1 · The pair</h3>
+   <div class="row"><input id="ga" list="wl" value="${attr(a)}" class="grow" onchange="go('gen',{a:this.value.trim()||'water',b:S.genB})"><b>+</b><input id="gb" list="wl" value="${attr(b)}" class="grow" onchange="go('gen',{a:S.genA,b:this.value.trim()||'magnets'})"></div>
+   <div class="row" style="margin-top:6px"><button class="sm pri" onclick="const c=randomCombo();go('gen',{a:c[0],b:c[1]})">🎲 Random pair</button><button class="sm" onclick="const p=posPair();go('gen',{a:p[0],b:p[1]})">🎲 Word-combo pair</button><button class="sm" onclick="go('gen',{a:S.genB||'magnets',b:S.genA||'water'})">⇄ Swap</button></div>
+   <h3 style="margin-top:12px">2 · Style</h3><select style="width:100%" onchange="S.cfg.mode=this.value;save();rerender()">${Object.entries(MODES).map(([k, v]) => `<option value="${k}" ${k === m ? "selected" : ""}>${esc(v[0])}</option>`).join("")}</select>
+   <p class="small muted">${esc(MODES[m][1])}</p>
+   <div class="row"><label>7D lens</label><select onchange="S.cfg.coordUse=+this.value;save();rerender()">${[[1, "1 · none (the AI picks freely)"], [2, "2 · light lens (plain words)"], [3, "3 · full 7D coordinate"]].map(([v, l]) => `<option value="${v}" ${S.cfg.coordUse === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+   <div class="row" style="margin-top:6px"><label>Ideas per pair</label><input type="number" min="1" max="50" value="${S.cfg.perCombo}" style="width:60px" onchange="S.cfg.perCombo=clamp(+this.value||10,1,50);save()">
+    ${m === "balanced" || m === "tech7d" ? `<label>Words</label><input type="number" value="${S.cfg.wMin}" style="width:56px" onchange="S.cfg.wMin=+this.value||90;save()">–<input type="number" value="${S.cfg.wMax}" style="width:56px" onchange="S.cfg.wMax=+this.value||130;save()">` : ""}</div>
+   <h3 style="margin-top:12px">3 · Make it</h3>
+   <div class="row"><button class="pri" onclick="aiOne()">⚡ Write 1 idea with AI</button><button onclick="copy($('#pp').textContent)">📋 Copy the prompt</button><button onclick="download('mcm_prompts_'+S.genA+'_'+S.genB+'.txt',pairPrompts())">⬇ All ${S.cfg.perCombo} prompts</button></div>
+   <div id="aibox">${APP ? "" : GETAPP}</div></div>
+  <div class="card"><h3>Prompt for idea #${ideasOf(a, b).length + 1}</h3><pre class="stream" id="pp"></pre>
+   <h3 style="margin-top:12px">Paste the AI's answer</h3><p class="small muted">Paste one idea or several. Several are split on "IDEA n:" or "NAME:" lines.</p><textarea id="paste" rows="5" placeholder="Title on the first line, then the idea…"></textarea><div class="row" style="margin-top:6px"><button class="pri" onclick="pasteIdeas()">➕ Add as ideas for this pair</button></div></div></div>
+  <h2>Ideas for ${esc(a)} + ${esc(b)}</h2><div id="clist"></div>`; };
+AFTER.gen = () => { drawComboList(); const a = S.genA, b = S.genB, n = ideasOf(a, b).length + 1; $("#pp").textContent = buildPrompt(S.cfg.mode, n, a, b, {coord: coordFor(n), spec: outSpec(n, S.cfg.mode), used: ideasOf(a, b).map(s => s.mat).filter(Boolean)}); };
+function pairPrompts() { const a = S.genA, b = S.genB, start = ideasOf(a, b).length; return Array.from({length: S.cfg.perCombo}, (_, k) => { const n = start + k + 1; return `===== ${a} + ${b} · idea ${n} =====\n` + buildPrompt(S.cfg.mode, n, a, b, {coord: coordFor(n), spec: outSpec(n, S.cfg.mode)}); }).join("\n\n"); }
+function drawComboList() { const el = $("#clist"); if (!el) return; const L = ideasOf(S.genA, S.genB);
+  el.innerHTML = L.length ? L.slice().reverse().map(ideaCard).join("") : `<p class="muted">None yet for this pair. Copy the prompt, or <a onclick="go('write',{a:S.genA,b:S.genB})">write one by hand</a>.</p>`; }
+function addParsed(a, b, p, mode, src) { const q = parseIdea(p, mode), i = newIdea({a, b, n: ideasOf(a, b).length + 1, mode, title: q.title, text: q.text, card: q.card, ai: src, mat: mainMaterial(q.text)}); return i; }
+function pasteIdeas() { const a = S.genA, b = S.genB, t = $("#paste").value; if (!t.trim()) return toast("Paste an answer first.");
+  const parts = t.split(/\n(?=\s*(?:\*\*)?(?:IDEA\s*#?\d+\s*[:.]|NAME:))/i).map(s => s.trim()).filter(s => wc(s) > 4); let k = 0;
+  for (const p of parts) { addParsed(a, b, p, /^\s*NAME:/im.test(p) ? "card" : S.cfg.mode, "pasted"); k++; }
+  if (!k) return toast("That looks too short to be an idea.");
+  save(); toast(`Added ${k} idea(s).`); rerender(); }
+async function aiOne() { const box = $("#aibox"); if (!APP) { box.innerHTML = GETAPP; return; }
+  const a = S.genA, b = S.genB, n = ideasOf(a, b).length + 1, prompt = buildPrompt(S.cfg.mode, n, a, b, {coord: coordFor(n), spec: outSpec(n, S.cfg.mode), used: ideasOf(a, b).map(s => s.mat).filter(Boolean)});
+  box.innerHTML = `<pre class="stream">Thinking…</pre>`;
+  try { const raw = await ask(prompt, "Write exactly one idea.", p => { const s = $("#aibox .stream"); if (s) s.textContent = p; }); addParsed(a, b, raw, S.cfg.mode, AI.name || "AI"); save(); toast("New idea added."); rerender(); }
+  catch (e) { box.innerHTML = `<div class="warn">${esc(e.message)}</div>`; } }
+
+VIEWS.write = () => { const A = ARG || {}; const a = A.a || S.genA || "water", b = A.b || S.genB || "magnets", c = A.c || pick(COORDS);
+  return `<h1>✍️ Write by hand</h1><p class="sub">The matrix is a human method first. Take a pair, explode every dimension, climb the abstraction ladder, and write. The checks run live as you type.</p>
+  <div class="grid g2"><div class="card"><div class="row"><input id="wa" list="wl2" value="${attr(a)}" class="grow"><b>+</b><input id="wb" list="wl2" value="${attr(b)}" class="grow"><button class="sm" onclick="const r=randomCombo();go('write',{a:r[0],b:r[1]})">🎲</button></div>
+   <datalist id="wl2">${bankWords().map(x => `<option value="${attr(x)}">`).join("")}</datalist>
+   <p class="small" style="margin-top:10px"><b>Lens</b> <button class="sm" onclick="go('write',{a:$('#wa').value,b:$('#wb').value,c:pick(COORDS)})">🎲 new coordinate</button></p>
+   <p>${c.map((v, k) => `<span class="pill b" title="${attr(DIMS[k].name)}">${DIMS[k].k} ${esc(v)}</span>`).join("")}</p>
+   <input id="wt" placeholder="Title" style="width:100%;margin-top:8px" oninput="liveCheck()"><textarea id="wx" rows="9" placeholder="How the two words combine… the material, size, process, principle and a measured result… who buys it… why it is hard to copy…" style="margin-top:6px" oninput="liveCheck()"></textarea>
+   <div class="row" style="margin-top:6px"><span id="wcn" class="small muted">0 words</span><button class="pri" style="margin-left:auto" onclick="saveHand(${attr(JSON.stringify(c))})">💾 Save idea</button></div></div>
+  <div class="card"><h3>Live checks</h3><div id="lc"></div><h3 style="margin-top:12px">7 big questions</h3><ol class="small">${SEVEN_Q.map(q => `<li>${esc(q)}</li>`).join("")}</ol>
+   <h3>Explode every dimension</h3><p class="small muted">Read each word as: ${DEF_EX.map(d => esc(d[0])).join(" · ")}.</p></div></div>`; };
+AFTER.write = () => liveCheck();
+function liveCheck() { const i = {a: $("#wa").value, b: $("#wb").value, title: $("#wt").value, text: $("#wx").value, mode: "tech7d", hand: true}; const ch = checkIdea(i), g = gateHits(i.text);
+  $("#wcn").textContent = wc(i.text) + " words"; $("#lc").innerHTML = `<p>${FIVE_Q.map(([k, n]) => `<span class="pill ${g[k] ? "g" : ""}">${g[k] ? "✓" : "○"} ${esc(n)}</span>`).join("")}<span class="pill ${g.market ? "g" : ""}">${g.market ? "✓" : "○"} Market $ + buyers</span><span class="pill ${g.lever ? "g" : ""}">${g.lever ? "✓" : "○"} Barrier</span></p>` + (i.text.trim() ? ch.map(x => `<div class="small" style="color:${x.sev >= 2 ? "var(--red)" : "#9c6b00"}">• ${esc(x.msg)}</div>`).join("") || `<div class="ok">No problems found. 🎉</div>` : `<p class="muted small">Start writing…</p>`); }
+function saveHand(c) { const a = $("#wa").value.trim(), b = $("#wb").value.trim(), t = $("#wx").value.trim(); if (!t) return toast("Write the idea first."); const i = newIdea({a, b, n: ideasOf(a, b).length + 1, mode: "tech7d", hand: true, title: $("#wt").value.trim() || words(t).slice(0, 6).join(" "), text: t, coord: c, ai: "by hand", mat: mainMaterial(t)}); save(); toast("Saved to the Library."); go("grade", i.id); }
+
+VIEWS.grade = id => { let i = id ? idea(id) : null; const list = S.ideas; if (!i && list.length) i = list.find(x => !isGraded(x)) || list[list.length - 1];
+  if (!i) return `<h1>🎯 Grader</h1><p class="muted">No ideas yet. Make some on the <a onclick="go('gen')">Generator</a> or <a onclick="go('write')">write one by hand</a>.</p>`;
+  const k = list.indexOf(i), ch = checkIdea(i), g = gateHits(i.title + " " + i.text), ung = list.filter(x => !isGraded(x)).length;
+  const slid = rid => { const R = RUBRICS[rid], sc = (i.scores || {})[rid] || {}; return `<div class="card"><div class="row"><h3 class="grow">${esc(R.name)}</h3><b>${rubricScore(sc, rid) ?? "—"}</b><span class="small muted">/100</span></div><p class="tiny muted">${esc(R.src)}</p>
+    ${R.dims.map(d => `<div class="slider"><span title="${attr(d[1])}">${esc(d[0].replace(/_/g, " ").toLowerCase())}${d[2] > 1 ? " ×2" : ""}${d[3] ? " ↓" : ""}</span><input type="range" min="1" max="10" value="${sc[d[0]] || 5}" oninput="this.nextElementSibling.textContent=this.value" onchange="setScore('${i.id}','${rid}','${d[0]}',+this.value)"><b>${sc[d[0]] || "·"}</b></div>`).join("")}
+    <div class="row" style="margin-top:8px"><button class="sm" onclick="gradeNow('${i.id}','${rid}')">🤖 AI grade</button><button class="sm" onclick="const x=idea('${i.id}');if(x)copy(gradePrompt(x,'${rid}'))">📋 Copy grading prompt</button>${Object.keys(sc).length ? `<button class="sm" onclick="const x=idea('${i.id}');if(x&&x.scores)delete x.scores['${rid}'];save();rerender()">Clear</button>` : ""}</div></div>`; };
+  return `<h1>🎯 Grader</h1><p class="sub">Idea ${k + 1} of ${list.length} · ${ung} not graded yet. Drag the sliders to grade by hand. Edit the text and the checks update.</p>
+  <div class="row" style="margin-bottom:10px"><button onclick="go('grade','${(list[k - 1] || i).id}')">◀ Prev</button><button onclick="go('grade','${(list[k + 1] || i).id}')">Next ▶</button><button onclick="const n=S.ideas.find(x=>!isGraded(x));n?go('grade',n.id):toast('All graded.')">Next ungraded</button>
+   <button class="bad" style="margin-left:auto" onclick="if(confirm('Delete this idea?')){S.ideas=S.ideas.filter(x=>x.id!=='${i.id}');save();go('grade')}">Delete</button></div>
+  <div id="gstat"></div>
+  <div class="grid g2"><div><div class="idea"><div class="row">${gradeBox(i)}<div class="grow"><input value="${attr(i.title)}" style="width:100%;font-weight:700" onchange="const x=idea('${i.id}');if(x){x.title=this.value;save()}"><div class="small muted">${esc(i.a)} + ${esc(i.b)} · ${esc((MODES[i.mode] || ["by hand"])[0])} · ${esc(i.ai || "")}</div></div></div>
+   <textarea rows="10" style="margin-top:6px" onchange="const x=idea('${i.id}');if(x){x.text=this.value;x.mat=mainMaterial(this.value);save();rerender()}">${esc(i.text)}</textarea>
+   <p class="small muted">${wc(i.text)} words · primary material: ${esc(i.mat || mainMaterial(i.text) || "—")}${i.coord ? ` · lens ${i.coord.map(esc).join(" × ")}` : ""}</p>
+   ${i.why ? `<p class="small"><b>Reviewer:</b> ${esc(i.why)}</p>` : ""}</div>
+   <div class="card"><h3>Checks</h3>${ch.length ? ch.map(c => `<div class="small" style="color:${c.sev >= 2 ? "var(--red)" : "#9c6b00"}">• ${esc(c.msg)}</div>`).join("") : `<div class="ok">Passes every check. 🎉</div>`}
+   <h3 style="margin-top:10px">The 5 questions + market + barrier</h3><p>${FIVE_Q.map(([q, n, h]) => `<span class="pill ${g[q] ? "g" : ""}" title="${attr(h)}">${g[q] ? "✓" : "○"} ${esc(n)}</span>`).join("")}<span class="pill ${g.market ? "g" : ""}">${g.market ? "✓" : "○"} Market</span><span class="pill ${g.lever ? "g" : ""}">${g.lever ? "✓" : "○"} Barrier</span></p><p class="tiny muted">Found by pattern matching, so treat them as hints.</p></div></div>
+  <div class="grid" style="align-content:start">${slid(S.cfg.rubric)}${Object.keys(RUBRICS).filter(r => r !== S.cfg.rubric).map(slid).join("")}
+   <div class="card"><label>Main scorecard (used for the letter grade)</label> <select onchange="S.cfg.rubric=this.value;save();rerender()">${Object.entries(RUBRICS).map(([k, r]) => `<option value="${k}" ${k === S.cfg.rubric ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div></div></div>`; };
+function setScore(id, rid, k, v) { const i = idea(id); if (!i) return; i.scores = i.scores || {}; i.scores[rid] = i.scores[rid] || {}; i.scores[rid][k] = v; save(); rerender(); }
+async function gradeNow(id, rid) { const st = $("#gstat"); if (!idea(id) || !st) return; if (!APP) { st.innerHTML = GETAPP.replace("paste the answer back below", "set the sliders from its answer"); return; }
+  st.innerHTML = `<div class="ok">Grading…</div>`; try { const i = idea(id), r = await ask(gradePrompt(i, rid), "Grade one idea. Be strict and consistent."), sc = parseScores(r, rid); if (!sc) throw new Error("The AI's scores couldn't be read."); i.scores = i.scores || {}; i.scores[rid] = sc; const w = r.match(/WHY:\s*(.+)/i); if (w) i.why = w[1].trim(); save(); rerender(); } catch (e) { st.innerHTML = `<div class="warn">${esc(e.message)}</div>`; } }
+
+VIEWS.library = () => { const A = Object.assign({q: "", st: "", sort: "new"}, ARG || {}); ARG = A; let L = S.ideas.slice();
+  if (A.q) { const q = A.q.toLowerCase(); L = L.filter(i => (i.title + " " + i.text + " " + i.a + " " + i.b).toLowerCase().includes(q)); }
+  if (A.st === "flagged") L = L.filter(failing); if (A.st === "ok") L = L.filter(i => !failing(i)); if (A.st === "ungraded") L = L.filter(i => !isGraded(i));
+  L.sort(A.sort === "grade" ? (a, b) => overall(b) - overall(a) : A.sort === "old" ? (a, b) => a.created - b.created : A.sort === "combo" ? (a, b) => comboKey(a.a, a.b).localeCompare(comboKey(b.a, b.b)) : (a, b) => b.created - a.created);
+  const set = (k, v) => `go('library',Object.assign({},ARG,{${k}:${v}}))`;
+  return `<h1>📚 Library</h1><p class="sub">${fmtN(S.ideas.length)} ideas across ${new Set(S.ideas.map(i => comboKey(i.a, i.b))).size} pairs.</p>
+  <div class="row" style="margin-bottom:10px"><input id="lq" placeholder="🔎 Search ideas…" value="${attr(A.q)}" onchange="${set("q", "this.value")}" style="width:220px">
+   <select onchange="${set("st", "this.value")}"><option value="">Any status</option><option value="ok" ${A.st === "ok" ? "selected" : ""}>Passes checks</option><option value="flagged" ${A.st === "flagged" ? "selected" : ""}>Flagged</option><option value="ungraded" ${A.st === "ungraded" ? "selected" : ""}>Not graded</option></select>
+   <select onchange="${set("sort", "this.value")}">${[["new", "Newest"], ["old", "Oldest"], ["grade", "Best grade"], ["combo", "By pair"]].map(([k, v]) => `<option value="${k}" ${A.sort === k ? "selected" : ""}>${v}</option>`).join("")}</select>
+   <span class="small muted">${L.length} shown</span><span class="grow"></span><button onclick="download('mcm_ideas.md',libraryMD())">⬇ Markdown</button><button onclick="download('mcm_ideas.csv',libraryCSV(),'text/csv')">⬇ CSV</button></div>
+  ${L.length ? `<table><tr><th>Grade</th><th>Idea</th><th>Pair</th><th>Checks</th></tr>
+  ${L.map(i => { const bad = checkIdea(i).filter(x => x.sev >= 2).length; return `<tr class="click" onclick="go('grade','${i.id}')"><td>${gradeBox(i)}</td><td><b>${esc(i.title)}</b><div class="small muted">${esc(String(i.text).slice(0, 150))}…</div></td><td class="small">${esc(i.a)} + ${esc(i.b)}</td><td>${bad ? `<span class="pill r">${bad} issue(s)</span>` : `<span class="pill g">ok</span>`}</td></tr>`; }).join("")}</table>` : `<p class="muted">No ideas match.</p>`}`; };
+function libraryMD() { return `# My Moore's Combinatorics Matrix ideas\n\n${S.ideas.map(i => `## ${i.title}\n\n*${i.a} + ${i.b} · grade ${letter(overall(i))} (${overall(i)})*\n\n${i.text}\n`).join("\n")}`; }
+function libraryCSV() { const q = v => { v = v == null ? "" : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  return [["title", "word_a", "word_b", "grade", "score", "passes_checks", "text"]].concat(S.ideas.map(i => [i.title, i.a, i.b, letter(overall(i)), overall(i), failing(i) ? "no" : "yes", i.text])).map(r => r.map(q).join(",")).join("\n"); }
+
+VIEWS.home = () => { const n = S.ideas.length, g = S.ideas.filter(isGraded).length, ok = S.ideas.filter(i => !failing(i)).length, combos = new Set(S.ideas.map(i => comboKey(i.a, i.b))).size, best = S.ideas.slice().sort((a, b) => overall(b) - overall(a)).slice(0, 3);
+  return `<h1>Moore's Combinatorics Matrix</h1><p class="sub">A systematic idea engine: cross two words, look at the point in seven dimensions where they meet, and turn what you find into ideas you can grade, keep and share.</p>
+  <div class="grid g4"><div class="kpi k1"><div class="v">${fmtN(n)}</div><div class="l">ideas</div><div class="s">${combos} pairs</div></div><div class="kpi k2"><div class="v">${n ? Math.round(100 * ok / n) : 0}%</div><div class="l">pass all checks</div><div class="s">aim for 85% or more</div></div><div class="kpi k3"><div class="v">${g}</div><div class="l">graded</div><div class="s">by hand or AI</div></div><div class="kpi k4"><div class="v">${fmtN(bankWords().length)}</div><div class="l">words in the list</div><div class="s">${fmtN(bankWords().length * (bankWords().length - 1))} pairs</div></div></div>
+  <div class="grid g2" style="margin-top:14px"><div class="card"><h3>✨ Start here</h3><ol class="small"><li>Open the <a onclick="go('matrix')">Matrix</a> and click any square, or press the dice for a random pair.</li><li>On the <a onclick="go('gen')">Generator</a>, copy the prompt into any AI chat and paste the answer back. In the Randis UDS app the linked AI writes it for you.</li><li>Every idea is checked as it arrives. Grade it on the <a onclick="go('grade')">Grader</a>.</li><li>Keep your work: <a onclick="go('data')">export a backup</a>, or download the library as Markdown or CSV.</li></ol>
+   <div class="row"><button class="pri" onclick="const c=randomCombo();go('gen',{a:c[0],b:c[1]})">🎲 Spark a random pair</button><button onclick="go('write')">✍️ Write one by hand</button></div></div>
+   <div class="card"><h3>🏆 Best ideas</h3>${best.map(i => `<div class="row" style="margin:6px 0">${gradeBox(i)}<div><a onclick="go('grade','${i.id}')"><b>${esc(i.title)}</b></a><div class="small muted">${esc(i.a)} × ${esc(i.b)}</div></div></div>`).join("") || `<p class="muted small">None yet.</p>`}</div></div>`; };
+
+VIEWS.coords = () => { const used = {}; S.ideas.forEach(i => { if (i.coord) { const k = i.coord.join("|"); used[k] = (used[k] || 0) + 1; } });
+  return `<h1>🧭 The 7-dimensional coordinate system</h1><p class="sub">Each idea is a point in seven dimensions. They are conceptual, not literal: a Nano idea doesn't need nano parts, it thinks with nano-level principles.</p>
+  <div class="grid g3">${DIMS.map(d => `<div class="card"><h3>${d.k} · ${d.name}</h3><p class="tiny muted">${esc(d.note)}</p><p>${d.vals.map(v => `<span class="pill">${esc(v)}</span>`).join("")}</p></div>`).join("")}</div>
+  <h2>Dimension G: the meanings of "wood screw"</h2><table><tr><th>Type</th><th>Meaning</th><th>Example</th></tr>${DEF_EX.map(r => `<tr>${r.map(x => `<td>${esc(x)}</td>`).join("")}</tr>`).join("")}</table>
+  <h2>Sample coordinates</h2><p class="small muted">The Generator cycles through these, one per idea. The 7D lens setting decides how much of the coordinate the AI sees (it is never printed in the idea).</p>
+  <table><tr><th>#</th>${DIMS.map(d => `<th>${d.name}</th>`).join("")}<th>Used</th><th></th></tr>${COORDS.map((c, k) => `<tr><td>${k + 1}</td>${c.map(v => `<td class="small">${esc(v)}</td>`).join("")}<td>${used[c.join("|")] || ""}</td><td><button class="sm" title="Write with this lens" onclick="go('write',{c:COORDS[${k}]})">✍️</button></td></tr>`).join("")}</table>`; };
+
+VIEWS.method = () => `<h1>🧠 The method</h1><p class="sub">The principles behind the matrix, the questions every idea should answer, and tips for getting great ideas out of an AI.</p>
+  <div class="grid g2"><div class="card"><h3>Five core principles</h3>${PRINCIPLES.map(([a, b], k) => `<p><b>${k + 1}. ${esc(a)}</b><br><span class="small muted">${esc(b)}</span></p>`).join("")}</div>
+  <div class="card"><h3>7 big questions per idea</h3><ol>${SEVEN_Q.map(q => `<li>${esc(q)}</li>`).join("")}</ol><h3>The abstraction ladder</h3><p>${DIMS[5].vals.map((v, k) => `<span class="pill ${["", "b", "y", "g", "r"][k]}">${k + 1}. ${esc(v)}</span>`).join(" → ")}</p>
+   <p class="small">High scores for innovation and abstraction leverage can make up for a harder build, a longer timeline or more money needed. The goal is a leap, not a small tweak. That is why the weighted scorecard counts those two double.</p></div></div>
+  <h2>The 5 questions every mechanism should answer</h2><table>${FIVE_Q.map(([k, a, b], j) => `<tr><td>${j + 1}</td><td><b>${esc(a)}</b></td><td class="small">${esc(b)}</td></tr>`).join("")}</table>
+  <h2>Tips for working with an AI</h2><div class="grid g2">${TIPS.map(([a, b]) => `<div class="card"><h3>${esc(a)}</h3><p class="small muted">${esc(b)}</p></div>`).join("")}</div>`;
+
+VIEWS.data = () => { const kb = Math.round(JSON.stringify(S).length / 1024);
+  return `<h1>💾 Save & export</h1><div class="grid g2"><div class="card"><h3>Where your work lives</h3>
+   <p>${store.ok ? "✅ Saved in this browser as you work." : "ℹ️ Here your work is kept while the page is open. Export a backup to keep it."} (${kb} KB)</p>
+   <div class="row"><button class="pri" onclick="download('mcm_backup.json',JSON.stringify(S),'application/json')">⬇ Full backup (.json)</button><button onclick="pickFile('.json',restoreBackup)">⬆ Restore or merge a backup…</button></div>
+   <div class="row" style="margin-top:8px"><button onclick="download('mcm_ideas.md',libraryMD())">⬇ Ideas as Markdown</button><button onclick="download('mcm_ideas.csv',libraryCSV(),'text/csv')">⬇ Ideas as CSV</button><button onclick="download('mcm_words_${S.bank}.txt',bankWords().join('\\n'))">⬇ Word list</button></div></div>
+  <div class="card"><h3>Start fresh</h3><p class="small muted">Put the five sample ideas back, or clear everything. Export a backup first if you want to keep your ideas.</p>
+   <div class="row"><button onclick="if(confirm('Replace your ideas with the five samples?')){S.ideas=sampleIdeas();S.ideas.forEach(i=>i.mat=mainMaterial(i.text));S.nextId=S.ideas.length+1;save();toast('Samples are back.');go('library')}">↺ Load the samples</button><button class="bad" onclick="if(confirm('Delete all ideas and your words?')){const k=S.cfg;S=DEFAULTS();S.cfg=k;save();go('home')}">Delete everything</button></div></div></div>
+  <h2>About</h2><p class="small">MCM Software · Moore's Combinatorics Matrix™ · made with Randis UDS. In the Randis UDS app, the Generator and Grader can use your linked AI directly.</p>`; };
+function restoreBackup(f) { f.text().then(t => { let d; try { d = JSON.parse(t); } catch (e) { return toast("That isn't a backup file."); } if (!d || !Array.isArray(d.ideas)) return toast("That isn't an MCM backup.");
+  const merge = S.ideas.length && confirm("Merge with what's here? (Cancel replaces everything)"); if (merge) { const have = new Set(S.ideas.map(i => i.id)); d.ideas.forEach(i => { if (have.has(i.id)) i.id = "i" + (S.nextId++); S.ideas.push(i); }); S.custom = uniq(S.custom.concat(d.custom || [])); } else { const D = DEFAULTS(); S = Object.assign(D, d); S.cfg = Object.assign(D.cfg, d.cfg || {}); }
+  S.nextId = Math.max(S.nextId || 1, ...S.ideas.map(i => +String(i.id).slice(1) || 0)) + 1; save(); toast(`Loaded ${d.ideas.length} ideas.`); go("library"); }); }
+
+boot();
+if (HOST) { try { parent.postMessage({uds: "store-get"}, "*"); } catch (e) {} }
+</script></body></html>

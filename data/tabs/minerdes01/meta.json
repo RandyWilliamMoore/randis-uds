@@ -1,0 +1,18 @@
+{
+ "id": "minerdes01",
+ "name": "Miner Design Suite",
+ "created": 1795509765.530293,
+ "icon": "tab-toolkit",
+ "section": "Tools",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795509765.530293,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

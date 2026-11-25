@@ -1,0 +1,1679 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Roost Chat</title>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<style>
+:root{--bg:#f9f9f7;--bg2:#fcfcfb;--bg3:#efeee9;--line:#dcdbd5;--tx:#0b0b0b;--mut:#52514e;--acc:#0f766e;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--bad:#d03b3b;
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948}
+body[data-theme=dark]{--bg:#0d0d0d;--bg2:#1a1a19;--bg3:#262624;--line:#383835;--tx:#f0efec;--mut:#c3c2b7;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+header b#apptitle{font-size:16px;color:var(--acc);margin-right:6px}
+#nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+#nav button{border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--mut)}
+#nav button.on{background:var(--acc);color:#fff}
+#nav button:hover:not(.on){background:var(--bg3)}
+#saved{font-size:11px;color:var(--mut)}
+main#view{flex:1;overflow:auto;padding:14px 18px}
+h2{margin:0 0 4px;font-size:21px}h3{margin:6px 0 8px;font-size:15px;color:var(--acc)}h4{margin:10px 0 4px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em}
+.lead{color:var(--mut);margin:0 0 12px;max-width:980px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}.row>.card{flex:1;min-width:300px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:2px;margin:0 0 6px}
+input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px}
+textarea{width:100%;min-height:80px;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--tx);border-radius:6px;padding:4px 10px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}button.x{padding:1px 7px;color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}td input,td select{width:100%;padding:2px 4px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+pre,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}pre{background:var(--bg3);padding:10px;border-radius:6px;overflow:auto;white-space:pre-wrap;margin:6px 0;max-height:420px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:var(--bg3);color:var(--mut)}
+.ok{color:var(--good)}.bad{color:var(--bad)}.warnc{color:#b7791f}
+.banner{border-left:4px solid var(--serious);background:var(--bg3);padding:8px 12px;border-radius:6px;margin:0 0 12px}
+.stat{font-size:26px;font-weight:600}.sub{font-size:12px;color:var(--mut)}
+svg text{fill:var(--mut);font-size:11px}svg .ink{fill:var(--tx)}
+.lnk{color:var(--s1);cursor:pointer;text-decoration:underline}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:9;max-width:80%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><b id="apptitle">Roost Chat</b><nav id="nav"></nav><span id="saved"></span><button data-act="theme" title="Light / dark">◐</button></header>
+<main id="view"></main>
+<div id="toast"></div>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+"use strict";
+const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const inApp = window.parent !== window && !window.ROOST_STANDALONE;
+const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100, r1 = n => Math.round(n * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (n, d) => (+n || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d });
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(+n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = n => (isFinite(n) ? Math.round(n * 1000) / 10 : 0) + "%";
+const SER = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)"];
+let toastT; function toast(t, ms) { const e = $("#toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => e.style.display = "none", ms || 3200); }
+let WEB_ON = false;
+function openLink(url) {
+  if (!inApp) { window.open(url, "_blank", "noopener"); return; }
+  if (WEB_ON) { tell({ uds: "web-pop", url }); return; }
+  try { navigator.clipboard.writeText(url); toast("Link copied: paste it into your browser (or tick 'Web view' above this tab).", 5000); } catch (e) { prompt("Copy this link:", url); }
+}
+const L = (label, url) => `<span class="lnk" data-url="${esc(url)}">${esc(label)} ↗</span>`;
+
+let S, MEM = { page: null, sub: {} }, loaded = false, useLocal = true, saveT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const data = { [APP.key]: S };
+    if (inApp && !useLocal) tell({ uds: "store-set", data });
+    try { localStorage.setItem("uds-" + APP.key, JSON.stringify(S)); } catch (e) {}
+    const kb = Math.round(JSON.stringify(data).length / 1024), el = $("#saved");
+    if (el) el.textContent = `Saved · ${kb} KB`;
+    if (kb > 900) toast("Storage is nearly full: export a backup and remove some images.", 6000);
+  }, 400);
+}
+function readLocal() { try { return JSON.parse(localStorage.getItem("uds-" + APP.key) || "null"); } catch (e) { return null; } }
+function getP(path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), S); }
+function setP(path, val) { const p = path.split("."); let o = S; while (p.length > 1) { const k = p.shift(); if (o[k] == null) o[k] = {}; o = o[k]; } o[p[0]] = val; }
+function download(name, data, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: type || "text/plain" });
+  if (window.__dl) { window.__dl.push([name, typeof data === "string" ? data : "blob:" + blob.size]); }
+  if (inApp) { tell({ uds: "export-file", name, data: blob }); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const csvCell = c => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`;
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ""));
+}
+
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >> 8) & 255], u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  for (const [name, d] of files) {
+    const data = typeof d === "string" ? enc.encode(d) : d, nm = enc.encode(name), crc = crc32(data);
+    const head = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)]);
+    parts.push(head, nm, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nm);
+    off += head.length + nm.length + data.length;
+  }
+  const csize = central.reduce((a, b) => a + b.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+const AIQ = {};
+function askAI(prompt, cb) {
+  if (!inApp) { cb({ error: "Open this inside Randis UDS with an AI linked to use the AI helper." }); return; }
+  const id = "q10-" + uid(); AIQ[id] = cb;
+  tell({ uds: "planner-ask", id, history: [{ role: "user", content: String(prompt) }], context: APP.title + " app in Randis UDS." });
+}
+
+const F = (label, path, o) => { o = o || {}; const v = getP(path); const t = o.type || (typeof v === "number" ? "number" : "text");
+  if (o.opts) return `<label class="f">${esc(label)}<select data-p="${path}"${o.r ? " data-r" : ""}>${o.opts.map(x => { const [k, n] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(k)}"${String(v) === String(k) ? " selected" : ""}>${esc(n)}</option>`; }).join("")}</select></label>`;
+  if (t === "area") return `<label class="f">${esc(label)}<textarea data-p="${path}"${o.r ? " data-r" : ""} style="min-height:${o.h || 90}px">${esc(v)}</textarea></label>`;
+  if (t === "check") return `<label><input type="checkbox" data-p="${path}" data-r${v ? " checked" : ""}> ${esc(label)}</label>`;
+  return `<label class="f">${esc(label)}<input type="${t}" data-p="${path}"${t === "number" ? " data-num" : ""}${o.r ? " data-r" : ""} value="${esc(v)}"${o.step ? ` step="${o.step}"` : ""}${o.w ? ` style="width:${o.w}"` : ""}></label>`; };
+function TBL(path, cols, o) {
+  o = o || {}; const rows = getP(path) || [];
+  const head = cols.map(c => `<th>${esc(c[1])}</th>`).join("") + (o.extra ? o.extra.map(x => `<th>${esc(x[0])}</th>`).join("") : "") + "<th></th>";
+  const body = rows.map((r, i) => "<tr>" + cols.map(([k, , t, w]) => {
+    const p = `${path}.${i}.${k}`, v = r[k];
+    if (Array.isArray(t)) return `<td${w ? ` style="width:${w}"` : ""}><select data-p="${p}" data-r>${t.map(x => `<option${String(v) === String(x) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></td>`;
+    return `<td${w ? ` style="width:${w}"` : ""}><input data-p="${p}"${t === "number" ? ' type="number" data-num step="any"' : ""}${o.live ? " data-r" : ""} value="${esc(v)}"></td>`;
+  }).join("") + (o.extra ? o.extra.map(x => `<td class="num">${x[1](r, i)}</td>`).join("") : "") + `<td><button class="x" data-act="rowdel" data-arg="${path}|${i}">✕</button></td></tr>`).join("");
+  return `<table><tr>${head}</tr>${body}</table><button data-act="rowadd" data-arg="${path}">+ Add row</button>`;
+}
+function lineChart(series, o) {
+  o = o || {}; const W = o.w || 640, H = o.h || 220, P = { l: 46, r: 12, t: 10, b: 24 };
+  const all = series.flatMap(s => s.pts); if (!all.length) return `<p class="sub">No data yet.</p>`;
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) || 1, y0 = Math.min(0, ...ys), y1 = Math.max(...ys) * 1.08 || 1;
+  const X = x => P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r), Y = y => H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b);
+  let g = ""; for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P.l - 4}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`; }
+  g += `<text x="${P.l}" y="${H - 6}">${esc(o.xl ? o.xl(x0) : fmt(x0))}</text><text x="${W - P.r}" y="${H - 6}" text-anchor="end">${esc(o.xl ? o.xl(x1) : fmt(x1))}</text>`;
+  const lines = series.map((s, i) => `<polyline fill="none" stroke="${s.color || SER[i % 8]}" stroke-width="2" points="${s.pts.map(p => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join(" ")}"/>` +
+    s.pts.filter((p, j) => s.pts.length < 60 || j % Math.ceil(s.pts.length / 40) === 0).map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="6" fill="transparent"><title>${esc(s.name)}: ${esc(o.xl ? o.xl(p[0]) : fmt(p[0]))} → ${fmt(p[1])}</title></circle>`).join("")).join("");
+  const leg = series.length > 1 ? `<div class="legend">${series.map((s, i) => `<span><i style="background:${s.color || SER[i % 8]}"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  return leg + `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${g}${lines}</svg>`;
+}
+function barChart(items, o) {
+  o = o || {}; const W = o.w || 640, bh = 22, H = items.length * (bh + 6) + 8, lw = o.lw || 150, max = Math.max(...items.map(i => i.v), 1e-9);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">` + items.map((it, i) => { const y = 4 + i * (bh + 6), w = Math.max(1, (W - lw - 90) * it.v / max);
+    return `<text class="ink" x="${lw - 6}" y="${y + 15}" text-anchor="end">${esc(it.name)}</text><rect x="${lw}" y="${y}" width="${w}" height="${bh}" rx="4" fill="${it.color || SER[o.one ? 0 : i % 8]}"><title>${esc(it.name)}: ${esc(o.f ? o.f(it.v) : fmt(it.v))}</title></rect><text x="${lw + w + 6}" y="${y + 15}">${esc(o.f ? o.f(it.v) : fmt(it.v))}</text>`; }).join("") + "</svg>";
+}
+
+function nav() {
+  $("#nav").innerHTML = APP.pages.map(([id, label]) => `<button data-page="${id}" class="${MEM.page === id ? "on" : ""}">${esc(label)}</button>`).join("");
+}
+function go(id) { MEM.page = id; S._page = id; render(); }
+function render() {
+  nav(); const pg = APP.pages.find(p => p[0] === MEM.page) || APP.pages[0]; MEM.page = pg[0];
+  try { $("#view").innerHTML = pg[2](); if (APP.after) APP.after(pg[0]); }
+  catch (e) { $("#view").innerHTML = `<div class="card bad">This page hit an error: ${esc(e && e.stack || e)}</div>`; console.error(e); }
+}
+function boot(data) {
+  if (loaded) return; loaded = true;
+  S = Object.assign(APP.defaults(), data && typeof data === "object" ? data : {});
+  if (S._theme) document.body.dataset.theme = S._theme;
+  MEM.page = S._page || APP.pages[0][0]; render();
+}
+const ACT = {
+  theme() { S._theme = document.body.dataset.theme === "dark" ? "" : "dark"; document.body.dataset.theme = S._theme; save(); },
+  rowadd(path) { const a = getP(path) || []; const t = APP.rowTemplates && APP.rowTemplates[path]; a.push(t ? t() : {}); setP(path, a); save(); render(); },
+  rowdel(arg) { const [path, i] = arg.split("|"); getP(path).splice(+i, 1); save(); render(); },
+};
+function onField(e, final) {
+  const el = e.target, p = el.dataset && el.dataset.p; if (!p) return;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num !== undefined) v = num(v);
+  setP(p, v); save();
+  if (final && el.dataset.r !== undefined) render();
+  if (APP.onField) APP.onField(p, v, final);
+}
+document.addEventListener("input", e => { if (e.target.tagName === "SELECT" || e.target.type === "checkbox") return; onField(e, false); });
+document.addEventListener("change", e => { if (e.target.type === "file") { const a = e.target.dataset.file; if (a && ACT[a]) ACT[a]([...e.target.files], e.target); return; } onField(e, true); });
+document.addEventListener("click", e => {
+  const pg = e.target.closest("[data-page]"); if (pg) { go(pg.dataset.page); return; }
+  const l = e.target.closest(".lnk"); if (l) { openLink(l.dataset.url); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const f = ACT[b.dataset.act]; if (!f) return;
+  try { f(b.dataset.arg, b, e); } catch (err) { toast("That didn't work: " + err.message, 6000); console.error(err); }
+});
+window.addEventListener("message", e => {
+  const d = e.data; if (!d || typeof d.uds !== "string") return;
+  if (d.uds === "store") { if (!loaded) { useLocal = false; boot(d.data && d.data[APP.key] ? d.data[APP.key] : readLocal()); } }
+  else if (d.uds === "store-error") toast("Couldn't save: " + (d.note || ""), 6000);
+  else if (d.uds === "web-state") WEB_ON = !!d.on;
+  else if (d.uds === "exported" || d.uds === "exporting") toast(d.note || (d.ok ? "Saved." : "Not saved."));
+  else if (d.uds === "planner" && AIQ[d.id]) { if (d.done) { const cb = AIQ[d.id]; delete AIQ[d.id]; cb(d.error ? { error: d.error } : { text: d.text || "" }); } }
+});
+</script>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+
+"use strict";
+const RC = (() => {
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  const utf8 = s => enc.encode(s), unutf8 = b => dec.decode(b);
+  function b64(bytes) { let s = ""; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
+  function unb64(s) { const t = atob(s.replace(/\s+/g, "")); const b = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) b[i] = t.charCodeAt(i); return b; }
+  const cat = (...a) => { const n = a.reduce((x, y) => x + y.length, 0), o = new Uint8Array(n); let p = 0; for (const x of a) { o.set(x, p); p += x.length; } return o; };
+  const xor = (a, b) => a.map((v, i) => v ^ b[i]);
+  const hex = b => [...b].map(x => x.toString(16).padStart(2, "0")).join("");
+
+  function pad(msg) {
+    const l = msg.length, n = ((l + 9 + 63) >> 6) << 6, b = new Uint8Array(n); b.set(msg); b[l] = 0x80;
+    const bits = l * 8; const dv = new DataView(b.buffer); dv.setUint32(n - 4, bits >>> 0); dv.setUint32(n - 8, Math.floor(bits / 4294967296)); return dv;
+  }
+  function sha1(msg) {
+    const dv = pad(msg), w = new Uint32Array(80); let h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+    for (let o = 0; o < dv.byteLength; o += 64) {
+      for (let i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4);
+      for (let i = 16; i < 80; i++) { const x = w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]; w[i] = (x << 1) | (x >>> 31); }
+      let a = h0, b = h1, c = h2, d = h3, e = h4;
+      for (let i = 0; i < 80; i++) {
+        const f = i < 20 ? (b & c) | (~b & d) : i < 40 ? b ^ c ^ d : i < 60 ? (b & c) | (b & d) | (c & d) : b ^ c ^ d;
+        const k = i < 20 ? 0x5A827999 : i < 40 ? 0x6ED9EBA1 : i < 60 ? 0x8F1BBCDC : 0xCA62C1D6;
+        const t = (((a << 5) | (a >>> 27)) + f + e + k + w[i]) >>> 0; e = d; d = c; c = (b << 30) | (b >>> 2); b = a; a = t;
+      }
+      h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0; h4 = (h4 + e) >>> 0;
+    }
+    const out = new Uint8Array(20), ov = new DataView(out.buffer); [h0, h1, h2, h3, h4].forEach((h, i) => ov.setUint32(i * 4, h)); return out;
+  }
+  const K256 = new Uint32Array([0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2]);
+  function sha256(msg) {
+    const dv = pad(msg), w = new Uint32Array(64), h = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
+    const ror = (x, n) => (x >>> n) | (x << (32 - n));
+    for (let o = 0; o < dv.byteLength; o += 64) {
+      for (let i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4);
+      for (let i = 16; i < 64; i++) { const s0 = ror(w[i - 15], 7) ^ ror(w[i - 15], 18) ^ (w[i - 15] >>> 3), s1 = ror(w[i - 2], 17) ^ ror(w[i - 2], 19) ^ (w[i - 2] >>> 10); w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0; }
+      let [a, b, c, d, e, f, g, hh] = h;
+      for (let i = 0; i < 64; i++) {
+        const t1 = (hh + (ror(e, 6) ^ ror(e, 11) ^ ror(e, 25)) + ((e & f) ^ (~e & g)) + K256[i] + w[i]) >>> 0;
+        const t2 = ((ror(a, 2) ^ ror(a, 13) ^ ror(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+        hh = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+      }
+      h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e; h[5] += f; h[6] += g; h[7] += hh;
+    }
+    const out = new Uint8Array(32), ov = new DataView(out.buffer); h.forEach((x, i) => ov.setUint32(i * 4, x)); return out;
+  }
+  const HASH = { "SCRAM-SHA-1": sha1, "SCRAM-SHA-256": sha256 };
+  function hmac(H, key, msg) {
+    if (key.length > 64) key = H(key);
+    const k = new Uint8Array(64); k.set(key);
+    return H(cat(k.map(x => x ^ 0x5c), H(cat(k.map(x => x ^ 0x36), msg))));
+  }
+  function pbkdf2(H, pw, salt, iter) {
+    let u = hmac(H, pw, cat(salt, new Uint8Array([0, 0, 0, 1]))); const t = u.slice();
+    for (let i = 1; i < iter; i++) { u = hmac(H, pw, u); for (let j = 0; j < t.length; j++) t[j] ^= u[j]; }
+    return t;
+  }
+
+  const saslname = s => s.replace(/=/g, "=3D").replace(/,/g, "=2C");
+  function scramStart(user, cnonce) { const bare = "n=" + saslname(user) + ",r=" + cnonce; return { bare, first: "n,," + bare }; }
+  function scramFinal(mech, password, st, serverFirst, cnonce) {
+    const H = HASH[mech], p = {}; serverFirst.split(",").forEach(x => { if (x[1] === "=") p[x[0]] = x.slice(2); });
+    if (!p.r || !p.r.startsWith(cnonce) || !p.s || !p.i) throw new Error("bad SCRAM challenge from server");
+    const iter = parseInt(p.i, 10); if (!(iter >= 1024)) throw new Error("server asked for too few hash rounds (" + p.i + ")");
+    const sp = pbkdf2(H, utf8(password.normalize("NFKC")), unb64(p.s), iter);
+    const ck = hmac(H, sp, utf8("Client Key")), sk = H(ck), serverKey = hmac(H, sp, utf8("Server Key"));
+    const without = "c=biws,r=" + p.r, am = utf8(st.bare + "," + serverFirst + "," + without);
+    const proof = xor(ck, hmac(H, sk, am));
+    return { final: without + ",p=" + b64(proof), expectV: b64(hmac(H, serverKey, am)) };
+  }
+
+  const xe = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]));
+  function X(name, attrs, kids) {
+    let a = ""; for (const k in attrs || {}) if (attrs[k] != null && attrs[k] !== "") a += " " + k + '="' + xe(attrs[k]) + '"';
+    const inner = Array.isArray(kids) ? kids.join("") : (kids || "");
+    return "<" + name + a + (inner ? ">" + inner + "</" + name + ">" : "/>");
+  }
+  const T = (name, text, attrs) => X(name, attrs, xe(text));
+  const parse = s => { const d = new DOMParser().parseFromString(s, "text/xml"); const pe = d.getElementsByTagName("parsererror")[0]; if (pe) throw new Error("bad XML"); return d.documentElement; };
+  const kids = el => [...el.children];
+  const kid = (el, name, ns) => el && kids(el).find(c => c.localName === name && (!ns || c.namespaceURI === ns)) || null;
+  const txt = (el, name, ns) => { const k = kid(el, name, ns); return k ? k.textContent : ""; };
+  const bare = j => (j || "").split("/")[0], res = j => { const i = (j || "").indexOf("/"); return i < 0 ? "" : j.slice(i + 1); };
+  const NS = { framing: "urn:ietf:params:xml:ns:xmpp-framing", sasl: "urn:ietf:params:xml:ns:xmpp-sasl", bind: "urn:ietf:params:xml:ns:xmpp-bind", client: "jabber:client",
+    roster: "jabber:iq:roster", muc: "http://jabber.org/protocol/muc", mucUser: "http://jabber.org/protocol/muc#user", chatstates: "http://jabber.org/protocol/chatstates",
+    discoInfo: "http://jabber.org/protocol/disco#info", discoItems: "http://jabber.org/protocol/disco#items", ping: "urn:xmpp:ping", delay: "urn:xmpp:delay", version: "jabber:iq:version", stanzas: "urn:ietf:params:xml:ns:xmpp-stanzas",
+    sm: "urn:xmpp:sm:3", carbons: "urn:xmpp:carbons:2", fwd: "urn:xmpp:forward:0", mam: "urn:xmpp:mam:2", rsm: "http://jabber.org/protocol/rsm", xdata: "jabber:x:data",
+    upload: "urn:xmpp:http:upload:0", oob: "jabber:x:oob", receipts: "urn:xmpp:receipts", correct: "urn:xmpp:message-correct:0",
+    retract: "urn:xmpp:message-retract:1", reactions: "urn:xmpp:reactions:0", moderate: "urn:xmpp:message-moderate:1", sid: "urn:xmpp:sid:0",
+    vcard: "vcard-temp", vupd: "vcard-temp:x:update", mucAdmin: "http://jabber.org/protocol/muc#admin", fallback: "urn:xmpp:fallback:0", hints: "urn:xmpp:hints" };
+  function special(m) {
+    const out = {}, rt = kid(m, "retract", NS.retract), rx = kid(m, "reactions", NS.reactions), gone = kid(m, "retracted", NS.retract);
+    if (rt && rt.getAttribute("id")) { const md = kid(rt, "moderated", NS.moderate); out.retract = { id: rt.getAttribute("id"), moderated: md ? md.getAttribute("by") || "a moderator" : "", reason: md ? txt(rt, "reason") : "" }; }
+    if (rx && rx.getAttribute("id")) out.reactions = { id: rx.getAttribute("id"), emojis: [...new Set(kids(rx).filter(c => c.localName === "reaction").map(c => c.textContent.trim()).filter(e => e && e.length <= 16))].slice(0, 20) };
+    if (gone) { const md = kid(gone, "moderated", NS.moderate); out.tomb = { moderated: md ? md.getAttribute("by") || "a moderator" : "", reason: txt(gone, "reason") }; }
+    return out;
+  }
+  function photoOf(el) {
+    const x = kid(el, "x", NS.vupd); if (!x) return null; const p = kid(x, "photo"); if (!p) return null;
+    const h = p.textContent.trim().toLowerCase(); return /^[0-9a-f]{40}$/.test(h) ? h : "";
+  }
+  const isStanza = s => /^<(message|presence|iq)[\s>/]/.test(s);
+  const isLocalUrl = u => /^wss?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?\//i.test(u);
+
+  class Client {
+    constructor(opts, on) {
+      this.o = Object.assign({ resource: "roost", mech: "auto" }, opts); this.on = on || (() => {});
+      this.state = "offline"; this.jid = ""; this.roster = {}; this.rooms = {}; this.iqs = {}; this.n = 0; this.ws = null; this.features = null;
+      this.pres = { show: "", status: "", prio: 5 }; this.serverMechs = [];
+      this.sm = null; this.resumeFrom = null; this.retries = 0; this.mamQ = {}; this.upSvc = undefined; this.carbons = false;
+    }
+    emit(type, data) { try { this.on(type, data || {}, this); } catch (e) { console.error(e); } }
+    id() { return "r" + (++this.n).toString(36) + Math.random().toString(36).slice(2, 6); }
+    raw(s) {
+      const sm = this.sm, st = sm && sm.on && isStanza(s);
+      if (st) { sm.hout++; sm.q.push([sm.hout, s]); if (sm.q.length > 500) sm.q.shift(); }
+      const open = this.ws && this.ws.readyState === 1;
+      if (st && sm.resume && (this.resumeFrom === sm || !open)) return true;
+      if (!open) return false;
+      this.emit("xml", { dir: "out", xml: /xmpp-sasl/.test(s) ? s.replace(/>[^<]+</, ">[hidden]<") : s }); this.ws.send(s);
+      if (st) this.askAck();
+      return true;
+    }
+    askAck() { if (this.ackT) return; this.ackT = setTimeout(() => { this.ackT = 0; if (this.sm && this.sm.on && this.sm.q.length && this.ws && this.ws.readyState === 1) this.ws.send(X("r", { xmlns: NS.sm })); }, 800); }
+    smAck(h) { const sm = this.sm; if (!sm) return; while (sm.q.length && sm.q[0][0] <= h) sm.q.shift(); this.emit("acked", { pending: sm.q.length }); }
+    stanza(name, attrs, inner) { return this.raw(X(name, Object.assign({ xmlns: NS.client }, attrs), inner)); }
+    iq(type, attrs, inner, timeout) {
+      const id = this.id();
+      return new Promise((ok, bad) => {
+        this.iqs[id] = { ok, bad, t: setTimeout(() => { delete this.iqs[id]; bad(new Error("no answer (timeout)")); }, timeout || 15000) };
+        if (!this.stanza("iq", Object.assign({ type, id }, attrs), inner)) { clearTimeout(this.iqs[id].t); delete this.iqs[id]; bad(new Error("not connected")); }
+      });
+    }
+    setState(s, why) { this.state = s; this.emit("state", { state: s, why: why || "" }); }
+    connect(again) {
+      const o = this.o, at = o.jid.indexOf("@");
+      if (!again) { this.sm = null; this.resumeFrom = null; this.retries = 0; this.closeWhy = ""; }
+      if (at < 1) { this.setState("error", "The address needs a name and a server, like alice@localhost"); return; }
+      this.user = o.jid.slice(0, at); this.domain = bare(o.jid).slice(at + 1);
+      this.setState(again ? (this.resumeFrom ? "resuming" : "reconnecting") : "connecting");
+      let ws;
+      try { ws = new WebSocket(o.url, "xmpp"); } catch (e) { this.setState("error", "Can't open " + o.url + ": " + e.message); return; }
+      this.ws = ws; this.authed = false;
+      ws.onopen = () => this.open();
+      ws.onmessage = e => this.frame(e.data);
+      ws.onerror = () => { if (this.state === "connecting" && !again) this.setState("error", "No server answered at " + o.url + (window.parent !== window ? " (inside Randis UDS the tab wall blocks network sockets: use the standalone page)" : "")); };
+      ws.onclose = () => {
+        if (this.ws !== ws) return;
+        this.ws = null; this.failAll(); clearTimeout(this.ackT); this.ackT = 0;
+        const unexpected = !this.closeWhy && this.o.autoReconnect !== false && (this.state === "online" || this.retries > 0 || this.state === "resuming" || this.state === "reconnecting");
+        if (unexpected && this.retries < 8) {
+          if (!this.resumeFrom) this.resumeFrom = this.sm && this.sm.id && this.sm.resume ? this.sm : null;
+          if (!this.resumeFrom && this.state === "online") { this.keepRooms = Object.entries(this.rooms).filter(([, r]) => r.joined).map(([j, r]) => [j, r.nick]); this.rooms = {}; for (const j in this.roster) this.roster[j].res = {}; this.emit("roster"); }
+          const wait = Math.min(30000, 500 * Math.pow(2, this.retries++));
+          this.setState("reconnecting", "Link lost, trying again in " + Math.round(wait / 100) / 10 + " s" + (this.resumeFrom ? " (session kept)" : ""));
+          this.reT = setTimeout(() => { if (this.state === "reconnecting") this.connect(true); }, wait); return;
+        }
+        this.sm = null; this.resumeFrom = null; this.rooms = {}; for (const j in this.roster) this.roster[j].res = {};
+        if (this.state !== "error" && this.state !== "authfail") this.setState("offline", this.closeWhy || (unexpected ? "Gave up reconnecting" : "")); this.emit("roster");
+      };
+    }
+    canSend() { return this.state === "online" || !!(this.sm && this.sm.resume && this.resumeFrom === this.sm); }
+    dropLink() { if (this.ws) { try { this.ws.close(); } catch (e) {} } }
+    open() { this.raw(X("open", { xmlns: NS.framing, to: this.domain, version: "1.0" })); }
+    disconnect() {
+      clearTimeout(this.reT);
+      if (!this.ws) { if (this.state === "reconnecting") { this.closeWhy = "Signed off"; this.sm = null; this.resumeFrom = null; this.setState("offline", "Signed off"); } return; }
+      if (this.state === "online") this.stanza("presence", { type: "unavailable" });
+      this.closeWhy = "Signed off"; this.raw(X("close", { xmlns: NS.framing }));
+      const ws = this.ws; setTimeout(() => { try { ws.close(); } catch (e) {} }, 300);
+    }
+    failAll() { for (const id in this.iqs) { clearTimeout(this.iqs[id].t); this.iqs[id].bad(new Error("disconnected")); } this.iqs = {}; }
+    frame(s) {
+      this.emit("xml", { dir: "in", xml: /xmpp-sasl/.test(s) ? s.replace(/>[^<]+</, ">[hidden]<") : s });
+      let el; try { el = parse(s); } catch (e) { this.emit("warn", { text: "Server sent XML I couldn't read" }); return; }
+      const n = el.localName, ns = el.namespaceURI;
+      if (ns === NS.framing) { if (n === "close") { this.closeWhy = this.closeWhy || "Server closed the stream"; try { this.ws.close(); } catch (e) {} } return; }
+      if (n === "features") return this.featuresIn(el);
+      if (n === "error" && /streams/.test(ns)) { this.closeWhy = "Stream error: " + (el.firstElementChild ? el.firstElementChild.localName : "?"); return; }
+      if (ns === NS.sasl) return this.saslIn(n, el);
+      if (ns === NS.sm) return this.smIn(n, el);
+      if (this.sm && this.sm.inOn && (n === "iq" || n === "presence" || n === "message")) this.sm.hin++;
+      if (n === "iq") return this.iqIn(el);
+      if (n === "presence") return this.presenceIn(el);
+      if (n === "message") return this.messageIn(el);
+    }
+    featuresIn(el) {
+      const mechs = kid(el, "mechanisms", NS.sasl);
+      if (mechs && !this.authed) {
+        this.serverMechs = kids(mechs).map(m => m.textContent);
+        const pref = this.o.mech === "auto" ? ["SCRAM-SHA-256", "SCRAM-SHA-1", "PLAIN"] : [this.o.mech];
+        const mech = pref.find(m => this.serverMechs.includes(m));
+        if (!mech) { this.setState("error", "No shared sign-in method (server offers " + this.serverMechs.join(", ") + ")"); this.disconnect(); return; }
+        if (mech === "PLAIN" && /^ws:/i.test(this.o.url) && !isLocalUrl(this.o.url) && !this.o.allowPlainUnencrypted) {
+          this.setState("error", "Refused: PLAIN would send the password unencrypted to a non-local server. Use wss:// or SCRAM."); this.disconnect(); return;
+        }
+        this.mech = mech; this.setState("authenticating", mech);
+        if (mech === "PLAIN") { this.raw(X("auth", { xmlns: NS.sasl, mechanism: "PLAIN" }, b64(utf8("\0" + this.user + "\0" + this.o.password)))); return; }
+        this.cnonce = b64(crypto.getRandomValues(new Uint8Array(18))); this.scram = scramStart(this.user, this.cnonce);
+        this.raw(X("auth", { xmlns: NS.sasl, mechanism: mech }, b64(utf8(this.scram.first)))); return;
+      }
+      this.smOffered = !!kid(el, "sm", NS.sm);
+      if (this.resumeFrom && this.smOffered) { this.ws.send(X("resume", { xmlns: NS.sm, previd: this.resumeFrom.id, h: String(this.resumeFrom.hin) })); return; }
+      if (this.resumeFrom) { this.dropResume(); }
+      if (kid(el, "bind", NS.bind)) this.bind();
+    }
+    dropResume() {
+      const lost = this.resumeFrom.q.map(x => x[1]).filter(x => /^<message/.test(x) && /<body>/.test(x)); this.resumeFrom = null; this.sm = null;
+      this.keepRooms = Object.entries(this.rooms).filter(([, r]) => r.joined).map(([j, r]) => [j, r.nick]); this.rooms = {}; for (const j in this.roster) this.roster[j].res = {};
+      this.resend = lost;
+    }
+    smIn(n, el) {
+      const sm = this.sm;
+      if (n === "enabled" && sm) { sm.inOn = true; sm.id = el.getAttribute("id") || ""; sm.resume = el.getAttribute("resume") === "true" || el.getAttribute("resume") === "1"; sm.max = +el.getAttribute("max") || 0; this.emit("sm", { on: true, resume: sm.resume }); return; }
+      if (n === "r" && sm) { if (this.ws) this.ws.send(X("a", { xmlns: NS.sm, h: String(sm.hin) })); return; }
+      if (n === "a" && sm) { this.smAck(+el.getAttribute("h") || 0); return; }
+      if (n === "resumed" && this.resumeFrom) {
+        const old = this.resumeFrom; this.resumeFrom = null; this.sm = old; this.retries = 0;
+        this.smAck(+el.getAttribute("h") || 0);
+        for (const [, x] of old.q) { this.emit("xml", { dir: "out", xml: x }); this.ws.send(x); }
+        if (old.q.length) this.askAck();
+        this.setState("online", "resumed"); this.emit("roster"); return;
+      }
+      if (n === "failed") {
+        if (this.resumeFrom) { this.dropResume(); this.bind(); return; }
+        this.emit("warn", { text: "Server refused stream management" });
+      }
+    }
+    saslIn(n, el) {
+      if (n === "challenge") {
+        try { const r = scramFinal(this.mech, this.o.password, this.scram, unutf8(unb64(el.textContent)), this.cnonce); this.expectV = r.expectV; this.raw(X("response", { xmlns: NS.sasl }, b64(utf8(r.final)))); }
+        catch (e) { this.raw(X("abort", { xmlns: NS.sasl })); this.setState("authfail", e.message); }
+      } else if (n === "success") {
+        if (this.mech !== "PLAIN") {
+          const extra = el.textContent ? unutf8(unb64(el.textContent)) : "";
+          if (extra !== "v=" + this.expectV) { this.setState("authfail", "The server's SCRAM proof was wrong: not the real server, signed off"); this.closeWhy = "bad server proof"; try { this.ws.close(); } catch (e) {} return; }
+        }
+        this.authed = true; this.open();
+      } else if (n === "failure") {
+        const why = el.firstElementChild ? el.firstElementChild.localName : "failure";
+        this.setState("authfail", why === "not-authorized" ? "Wrong name or password" : "Sign-in refused: " + why); this.closeWhy = "sign-in failed";
+        try { this.ws.close(); } catch (e) {}
+      }
+    }
+    async bind() {
+      try {
+        const r = await this.iq("set", {}, X("bind", { xmlns: NS.bind }, T("resource", this.o.resource || "roost")));
+        this.jid = txt(kid(r, "bind", NS.bind), "jid");
+        this.setState("roster");
+        const q = await this.iq("get", {}, X("query", { xmlns: NS.roster }));
+        this.roster = {}; kids(kid(q, "query", NS.roster)).forEach(i => this.rosterItem(i));
+        this.emit("roster");
+        if (this.smOffered && this.o.sm !== false) { this.sm = { id: "", resume: false, hin: 0, hout: 0, q: [], on: true }; this.ws.send(X("enable", { xmlns: NS.sm, resume: "true" })); }
+        this.sendPresence();
+        this.retries = 0;
+        const rooms = this.keepRooms || []; this.keepRooms = null; rooms.forEach(([j, nick]) => this.join(j, nick, 0));
+        const again = this.resend || []; this.resend = null; again.forEach(x => this.raw(x));
+        this.setState("online", rooms.length || again.length ? "reconnected" : "");
+        this.iq("set", {}, X("enable", { xmlns: NS.carbons })).then(() => { this.carbons = true; }).catch(() => {});
+      } catch (e) { this.setState("error", "Sign-in stopped: " + e.message); this.disconnect(); }
+    }
+    rosterItem(i) {
+      const j = bare(i.getAttribute("jid")), sub = i.getAttribute("subscription") || "none";
+      if (sub === "remove") { delete this.roster[j]; return; }
+      const old = this.roster[j] || { res: {} };
+      this.roster[j] = { jid: j, name: i.getAttribute("name") || "", sub, ask: i.getAttribute("ask") || "", groups: kids(i).filter(g => g.localName === "group").map(g => g.textContent), res: old.res };
+    }
+    iqIn(el) {
+      const id = el.getAttribute("id"), type = el.getAttribute("type");
+      if ((type === "result" || type === "error") && this.iqs[id]) {
+        const p = this.iqs[id]; delete this.iqs[id]; clearTimeout(p.t);
+        if (type === "result") p.ok(el); else { const er = kid(el, "error"); p.bad(new Error(er && er.firstElementChild ? er.firstElementChild.localName : "error")); }
+        return;
+      }
+      if (type !== "get" && type !== "set") return;
+      const q = el.firstElementChild, from = el.getAttribute("from") || "", reply = inner => this.stanza("iq", { type: "result", id, to: from || null }, inner);
+      if (q && q.namespaceURI === NS.roster && type === "set") {
+        if (from && bare(from) !== bare(this.jid)) return;
+        kids(q).forEach(i => this.rosterItem(i)); reply(); this.emit("roster"); return;
+      }
+      if (q && q.namespaceURI === NS.ping) return reply();
+      if (q && q.namespaceURI === NS.discoInfo && type === "get") return reply(X("query", { xmlns: NS.discoInfo }, [X("identity", { category: "client", type: "pc", name: "Roost" }),
+        ...[NS.discoInfo, NS.muc, NS.chatstates, NS.ping, NS.version, NS.receipts, NS.correct, NS.oob, NS.carbons, NS.retract, NS.reactions].map(v => X("feature", { var: v }))]));
+      if (q && q.namespaceURI === NS.version && type === "get") return reply(X("query", { xmlns: NS.version }, [T("name", "Roost"), T("version", "0.2")]));
+      this.stanza("iq", { type: "error", id, to: from || null }, X("error", { type: "cancel" }, X("service-unavailable", { xmlns: NS.stanzas })));
+    }
+    presenceIn(el) {
+      const from = el.getAttribute("from") || "", type = el.getAttribute("type") || "", b = bare(from);
+      const x = kid(el, "x", NS.mucUser);
+      if (this.rooms[b] || x || (type === "error" && kid(el, "x", NS.muc))) return this.mucPresence(el, from, type, x);
+      if (type === "subscribe") { const it = this.roster[b]; if (it && (it.sub === "to" || it.ask)) { this.stanza("presence", { to: b, type: "subscribed" }); this.emit("subnote", { from: b, type: "subscribed" }); return; } this.emit("subscribe", { from: b }); return; }
+      if (type === "subscribed" || type === "unsubscribed" || type === "unsubscribe") { this.emit("subnote", { from: b, type }); return; }
+      if (type === "error") { this.emit("warn", { text: "Presence error from " + from }); return; }
+      const it = this.roster[b] || (b === bare(this.jid) ? (this.self = this.self || { jid: b, res: {} }) : null);
+      if (!it) return;
+      const r = res(from) || "";
+      if (type === "unavailable") delete it.res[r];
+      else it.res[r] = { show: txt(el, "show") || "", status: txt(el, "status"), prio: parseInt(txt(el, "priority") || "0", 10) };
+      this.emit("presence", { from, jid: b });
+      const ph = photoOf(el); if (ph != null && type !== "unavailable") this.emit("avatar", { jid: b, hash: ph });
+    }
+    mucPresence(el, from, type, x) {
+      const b = bare(from), nick = res(from), room = this.rooms[b]; if (!room) return;
+      if (type === "error") { const er = kid(el, "error"); const c = er && er.firstElementChild ? er.firstElementChild.localName : "error"; room.error = c === "conflict" ? "That nickname is taken in this room" : c; room.joined = false; this.emit("room", { room: b }); return; }
+      const codes = x ? [...x.getElementsByTagNameNS(NS.mucUser, "status")].map(s => s.getAttribute("code")) : [];
+      const item = x ? kid(x, "item", NS.mucUser) : null;
+      if (type === "unavailable") {
+        delete room.occ[nick];
+        if (codes.includes("110")) { delete this.rooms[b]; this.emit("room", { room: b, left: true }); return; }
+        this.emit("room", { room: b, part: nick }); return;
+      }
+      const wasIn = !!room.occ[nick];
+      room.occ[nick] = { show: txt(el, "show"), status: txt(el, "status"), role: item ? item.getAttribute("role") : "", aff: item ? item.getAttribute("affiliation") : "", jid: item ? item.getAttribute("jid") || "" : "" };
+      const ph = photoOf(el); if (ph != null) { room.occ[nick].photo = ph; this.emit("avatar", { jid: room.occ[nick].jid ? bare(room.occ[nick].jid) : from, hash: ph, occ: from }); }
+      if (codes.includes("110")) { room.joined = true; room.nick = nick; room.error = ""; if (codes.includes("201")) room.created = true; }
+      this.emit("room", { room: b, join: wasIn ? null : nick });
+    }
+    msgItem(m, delay) {
+      const from = m.getAttribute("from") || "", to = m.getAttribute("to") || "", oob = kid(m, "x", NS.oob), rp = kid(m, "replace", NS.correct);
+      const sp = special(m), sidEl = kids(m).find(c => c.localName === "stanza-id" && c.namespaceURI === NS.sid);
+      return Object.assign({ from, to, type: m.getAttribute("type") || "normal", body: sp.retract || sp.reactions ? "" : txt(m, "body"), id: m.getAttribute("id") || "", url: oob ? txt(oob, "url") : "",
+        replace: rp ? rp.getAttribute("id") : "", when: delay ? Date.parse(delay.getAttribute("stamp")) : Date.now(), sid: sidEl ? sidEl.getAttribute("id") : "" }, sp);
+    }
+    messageIn(el, viaCarbon) {
+      const from = el.getAttribute("from") || "", type = el.getAttribute("type") || "normal", b = bare(from);
+      const me = bare(this.jid);
+      const mr = kid(el, "result", NS.mam);
+      if (mr) {
+        const q = this.mamQ[mr.getAttribute("queryid")]; if (!q || (from && b !== me && b !== q.to)) return;
+        const fw = kid(mr, "forwarded", NS.fwd), m = fw && kid(fw, "message"); if (!m) return;
+        q.items.push(Object.assign(this.msgItem(m, kid(fw, "delay", NS.delay)), { aid: mr.getAttribute("id") })); return;
+      }
+      const cb = !viaCarbon && kids(el).find(c => c.namespaceURI === NS.carbons && (c.localName === "sent" || c.localName === "received"));
+      if (cb) {
+        if (from !== me) { this.emit("warn", { text: "Ignored a fake message copy from " + from }); return; }
+        const fw = kid(cb, "forwarded", NS.fwd), m = fw && kid(fw, "message"); if (!m) return;
+        if (cb.localName === "received") return this.messageIn(m, true);
+        const it = this.msgItem(m, null); if (it.body) this.emit("sentcopy", Object.assign(it, { jid: bare(it.to) })); return;
+      }
+      const rc = kid(el, "received", NS.receipts);
+      if (rc) { this.emit("receipt", { jid: b, id: rc.getAttribute("id") }); return; }
+      const body = txt(el, "body"), d = kid(el, "delay", NS.delay), when = d ? Date.parse(d.getAttribute("stamp")) : Date.now();
+      if (type === "error") { const er = kid(el, "error"); this.emit("warn", { text: "Message to " + from + " failed: " + (er && er.firstElementChild ? er.firstElementChild.localName : "error") }); return; }
+      if (type === "groupchat") {
+        const room = this.rooms[b]; if (!room) return;
+        const subj = kid(el, "subject");
+        if (subj && !body) { room.subject = subj.textContent; this.emit("subject", { room: b, by: res(from), subject: room.subject, history: !!d }); return; }
+        if (this.retractOrReact(el, { room: b, who: res(from), mine: res(from) === room.nick, delayed: !!d })) return;
+        const oob = kid(el, "x", NS.oob), rp = kid(el, "replace", NS.correct);
+        const sidEl = kids(el).find(c => c.localName === "stanza-id" && c.namespaceURI === NS.sid && c.getAttribute("by") === b);
+        if (body) this.emit("groupchat", { room: b, nick: res(from), body, when, delayed: !!d, mine: res(from) === room.nick, id: el.getAttribute("id"), url: oob ? txt(oob, "url") : "", replace: rp ? rp.getAttribute("id") : "", sid: sidEl ? sidEl.getAttribute("id") : "" });
+        return;
+      }
+      if (!this.rooms[b] && this.retractOrReact(el, { jid: b, who: b, mine: false, delayed: !!d })) return;
+      const st = [...el.children].find(c => c.namespaceURI === NS.chatstates);
+      if (st && !body) { this.emit("chatstate", { from, jid: b, state: st.localName }); return; }
+      if (body && kid(el, "request", NS.receipts) && el.getAttribute("id") && !this.rooms[b] && !viaCarbon) this.stanza("message", { to: from, id: this.id() }, X("received", { xmlns: NS.receipts, id: el.getAttribute("id") }));
+      const oob = kid(el, "x", NS.oob), rp = kid(el, "replace", NS.correct);
+      if (body) this.emit("message", { from, jid: this.rooms[b] ? from : b, body, when, delayed: !!d, pm: !!this.rooms[b], id: el.getAttribute("id"), thread: txt(el, "thread"),
+        url: oob ? txt(oob, "url") : "", replace: rp ? rp.getAttribute("id") : "" });
+    }
+    retractOrReact(el, where) {
+      const sp = special(el);
+      if (sp.retract) {
+        if (sp.retract.moderated && !(where.room && !res(el.getAttribute("from") || ""))) return true;
+        this.emit("retract", Object.assign({ id: sp.retract.id, moderated: sp.retract.moderated, reason: sp.retract.reason }, where)); return true;
+      }
+      if (sp.reactions) { this.emit("reactions", Object.assign({ id: sp.reactions.id, emojis: sp.reactions.emojis }, where)); return true; }
+      return false;
+    }
+    retract(to, msgId, room) {
+      const id = this.id();
+      this.stanza("message", { to, type: room ? "groupchat" : "chat", id }, X("retract", { xmlns: NS.retract, id: msgId }) +
+        X("fallback", { xmlns: NS.fallback, for: NS.retract }) + T("body", "This person attempted to retract a previous message, but it's unsupported by your client.") +
+        X("store", { xmlns: NS.hints }));
+      return id;
+    }
+    react(to, msgId, emojis, room) {
+      const id = this.id();
+      this.stanza("message", { to, type: room ? "groupchat" : "chat", id }, X("reactions", { xmlns: NS.reactions, id: msgId }, emojis.map(e => T("reaction", e))) + X("store", { xmlns: NS.hints }));
+      return id;
+    }
+    sendPresence(show, status) {
+      if (show != null) this.pres.show = show; if (status != null) this.pres.status = status;
+      const inner = [this.pres.show ? T("show", this.pres.show) : "", this.pres.status ? T("status", this.pres.status) : "", T("priority", String(this.pres.prio)), this.photoX()].join("");
+      this.stanza("presence", {}, inner);
+      for (const r in this.rooms) if (this.rooms[r].joined) this.stanza("presence", { to: r + "/" + this.rooms[r].nick }, inner.replace(/<priority>.*<\/priority>/, ""));
+    }
+    send(to, body, extra) { const id = this.id(); this.stanza("message", { to, type: "chat", id }, T("body", body) + X("active", { xmlns: NS.chatstates }) + X("request", { xmlns: NS.receipts }) + (extra || "")); return id; }
+    correct(to, oldId, body, room) { const id = this.id(); this.stanza("message", { to, type: room ? "groupchat" : "chat", id }, T("body", body) + X("replace", { xmlns: NS.correct, id: oldId }) + (room ? "" : X("request", { xmlns: NS.receipts }))); return id; }
+    oobXml(url) { return X("x", { xmlns: NS.oob }, T("url", url)); }
+    photoX() { return this.photoHash === undefined ? "" : X("x", { xmlns: NS.vupd }, this.photoHash ? T("photo", this.photoHash) : X("photo")); }
+    async vcardGet(jid) {
+      const r = await this.iq("get", { to: jid ? bare(jid) : null }, X("vCard", { xmlns: NS.vcard }));
+      const v = kid(r, "vCard", NS.vcard); if (!v) return { fn: "", nick: "", url: "", desc: "", photo: null };
+      const ph = kid(v, "PHOTO"), bin = ph ? txt(ph, "BINVAL").replace(/\s+/g, "") : "";
+      return { fn: txt(v, "FN"), nick: txt(v, "NICKNAME"), url: txt(v, "URL"), desc: txt(v, "DESC"), photo: bin ? { type: txt(ph, "TYPE") || "image/png", b64: bin } : null };
+    }
+    async vcardSet(v) {
+      const ph = v.photo ? X("PHOTO", {}, [T("TYPE", v.photo.type), T("BINVAL", v.photo.b64)]) : "";
+      await this.iq("set", {}, X("vCard", { xmlns: NS.vcard }, [v.fn ? T("FN", v.fn) : "", v.nick ? T("NICKNAME", v.nick) : "", v.url ? T("URL", v.url) : "", v.desc ? T("DESC", v.desc) : "", ph]));
+      this.photoHash = v.photo ? hex(sha1(unb64(v.photo.b64))) : "";
+      if (this.state === "online") this.sendPresence();
+      return this.photoHash;
+    }
+    async loadMyPhoto() {
+      try { const v = await this.vcardGet(""); this.photoHash = v.photo ? hex(sha1(unb64(v.photo.b64))) : ""; this.myCard = v; } catch (e) { this.photoHash = ""; }
+      if (this.state === "online") this.sendPresence();
+    }
+    async moderate(room, sid, reason) {
+      await this.iq("set", { to: bare(room) }, X("moderate", { xmlns: NS.moderate, id: sid }, [X("retract", { xmlns: NS.retract }), reason ? T("reason", reason) : ""]));
+    }
+    async setAffiliation(room, jid, aff) {
+      await this.iq("set", { to: bare(room) }, X("query", { xmlns: NS.mucAdmin }, X("item", { jid: bare(jid), affiliation: aff })));
+    }
+    async history(opts) {
+      const qid = this.id(), to = opts.room || null; this.mamQ[qid] = { items: [], to: opts.room || bare(this.jid) };
+      const fields = [X("field", { var: "FORM_TYPE", type: "hidden" }, T("value", NS.mam))]; if (opts.with) fields.push(X("field", { var: "with" }, T("value", opts.with)));
+      const rsm = X("set", { xmlns: NS.rsm }, [T("max", String(opts.max || 30)), opts.before != null ? T("before", opts.before) : ""]);
+      try {
+        const r = await this.iq("set", { to }, X("query", { xmlns: NS.mam, queryid: qid }, [X("x", { xmlns: NS.xdata, type: "submit" }, fields), rsm]));
+        const fin = kid(r, "fin", NS.mam), set = fin && kid(fin, "set", NS.rsm);
+        return { items: this.mamQ[qid].items, complete: !!fin && fin.getAttribute("complete") === "true", first: set ? txt(set, "first") : "", last: set ? txt(set, "last") : "", count: set ? +txt(set, "count") || 0 : 0 };
+      } finally { delete this.mamQ[qid]; }
+    }
+    async uploadService() {
+      if (this.upSvc !== undefined) return this.upSvc;
+      let found = null;
+      try {
+        const r = await this.iq("get", { to: this.domain }, X("query", { xmlns: NS.discoItems }));
+        for (const it of kids(kid(r, "query", NS.discoItems))) {
+          const j = it.getAttribute("jid"); let info; try { info = await this.iq("get", { to: j }, X("query", { xmlns: NS.discoInfo })); } catch (e) { continue; }
+          const q = kid(info, "query", NS.discoInfo); if (!kids(q).some(f => f.localName === "feature" && f.getAttribute("var") === NS.upload)) continue;
+          let max = 0; for (const x of kids(q).filter(c => c.localName === "x" && c.namespaceURI === NS.xdata)) for (const f of kids(x)) if (f.getAttribute("var") === "max-file-size") max = +txt(f, "value") || 0;
+          found = { jid: j, max }; break;
+        }
+      } catch (e) { return null; }
+      return (this.upSvc = found);
+    }
+    async upload(file) {
+      const svc = await this.uploadService(); if (!svc) throw new Error("this server has no file upload");
+      if (svc.max && file.size > svc.max) throw new Error("too big: " + (file.size / 1048576).toFixed(1) + " MB, this server takes up to " + (svc.max / 1048576).toFixed(1) + " MB");
+      let r; try { r = await this.iq("get", { to: svc.jid }, X("request", { xmlns: NS.upload, filename: file.name || "file", size: String(file.size), "content-type": file.type || "application/octet-stream" })); }
+      catch (e) { throw new Error(e.message === "not-acceptable" ? "the server refused this file (too big?)" : "no upload slot: " + e.message); }
+      const slot = kid(r, "slot", NS.upload), put = kid(slot, "put"), get = kid(slot, "get");
+      const headers = { "Content-Type": file.type || "application/octet-stream" };
+      kids(put).filter(h => h.localName === "header" && /^(authorization|cookie|expires)$/i.test(h.getAttribute("name"))).forEach(h => headers[h.getAttribute("name")] = h.textContent);
+      const res = await fetch(put.getAttribute("url"), { method: "PUT", body: file, headers });
+      if (!res.ok) throw new Error("upload failed (" + res.status + ")");
+      return get.getAttribute("url");
+    }
+    chatState(to, state) { this.stanza("message", { to, type: "chat" }, X(state, { xmlns: NS.chatstates })); }
+    async addContact(jid, name, groups) { await this.iq("set", {}, X("query", { xmlns: NS.roster }, X("item", { jid: bare(jid), name: name || null }, (groups || []).filter(Boolean).map(g => T("group", g))))); this.stanza("presence", { to: bare(jid), type: "subscribe" }); }
+    async editContact(jid, name, groups) { await this.iq("set", {}, X("query", { xmlns: NS.roster }, X("item", { jid, name: name || null }, (groups || []).filter(Boolean).map(g => T("group", g))))); }
+    async removeContact(jid) { await this.iq("set", {}, X("query", { xmlns: NS.roster }, X("item", { jid, subscription: "remove" }))); }
+    approve(jid) { this.stanza("presence", { to: jid, type: "subscribed" }); const it = this.roster[jid]; if (!it || (it.sub !== "to" && it.sub !== "both" && !it.ask)) this.stanza("presence", { to: jid, type: "subscribe" }); }
+    deny(jid) { this.stanza("presence", { to: jid, type: "unsubscribed" }); }
+    join(room, nick, history) {
+      room = bare(room).toLowerCase(); this.rooms[room] = this.rooms[room] || { occ: {}, subject: "", joined: false, nick };
+      this.rooms[room].nick = nick; this.rooms[room].error = "";
+      const inner = [this.pres.show ? T("show", this.pres.show) : "", this.pres.status ? T("status", this.pres.status) : "", this.photoX()].join("");
+      this.stanza("presence", { to: room + "/" + nick }, X("x", { xmlns: NS.muc }, X("history", { maxstanzas: String(history == null ? 20 : history) })) + inner);
+      return room;
+    }
+    leave(room) { const r = this.rooms[room]; if (r) this.stanza("presence", { to: room + "/" + r.nick, type: "unavailable" }); }
+    sendRoom(room, body) { const id = this.id(); this.stanza("message", { to: room, type: "groupchat", id }, T("body", body)); return id; }
+    setSubject(room, subject) { this.stanza("message", { to: room, type: "groupchat" }, T("subject", subject)); }
+    async discoRooms() { const r = await this.iq("get", { to: "conference." + this.domain }, X("query", { xmlns: NS.discoItems })); return kids(kid(r, "query", NS.discoItems)).map(i => ({ jid: i.getAttribute("jid"), name: i.getAttribute("name") })); }
+    async ping() { const t = performance.now(); await this.iq("get", { to: this.domain }, X("ping", { xmlns: NS.ping })); return Math.round(performance.now() - t); }
+    best(jid) {
+      const it = this.roster[jid]; if (!it) return null; const rank = { chat: 0, "": 1, away: 2, xa: 3, dnd: 4 };
+      return Object.entries(it.res).sort((a, b) => (b[1].prio - a[1].prio) || (rank[a[1].show] - rank[b[1].show]))[0] || null;
+    }
+  }
+
+  function selftest() {
+    const pass = [], fail = [], eq = (n, a, b) => (a === b ? pass : fail).push(a === b ? n : n + ": got " + a + " want " + b);
+    eq("sha1 abc", hex(sha1(utf8("abc"))), "a9993e364706816aba3e25717850c26c9cd0d89d");
+    eq("sha1 empty", hex(sha1(utf8(""))), "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+    eq("sha1 56 bytes", hex(sha1(utf8("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))), "84983e441c3bd26ebaae4aa1f95129e5e54670f1");
+    eq("sha256 abc", hex(sha256(utf8("abc"))), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    eq("sha256 56 bytes", hex(sha256(utf8("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))), "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
+    eq("hmac-sha256 rfc4231 #2", hex(hmac(sha256, utf8("Jefe"), utf8("what do ya want for nothing?"))), "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");
+    eq("pbkdf2-sha1 rfc6070 #2", hex(pbkdf2(sha1, utf8("password"), utf8("salt"), 2)), "ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957");
+    const s1 = scramStart("user", "fyko+d2lbbFgONRv9qkxdawL");
+    const f1 = scramFinal("SCRAM-SHA-1", "pencil", s1, "r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,s=QSXCR+Q6sek8bf92,i=4096", "fyko+d2lbbFgONRv9qkxdawL");
+    eq("SCRAM-SHA-1 rfc5802 proof", f1.final, "c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,p=v0X8v3Bz2T0CJGbJQyF0X+HI4Ts=");
+    eq("SCRAM-SHA-1 rfc5802 server proof", f1.expectV, "rmF9pqV8S7suAoZWja4dJRkFsKQ=");
+    const s2 = scramStart("user", "rOprNGfwEbeRWgbNEkqO");
+    const f2 = scramFinal("SCRAM-SHA-256", "pencil", s2, "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096", "rOprNGfwEbeRWgbNEkqO");
+    eq("SCRAM-SHA-256 rfc7677 proof", f2.final, "c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=");
+    eq("SCRAM-SHA-256 rfc7677 server proof", f2.expectV, "6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4=");
+    let threw = ""; try { scramFinal("SCRAM-SHA-1", "x", s1, "r=EVILNONCE,s=QSXCR+Q6sek8bf92,i=4096", "fyko+d2lbbFgONRv9qkxdawL"); } catch (e) { threw = "threw"; }
+    eq("SCRAM refuses a nonce that isn't ours", threw, "threw");
+    eq("xml escape", X("body", {}, xe("<b>&'\"")), "<body>&lt;b&gt;&amp;&apos;&quot;</body>");
+    eq("emoji round trip", unutf8(unb64(b64(utf8("hi 👋 ñ")))), "hi 👋 ñ");
+    return { pass: pass.length, fail };
+  }
+  return { Client, X, T, xe, bare, res, NS, selftest, isLocalUrl, sha1, sha256, hex, utf8, b64, unb64 };
+})();
+
+</script>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+
+document.head.insertAdjacentHTML("beforeend", `<style>
+.roost{display:grid;grid-template-columns:270px 1fr;gap:0;height:calc(100vh - 86px);min-height:420px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg2)}
+.roost.withocc{grid-template-columns:270px 1fr 190px}
+.blist{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.blist .scroll{flex:1;overflow:auto;padding:6px 0}
+.acct{padding:6px 10px;border-bottom:1px solid var(--line);font-size:12px;display:flex;align-items:center;gap:6px}
+.grp{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);padding:8px 12px 2px;cursor:pointer;user-select:none}
+.bud{display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer}.bud:hover{background:var(--bg3)}.bud.on{background:var(--bg3);box-shadow:inset 3px 0 var(--acc)}
+.bud .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bud .st{display:block;font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;background:#9a9893;border:2px solid var(--bg2);box-shadow:0 0 0 1px var(--line)}
+.dot.av,.dot.chat{background:#16a34a}.dot.away{background:#e2a20c}.dot.xa{background:#c2410c}.dot.dnd{background:#dc2626}.dot.off{background:transparent}
+.ava{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:600;flex:none;font-size:13px}
+.badge{background:var(--acc);color:#fff;border-radius:9px;padding:0 6px;font-size:11px}
+.statusbar{border-top:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:5px}
+.statusbar select,.statusbar input{width:100%}
+.conv{display:flex;flex-direction:column;min-width:0;min-height:0}
+.ctabs{display:flex;gap:2px;padding:5px 6px 0;border-bottom:1px solid var(--line);overflow-x:auto;background:var(--bg)}
+.ctab{padding:5px 10px;border:1px solid var(--line);border-bottom:0;border-radius:8px 8px 0 0;background:var(--bg3);cursor:pointer;white-space:nowrap;font-size:13px;display:flex;gap:6px;align-items:center}
+.ctab.on{background:var(--bg2);font-weight:600}.ctab .x{border:0;background:none;padding:0 2px;color:var(--mut)}
+.chead{padding:8px 14px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center}.chead .sub{display:block}
+.msgs{flex:1;overflow:auto;padding:10px 14px;display:flex;flex-direction:column;gap:4px}
+.m{max-width:78%;padding:6px 10px;border-radius:12px;background:var(--bg3);align-self:flex-start;word-wrap:break-word;white-space:pre-wrap}
+.m.me{align-self:flex-end;background:var(--acc);color:#fff}.m .who{font-size:11px;font-weight:600;opacity:.8;display:block}
+.m .tm{font-size:10px;opacity:.65;margin-left:8px}.m.sys{align-self:center;background:none;color:var(--mut);font-size:12px;padding:2px}
+.m.me .lnk{color:#fff}
+.typing{font-size:12px;color:var(--mut);padding:0 14px;height:18px}
+.compose{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line)}.compose textarea{min-height:40px;height:44px;resize:none;font-family:inherit;font-size:14px}
+.occ{border-left:1px solid var(--line);overflow:auto;padding:8px 0}
+.req{margin:6px 8px;padding:6px 8px;border-radius:8px;background:var(--bg3);font-size:12px}
+.empty{margin:auto;text-align:center;color:var(--mut);max-width:380px}
+.m .rc{font-size:10px;margin-left:6px;opacity:.8}.m .ed{font-size:10px;opacity:.65;margin-left:6px;font-style:italic}
+.m{position:relative}.m .del{opacity:.7;font-style:italic}.m .rxs{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.m .rx{font-size:12px;padding:0 6px;border-radius:10px;background:var(--bg2);color:var(--tx);border:1px solid var(--line);cursor:pointer}.m .rx.mine{border-color:var(--acc)}
+.m .tools{display:none;position:absolute;top:-14px;right:4px;gap:2px;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:1px 3px}
+.m:hover .tools,.m:focus-within .tools{display:flex}.m .tools button{font-size:12px;padding:0 3px;background:none;border:none;cursor:pointer}
+.m img.thumb{display:block;max-width:220px;max-height:180px;border-radius:8px;margin:2px 0;cursor:pointer;background:var(--bg)}
+.m .file{display:inline-flex;gap:6px;align-items:center;padding:4px 8px;border-radius:8px;background:#0001;margin:2px 0}
+.compose .att{padding:4px 9px;font-size:16px}
+.editing{color:var(--acc)!important}
+.pill.on{background:#16a34a;color:#fff}.pill.err{background:var(--bad);color:#fff}.pill.busy{background:#e2a20c;color:#fff}
+/* phone layout */
+.phonewrap{display:flex;justify-content:center}
+.phone{width:390px;height:780px;border:10px solid #1d1d1f;border-radius:44px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg);position:relative;box-shadow:0 10px 40px #0003}
+body.fullphone .phone{width:100%;height:100vh;border:0;border-radius:0;box-shadow:none}
+body.fullphone header,body.fullphone main#view{padding:0}body.fullphone header{display:none}
+.ptop{padding:12px 14px 8px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);background:var(--bg2)}
+.ptop>b{font-size:18px;flex:1}.ptop .sub{display:block;font-size:12px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ptop>div{flex:1;min-width:0}.ptop>div>b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ptop .back{border:0;background:none;font-size:22px;padding:0 6px;color:var(--acc)}
+.pbody{flex:1;overflow:auto;min-height:0;display:flex;flex-direction:column}
+.pnav{display:flex;border-top:1px solid var(--line);background:var(--bg2)}
+.pnav button{flex:1;border:0;background:none;padding:8px 0 12px;font-size:11px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:2px}
+.pnav button span{font-size:19px}.pnav button.on{color:var(--acc);font-weight:600}
+.prow{display:flex;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.prow .nm{flex:1;min-width:0}.prow .nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.prow .nm span{font-size:12px;color:var(--mut);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.phone .msgs{padding:10px}.phone .m{max-width:84%}
+.phone .compose textarea{font-size:16px}
+img.ava{object-fit:cover;padding:0;background:var(--bg3)}.bud img.ava,.bud .ava.sm{width:22px;height:22px;border-radius:6px;font-size:11px}
+.m.tap .tools{display:flex}.m .tools button.mod{color:var(--bad)}
+.rmodal{position:fixed;inset:0;background:#0007;display:grid;place-items:center;z-index:50}.rmodal .card{width:min(420px,92vw);max-height:86vh;overflow:auto;margin:0}
+.rmodal .big{width:96px;height:96px;border-radius:18px;font-size:40px}.rmodal dl{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:10px 0}.rmodal dt{color:var(--mut)}.rmodal dd{margin:0;word-break:break-word;white-space:pre-wrap}
+</style>`);
+
+const PRES = [["", "Available"], ["chat", "Free to chat"], ["away", "Away"], ["xa", "Extended away"], ["dnd", "Do not disturb"], ["offline", "Offline (sign off)"]];
+const showName = s => (PRES.find(p => p[0] === s) || ["", "Available"])[1];
+const COLORS = ["#2a78d6", "#c2410c", "#0f8a5f", "#7c3aed", "#be185d", "#0e7490", "#a16207", "#4d7c0f"];
+const colorOf = s => COLORS[[...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % COLORS.length];
+const avaSrc = k => { const h = k && S.avaBy && S.avaBy[k]; return h && S.avatars && S.avatars[h] || ""; };
+const ava = (name, sz, key, cls) => { const src = avaSrc(key || name), st = sz ? `width:${sz}px;height:${sz}px` : "";
+  return src ? `<img class="ava${cls ? " " + cls : ""}" src="${esc(src)}" alt="" style="${st}">` : `<span class="ava${cls ? " " + cls : ""}" style="background:${colorOf(name)}${st ? ";" + st : ""}">${esc((name || "?").replace(/@.*/, "").slice(0, 1).toUpperCase())}</span>`; };
+const hhmm = t => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const linkify = s => esc(s).replace(/https?:\/\/[^\s<]+/g, u => `<span class="lnk" data-url="${u}">${u}</span>`);
+const LOCAL_URL = "ws://127.0.0.1:5280/xmpp-websocket";
+
+const RT = { pops: [], popLog: [], pounceLog: [], sysShown: 0, notifAsked: 0, wasShow: {}, snd: [], sndOff: 0, avaBusy: {}, onSince: {}, wasOn: {}, tap: -1, cl: {}, convs: {}, order: [], sel: "", subreq: [], warn: [], xml: [], typing: {}, auto: {}, pw: {}, draft: {}, collapsed: {}, roomList: [], unseen: 0, plugins: [], editing: {} };
+window.RT = RT;
+
+const PLUGINS = [
+  { id: "timestamps", name: "Timestamps", about: "Show the time on every message." },
+  { id: "smileys", name: "Smiley text to emoji", about: "Outgoing :) :( :D ;) <3 become 🙂 🙁 😄 😉 ❤️.",
+    outgoing: t => t.replace(/(^|\s):\)(?=\s|$)/g, "$1🙂").replace(/(^|\s):\((?=\s|$)/g, "$1🙁").replace(/(^|\s):D(?=\s|$)/g, "$1😄").replace(/(^|\s);\)(?=\s|$)/g, "$1😉").replace(/(^|\s)<3(?=\s|$)/g, "$1❤️") },
+  { id: "typing", name: "Typing notices", about: "Send and show 'is typing…' (chat states, XEP-0085)." },
+  { id: "autoreply", name: "Auto-reply when away", about: "While your status is Away / Extended away / Do not disturb, answer a new 1:1 message once per 10 minutes per contact.",
+    incoming: ev => { if (ev.kind !== "chat" || ev.delayed || !["away", "xa", "dnd"].includes(S.status.show)) return; const k = ev.acct + "|" + ev.jid; if (RT.auto[k] && Date.now() - RT.auto[k] < 600000) return; RT.auto[k] = Date.now(); sendText(convKey(ev.acct, "chat", ev.jid), "[auto-reply] " + (S.plugins.autoreplyText || "I'm away right now."), true); } },
+  { id: "titleflash", name: "Unread count in the title", about: "Show (n) unread in the window title." },
+  { id: "logging", name: "Keep chat logs", about: "Save every conversation in History (on this computer only, last 300 lines per chat)." },
+];
+function plug(hook, a, b) { let v = a; for (const p of PLUGINS) if (S.plugins[p.id] && p[hook]) { const r = p[hook](v, b); if (hook === "outgoing" && typeof r === "string") v = r; } return v; }
+
+const SOUNDS = { in: [[660, 0, .09], [880, .1, .12]], out: [[520, 0, .06]], on: [[440, 0, .08], [660, .09, .1]], off: [[520, 0, .08], [330, .09, .12]] };
+let ACX = null;
+function sound(kind, force) {
+  if (!force && !S.ui.sounds) { RT.sndOff++; return false; }
+  RT.snd.push({ t: Date.now(), kind }); if (RT.snd.length > 50) RT.snd.shift();
+  try {
+    ACX = ACX || new (window.AudioContext || window.webkitAudioContext)(); const t0 = ACX.currentTime + .01, vol = Math.max(0, Math.min(1, (S.ui.soundVol == null ? 40 : S.ui.soundVol) / 100)) * .25;
+    for (const [f, at, len] of SOUNDS[kind] || []) { const o = ACX.createOscillator(), g = ACX.createGain(); o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t0 + at); g.gain.linearRampToValueAtTime(vol, t0 + at + .01); g.gain.exponentialRampToValueAtTime(.0001, t0 + at + len);
+      o.connect(g); g.connect(ACX.destination); o.start(t0 + at); o.stop(t0 + at + len + .02); }
+  } catch (e) {   }
+  return true;
+}
+
+const UIDEF = { popups: true, popRooms: "mention", popText: true, sysNotify: false };
+const uiv = k => (S.ui && k in S.ui ? S.ui[k] : UIDEF[k]);
+document.head.insertAdjacentHTML("beforeend", `<style>
+#roostpops{position:fixed;top:54px;right:14px;z-index:60;display:flex;flex-direction:column;gap:8px;width:min(330px,90vw);pointer-events:none}
+.rpop{pointer-events:auto;display:flex;gap:9px;align-items:flex-start;background:var(--bg2);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:8px 10px;box-shadow:0 6px 24px #0003;cursor:pointer;animation:rpopin .18s ease-out}
+.rpop.pounce{border-left-color:#e2a20c}.rpop b{display:block;font-size:13px}.rpop .tx{font-size:12px;color:var(--mut);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px}
+.rpop .x{margin-left:auto;border:0;background:none;color:var(--mut);cursor:pointer;padding:0 2px}
+@keyframes rpopin{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+body.fullphone #roostpops{top:10px;right:10px;left:10px;width:auto}
+</style>`);
+function inView(c) { return !document.hidden && MEM.page === "chat" && RT.sel === c.key && (!S.ui.phone || S.ui.screen === "conv"); }
+function mentions(body, nick) { if (!nick) return false; const n = nick.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return new RegExp("(^|[^\\p{L}\\p{N}_])@?" + n + "($|[^\\p{L}\\p{N}_])", "iu").test(body || ""); }
+function popWanted(c, body) {
+  if (!uiv("popups") || S.status.show === "dnd" || inView(c)) return false;
+  if (c.kind === "room") { const m = uiv("popRooms"); if (m === "none") return false; if (m === "mention") return mentions(body, myName(c)); }
+  return true;
+}
+function popup(o) {
+  o.id = uid(); o.t = Date.now(); RT.pops.unshift(o); if (RT.pops.length > 4) RT.pops.length = 4;
+  RT.popLog.unshift({ t: o.t, title: o.title, text: o.text, pounce: !!o.pounce }); if (RT.popLog.length > 40) RT.popLog.length = 40;
+  setTimeout(() => { const i = RT.pops.findIndex(p => p.id === o.id); if (i >= 0) { RT.pops.splice(i, 1); popPaint(); } }, o.pounce ? 12000 : 6500);
+  popPaint();
+  if (uiv("sysNotify") && document.hidden && window.Notification && Notification.permission === "granted") {
+    try { const n = new Notification(o.title, { body: o.text, tag: o.conv || o.id, silent: true }); n.onclick = () => { window.focus(); if (o.conv) ACT.open(o.conv); n.close(); }; RT.sysShown++; } catch (e) {   }
+  }
+}
+function popPaint() {
+  let box = document.getElementById("roostpops"); if (!box) { document.body.insertAdjacentHTML("beforeend", `<div id="roostpops" aria-live="polite"></div>`); box = document.getElementById("roostpops"); }
+  box.innerHTML = RT.pops.map(p => `<div class="rpop${p.pounce ? " pounce" : ""}" data-act="popopen" data-arg="${esc(p.id)}" role="status">${p.pounce ? `<span class="ava" style="background:#e2a20c">🎯</span>` : ava(p.who || p.title, 30, p.key || "")}<div style="min-width:0"><b>${esc(p.title)}</b><span class="tx">${esc(p.text)}</span></div><button class="x" data-act="popx" data-arg="${esc(p.id)}" title="Dismiss">✕</button></div>`).join("");
+}
+function notifyMsg(acct, c, who, body, url) {
+  if (!popWanted(c, body)) return false;
+  const text = !uiv("popText") ? "New message" : url ? "📎 " + (decodeURIComponent(String(url).split("?")[0].split("/").pop() || "file")) : String(body || "").slice(0, 140);
+  popup({ title: c.kind === "room" ? who + " in #" + c.jid.split("@")[0] : title(c) + tagOf(acct), text, conv: c.key, who, key: c.kind === "chat" ? c.jid : "" });
+  return true;
+}
+
+const POUNCE_ON = [["signon", "signs on"], ["back", "comes back from away"], ["typing", "starts typing"], ["message", "sends me a message"]];
+function pounce(acct, jid, ev) {
+  const hits = (S.pounces || []).filter(p => (!p.acct || p.acct === acct) && p.jid === jid && p.on && p.on[ev]);
+  for (const p of hits) {
+    if (p.keep && Date.now() - (p.last || 0) < 10000) continue;
+    p.last = Date.now(); p.fired = (p.fired || 0) + 1;
+    const cl = RT.cl[acct], nm = (cl && cl.roster[jid] && cl.roster[jid].name) || jid, what = (POUNCE_ON.find(x => x[0] === ev) || [, ev])[1], k = convKey(acct, "chat", jid), did = [];
+    if (p.popup) { popup({ title: "Pounce: " + nm + " " + what, text: p.send ? "Sent: " + p.send : "", conv: k, pounce: true }); did.push("pop-up"); }
+    if (p.sound && sound("on")) did.push("sound");
+    if (p.open) { openConv(acct, "chat", jid, !S.ui.phone || MEM.page === "chat"); did.push("opened the chat"); }
+    if (p.send && cl && cl.canSend()) { openConv(acct, "chat", jid); if (sendText(k, p.send, true)) did.push("sent the message"); }
+    RT.pounceLog.unshift({ t: Date.now(), jid, ev, did: did.join(", ") || "nothing to do", id: p.id }); if (RT.pounceLog.length > 40) RT.pounceLog.length = 40;
+    if (!p.keep) S.pounces = S.pounces.filter(x => x !== p);
+    save();
+  }
+  return hits.length;
+}
+
+const AVA_TYPES = /^image\/(png|jpeg|gif|webp)$/;
+async function fetchAvatar(acct, jid, hash) {
+  const cl = RT.cl[acct]; if (!cl || RT.avaBusy[hash] || (S.avatars || {})[hash] || jid.includes("/")) return;
+  RT.avaBusy[hash] = 1;
+  try {
+    const v = await cl.vcardGet(jid);
+    if (!v.photo || !AVA_TYPES.test(v.photo.type) || v.photo.b64.length > 200000) return;
+    const got = RC.hex(RC.sha1(RC.unb64(v.photo.b64)));
+    if (got !== hash) { RT.warn.unshift({ t: Date.now(), text: jid + ": buddy icon didn't match its hash, not shown" }); return; }
+    keepAvatar(hash, "data:" + v.photo.type + ";base64," + v.photo.b64); paint();
+  } catch (e) {   } finally { delete RT.avaBusy[hash]; }
+}
+function keepAvatar(hash, url) {
+  S.avatars = S.avatars || {}; S.avatars[hash] = url;
+  const used = new Set(Object.values(S.avaBy || {})), ks = Object.keys(S.avatars);
+  if (ks.length > 80) for (const k of ks) if (!used.has(k) && Object.keys(S.avatars).length > 80) delete S.avatars[k];
+  save();
+}
+function squarePng(file, size) {
+  return new Promise((ok, bad) => { const u = URL.createObjectURL(file), im = new Image();
+    im.onload = () => { const c = document.createElement("canvas"); c.width = c.height = size; const s = Math.min(im.width, im.height);
+      c.getContext("2d").drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, size, size); URL.revokeObjectURL(u); ok(c.toDataURL("image/png").split(",")[1]); };
+    im.onerror = () => { URL.revokeObjectURL(u); bad(new Error("not a picture")); }; im.src = u; });
+}
+
+const acctOf = id => S.accounts.find(a => a.id === id);
+function convKey(acct, kind, jid) { return acct + "|" + kind + "|" + jid; }
+function logKey(acct, kind, jid) { const a = acctOf(acct); return (a ? RC.bare(a.jid) : acct) + " ↔ " + (kind === "room" ? "#" : "") + jid; }
+function openConv(acct, kind, jid, focus) {
+  const k = convKey(acct, kind, jid);
+  if (!RT.convs[k]) { RT.convs[k] = { key: k, acct, kind, jid, unread: 0, lines: (S.logs[logKey(acct, kind, jid)] || []).slice(-60).map(l => Object.assign({ old: true }, l)) }; RT.order.push(k); }
+  if (focus) { RT.sel = k; RT.convs[k].unread = 0; S.ui.screen = "conv"; }
+  return RT.convs[k];
+}
+function closeConv(k) { delete RT.convs[k]; RT.order = RT.order.filter(x => x !== k); if (RT.sel === k) RT.sel = RT.order[RT.order.length - 1] || ""; }
+function addLine(c, line) {
+  c.lines.push(line); if (c.lines.length > 400) c.lines.splice(0, c.lines.length - 400);
+  if (!line.sys && S.plugins.logging) { const lk = logKey(c.acct, c.kind, c.jid), L = S.logs[lk] = S.logs[lk] || []; L.push({ t: line.t, who: line.who, body: line.body, me: !!line.me, d: line.d ? 1 : 0, id: line.id || undefined, url: line.url || undefined }); if (L.length > 300) L.splice(0, L.length - 300); save(); }
+  if (RT.sel !== c.key || (S.ui.phone && S.ui.screen !== "conv") || MEM.page !== "chat") { if (!line.sys && !line.me && !line.d) { c.unread++; } }
+}
+function lineById(c, id, who) { return [...c.lines].reverse().find(x => x.id === id && !x.sys && (who == null || x.who === who)); }
+function myName(c) { const cl = RT.cl[c.acct]; if (!cl) return ""; if (c.kind === "room") { const r = cl.rooms[c.jid]; return r ? r.nick : ""; } return RC.bare(cl.jid); }
+function convFor(id, d) { return d.room ? RT.convs[convKey(id, "room", d.room)] : RT.convs[convKey(id, "chat", d.jid)]; }
+function fixLine(c, oldId, who, me, body, url) {
+  const l = [...c.lines].reverse().find(x => x.id === oldId && !x.sys && x.who === who && (me == null || !!x.me === me));
+  if (!l) return false; l.body = body; l.url = url || ""; l.ed = 1; return true;
+}
+function gone(l, mod, reason) { l.body = ""; l.url = ""; l.del = 1; l.rx = {}; if (mod) { l.mod = RC.res(mod) || mod; l.why = reason || ""; } }
+function pendKeep(c, key, v) { c.pend = c.pend || {}; if (!c.pend[key]) c.pend[key] = v; }
+function pendApply(c, lines) {
+  if (!c.pend && !c.rxPend) return;
+  for (const l of lines) { if (l.sys) continue;
+    const a = c.pend && ((l.sid && c.pend["sid:" + l.sid]) || (l.id && c.pend[l.id + "|" + l.who]));
+    if (a) { gone(l, a.mod, a.reason); delete c.pend[l.sid && c.pend["sid:" + l.sid] ? "sid:" + l.sid : l.id + "|" + l.who]; continue; }
+    const r = l.id && c.rxPend && c.rxPend[l.id];
+    if (r && !l.del) { l.rx = l.rx || {}; for (const w in r) if (!(w in l.rx)) { if (r[w].length) l.rx[w] = r[w]; } delete c.rxPend[l.id]; }
+  }
+}
+const tagOf = acct => { if (S.accounts.length < 2) return ""; const a = acctOf(acct); return a ? " · " + a.jid.split("@")[0] : ""; };
+function title(c) {
+  if (c.kind === "room") return c.jid.split("@")[0];
+  if (c.kind === "pm") return RC.res(c.jid) + " (in " + c.jid.split("@")[0] + ")";
+  const cl = RT.cl[c.acct], it = cl && cl.roster[c.jid]; return (it && it.name) || c.jid;
+}
+function presOf(acct, jid) { const cl = RT.cl[acct]; if (!cl || cl.state !== "online") return { cls: "off", text: "Offline" }; const b = cl.best(jid); if (!b) return { cls: "off", text: "Offline" }; return { cls: b[1].show || "av", text: showName(b[1].show) + (b[1].status ? ": " + b[1].status : "") }; }
+
+function connect(id) {
+  const a = acctOf(id); if (!a) return;
+  const pw = a.remember ? a.password : RT.pw[id];
+  if (!pw) { toast("Type the password for " + a.jid + " first (Accounts page).", 5000); return; }
+  if (RT.cl[id]) RT.cl[id].disconnect();
+  const cl = new RC.Client({ jid: a.jid, password: pw, url: a.url, resource: a.resource || "roost", mech: a.mech || "auto" }, (type, d, c) => onEvent(id, type, d, c));
+  RT.cl[id] = cl; cl.pres.show = S.status.show === "offline" ? "" : S.status.show; cl.pres.status = S.status.text; cl.connect(); paint();
+}
+function disconnect(id) { const cl = RT.cl[id]; if (cl) cl.disconnect(); }
+function onEvent(id, type, d, cl) {
+  const a = acctOf(id);
+  if (type === "xml") { RT.xml.push({ t: Date.now(), acct: a ? a.jid : id, dir: d.dir, xml: d.xml }); if (RT.xml.length > 400) RT.xml.splice(0, RT.xml.length - 400); if (MEM.page === "console") paint(); return; }
+  if (type === "state") {
+    if (d.state === "online" && d.why !== "resumed") { RT.onSince[id] = Date.now(); cl.loadMyPhoto().then(() => { if (cl.myCard && cl.myCard.photo) { S.avaBy = S.avaBy || {}; S.avaBy[RC.bare(cl.jid)] = cl.photoHash; keepAvatar(cl.photoHash, "data:" + cl.myCard.photo.type + ";base64," + cl.myCard.photo.b64); paint(); } }); }
+    if (d.state === "online") { (S.bookmarks || []).filter(b => b.acct === id && b.autojoin && !(cl.rooms[b.room] && cl.rooms[b.room].joined)).forEach(b => { cl.join(b.room, b.nick); openConv(id, "room", b.room); }); }
+    if (d.state === "online" && d.why === "resumed") toast((a ? a.jid : "") + ": link back, session resumed (nothing missed)");
+    if (d.state === "reconnecting") RT.warn.unshift({ t: Date.now(), text: (a ? a.jid : "") + ": " + d.why });
+    if (d.state === "error" || d.state === "authfail") RT.warn.unshift({ t: Date.now(), text: (a ? a.jid : "") + ": " + d.why });
+  }
+  else if (type === "subscribe") { if (!RT.subreq.find(r => r.acct === id && r.from === d.from)) RT.subreq.push({ acct: id, from: d.from }); }
+  else if (type === "subnote") { const c = RT.convs[convKey(id, "chat", d.from)]; const txt = { subscribed: "can now see each other's status (approved)", unsubscribed: "stopped sharing status", unsubscribe: "stopped following your status" }[d.type]; if (c) addLine(c, { t: Date.now(), sys: true, body: d.from + " " + txt }); }
+  else if (type === "message") {
+    const kind = d.pm ? "pm" : "chat", c = openConv(id, kind, d.jid);
+    delete RT.typing[c.key];
+    const who = d.pm ? RC.res(d.from) : RC.bare(d.from);
+    if (d.replace && fixLine(c, d.replace, who, false, d.body, d.url)) { paint(); return; }
+    addLine(c, { t: d.when, who, body: d.body, d: d.delayed, id: d.id, url: d.url });
+    if (!d.delayed) { sound("in"); notifyMsg(id, c, who, d.body, d.url); }
+    plug("incoming", { acct: id, kind, jid: d.jid, body: d.body, delayed: d.delayed });
+    if (!d.delayed && !d.pm) pounce(id, d.jid, "message");
+  }
+  else if (type === "retract") {
+    const c = convFor(id, d), l = c && (d.moderated ? [...c.lines].reverse().find(x => x.sid === d.id) : lineById(c, d.id, d.who));
+    if (l) gone(l, d.moderated, d.reason);
+    else if (c) pendKeep(c, d.moderated ? "sid:" + d.id : d.id + "|" + d.who, { mod: d.moderated, reason: d.reason });
+  }
+  else if (type === "reactions") {
+    const c = convFor(id, d), l = c && lineById(c, d.id);
+    if (c) { c.rxSeen = c.rxSeen || {}; c.rxSeen[d.id + "|" + d.who] = 1; }
+    if (l && !l.del) { l.rx = l.rx || {}; if (d.emojis.length) l.rx[d.who] = d.emojis; else delete l.rx[d.who]; }
+  }
+  else if (type === "avatar") {
+    S.avaBy = S.avaBy || {}; const k = d.jid;
+    if (!d.hash) { if (S.avaBy[k]) { delete S.avaBy[k]; save(); } }
+    else { if (S.avaBy[k] !== d.hash) { S.avaBy[k] = d.hash; save(); } if (!(S.avatars || {})[d.hash]) fetchAvatar(id, d.jid, d.hash); }
+  }
+  else if (type === "presence") {
+    const k = id + "|" + d.jid, po = presOf(id, d.jid), on = po.cls !== "off", was = !!RT.wasOn[k]; RT.wasOn[k] = on;
+    const awayNow = ["away", "xa", "dnd"].includes(po.cls), wasAway = !!RT.wasShow[k]; RT.wasShow[k] = awayNow;
+    const live = Date.now() - (RT.onSince[id] || 0) > 4000 && d.jid !== RC.bare(cl.jid);
+    if (on !== was && live) { sound(on ? "on" : "off"); if (on) pounce(id, d.jid, "signon"); }
+    else if (live && on && was && wasAway && !awayNow) pounce(id, d.jid, "back");
+  }
+  else if (type === "chatstate") { const k = convKey(id, "chat", d.jid); if (d.state === "composing") { const already = RT.typing[k]; RT.typing[k] = Date.now(); if (!already) pounce(id, d.jid, "typing"); } else delete RT.typing[k]; }
+  else if (type === "groupchat") { const c = openConv(id, "room", d.room); if (!(d.replace && fixLine(c, d.replace, d.nick, null, d.body, d.url)) && !(d.id && c.lines.some(l => l.id === d.id && l.who === d.nick)) && !(d.sid && c.lines.some(l => l.sid === d.sid))) { addLine(c, { t: d.when, who: d.nick, body: d.body, me: d.mine, d: d.delayed, id: d.id, url: d.url, sid: d.sid }); if (!d.delayed && !d.mine) { sound("in"); notifyMsg(id, c, d.nick, d.body, d.url); } } }
+  else if (type === "sentcopy") { const c = openConv(id, "chat", d.jid); if (d.replace && fixLine(c, d.replace, RC.bare(cl.jid), true, d.body, d.url)) { paint(); return; } if (!c.lines.some(l => l.id && l.id === d.id)) addLine(c, { t: d.when, who: RC.bare(cl.jid), body: d.body, me: true, id: d.id, url: d.url, cc: 1 }); }
+  else if (type === "receipt") { const c = RT.convs[convKey(id, "chat", d.jid)]; const l = c && c.lines.find(x => x.me && x.id === d.id); if (l) l.rc = 1; }
+  else if (type === "subject") { const c = openConv(id, "room", d.room); if (!d.history || d.subject) addLine(c, { t: Date.now(), sys: true, body: d.subject ? (d.by ? d.by + " set the topic: " : "Topic: ") + d.subject : "No topic set" }); }
+  else if (type === "room") {
+    const c = RT.convs[convKey(id, "room", d.room)];
+    if (c && d.join && cl.rooms[d.room] && cl.rooms[d.room].joined && d.join !== cl.rooms[d.room].nick) addLine(c, { t: Date.now(), sys: true, body: d.join + " joined" });
+    if (c && d.part) addLine(c, { t: Date.now(), sys: true, body: d.part + " left" });
+    if (c && d.left) addLine(c, { t: Date.now(), sys: true, body: "You left the room" });
+    if (c && cl.rooms[d.room] && cl.rooms[d.room].error) addLine(c, { t: Date.now(), sys: true, body: "Couldn't join: " + cl.rooms[d.room].error });
+  }
+  else if (type === "warn") RT.warn.unshift({ t: Date.now(), text: (a ? a.jid : "") + ": " + d.text });
+  if (RT.warn.length > 30) RT.warn.length = 30;
+  paint();
+}
+async function sendFile(k, file) {
+  const c = RT.convs[k]; if (!c || !file) return; const cl = RT.cl[c.acct];
+  if (!cl || cl.state !== "online") { toast("Sign on first."); return; }
+  const svc = await cl.uploadService();
+  if (!svc) { toast("This server has no file upload."); return; }
+  if (svc.max && file.size > svc.max) { toast("Too big: " + (file.size / 1048576).toFixed(1) + " MB. This server takes files up to " + (svc.max / 1048576).toFixed(1) + " MB.", 6000); return; }
+  toast("Uploading " + file.name + " (" + (file.size / 1024).toFixed(0) + " KB)…", 20000);
+  let url; try { url = await cl.upload(file); } catch (e) { toast("Upload failed: " + e.message, 6000); return; }
+  const extra = cl.oobXml(url);
+  if (c.kind === "room") cl.stanza("message", { to: c.jid, type: "groupchat", id: cl.id() }, RC.T("body", url) + extra);
+  else { const id = cl.send(c.jid, url, extra); addLine(c, { t: Date.now(), who: RC.bare(cl.jid), body: url, me: true, id, url }); }
+  toast("Sent " + file.name); paint();
+}
+async function loadHistory(k) {
+  const c = RT.convs[k]; if (!c || c.kind === "pm") return; const cl = RT.cl[c.acct];
+  if (!cl || cl.state !== "online") { toast("Sign on first."); return; }
+  if (c.mamDone) { toast("No more history on the server."); return; }
+  let r; try { r = await cl.history(c.kind === "room" ? { room: c.jid, max: 30, before: c.mamFirst || "" } : { with: c.jid, max: 30, before: c.mamFirst || "" }); }
+  catch (e) { toast("The server has no history for this (" + e.message + ")"); return; }
+  const meB = RC.bare(cl.jid), nick = c.kind === "room" ? ((cl.rooms[c.jid] || {}).nick || "") : "";
+  const add = [], whoOf = it => c.kind === "room" ? RC.res(it.from) : RC.bare(it.from);
+  c.rxSeen = c.rxSeen || {}; c.rxPend = c.rxPend || {};
+  for (const it of [...r.items].reverse()) {
+    const who = whoOf(it);
+    if (it.retract) { if (it.retract.moderated && c.kind === "room" && RC.res(it.from)) continue;
+      pendKeep(c, it.retract.moderated ? "sid:" + it.retract.id : it.retract.id + "|" + who, { mod: it.retract.moderated, reason: it.retract.reason }); }
+    else if (it.reactions) { const k = it.reactions.id + "|" + who; if (c.rxSeen[k]) continue; c.rxSeen[k] = 1; (c.rxPend[it.reactions.id] = c.rxPend[it.reactions.id] || {})[who] = it.reactions.emojis; }
+  }
+  for (const it of r.items) {
+    if (it.tomb && it.sid) { if (!c.lines.some(l => l.sid === it.sid)) { const l = { t: it.when, who: whoOf(it), body: "", me: false, d: 1, id: it.id, sid: it.sid, old: true }; gone(l, it.tomb.moderated || "a moderator", it.tomb.reason); add.push(l); } continue; }
+    if (!it.body) continue;
+    const who = c.kind === "room" ? RC.res(it.from) : RC.bare(it.from), me = c.kind === "room" ? who === nick : who === meB;
+    if (it.replace) { if (!fixLine(c, it.replace, who, me, it.body, it.url)) { const t = add.find(x => x.id === it.replace && x.who === who); if (t) { t.body = it.body; t.ed = 1; } } continue; }
+    const dup = c.lines.find(l => (it.sid && l.sid === it.sid) || (it.id && l.id === it.id && l.who === who) || (l.body === it.body && l.who === who && Math.abs(l.t - it.when) < 5000));
+    if (dup) { if (it.sid && !dup.sid) dup.sid = it.sid; continue; }
+    add.push({ t: it.when, who, body: it.body, me, d: 1, id: it.id, url: it.url, old: true, sid: it.sid });
+  }
+  pendApply(c, add.concat(c.lines));
+  c.lines = add.concat(c.lines); c.mamFirst = r.first || c.mamFirst; c.mamDone = r.complete || !r.items.length;
+  c.lines.unshift({ t: add.length ? add[0].t : Date.now(), sys: true, body: add.length ? "Loaded " + add.length + " earlier message" + (add.length > 1 ? "s" : "") + " from the server" + (c.mamDone ? " (that's all)" : "") : "No earlier messages on the server" });
+  paint();
+}
+function sendText(k, text, raw) {
+  const c = RT.convs[k]; if (!c) return false; const cl = RT.cl[c.acct];
+  if (!cl || !cl.canSend()) { toast("That account is offline: connect it first."); return false; }
+  text = raw ? text : plug("outgoing", text, c); if (!text.trim()) return false;
+  const ed = RT.editing[k]; delete RT.editing[k];
+  if (ed && c.kind !== "pm") { cl.correct(c.jid, ed, text, c.kind === "room"); if (c.kind === "chat") fixLine(c, ed, RC.bare(cl.jid), true, text); return true; }
+  sound("out");
+  if (c.kind === "room") { cl.sendRoom(c.jid, text); return true; }
+  const id = cl.send(c.jid, text); addLine(c, { t: Date.now(), who: RC.bare(cl.jid), body: text, me: true, id }); return true;
+}
+
+let paintQ = false;
+function paint() {
+  if (paintQ) return; paintQ = true;
+  requestAnimationFrame(() => {
+    paintQ = false;
+    const box = $("#msgbox"), had = box && document.activeElement === box, sc = $(".msgs"), atEnd = !sc || sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 30;
+    const listScroll = $(".blist .scroll") ? $(".blist .scroll").scrollTop : 0;
+    render();
+    const nb = $("#msgbox"); if (nb && had) { nb.focus(); nb.selectionStart = nb.selectionEnd = nb.value.length; }
+    const ns = $(".msgs"); if (ns && atEnd) ns.scrollTop = ns.scrollHeight;
+    if ($(".blist .scroll")) $(".blist .scroll").scrollTop = listScroll;
+    const n = Object.values(RT.convs).reduce((s, c) => s + c.unread, 0);
+    document.title = (S.plugins.titleflash && n ? "(" + n + ") " : "") + "Roost";
+  });
+}
+setInterval(() => { const now = Date.now(); let ch = false; for (const k in RT.typing) if (now - RT.typing[k] > 30000) { delete RT.typing[k]; ch = true; } if (ch) paint(); }, 5000);
+
+function stateBadge(id) {
+  const cl = RT.cl[id]; const s = cl ? cl.state : "offline";
+  const cls = s === "online" ? "on" : s === "error" || s === "authfail" ? "err" : s === "offline" ? "" : "busy";
+  const lbl = { online: "online", offline: "offline", connecting: "connecting…", authenticating: "signing in…", roster: "loading contacts…", error: "error", authfail: "sign-in failed", reconnecting: "reconnecting…", resuming: "resuming…" }[s] || s;
+  return `<span class="pill ${cls}" title="${esc(cl && s !== "online" ? "" : "")}">${esc(lbl)}</span>`;
+}
+function contacts() {
+  const out = [];
+  for (const a of S.accounts) { const cl = RT.cl[a.id]; if (!cl) continue; for (const j in cl.roster) { const it = cl.roster[j]; out.push({ acct: a.id, jid: j, name: it.name || j, groups: it.groups.length ? it.groups : ["Contacts"], sub: it.sub, ask: it.ask, pres: presOf(a.id, j) }); } }
+  return out;
+}
+function requestsHtml() {
+  return RT.subreq.map((r, i) => `<div class="req"><b>${esc(r.from)}</b> wants to see your status${S.accounts.length > 1 ? " (" + esc((acctOf(r.acct) || {}).jid || "") + ")" : ""}.<br><button class="pri" data-act="subok" data-arg="${i}">Allow + add</button> <button data-act="subno" data-arg="${i}">Deny</button></div>`).join("");
+}
+function messagesHtml(c) {
+  const cl = RT.cl[c.acct], me = cl ? RC.bare(cl.jid) : "";
+  const mine = myName(c);
+  const rxHtml = (l, i) => { const n = {}; for (const [w, es] of Object.entries(l.rx || {})) for (const e of es) (n[e] = n[e] || []).push(w);
+    const ks = Object.keys(n); return ks.length ? `<div class="rxs">${ks.map(e => `<button class="rx${n[e].includes(mine) ? " mine" : ""}" data-act="rx" data-arg="${i}|${esc(e)}" title="${esc(n[e].join(", "))}">${esc(e)} ${n[e].length}</button>`).join("")}</div>` : ""; };
+  const room = c.kind === "room" && cl && cl.rooms[c.jid], isMod = !!(room && room.occ[room.nick] && room.occ[room.nick].role === "moderator");
+  const tools = (l, i) => (l.id || l.sid) && !l.del && c.kind !== "pm" ? `<span class="tools">${l.id ? ["👍", "❤️", "😂", "✅"].map(e => `<button data-act="rx" data-arg="${i}|${e}" title="React ${e}">${e}</button>`).join("") : ""}${l.me && l.id ? `<button data-act="retract" data-arg="${i}" title="Delete for everyone">🗑</button>` : ""}${isMod && !l.me && l.sid ? `<button class="mod" data-act="modrm" data-arg="${i}" title="Remove for everyone (moderator)">🛡🗑</button>` : ""}</span>` : "";
+  const delTxt = l => l.mod ? `removed by ${esc(l.mod)} (moderator)${l.why ? ": " + esc(l.why) : ""}` : "message deleted";
+  return c.lines.map((l, i) => l.sys ? `<div class="m sys">${esc(l.body)}${S.plugins.timestamps ? `<span class="tm">${hhmm(l.t)}</span>` : ""}</div>` :
+    `<div class="m${l.me ? " me" : ""}${RT.tap === i && S.ui.phone ? " tap" : ""}" data-i="${i}">${tools(l, i)}${c.kind !== "chat" && !l.me ? `<span class="who" style="color:${colorOf(l.who)}">${esc(l.who)}</span>` : ""}${l.del ? `<span class="del">${delTxt(l)}</span>` : l.url ? fileHtml(l) : linkify(l.body)}${l.ed ? `<span class="ed">edited</span>` : ""}${S.plugins.timestamps ? `<span class="tm">${l.d ? "earlier · " : ""}${l.cc ? "other device · " : ""}${hhmm(l.t)}</span>` : ""}${l.me && c.kind === "chat" ? `<span class="rc" title="${l.rc ? "Delivered" : "Sent"}">${l.rc ? "✓✓" : "✓"}</span>` : ""}${rxHtml(l, i)}</div>`).join("") || `<div class="m sys">No messages yet. Say hello.</div>`;
+}
+const IMG_RX = /\.(png|jpe?g|gif|webp)$/i;
+function fileHtml(l) {
+  const u = String(l.url || ""); if (!/^https?:\/\//i.test(u)) return linkify(l.body);
+  const name = decodeURIComponent(u.split("?")[0].split("/").pop() || "file");
+  const rest = String(l.body || "").split(u).join("").trim(), extra = rest ? linkify(rest) + "<br>" : "";
+  return extra + (IMG_RX.test(name) ? `<span class="lnk" data-url="${esc(u)}" title="${esc(name)}"><img class="thumb" src="${esc(u)}" alt="${esc(name)}" loading="lazy"></span>` : `<span class="file">📎 <span class="lnk" data-url="${esc(u)}">${esc(name)}</span></span>`);
+}
+function convHead(c) {
+  const cl = RT.cl[c.acct];
+  if (c.kind === "room") { const r = cl && cl.rooms[c.jid]; return `${ava(c.jid)}<div style="flex:1;min-width:0"><b>#${esc(c.jid.split("@")[0])}</b><span class="sub" style="display:inline">${esc(tagOf(c.acct) ? " as " + ((r && r.nick) || "") + tagOf(c.acct) : "")}</span><span class="sub">${r ? (r.joined ? esc(r.subject || "No topic") + " · " + Object.keys(r.occ).length + " here" : esc(r.error || "joining…")) : "not in the room"}</span></div>${r && r.joined ? `<button data-act="mam" title="Load older messages from the server">⟲ History</button><button data-act="topic" title="Set the topic">Topic</button><button data-act="leave">Leave</button>` : `<button data-act="rejoin">Join</button>`}`; }
+  const p = c.kind === "chat" ? presOf(c.acct, c.jid) : { cls: "av", text: "private message in a room" };
+  return `${ava(title(c), 0, c.kind === "chat" ? c.jid : "")}<div style="flex:1;min-width:0"><b>${esc(title(c))}</b><span class="sub"><span class="dot ${p.cls}" style="display:inline-block;vertical-align:-1px"></span> ${esc(p.text)} · ${esc(c.jid)}</span></div>${c.kind === "chat" ? `<button data-act="pouncefor" data-arg="${esc(c.acct + "|" + c.jid)}" title="Buddy pounce: act when they sign on, type or write">🎯</button><button data-act="info" data-arg="${esc(c.acct + "|" + c.jid)}" title="Contact info">ⓘ Info</button><button data-act="mam" title="Load older messages from the server">⟲ History</button>` : ""}`;
+}
+function composeHtml(c) {
+  const typing = RT.editing[c.key] ? "Editing your last message (Esc cancels)" : RT.typing[c.key] ? esc(title(c)) + " is typing…" : "";
+  const cl = RT.cl[c.acct], svc = cl && cl.upSvc;
+  return `<div class="typing${RT.editing[c.key] ? " editing" : ""}">${typing}</div><div class="compose">${c.kind !== "pm" ? `<button class="att" data-act="attach" title="Send a file${svc && svc.max ? " (up to " + (svc.max / 1048576).toFixed(0) + " MB)" : ""}">📎</button>` : ""}<textarea id="msgbox" placeholder="Message ${esc(title(c))}${S.ui.phone ? "" : "  (Enter sends, Shift+Enter new line, ↑ edits your last)"}">${esc(RT.draft[c.key] || "")}</textarea><button class="pri" data-act="send">Send</button></div>`;
+}
+
+function deskChat() {
+  if (!S.accounts.length) return `<div class="card"><h2>Roost</h2><p class="lead">A multi-account XMPP chat app. Add an account to begin; for a safe try, start the local test server (About page) and add the test account.</p><button class="pri" data-act="testacct">Add local test accounts (alice, bob, carol on 127.0.0.1)</button> <button data-page="accounts">Accounts</button></div>`;
+  const q = (MEM.q || "").toLowerCase();
+  const acctLines = S.accounts.map(a => `<div class="acct">${ava(a.jid, 20, a.jid)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(a.jid)}</span>${stateBadge(a.id)}${RT.cl[a.id] && RT.cl[a.id].state !== "offline" && RT.cl[a.id].state !== "error" && RT.cl[a.id].state !== "authfail" ? `<button data-act="disc" data-arg="${a.id}" title="Sign off">Off</button>` : `<button data-act="conn" data-arg="${a.id}" title="Sign on">On</button>`}</div>`).join("");
+  const groups = {};
+  for (const b of contacts()) { if (q && !(b.name + b.jid).toLowerCase().includes(q)) continue; if (S.ui.hideOffline && b.pres.cls === "off") continue; for (const g of b.groups) (groups[g] = groups[g] || []).push(b); }
+  const rank = c => c.pres.cls === "off" ? 1 : 0;
+  const glist = Object.keys(groups).sort().map(g => { const bs = groups[g].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)); const on = bs.filter(b => b.pres.cls !== "off").length;
+    return `<div class="grp" data-act="grp" data-arg="${esc(g)}">${RT.collapsed[g] ? "▸" : "▾"} ${esc(g)} <span>(${on}/${bs.length})</span></div>` + (RT.collapsed[g] ? "" : bs.map(b => { const k = convKey(b.acct, "chat", b.jid), c = RT.convs[k];
+      return `<div class="bud${RT.sel === k ? " on" : ""}" data-act="open" data-arg="${esc(b.acct + "|chat|" + b.jid)}" title="${esc(b.jid)} · sharing: ${esc(b.sub)}${b.ask ? " (asked)" : ""}"><span class="dot ${b.pres.cls}"></span>${avaSrc(b.jid) ? ava(b.name, 0, b.jid) : ""}<span class="nm">${esc(b.name)}<span class="st">${esc(b.pres.cls === "off" ? (b.ask ? "waiting for approval" : b.sub === "none" || b.sub === "from" ? "not sharing status" : "Offline") : b.pres.text)}</span></span>${c && c.unread ? `<span class="badge">${c.unread}</span>` : ""}</div>`; }).join("")); }).join("");
+  const rooms = Object.values(RT.convs).filter(c => c.kind === "room").map(c => { const cl = RT.cl[c.acct], r = cl && cl.rooms[c.jid];
+    return `<div class="bud${RT.sel === c.key ? " on" : ""}" data-act="open" data-arg="${esc(c.key)}"><span class="dot ${r && r.joined ? "av" : "off"}"></span><span class="nm">#${esc(c.jid.split("@")[0])}<span class="st">${r && r.joined ? Object.keys(r.occ).length + " here" : "not joined"}${esc(tagOf(c.acct))}</span></span>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}</div>`; }).join("");
+  const add = MEM.adding ? `<div class="card" style="margin:6px 8px"><b>Add a buddy</b>${acctSelect("add_acct")}<label class="f">Address<input id="add_jid" placeholder="bob@localhost"></label><label class="f">Name (optional)<input id="add_name"></label><label class="f">Group<input id="add_group" value="Friends"></label><button class="pri" data-act="addok">Add + ask to share status</button> <button data-act="addcancel">Cancel</button></div>` : "";
+  const join = MEM.joining ? `<div class="card" style="margin:6px 8px"><b>Join a group chat</b>${acctSelect("join_acct")}<label class="f">Room<input id="join_room" placeholder="lounge@conference.localhost" value="lounge@conference.localhost"></label><label class="f">Nickname<input id="join_nick" value="${esc((S.accounts[0] && S.accounts[0].jid.split("@")[0]) || "me")}"></label><label><input type="checkbox" id="join_save"> Remember (join on sign-on)</label><br><button class="pri" data-act="joinok">Join</button> <button data-act="joincancel">Cancel</button></div>` : "";
+  const c = RT.convs[RT.sel];
+  const r = c && c.kind === "room" && RT.cl[c.acct] && RT.cl[c.acct].rooms[c.jid];
+  const occ = r ? `<aside class="occ"><div class="grp">In the room (${Object.keys(r.occ).length})</div>${Object.entries(r.occ).sort((a, b) => a[0].localeCompare(b[0])).map(([n, o]) => `<div class="bud" data-act="pm" data-arg="${esc(n)}" title="${esc((o.jid || "") + " · " + o.role + "/" + o.aff)} (click: private message)"><span class="dot ${o.show || "av"}"></span><span class="nm">${esc(n)}${n === r.nick ? " (you)" : ""}<span class="st">${esc(o.aff === "owner" ? "owner" : o.role)}</span></span></div>`).join("")}</aside>` : "";
+  const tabs = RT.order.map(k => { const cc = RT.convs[k]; return `<div class="ctab${k === RT.sel ? " on" : ""}" data-act="open" data-arg="${esc(k)}">${cc.kind === "room" ? "#" : `<span class="dot ${cc.kind === "chat" ? presOf(cc.acct, cc.jid).cls : "av"}"></span>`}${esc(title(cc))}<span class="sub" style="font-weight:400">${esc(tagOf(cc.acct))}</span>${cc.unread ? ` <span class="badge">${cc.unread}</span>` : ""}<button class="x" data-act="close" data-arg="${esc(k)}" title="Close">✕</button></div>`; }).join("");
+  const main = c ? `<div class="ctabs">${tabs}</div><div class="chead">${convHead(c)}</div><div class="msgs">${messagesHtml(c)}</div>${composeHtml(c)}` :
+    `<div class="empty"><h3>Nobody selected</h3><p>Pick a buddy or a room on the left. ${RT.warn[0] ? `<br><span class="bad">${esc(RT.warn[0].text)}</span>` : ""}</p></div>`;
+  return `<div class="roost${occ ? " withocc" : ""}"><aside class="blist">${acctLines}<div style="padding:6px 8px;display:flex;gap:4px"><input id="bsearch" placeholder="Find a buddy…" value="${esc(MEM.q || "")}" style="flex:1"><button data-act="adding" title="Add a buddy">+👤</button><button data-act="joining" title="Join a group chat">+#</button></div>${requestsHtml()}${add}${join}<div class="scroll">${glist || `<p class="sub" style="padding:0 12px">No buddies yet${Object.values(RT.cl).some(x => x.state === "online") ? ": add one with +👤." : ": sign on first (On)."}</p>`}<div class="grp">Group chats</div>${rooms || `<p class="sub" style="padding:0 12px">None open: join one with +#.</p>`}</div>${statusBar()}</aside><section class="conv">${main}</section>${occ}</div>`;
+}
+function acctSelect(id) { return `<label class="f">Account<select id="${id}">${S.accounts.map(a => `<option value="${a.id}">${esc(a.jid)}</option>`).join("")}</select></label>`; }
+function statusBar() {
+  return `<div class="statusbar"><select id="pstatus">${PRES.map(([k, n]) => `<option value="${k}"${S.status.show === k ? " selected" : ""}>${n}</option>`).join("")}</select><input id="pstext" placeholder="Status message (optional)" value="${esc(S.status.text)}"></div>`;
+}
+
+function phoneChat() {
+  const sc = S.ui.screen, c = RT.convs[RT.sel];
+  let top, body, navb = true;
+  if (sc === "conv" && c) {
+    navb = false;
+    top = `<button class="back" data-act="pback">‹</button>${convHead(c).replace(/<button data-act="topic"[^>]*>Topic<\/button>/, "")}`;
+    body = `<div class="msgs">${messagesHtml(c)}</div>${composeHtml(c)}`;
+  } else {
+    const t = S.ui.ptab;
+    if (t === "contacts") {
+      top = `<b>Contacts</b><button data-act="adding">+</button>`;
+      const bs = contacts().sort((a, b) => (a.pres.cls === "off") - (b.pres.cls === "off") || a.name.localeCompare(b.name));
+      body = requestsHtml() + (MEM.adding ? `<div class="card" style="margin:8px">${acctSelect("add_acct")}<label class="f">Address<input id="add_jid" placeholder="bob@localhost"></label><label class="f">Name<input id="add_name"></label><label class="f">Group<input id="add_group" value="Friends"></label><button class="pri" data-act="addok">Add</button> <button data-act="addcancel">Cancel</button></div>` : "") +
+        (bs.map(b => `<div class="prow" data-act="open" data-arg="${esc(b.acct + "|chat|" + b.jid)}">${ava(b.name, 40, b.jid)}<div class="nm"><b>${esc(b.name)}</b><span><span class="dot ${b.pres.cls}" style="display:inline-block;vertical-align:-1px"></span> ${esc(b.pres.cls === "off" ? (b.ask ? "waiting for approval" : "Offline") : b.pres.text)}</span></div></div>`).join("") || `<p class="sub" style="padding:14px">No contacts yet. Sign on in Me, then tap +.</p>`);
+    } else if (t === "rooms") {
+      top = `<b>Group chats</b><button data-act="joining">+</button>`;
+      body = (MEM.joining ? `<div class="card" style="margin:8px">${acctSelect("join_acct")}<label class="f">Room<input id="join_room" value="lounge@conference.localhost"></label><label class="f">Nickname<input id="join_nick" value="${esc((S.accounts[S.accounts.length > 1 ? 1 : 0] || { jid: "me" }).jid.split("@")[0])}"></label><label><input type="checkbox" id="join_save"> Remember</label><br><button class="pri" data-act="joinok">Join</button> <button data-act="joincancel">Cancel</button></div>` : "") +
+        (Object.values(RT.convs).filter(x => x.kind === "room").map(x => { const r = RT.cl[x.acct] && RT.cl[x.acct].rooms[x.jid]; return `<div class="prow" data-act="open" data-arg="${esc(x.key)}">${ava(x.jid, 40)}<div class="nm"><b>#${esc(x.jid.split("@")[0])}</b><span>${r && r.joined ? Object.keys(r.occ).length + " here · " + esc(r.subject || "no topic") : "not joined"}</span></div>${x.unread ? `<span class="badge">${x.unread}</span>` : ""}</div>`; }).join("") || `<p class="sub" style="padding:14px">No rooms yet: tap + to join one.</p>`);
+    } else if (t === "me") {
+      top = `<b>Me</b>`;
+      body = `<div style="padding:10px">${S.accounts.map(a => `<div class="prow" style="cursor:default">${ava(a.jid, 36, a.jid)}<button data-act="myinfo" data-arg="${a.id}" title="Buddy icon + my info">🖼</button><div class="nm"><b>${esc(a.jid)}</b><span>${stateBadge(a.id)}</span></div>${RT.cl[a.id] && ["online", "connecting", "authenticating", "roster"].includes(RT.cl[a.id].state) ? `<button data-act="disc" data-arg="${a.id}">Sign off</button>` : `<button class="pri" data-act="conn" data-arg="${a.id}">Sign on</button>`}</div>`).join("")}
+        <div class="card" style="margin-top:10px">${statusBar()}</div>
+        <div class="grid" style="grid-template-columns:1fr 1fr"><button data-page="accounts">Accounts</button><button data-page="logs">History</button><button data-page="plugins">Plugins</button><button data-page="console">XML console</button><button data-page="about">About</button><button data-act="phone">Desktop layout</button></div>
+        ${RT.warn[0] ? `<p class="bad">${esc(RT.warn[0].text)}</p>` : ""}</div>`;
+    } else {
+      top = `<b>Chats</b><button data-act="ptab" data-arg="contacts">✎</button>`;
+      const cs = RT.order.map(k => RT.convs[k]).sort((a, b) => ((b.lines[b.lines.length - 1] || {}).t || 0) - ((a.lines[a.lines.length - 1] || {}).t || 0));
+      body = requestsHtml() + (cs.map(x => { const l = x.lines.filter(y => !y.sys).slice(-1)[0]; return `<div class="prow" data-act="open" data-arg="${esc(x.key)}">${ava(title(x), 44, x.kind === "chat" ? x.jid : "")}<div class="nm"><b>${x.kind === "room" ? "#" : ""}${esc(title(x))}</b><span>${l ? esc((l.me ? "You: " : x.kind === "room" ? l.who + ": " : "") + l.body) : "No messages yet"}</span></div><div style="text-align:right">${l ? `<span class="sub">${hhmm(l.t)}</span><br>` : ""}${x.unread ? `<span class="badge">${x.unread}</span>` : ""}</div></div>`; }).join("") || `<p class="sub" style="padding:14px">No chats yet. ${S.accounts.length ? "Sign on in Me, then pick a contact." : `<button class="pri" data-act="testacct">Add local test accounts</button>`}</p>`);
+    }
+  }
+  const tabs = [["chats", "💬", "Chats"], ["contacts", "👥", "Contacts"], ["rooms", "#", "Rooms"], ["me", "🙂", "Me"]];
+  const unread = Object.values(RT.convs).reduce((s, x) => s + x.unread, 0);
+  return `<div class="phonewrap"><div class="phone"><div class="ptop">${top}</div><div class="pbody">${body}</div>${navb ? `<div class="pnav">${tabs.map(([k, i, n]) => `<button class="${S.ui.ptab === k ? "on" : ""}" data-act="ptab" data-arg="${k}"><span>${i}</span>${n}${k === "chats" && unread ? ` (${unread})` : ""}</button>`).join("")}</div>` : ""}</div></div>`;
+}
+
+function infoModal() {
+  const m = MEM.info; if (!m) return "";
+  if (m.mine) { const v = m.v || {};
+    return `<div class="rmodal"><div class="card"><h3>My buddy icon + info</h3><p class="sub">${esc(m.jid)} · everyone who can see you gets the new picture at once (vCard, XEP-0153).</p>
+    <div style="display:flex;gap:12px;align-items:center">${v.photo ? `<img class="ava big" src="data:${esc(v.photo.type)};base64,${esc(v.photo.b64)}" alt="">` : ava(m.jid, 0, "", "big")}<div><button data-act="vcpick">Pick a picture…</button> <button data-act="vcnophoto">No picture</button><p class="sub">Cropped square to 96 px, sent as PNG.</p></div></div>
+    <label class="f">Full name<input id="vc_fn" value="${esc(v.fn || "")}"></label><label class="f">Nickname<input id="vc_nick" value="${esc(v.nick || "")}"></label><label class="f">Web page<input id="vc_url" value="${esc(v.url || "")}"></label><label class="f">About me<textarea id="vc_desc">${esc(v.desc || "")}</textarea></label>
+    <button class="pri" data-act="vcsave"${m.busy ? " disabled" : ""}>Save</button> <button data-act="infoclose">Close</button></div></div>`; }
+  const cl = RT.cl[m.acct], it = cl && cl.roster[m.jid], v = m.v;
+  const resRows = it ? Object.entries(it.res).map(([r, p]) => `${esc(r || "(device)")}: ${esc(showName(p.show))}${p.status ? " · " + esc(p.status) : ""}`).join("<br>") : "";
+  return `<div class="rmodal"><div class="card"><div style="display:flex;gap:12px;align-items:center">${ava((it && it.name) || m.jid, 0, m.jid, "big")}<div><h3 style="margin:0">${esc((v && v.fn) || (it && it.name) || m.jid)}</h3><span class="sub">${esc(m.jid)}</span></div></div>
+  ${v ? `<dl>${v.nick ? `<dt>Nickname</dt><dd>${esc(v.nick)}</dd>` : ""}${v.url ? `<dt>Web page</dt><dd><span class="lnk" data-url="${esc(/^https?:\/\//i.test(v.url) ? v.url : "")}">${esc(v.url)}</span></dd>` : ""}${v.desc ? `<dt>About</dt><dd>${esc(v.desc)}</dd>` : ""}<dt>Sharing status</dt><dd>${esc(it ? it.sub + (it.ask ? " (asked)" : "") : "not in your list")}</dd><dt>Online on</dt><dd>${resRows || "nothing (offline)"}</dd>${it && it.groups.length ? `<dt>Groups</dt><dd>${esc(it.groups.join(", "))}</dd>` : ""}</dl>${!v.fn && !v.nick && !v.desc && !v.url ? `<p class="sub">No public info set.</p>` : ""}` : `<p class="sub">${m.err ? esc(m.err) : "Loading…"}</p>`}
+  <button data-act="infoclose">Close</button></div></div>`;
+}
+
+function accountsPage() {
+  const rows = S.accounts.map((a, i) => `<tr><td>${F("", `accounts.${i}.jid`)}</td><td><input type="password" data-pw="${a.id}" value="${esc(a.remember ? a.password : (RT.pw[a.id] || ""))}" placeholder="password" autocomplete="off"></td><td>${F("", `accounts.${i}.url`)}</td><td>${F("", `accounts.${i}.resource`)}</td>
+    <td>${F("", `accounts.${i}.mech`, { opts: [["auto", "Best (SCRAM-SHA-256 first)"], "SCRAM-SHA-256", "SCRAM-SHA-1", ["PLAIN", "PLAIN (local/encrypted only)"]] })}</td><td><input type="checkbox" data-p="accounts.${i}.remember" data-r${a.remember ? " checked" : ""} title="Remember the password on this computer"></td>
+    <td>${stateBadge(a.id)}</td><td>${RT.cl[a.id] && RT.cl[a.id].state === "online" ? `<button data-act="disc" data-arg="${a.id}">Sign off</button> <button data-act="myinfo" data-arg="${a.id}" title="Buddy icon + my info">🖼 Icon</button>` : `<button class="pri" data-act="conn" data-arg="${a.id}">Sign on</button>`} <button class="x" data-act="acctdel" data-arg="${a.id}">✕</button></td></tr>`).join("");
+  const nonLocal = S.accounts.filter(a => !RC.isLocalUrl(a.url || ""));
+  return infoModal() + `<h2>Accounts</h2><p class="lead">Every account signs on by itself; all their buddies share one list. Passwords stay in memory unless you tick Remember (then they're saved in this tab's data on this computer).</p>
+  ${nonLocal.length ? `<div class="banner">${nonLocal.length} account(s) point at a server outside this computer. Roost refuses PLAIN sign-in over unencrypted ws:// to those; use wss:// with SCRAM.</div>` : ""}
+  <div class="card"><table><tr><th>Address</th><th>Password</th><th>Server (WebSocket)</th><th>Device name</th><th>Sign-in method</th><th>Remember</th><th>State</th><th></th></tr>${rows}</table>
+  <button data-act="acctadd">+ Add account</button> <button data-act="testacct">+ Local test accounts</button> <button data-act="connall">Sign on all</button> <button data-act="discall">Sign off all</button></div>
+  ${RT.warn.length ? `<div class="card"><h3>Recent problems</h3>${RT.warn.slice(0, 8).map(w => `<div><span class="sub">${hhmm(w.t)}</span> ${esc(w.text)}</div>`).join("")}</div>` : ""}`;
+}
+function logsPage() {
+  const keys = Object.keys(S.logs).sort(), sel = MEM.logSel && S.logs[MEM.logSel] ? MEM.logSel : keys[0], q = (MEM.logQ || "").toLowerCase();
+  const lines = sel ? S.logs[sel].filter(l => !q || l.body.toLowerCase().includes(q) || (l.who || "").toLowerCase().includes(q)) : [];
+  return `<h2>History</h2><p class="lead">Chat logs kept on this computer (plugin "Keep chat logs"; last 300 lines per chat). Search, read, export.</p>
+  <div class="row"><div class="card" style="flex:0 0 300px">${keys.map(k => `<div class="bud${k === sel ? " on" : ""}" data-act="logsel" data-arg="${esc(k)}"><span class="nm">${esc(k)}<span class="st">${S.logs[k].length} lines</span></span></div>`).join("") || `<p class="sub">No logs yet.</p>`}</div>
+  <div class="card"><div style="display:flex;gap:6px;margin-bottom:8px"><input id="logq" placeholder="Search this log…" value="${esc(MEM.logQ || "")}" style="flex:1"><button data-act="logtxt">⬇ .txt</button><button data-act="logjson">⬇ All (.json)</button><button class="x" data-act="logclear">Clear this log</button></div>
+  <pre>${lines.map(l => `[${new Date(l.t).toLocaleString()}] ${l.me ? "me" : l.who}: ${l.body}`).map(esc).join("\n") || "Nothing here."}</pre></div></div>`;
+}
+function pluginsPage() {
+  return `<h2>Plugins</h2><p class="lead">Small add-ons that hook into what comes in and goes out. Built-in for now; the hook points are <span class="mono">incoming(event)</span>, <span class="mono">outgoing(text, chat) → text</span> and <span class="mono">presence(event)</span>, so loading your own plugins later is a list entry, not a rewrite (see the plan).</p>
+  <div class="card"><h3>Sounds</h3><label><input type="checkbox" data-p="ui.sounds" data-r${S.ui.sounds ? " checked" : ""}> <b>Play sounds</b> (off unless you turn it on)</label><p class="sub">New message, message sent, buddy signs on / off. Made by Roost itself (no sound files).</p>${F("Volume (0-100)", "ui.soundVol", { t: "number", w: "90px" })}<button data-act="sndtest">▶ Try them</button></div>
+  <div class="card"><h3>Pop-up notices</h3><label><input type="checkbox" data-p="ui.popups" data-r${uiv("popups") ? " checked" : ""}> <b>Show a pop-up</b> for a new message in a chat you aren't looking at</label><br>
+  ${F("Group chats", "ui.popRooms", { opts: [["mention", "only when my nickname is mentioned"], ["all", "every message"], ["none", "never"]] })}
+  <label><input type="checkbox" data-p="ui.popText" data-r${uiv("popText") ? " checked" : ""}> Show the message text (off = just "New message")</label><br>
+  <label><input type="checkbox" data-p="ui.sysNotify" data-r${uiv("sysNotify") ? " checked" : ""}> Also use the computer's own notifications when Roost is in the background</label>
+  <p class="sub">Click a pop-up to open that chat. None while your status is Do not disturb. The computer's notifications ask for permission only when you tick that box${window.Notification ? " (now: " + esc(Notification.permission) + ")" : " (not available here)"}; they are silent, sounds stay with the Sounds switch.</p>
+  ${RT.popLog.length ? `<details><summary>Last pop-ups (${RT.popLog.length})</summary>${RT.popLog.slice(0, 10).map(p => `<div><span class="sub">${hhmm(p.t)}</span> ${p.pounce ? "🎯 " : ""}${esc(p.title)}: ${esc(p.text)}</div>`).join("")}</details>` : ""}</div>
+  <div class="grid">${PLUGINS.map(p => `<div class="card"><label><input type="checkbox" data-p="plugins.${p.id}" data-r${S.plugins[p.id] ? " checked" : ""}> <b>${esc(p.name)}</b></label><p class="sub">${esc(p.about)}</p>${p.id === "autoreply" ? F("Reply text", "plugins.autoreplyText") : ""}</div>`).join("")}</div>`;
+}
+function pouncesPage() {
+  const ps = S.pounces || [], pre = MEM.pounceFor || {}, accts = [["", "Any of my accounts"]].concat(S.accounts.map(a => [a.id, a.jid]));
+  const bud = contacts().map(b => b.jid).filter((j, i, a) => a.indexOf(j) === i);
+  const row = p => `<tr><td><b>${esc(p.jid)}</b><span class="sub" style="display:block">${esc(p.acct ? (acctOf(p.acct) || {}).jid || "(removed account)" : "any account")}</span></td><td>${POUNCE_ON.filter(x => p.on[x[0]]).map(x => esc(x[1])).join(", ")}</td><td>${[p.popup && "pop-up", p.sound && "sound", p.open && "open the chat", p.send && "send “" + esc(p.send) + "”"].filter(Boolean).join(", ")}</td><td>${p.keep ? "every time" : "once, then gone"}</td><td>${p.fired ? p.fired + "× · last " + hhmm(p.last) : "not yet"}</td><td><button class="x" data-act="pouncedel" data-arg="${esc(p.id)}" title="Delete">✕</button></td></tr>`;
+  return `<h2>Buddy pounces</h2><p class="lead">Let Roost act when a buddy does something: when they sign on, come back from away, start typing or write to you, it can pop up a notice, play a sound, open the chat or send a message for you.</p>
+  <div class="row"><div class="card" style="flex:0 0 360px"><h3>New pounce</h3><label class="f">Account<select id="pn_acct">${accts.map(([v, n]) => `<option value="${esc(v)}"${pre.acct === v ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
+  <label class="f">Buddy<input id="pn_jid" list="pn_buds" placeholder="bob@localhost" value="${esc(pre.jid || "")}"></label><datalist id="pn_buds">${bud.map(j => `<option value="${esc(j)}">`).join("")}</datalist>
+  <p class="sub" style="margin:6px 0 2px">When they…</p>${POUNCE_ON.map(([k, n]) => `<label><input type="checkbox" id="pn_on_${k}"${k === "signon" ? " checked" : ""}> ${esc(n)}</label><br>`).join("")}
+  <p class="sub" style="margin:6px 0 2px">Then…</p><label><input type="checkbox" id="pn_popup" checked> pop up a notice</label><br><label><input type="checkbox" id="pn_sound"> play a sound${S.ui.sounds ? "" : " (Sounds are off on the Plugins page)"}</label><br><label><input type="checkbox" id="pn_open"> open the chat</label><br>
+  <label class="f">Send this message (optional)<input id="pn_send" placeholder="Hi! Got a minute?"></label><label><input type="checkbox" id="pn_keep"> keep it (fire every time; otherwise it fires once and is removed)</label><br><br>
+  <button class="pri" data-act="pounceadd">Add pounce</button></div>
+  <div class="card"><h3>Pounces (${ps.length})</h3>${ps.length ? `<table><tr><th>Buddy</th><th>When they</th><th>Then</th><th>Repeat</th><th>Fired</th><th></th></tr>${ps.map(row).join("")}</table>` : `<p class="sub">None yet. Add one on the left, or use 🎯 in a 1:1 chat.</p>`}
+  ${RT.pounceLog.length ? `<h3>What fired</h3>${RT.pounceLog.slice(0, 12).map(l => `<div><span class="sub">${hhmm(l.t)}</span> ${esc(l.jid)} ${esc((POUNCE_ON.find(x => x[0] === l.ev) || [, l.ev])[1])} → ${esc(l.did)}</div>`).join("")}` : ""}</div></div>`;
+}
+function consolePage() {
+  const f = MEM.xmlF || "";
+  const rows = RT.xml.filter(x => !f || x.xml.includes(f)).slice(-200);
+  return `<h2>XML console</h2><p class="lead">Every stanza in (◀) and out (▶), newest last. Sign-in data is hidden. Handy for checking the protocol.</p>
+  <div style="display:flex;gap:6px;margin-bottom:6px"><input id="xmlf" placeholder="Filter (e.g. presence)" value="${esc(f)}" style="flex:1"><button data-act="xmlclear">Clear</button><button data-act="xmlsave">⬇ Save</button><button data-act="droplink" title="Close every live socket without signing off, to watch the session resume (stream management)">Drop the link (test resume)</button></div>
+  <pre style="max-height:70vh">${rows.map(x => `${hhmm(x.t)} ${x.dir === "in" ? "◀" : "▶"} ${x.acct}\n${x.xml}`).map(esc).join("\n\n") || "Nothing yet: sign on to see traffic."}</pre>`;
+}
+function aboutPage() {
+  const st = RC.selftest();
+  return `<h2>Roost</h2><p class="lead">A multi-account chat app for XMPP (the open Jabber standard): one buddy list for all your accounts, groups, presence, 1:1 chats in tabs, group chats, history, plugins, and a phone layout on the same engine. Everything (the XMPP engine, the sign-in crypto, the test server) is written from scratch here.</p>
+  ${inApp ? `<div class="banner"><b>Inside Randis UDS the tab wall blocks network sockets</b>, so signing on from this tab can't reach a server yet. Use a standalone copy (buttons below) in a browser or in Sim Phone. Letting this one tab reach 127.0.0.1 is waiting on your OK.</div>` : ""}
+  <div class="row"><div class="card"><h3>Try it safely on this computer</h3><p>Start the local test server (only listens on 127.0.0.1, test accounts only):</p><pre>python data/_q13_build/xmpp_test_server.py</pre><p>Then <button data-act="testacct">add the test accounts</button> and sign on. Two copies of Roost (or desktop + phone) can chat with each other.</p></div>
+  <div class="card"><h3>Copies to run anywhere</h3><button class="pri" data-act="exportdesk">⬇ Desktop page (.html)</button> <button class="pri" data-act="exportphone">⬇ Phone page (.html)</button><p class="sub">Single files, no install. The phone page opens straight into the phone layout (also works in the Sim Phone tab and as the base of the Android/iOS apps).</p></div>
+  <div class="card"><h3>What works</h3><ul><li>Sign-in: SCRAM-SHA-256, SCRAM-SHA-1 (checks the server's proof too), PLAIN (refused unencrypted to non-local servers)</li><li>Roster, groups, add/remove, approve/deny requests, presence + status messages</li><li>1:1 chat, typing notices, offline messages, private messages in rooms</li><li>Group chats: join, create, topic, who's here, history, leave</li><li>Multiple accounts at once, history search + export, XML console, plugins</li><li>Phone-ready: the session survives a dropped link (stream management resume), messages sent from your other devices show up here (carbons), older messages load from the server (⟲ History)</li><li>Files: 📎 uploads to the server (HTTP upload) and sends the link; pictures show as thumbnails; the size limit is checked first</li><li>Delivered ticks (✓ sent, ✓✓ delivered); ↑ in an empty box edits your last message</li></ul><p class="sub">Built-in checks (RFC test vectors): <b class="${st.fail.length ? "bad" : "ok"}">${st.pass}/${st.pass + st.fail.length} pass</b></p></div>
+  <div class="card"><h3>Install on a phone (web app)</h3><p>The phone page also comes as an installable web app (works offline once opened). Build it and serve it from the test server:</p><pre>python data/_q13_build/build.py roost --pwa data/_q13_build/pwa
+python data/_q13_build/xmpp_test_server.py --app data/_q13_build/pwa</pre><p>Then open <b>http://127.0.0.1:5280/app/</b> and choose Install. (A real phone would need the server reachable on the home network: waiting on your OK.)</p></div>
+  <div class="card"><h3>Not yet (planned)</h3><ul><li>End-to-end encryption (OMEMO)</li><li>Android / iOS app packages</li><li>Plain TCP + TLS (needs a desktop helper; browsers only speak WebSocket)</li></ul></div></div>`;
+}
+
+let SRC = "";
+const APP = {
+  key: "roost", title: "Roost",
+  pages: [["chat", "💬 Chat", () => ((S.ui.phone || document.body.classList.contains("fullphone")) ? phoneChat() : deskChat()) + infoModal()], ["accounts", "Accounts", accountsPage], ["logs", "History", logsPage], ["plugins", "Plugins", pluginsPage], ["pounces", "🎯 Pounces", pouncesPage], ["console", "XML console", consolePage], ["about", "About", aboutPage]],
+  testSkip: ["pouncedel", "acctdel", "logclear", "xmlclear", "phone", "close", "vcpick", "modrm"],
+  defaults() {
+    if (!SRC) SRC = "<!doctype html>\n" + document.documentElement.outerHTML;
+    return { accounts: [], status: { show: "", text: "" }, ui: { phone: !!window.ROOST_FORCE_PHONE, screen: "list", ptab: "chats", hideOffline: false, sounds: false, soundVol: 40, popups: true, popRooms: "mention", popText: true, sysNotify: false }, logs: {}, bookmarks: [], avatars: {}, avaBy: {}, pounces: [],
+      plugins: { timestamps: true, smileys: true, typing: true, autoreply: false, autoreplyText: "I'm away right now, back soon.", titleflash: true, logging: true } };
+  },
+  after(pid) {
+    if (window.ROOST_FORCE_PHONE) { document.body.classList.add("fullphone"); S.ui.phone = true; }
+    const hdr = $("header"); if (hdr) { let b = $("#phonebtn"); if (!b) { hdr.insertAdjacentHTML("beforeend", `<button id="phonebtn" data-act="phone" title="Switch desktop / phone layout">📱</button>`); } }
+    const ns = $(".msgs"); if (ns && !ns.dataset.s) { ns.scrollTop = ns.scrollHeight; ns.dataset.s = 1; }
+    if (pid !== "chat" && window.ROOST_FORCE_PHONE) $("#view").insertAdjacentHTML("afterbegin", `<button data-page="chat" style="margin:8px">‹ Back to chats</button>`);
+  },
+  onField(p, v, final) {
+    if (p.startsWith("plugins.")) return;
+    if (p.startsWith("accounts.") && final) paint();
+  },
+  selftest() { const r = RC.selftest(); return { pass: r.pass, fail: r.fail }; },
+};
+if (window.ROOST_FORCE_PHONE || (window.innerWidth < 560 && window.innerWidth > 0)) window.ROOST_FORCE_PHONE = 1;
+
+function newAcct(jid, pw, url) { const id = "a" + uid(); S.accounts.push({ id, jid, url: url || LOCAL_URL, resource: "roost", mech: "auto", remember: false, password: "" }); if (pw) RT.pw[id] = pw; return id; }
+function exportPage(phone) {
+  let h = SRC.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/gi, "");
+  h = h.replace(/<header>[\s\S]*?<\/header>/, m => m.replace(/<nav id="nav">[\s\S]*?<\/nav>/, '<nav id="nav"></nav>').replace(/<button id="phonebtn"[^>]*>[^<]*<\/button>/, "")).replace(/<main id="view">[\s\S]*?<\/main>/, '<main id="view"></main>');
+  h = h.replace("<head>", '<head>\n<script>window.ROOST_STANDALONE=1' + (phone ? ';window.ROOST_FORCE_PHONE=1' : '') + '<\/script>' + (phone ? '\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">' : ''));
+  download(phone ? "roost-phone.html" : "roost-desktop.html", h, "text/html");
+}
+Object.assign(ACT, {
+  conn: id => connect(id), disc: id => disconnect(id),
+  connall() { S.accounts.forEach(a => (!RT.cl[a.id] || RT.cl[a.id].state !== "online") && connect(a.id)); },
+  discall() { S.accounts.forEach(a => disconnect(a.id)); },
+  acctadd() { newAcct("you@localhost", ""); save(); render(); },
+  acctdel(id) { if (!confirm("Remove this account from Roost? (Its logs stay in History.)")) return; disconnect(id); delete RT.cl[id]; S.accounts = S.accounts.filter(a => a.id !== id); save(); render(); },
+  testacct() {
+    for (const [u, p] of [["alice", "alice-test-pw"], ["bob", "bob-test-pw"], ["carol", "carol-test-pw"]]) if (!S.accounts.find(a => a.jid === u + "@localhost")) newAcct(u + "@localhost", p);
+    save(); toast("Added alice, bob and carol @localhost (passwords in memory). Start the test server, then sign on.", 6000); render();
+  },
+  open(k) { const [acct, kind, ...j] = k.split("|"); openConv(acct, kind, j.join("|"), true); MEM.page = "chat"; paint(); },
+  close(k) { closeConv(k); paint(); },
+  send() { const b = $("#msgbox"); if (!b || !RT.sel) return; if (sendText(RT.sel, b.value)) { b.value = ""; RT.draft[RT.sel] = ""; RT.lastComposing = 0; } paint(); },
+  grp(g) { RT.collapsed[g] = !RT.collapsed[g]; paint(); },
+  adding() { MEM.adding = !MEM.adding; MEM.joining = false; render(); },
+  addcancel() { MEM.adding = false; render(); },
+  async addok() {
+    const acct = $("#add_acct").value, jid = $("#add_jid").value.trim(), cl = RT.cl[acct];
+    if (!/^[^@\s]+@[^@\s/]+$/.test(jid)) { toast("Type an address like bob@localhost"); return; }
+    if (!cl || cl.state !== "online") { toast("Sign that account on first."); return; }
+    await cl.addContact(jid, $("#add_name").value.trim(), [$("#add_group").value.trim()]); MEM.adding = false; toast("Asked " + jid + " to share status."); paint();
+  },
+  subok(i) { const r = RT.subreq.splice(+i, 1)[0]; const cl = RT.cl[r.acct]; if (cl) { if (!cl.roster[r.from]) cl.editContact(r.from, "", ["Friends"]).catch(() => {}); cl.approve(r.from); } paint(); },
+  subno(i) { const r = RT.subreq.splice(+i, 1)[0]; const cl = RT.cl[r.acct]; if (cl) cl.deny(r.from); paint(); },
+  joining() { MEM.joining = !MEM.joining; MEM.adding = false; render(); },
+  joincancel() { MEM.joining = false; render(); },
+  joinok() {
+    const acct = $("#join_acct").value, room = $("#join_room").value.trim().toLowerCase(), nick = $("#join_nick").value.trim(), cl = RT.cl[acct];
+    if (!/^[^@\s]+@[^@\s/]+$/.test(room) || !nick) { toast("Type a room like lounge@conference.localhost and a nickname"); return; }
+    if (!cl || cl.state !== "online") { toast("Sign that account on first."); return; }
+    cl.join(room, nick); if ($("#join_save").checked && !S.bookmarks.find(b => b.acct === acct && b.room === room)) { S.bookmarks.push({ acct, room, nick, autojoin: true }); save(); }
+    MEM.joining = false; openConv(acct, "room", room, true); paint();
+  },
+  leave() { const c = RT.convs[RT.sel]; if (c && RT.cl[c.acct]) RT.cl[c.acct].leave(c.jid); },
+  rejoin() { const c = RT.convs[RT.sel]; if (!c) return; const cl = RT.cl[c.acct]; if (!cl || cl.state !== "online") { toast("Sign on first."); return; } cl.join(c.jid, (cl.rooms[c.jid] && cl.rooms[c.jid].nick) || cl.user); paint(); },
+  topic() { const c = RT.convs[RT.sel]; if (!c) return; const t = prompt("New topic for #" + c.jid.split("@")[0], (RT.cl[c.acct].rooms[c.jid] || {}).subject || ""); if (t != null) RT.cl[c.acct].setSubject(c.jid, t); },
+  pm(nick) { const c = RT.convs[RT.sel]; if (!c || c.kind !== "room") return; const r = RT.cl[c.acct].rooms[c.jid]; if (r && nick === r.nick) return; openConv(c.acct, "pm", c.jid + "/" + nick, true); paint(); },
+  phone() { S.ui.phone = !S.ui.phone; if (!S.ui.phone) { document.body.classList.remove("fullphone"); window.ROOST_FORCE_PHONE = 0; } save(); go("chat"); },
+  ptab(t) { S.ui.ptab = t; S.ui.screen = "list"; MEM.page = "chat"; paint(); },
+  pback() { S.ui.screen = "list"; paint(); },
+  logsel(k) { MEM.logSel = k; render(); },
+  logtxt() { const k = MEM.logSel || Object.keys(S.logs)[0]; if (!k) return; download("roost-log.txt", S.logs[k].map(l => `[${new Date(l.t).toISOString()}] ${l.me ? "me" : l.who}: ${l.body}`).join("\r\n"), "text/plain"); },
+  logjson() { download("roost-logs.json", JSON.stringify(S.logs, null, 1), "application/json"); },
+  logclear() { const k = MEM.logSel || Object.keys(S.logs)[0]; if (k && confirm("Clear the log " + k + "?")) { delete S.logs[k]; save(); render(); } },
+  xmlclear() { RT.xml = []; render(); },
+  xmlsave() { download("roost-xml.txt", RT.xml.map(x => `${new Date(x.t).toISOString()} ${x.dir} ${x.acct}\n${x.xml}`).join("\n\n"), "text/plain"); },
+  exportdesk() { exportPage(false); }, exportphone() { exportPage(true); },
+  attach() { if (!RT.sel) return; let f = $("#roostfile"); if (!f) { document.body.insertAdjacentHTML("beforeend", `<input type="file" id="roostfile" style="display:none">`); f = $("#roostfile"); } f.value = ""; f.click(); },
+  mam() { if (RT.sel) loadHistory(RT.sel); },
+  rx(arg) {
+    const [i, e] = String(arg).split("|"), c = RT.convs[RT.sel], l = c && c.lines[+i], cl = c && RT.cl[c.acct];
+    if (!l || !l.id || !cl || !cl.canSend()) return; const me = myName(c), cur = (l.rx || {})[me] || [];
+    const next = cur.includes(e) ? cur.filter(x => x !== e) : cur.concat([e]);
+    cl.react(c.jid, l.id, next, c.kind === "room");
+    if (c.kind === "chat") { l.rx = l.rx || {}; if (next.length) l.rx[me] = next; else delete l.rx[me]; }
+    paint();
+  },
+  retract(i) {
+    const c = RT.convs[RT.sel], l = c && c.lines[+i], cl = c && RT.cl[c.acct];
+    if (!l || !l.me || !l.id || !cl || !cl.canSend() || !confirm("Delete this message for everyone?")) return;
+    cl.retract(c.jid, l.id, c.kind === "room");
+    if (c.kind === "chat") { l.body = ""; l.url = ""; l.del = 1; l.rx = {}; }
+    paint();
+  },
+  sndtest() { let i = 0; for (const k of ["in", "out", "on", "off"]) setTimeout(() => sound(k, true), 450 * i++); },
+  async info(arg) { const [acct, ...j] = String(arg).split("|"), jid = j.join("|"), cl = RT.cl[acct]; MEM.info = { acct, jid }; paint();
+    if (!cl || cl.state !== "online") { MEM.info.err = "Sign on to see their info."; paint(); return; }
+    try { MEM.info.v = await cl.vcardGet(jid); } catch (e) { MEM.info.err = "No info (" + e.message + ")"; } paint(); },
+  async myinfo(acct) { const cl = RT.cl[acct]; if (!cl || cl.state !== "online") { toast("Sign that account on first."); return; }
+    MEM.info = { mine: true, acct, jid: RC.bare(cl.jid) }; render();
+    try { MEM.info.v = await cl.vcardGet(""); } catch (e) { MEM.info.v = {}; } render(); },
+  infoclose() { MEM.info = null; render(); },
+  vcpick() { let f = $("#roostava"); if (!f) { document.body.insertAdjacentHTML("beforeend", `<input type="file" id="roostava" accept="image/*" style="display:none">`); f = $("#roostava"); } f.value = ""; f.click(); },
+  vcnophoto() { if (MEM.info && MEM.info.v) { MEM.info.v.photo = null; render(); } },
+  async vcsave() { const m = MEM.info, cl = m && RT.cl[m.acct]; if (!m || !cl) return;
+    const v = Object.assign({}, m.v || {}, { fn: $("#vc_fn").value.trim(), nick: $("#vc_nick").value.trim(), url: $("#vc_url").value.trim(), desc: $("#vc_desc").value.trim() });
+    m.busy = 1; render();
+    try { const h = await cl.vcardSet(v); S.avaBy = S.avaBy || {}; if (h) { S.avaBy[m.jid] = h; keepAvatar(h, "data:" + v.photo.type + ";base64," + v.photo.b64); } else delete S.avaBy[m.jid]; save(); MEM.info = null; toast("Saved. Your buddies see it now."); }
+    catch (e) { m.busy = 0; toast("Not saved: " + e.message, 6000); } render(); },
+  async modrm(i) {
+    const c = RT.convs[RT.sel], l = c && c.lines[+i], cl = c && RT.cl[c.acct]; if (!l || !l.sid || !cl || !cl.canSend()) return;
+    const why = prompt("Remove " + l.who + "'s message for everyone? Reason (optional, everyone sees it):", ""); if (why == null) return;
+    try { await cl.moderate(c.jid, l.sid, why.trim()); } catch (e) { toast("The room refused: " + e.message, 6000); } },
+  popopen(id) { const p = RT.pops.find(x => x.id === id); RT.pops = RT.pops.filter(x => x.id !== id); popPaint(); if (p && p.conv) ACT.open(p.conv); },
+  popx(id, b, e) { if (e) e.stopPropagation(); RT.pops = RT.pops.filter(x => x.id !== id); popPaint(); },
+  pouncefor(arg) { const [acct, ...j] = String(arg).split("|"); MEM.pounceFor = { acct, jid: j.join("|") }; go("pounces"); },
+  pounceadd() {
+    const jid = $("#pn_jid").value.trim().toLowerCase(), on = {}; POUNCE_ON.forEach(([k]) => { if ($("#pn_on_" + k).checked) on[k] = 1; });
+    if (!/^[^@\s/]+@[^@\s/]+$/.test(jid)) { toast("Type the buddy's address, like bob@localhost"); return; }
+    if (!Object.keys(on).length) { toast("Tick at least one 'when they…' box"); return; }
+    const p = { id: uid(), acct: $("#pn_acct").value, jid, on, popup: $("#pn_popup").checked ? 1 : 0, sound: $("#pn_sound").checked ? 1 : 0, open: $("#pn_open").checked ? 1 : 0, send: $("#pn_send").value.trim().slice(0, 500), keep: $("#pn_keep").checked ? 1 : 0, fired: 0, last: 0 };
+    if (!p.popup && !p.sound && !p.open && !p.send) { toast("Pick at least one thing to do"); return; }
+    S.pounces = (S.pounces || []).concat([p]); MEM.pounceFor = null; save(); toast("Pounce added for " + jid); render();
+  },
+  pouncedel(id) { S.pounces = (S.pounces || []).filter(p => p.id !== id); save(); render(); },
+  droplink() { let n = 0; for (const id in RT.cl) if (RT.cl[id].state === "online") { RT.cl[id].dropLink(); n++; } toast(n ? "Dropped " + n + " link(s): watch them come back on their own" : "Nothing online to drop"); },
+});
+document.addEventListener("keydown", e => {
+  if (e.target.id === "msgbox" && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ACT.send(); }
+  if (e.target.id === "msgbox" && e.key === "ArrowUp" && !e.target.value && RT.sel) {
+    const c = RT.convs[RT.sel], l = c && c.kind !== "pm" && [...c.lines].reverse().find(x => x.me && !x.sys && x.id && !x.url && !x.old);
+    if (l) { e.preventDefault(); RT.editing[RT.sel] = l.id; RT.draft[RT.sel] = l.body; e.target.value = l.body; paint(); }
+  }
+  if (e.target.id === "msgbox" && e.key === "Escape" && RT.editing[RT.sel]) { delete RT.editing[RT.sel]; RT.draft[RT.sel] = ""; e.target.value = ""; paint(); }
+});
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t.id === "msgbox" && RT.sel) {
+    RT.draft[RT.sel] = t.value; const c = RT.convs[RT.sel];
+    if (S.plugins.typing && c && c.kind === "chat" && RT.cl[c.acct] && RT.cl[c.acct].state === "online" && Date.now() - (RT.lastComposing || 0) > 4000 && t.value) { RT.lastComposing = Date.now(); RT.cl[c.acct].chatState(c.jid, "composing"); }
+  }
+  else if (t.id === "bsearch") { MEM.q = t.value; clearTimeout(RT.bsT); RT.bsT = setTimeout(() => { paint(); setTimeout(() => { const b = $("#bsearch"); if (b) { b.focus(); b.selectionStart = b.selectionEnd = b.value.length; } }, 20); }, 250); }
+  else if (t.id === "logq") { MEM.logQ = t.value; clearTimeout(RT.lqT); RT.lqT = setTimeout(() => { render(); const b = $("#logq"); if (b) { b.focus(); b.selectionStart = b.selectionEnd = b.value.length; } }, 300); }
+  else if (t.id === "xmlf") { MEM.xmlF = t.value; clearTimeout(RT.xfT); RT.xfT = setTimeout(() => { render(); const b = $("#xmlf"); if (b) { b.focus(); b.selectionStart = b.selectionEnd = b.value.length; } }, 300); }
+  else if (t.dataset && t.dataset.pw) { const a = acctOf(t.dataset.pw); RT.pw[t.dataset.pw] = t.value; if (a && a.remember) { a.password = t.value; save(); } }
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "roostfile" && t.files && t.files[0] && RT.sel) { sendFile(RT.sel, t.files[0]); return; }
+  if (t.id === "roostava" && t.files && t.files[0] && MEM.info && MEM.info.mine) { squarePng(t.files[0], 96).then(b => { MEM.info.v = Object.assign(MEM.info.v || {}, { photo: { type: "image/png", b64: b } }); render(); }).catch(e => toast(e.message)); return; }
+  if (t.id === "pstatus" || t.id === "pstext") {
+    if (t.id === "pstatus") S.status.show = t.value; else S.status.text = t.value; save();
+    for (const a of S.accounts) { const cl = RT.cl[a.id];
+      if (S.status.show === "offline") { if (cl) cl.disconnect(); continue; }
+      if (cl && cl.state === "online") cl.sendPresence(S.status.show, S.status.text);
+      else if (t.id === "pstatus" && (!cl || cl.state === "offline") && (a.remember ? a.password : RT.pw[a.id])) connect(a.id);
+    }
+    paint();
+  }
+  if (t.dataset && t.dataset.p === "ui.sysNotify" && t.checked && window.Notification && Notification.permission === "default") { RT.notifAsked++; Notification.requestPermission().then(() => render()).catch(() => {}); }
+  if (t.dataset && t.dataset.p && /^accounts\.\d+\.remember$/.test(t.dataset.p)) { const a = S.accounts[+t.dataset.p.split(".")[1]]; if (a.remember) a.password = RT.pw[a.id] || ""; else a.password = ""; save(); }
+});
+document.addEventListener("click", e => {
+  if (!S.ui.phone || e.target.closest("button")) return; const m = e.target.closest(".m[data-i]"); if (!m) { if (RT.tap >= 0) { RT.tap = -1; paint(); } return; }
+  RT.tap = RT.tap === +m.dataset.i ? -1 : +m.dataset.i; paint();
+});
+window.addEventListener("beforeunload", () => { for (const id in RT.cl) try { RT.cl[id].disconnect(); } catch (e) {} });
+window.ROOST = { popup, popWanted, notifyMsg, mentions, pounce, inView, uiv, RT, connect, sendText, sendFile, loadHistory, openConv, convKey, newAcct, PLUGINS, sound, fetchAvatar, infoModal };
+
+</script>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+
+
+const RPN = { pubsub: "http://jabber.org/protocol/pubsub", ev: "http://jabber.org/protocol/pubsub#event", owner: "http://jabber.org/protocol/pubsub#owner",
+  caps: "http://jabber.org/protocol/caps", avData: "urn:xmpp:avatar:data", avMeta: "urn:xmpp:avatar:metadata", bm: "urn:xmpp:bookmarks:1", conf: "jabber:x:conference",
+  mucOwner: "http://jabber.org/protocol/muc#owner", mucUser: "http://jabber.org/protocol/muc#user", xdata: "jabber:x:data" };
+const RP_CAPS_NODE = "https://github.com/RandyWilliamMoore/randis-uds#roost";
+const RP_IDENT = { category: "client", type: "pc", name: "Roost" };
+function rpFeatures() { const N = RC.NS; return [N.discoInfo, N.muc, N.chatstates, N.ping, N.version, N.receipts, N.correct, N.oob, N.carbons, N.retract, N.reactions, RPN.caps, RPN.conf, RPN.avMeta + "+notify", RPN.bm + "+notify"]; }
+function rpCapsVer() { const s = `${RP_IDENT.category}/${RP_IDENT.type}//${RP_IDENT.name}<` + [...rpFeatures()].sort().map(f => f + "<").join(""); return RC.b64(RC.sha1(RC.utf8(s))); }
+const rpKids = el => el ? [...el.children] : [];
+const rpKid = (el, name, ns) => rpKids(el).find(c => c.localName === name && (!ns || c.namespaceURI === ns)) || null;
+const RPX = { invites: [], cfg: null, inv: null, joinPw: {}, bmBusy: {} };
+
+{
+  const C = RC.Client.prototype, X = RC.X, T = RC.T, NS = RC.NS;
+  const iq0 = C.iqIn; C.iqIn = function (el) {
+    const type = el.getAttribute("type"), q = el.firstElementChild;
+    if (type === "get" && q && q.namespaceURI === NS.discoInfo) { const node = q.getAttribute("node"), to = el.getAttribute("from") || null, id = el.getAttribute("id");
+      if (node && node !== RP_CAPS_NODE + "#" + rpCapsVer()) return this.stanza("iq", { type: "error", id, to }, X("error", { type: "cancel" }, X("item-not-found", { xmlns: NS.stanzas })));
+      return this.stanza("iq", { type: "result", id, to }, X("query", { xmlns: NS.discoInfo, node }, [X("identity", RP_IDENT), ...rpFeatures().map(v => X("feature", { var: v }))])); }
+    return iq0.call(this, el);
+  };
+  const ph0 = C.photoX; C.photoX = function () { return ph0.call(this) + X("c", { xmlns: RPN.caps, hash: "sha-1", node: RP_CAPS_NODE, ver: rpCapsVer() }); };
+  const msg0 = C.messageIn; C.messageIn = function (el, viaCarbon) {
+    const ev = rpKid(el, "event", RPN.ev), from = RC.bare(el.getAttribute("from") || "") || RC.bare(this.jid), me = RC.bare(this.jid);
+    if (ev) {
+      if (from !== me && !this.roster[from]) return;
+      const items = rpKid(ev, "items"), del = rpKid(ev, "delete");
+      if (del) { this.emit("pepdelete", { jid: from, node: del.getAttribute("node") }); return; }
+      if (!items) return; const node = items.getAttribute("node");
+      for (const it of rpKids(items)) { const id = it.getAttribute("id") || "";
+        if (it.localName === "retract") this.pepIn(from, node, id, null, true); else if (it.localName === "item") this.pepIn(from, node, id, it.firstElementChild, false); }
+      return;
+    }
+    const inv = rpKid(el, "x", RPN.conf), type = el.getAttribute("type") || "normal";
+    if (inv && type !== "groupchat" && type !== "error" && inv.getAttribute("jid")) {
+      this.emit("invite", { from: el.getAttribute("from") || "", room: RC.bare(inv.getAttribute("jid")).toLowerCase(), reason: inv.getAttribute("reason") || "", password: inv.getAttribute("password") || "" }); return; }
+    const xu = rpKid(el, "x", RPN.mucUser);
+    if (xu && type === "groupchat" && !rpKid(el, "body") && rpKids(xu).some(s => s.localName === "status" && s.getAttribute("code") === "104") && this.rooms[from]) { this.emit("roomcfg", { room: from }); return; }
+    return msg0.call(this, el, viaCarbon);
+  };
+  const mp0 = C.mucPresence; C.mucPresence = function (el, from, type, x) {
+    const codes = x ? [...x.getElementsByTagNameNS(RPN.mucUser, "status")].map(s => s.getAttribute("code")) : [], b = RC.bare(from);
+    if (type === "error" && this.rooms[b]) { const er = el.getElementsByTagName("error")[0], c = er && er.firstElementChild ? er.firstElementChild.localName : "";
+      if (c === "not-authorized") { this.rooms[b].error = "This room needs a password"; this.rooms[b].needPw = true; this.rooms[b].joined = false; this.emit("room", { room: b }); return; }
+      if (c === "registration-required") { this.rooms[b].error = "This room is for members only: ask its owner to add you"; this.rooms[b].joined = false; this.emit("room", { room: b }); return; }
+      if (c === "conflict" && this.rooms[b].auto && (this.rooms[b].tries || 0) < 3) { const r = this.rooms[b], base = r.baseNick || r.nick; r.baseNick = base; r.tries = (r.tries || 0) + 1; this.join(b, base + "~" + (r.tries + 1), null, undefined, true); return; } }
+    const r = mp0.call(this, el, from, type, x);
+    if (type === "unavailable" && codes.includes("322") && codes.includes("110")) this.emit("warn", { text: "Removed from " + b + ": the room is now for members only" });
+    return r;
+  };
+  C.join = function (room, nick, history, password, auto) {
+    room = RC.bare(room).toLowerCase(); this.rooms[room] = this.rooms[room] || { occ: {}, subject: "", joined: false, nick };
+    if (!/~\d$/.test(nick) || !this.rooms[room].baseNick) { this.rooms[room].baseNick = nick.replace(/~\d$/, ""); if (!/~\d$/.test(nick)) this.rooms[room].tries = 0; }
+    this.rooms[room].nick = nick; this.rooms[room].error = ""; this.rooms[room].needPw = false; if (auto != null) this.rooms[room].auto = !!auto;
+    this.joinPw = this.joinPw || {}; if (password != null) this.joinPw[room] = password; const pw = this.joinPw[room];
+    const inner = [this.pres.show ? T("show", this.pres.show) : "", this.pres.status ? T("status", this.pres.status) : "", this.photoX()].join("");
+    this.stanza("presence", { to: room + "/" + nick }, X("x", { xmlns: NS.muc }, [X("history", { maxstanzas: String(history == null ? 20 : history) }), pw ? T("password", pw) : ""]) + inner);
+    return room;
+  };
+  C.pepIn = function (jid, node, id, payload, gone) {
+    if (node === RPN.avMeta) { const info = payload && rpKid(payload, "info"); this.emit("pepavatar", { jid, id: gone ? "" : info ? (info.getAttribute("id") || "").toLowerCase() : "", type: info ? info.getAttribute("type") || "image/png" : "" }); return; }
+    if (node === RPN.bm && jid === RC.bare(this.jid)) { this.emit("bookmark", Object.assign({ room: id.toLowerCase() }, gone || !payload ? { removed: true } : rpBm(payload))); return; }
+    this.emit("pep", { jid, node, id, gone, xml: payload ? new XMLSerializer().serializeToString(payload) : "" });
+  };
+  const pubOpts = o => o ? X("publish-options", {}, X("x", { xmlns: RPN.xdata, type: "submit" }, [X("field", { var: "FORM_TYPE", type: "hidden" }, T("value", "http://jabber.org/protocol/pubsub#publish-options")), ...Object.entries(o).map(([k, v]) => X("field", { var: k }, T("value", String(v))))])) : "";
+  C.publish = async function (node, id, payloadXml, opts) {
+    const r = await this.iq("set", {}, X("pubsub", { xmlns: RPN.pubsub }, [X("publish", { node }, X("item", { id }, payloadXml)), pubOpts(opts)]));
+    const p = r.getElementsByTagName("item")[0]; return p ? p.getAttribute("id") : id;
+  };
+  C.retractItem = async function (node, id) { await this.iq("set", {}, X("pubsub", { xmlns: RPN.pubsub }, X("retract", { node, notify: "true" }, X("item", { id })))); };
+  C.pepItems = async function (jid, node, ids) {
+    const r = await this.iq("get", { to: jid ? RC.bare(jid) : null }, X("pubsub", { xmlns: RPN.pubsub }, X("items", { node }, (ids || []).map(i => X("item", { id: i })))));
+    const items = r.getElementsByTagNameNS(RPN.pubsub, "items")[0]; return rpKids(items).filter(i => i.localName === "item").map(i => ({ id: i.getAttribute("id"), el: i.firstElementChild }));
+  };
+  C.avatarPublish = async function (b64, type, w, h) {
+    const bytes = RC.unb64(b64), id = RC.hex(RC.sha1(bytes));
+    await this.publish(RPN.avData, id, X("data", { xmlns: RPN.avData }, b64));
+    await this.publish(RPN.avMeta, id, X("metadata", { xmlns: RPN.avMeta }, X("info", { bytes: String(bytes.length), id, type, width: w ? String(w) : null, height: h ? String(h) : null })));
+    return id;
+  };
+  C.avatarClear = async function () { await this.publish(RPN.avMeta, "current", X("metadata", { xmlns: RPN.avMeta })); };
+  C.avatarFetch = async function (jid, id) {
+    const it = (await this.pepItems(jid, RPN.avData, [id]))[0], b64 = it && it.el ? it.el.textContent.replace(/\s+/g, "") : "";
+    if (!b64) throw new Error("no picture"); if (RC.hex(RC.sha1(RC.unb64(b64))) !== id) throw new Error("picture didn't match its id"); return b64;
+  };
+  const BM_OPTS = { "pubsub#persist_items": "true", "pubsub#max_items": "max", "pubsub#send_last_published_item": "never", "pubsub#access_model": "whitelist" };
+  C.bookmarksLoad = async function () { try { return (await this.pepItems("", RPN.bm)).map(i => Object.assign({ room: (i.id || "").toLowerCase() }, rpBm(i.el))); } catch (e) { if (e.message === "item-not-found") return []; throw e; } };
+  C.bookmarkSave = async function (room, b) { await this.publish(RPN.bm, room, X("conference", { xmlns: RPN.bm, name: b.name || null, autojoin: b.autojoin ? "true" : "false" }, [b.nick ? T("nick", b.nick) : "", b.password ? T("password", b.password) : ""]), BM_OPTS); };
+  C.bookmarkRemove = async function (room) { await this.retractItem(RPN.bm, room); };
+  C.roomConfigGet = async function (room) {
+    const r = await this.iq("get", { to: room }, X("query", { xmlns: RPN.mucOwner })), x = r.getElementsByTagNameNS(RPN.xdata, "x")[0];
+    return rpKids(x).filter(f => f.localName === "field").map(f => ({ var: f.getAttribute("var"), type: f.getAttribute("type") || "text-single", label: f.getAttribute("label") || "", value: [...f.getElementsByTagNameNS(RPN.xdata, "value")].map(v => v.textContent).join("\n") }));
+  };
+  C.roomConfigSet = async function (room, vals) {
+    await this.iq("set", { to: room }, X("query", { xmlns: RPN.mucOwner }, X("x", { xmlns: RPN.xdata, type: "submit" }, [X("field", { var: "FORM_TYPE", type: "hidden" }, T("value", "http://jabber.org/protocol/muc#roomconfig")),
+      ...Object.entries(vals).map(([k, v]) => X("field", { var: k }, T("value", typeof v === "boolean" ? (v ? "1" : "0") : String(v))))])));
+  };
+  C.roomInfo = async function (room) { const r = await this.iq("get", { to: room }, X("query", { xmlns: NS.discoInfo })), f = [...r.getElementsByTagNameNS(NS.discoInfo, "feature")].map(x => x.getAttribute("var"));
+    return { membersOnly: f.includes("muc_membersonly"), password: f.includes("muc_passwordprotected") }; };
+  C.members = async function (room) { const r = await this.iq("get", { to: room }, X("query", { xmlns: NS.mucAdmin }, X("item", { affiliation: "member" }))); return [...r.getElementsByTagNameNS(NS.mucAdmin, "item")].map(i => i.getAttribute("jid")); };
+  C.invite = function (to, room, reason, password) {
+    const id = this.id(); this.stanza("message", { to: RC.bare(to), id }, T("body", `${RC.bare(this.jid)} invites you to join ${room}${reason ? ": " + reason : ""}`) + X("x", { xmlns: RPN.conf, jid: room, reason: reason || null, password: password || null })); return id;
+  };
+}
+function rpBm(el) { if (!el) return {}; const nick = rpKid(el, "nick"), pw = rpKid(el, "password"); return { name: el.getAttribute("name") || "", autojoin: /^(1|true)$/.test(el.getAttribute("autojoin") || ""), nick: nick ? nick.textContent : "", password: pw ? pw.textContent : "" }; }
+
+async function rpOnline(id, cl) {
+  try {
+    const server = await cl.bookmarksLoad(), local = (S.bookmarks || []).filter(b => b.acct === id), have = new Set(server.map(b => b.room));
+    for (const b of local) if (!have.has(b.room)) { await cl.bookmarkSave(b.room, { autojoin: b.autojoin, nick: b.nick }); server.push({ room: b.room, autojoin: b.autojoin, nick: b.nick, name: "", password: "" }); }
+    S.bookmarks = (S.bookmarks || []).filter(b => b.acct !== id).concat(server.map(b => ({ acct: id, room: b.room, nick: b.nick || cl.user || RC.bare(cl.jid).split("@")[0], autojoin: b.autojoin, name: b.name, server: true })));
+    save();
+    for (const b of server) if (b.autojoin && !(cl.rooms[b.room] && cl.rooms[b.room].joined)) { cl.join(b.room, b.nick || RC.bare(cl.jid).split("@")[0], null, b.password || undefined, true); openConv(id, "room", b.room); }
+    paint();
+  } catch (e) { RT.warn.unshift({ t: Date.now(), text: RC.bare(cl.jid) + ": bookmarks not loaded (" + e.message + ")" }); }
+}
+async function rpAvatarSync(cl) {
+  try { if (!cl.myCard || !cl.myCard.photo) return; const id = RC.hex(RC.sha1(RC.unb64(cl.myCard.photo.b64)));
+    let cur = ""; try { const m = (await cl.pepItems("", RPN.avMeta))[0], info = m && rpKid(m.el, "info"); cur = info ? info.getAttribute("id") : ""; } catch (e) { cur = ""; }
+    if (cur !== id) await cl.avatarPublish(cl.myCard.photo.b64, cl.myCard.photo.type); } catch (e) {   }
+}
+{
+  const oe0 = onEvent; onEvent = function (id, type, d, cl) {
+    if (type === "state" && d.state === "online" && d.why !== "resumed") { const keep = S.bookmarks; S.bookmarks = (S.bookmarks || []).filter(b => b.acct !== id);
+      oe0(id, type, d, cl); S.bookmarks = keep; rpOnline(id, cl); cl.loadMyPhoto().then(() => rpAvatarSync(cl)); return; }
+    if (type === "pepavatar") { S.avaBy = S.avaBy || {}; const k = d.jid;
+      if (!d.id) { if (S.avaBy[k]) { delete S.avaBy[k]; save(); paint(); } return; }
+      if (S.avaBy[k] !== d.id) { S.avaBy[k] = d.id; save(); }
+      if (!(S.avatars || {})[d.id] && !RT.avaBusy[d.id] && /^[0-9a-f]{40}$/.test(d.id)) { RT.avaBusy[d.id] = 1;
+        cl.avatarFetch(d.jid, d.id).then(b64 => { if (b64.length <= 200000 && AVA_TYPES.test(d.type)) { keepAvatar(d.id, "data:" + d.type + ";base64," + b64); paint(); } })
+          .catch(e => RT.warn.unshift({ t: Date.now(), text: d.jid + ": avatar not shown (" + e.message + ")" })).finally(() => delete RT.avaBusy[d.id]); }
+      paint(); return; }
+    if (type === "bookmark") {
+      const i = (S.bookmarks || []).findIndex(b => b.acct === id && b.room === d.room);
+      if (d.removed) { if (i >= 0) { S.bookmarks.splice(i, 1); save(); } }
+      else { const nb = { acct: id, room: d.room, nick: d.nick || RC.bare(cl.jid).split("@")[0], autojoin: d.autojoin, name: d.name, server: true }; if (i >= 0) S.bookmarks[i] = nb; else { S.bookmarks.push(nb); if (d.autojoin && !(cl.rooms[d.room] && cl.rooms[d.room].joined)) { cl.join(d.room, nb.nick, null, d.password || undefined, true); openConv(id, "room", d.room); } } save(); }
+      paint(); return; }
+    if (type === "invite") { if (!RPX.invites.some(v => v.acct === id && v.room === d.room)) { RPX.invites.push(Object.assign({ acct: id }, d)); toast(RC.bare(d.from) + " invites you to " + d.room); sound("in"); } paint(); return; }
+    if (type === "roomcfg") { const c = RT.convs[convKey(id, "room", d.room)]; if (c) addLine(c, { t: Date.now(), sys: true, body: "The room's settings were changed" }); paint(); return; }
+    return oe0(id, type, d, cl);
+  };
+  const rq0 = requestsHtml; requestsHtml = function () {
+    return rq0() + RPX.invites.map((v, i) => `<div class="req" data-invite="${esc(v.room)}"><b>${esc(RC.bare(v.from))}</b> invites you to <b>#${esc(v.room.split("@")[0])}</b>${v.reason ? `: “${esc(v.reason)}”` : ""}${v.password ? " (password included)" : ""}${tagOf(v.acct)}.<br><button class="pri" data-act="invok" data-arg="${i}">Join</button> <button data-act="invno" data-arg="${i}">No thanks</button></div>`).join("");
+  };
+  const ch0 = convHead; convHead = function (c) {
+    let h = ch0(c); if (c.kind !== "room") return h; const cl = RT.cl[c.acct], r = cl && cl.rooms[c.jid];
+    const marked = (S.bookmarks || []).some(b => b.acct === c.acct && b.room === c.jid);
+    const extra = `<button data-act="bmtoggle" title="${marked ? "Remove the bookmark" : "Bookmark: join on every device you sign on"}">${marked ? "★" : "☆"}</button>` + (r && r.joined ? `<button data-act="invopen" title="Invite someone">✉ Invite</button><button data-act="rcfgopen" title="Room settings (owner)">⚙</button>` : "") + (r && r.needPw ? `<button data-act="pwjoin">🔑 Password</button>` : "");
+    return h.replace(`<button data-act="leave">Leave</button>`, extra + `<button data-act="leave">Leave</button>`).replace(`<button data-act="rejoin">Join</button>`, extra + `<button data-act="rejoin">Join</button>`);
+  };
+  const pwField = `<label class="f">Room password (if it has one)<input id="join_pw" type="password" autocomplete="off"></label>`;
+  const dc0 = deskChat; deskChat = function () { return dc0().replace(`<label><input type="checkbox" id="join_save">`, pwField + `<label><input type="checkbox" id="join_save">`); };
+  const pc0 = phoneChat; phoneChat = function () { return pc0().replace(`<label><input type="checkbox" id="join_save">`, pwField + `<label><input type="checkbox" id="join_save">`); };
+  const im0 = infoModal; infoModal = function () { return im0() + rpCfgModal() + rpInvModal(); };
+}
+{
+  const rd0 = render; render = function () {
+    const keep = {}; document.querySelectorAll("#view input[id]:not([data-p]):not([data-fresh]), #view textarea[id]:not([data-p]), #view select[id]:not([data-p])").forEach(e => { keep[e.id] = e.type === "checkbox" || e.type === "radio" ? { c: e.checked } : { v: e.value }; });
+    const focus = document.activeElement && document.activeElement.id;
+    rd0();
+    for (const id in keep) { const e = document.getElementById(id); if (!e || e.hasAttribute("data-p")) continue; if ("c" in keep[id]) e.checked = keep[id].c; else if (e.value !== keep[id].v) e.value = keep[id].v; }
+    if (focus && keep[focus] && document.getElementById(focus)) document.getElementById(focus).focus();
+  };
+}
+function rpCfgModal() {
+  const m = RPX.cfg; if (!m) return ""; const f = k => (m.fields || []).find(x => x.var === k) || { value: "" };
+  return `<div class="rmodal" id="rcfgmodal"><div class="card"><h3>⚙ Room settings: #${esc(m.room.split("@")[0])}</h3>${m.err ? `<p class="bad">${esc(m.err)}</p>` : ""}${m.fields ? `
+   <label class="f">Name<input id="rc_name" value="${esc(f("muc#roomconfig_roomname").value)}"></label><label class="f">Description<input id="rc_desc" value="${esc(f("muc#roomconfig_roomdesc").value)}"></label>
+   <label><input type="checkbox" id="rc_mo"${f("muc#roomconfig_membersonly").value === "1" ? " checked" : ""}> Members only (people not on the list below can't come in; those here now are moved out)</label><br>
+   <label><input type="checkbox" id="rc_pp"${f("muc#roomconfig_passwordprotectedroom").value === "1" ? " checked" : ""}> Needs a password</label> <input id="rc_pw" type="password" placeholder="${f("muc#roomconfig_passwordprotectedroom").value === "1" ? "(keep the current one)" : "new password"}" autocomplete="off">
+   <h4>Members</h4><p class="sub">${(m.members || []).length ? m.members.map(j => `${esc(j)} <button class="x" data-act="rcmemdel" data-arg="${esc(j)}">✕</button>`).join(" · ") : "Nobody yet (the owner and admins can always come in)."}</p>
+   <p><input id="rc_newmem" data-fresh placeholder="friend@localhost"> <button data-act="rcmemadd">Add member</button></p>
+   <p><button class="pri" data-act="rcfgsave"${m.busy ? " disabled" : ""}>Save</button> <button data-act="rcfgclose">Close</button></p>` : `<p class="sub">${m.err ? "" : "Asking the room…"}</p><button data-act="rcfgclose">Close</button>`}</div></div>`;
+}
+function rpInvModal() {
+  const m = RPX.inv; if (!m) return ""; const cl = RT.cl[m.acct]; const ppl = cl ? Object.keys(cl.roster).sort() : [];
+  return `<div class="rmodal" id="invmodal"><div class="card"><h3>✉ Invite to #${esc(m.room.split("@")[0])}</h3>
+   <label class="f">Who<select id="inv_to">${ppl.map(j => `<option value="${esc(j)}">${esc((cl.roster[j] && cl.roster[j].name) || j)}</option>`).join("")}</select></label><label class="f">Or an address<input id="inv_addr" placeholder="friend@localhost"></label>
+   <label class="f">Note (optional)<input id="inv_reason"></label>${m.membersOnly ? `<label><input type="checkbox" id="inv_member" checked> Add them to the member list first (members-only room)</label><br>` : ""}${m.password ? `<label><input type="checkbox" id="inv_pw" checked> Send the room password with the invite</label><br>` : ""}
+   <p><button class="pri" data-act="invsend">Send invite</button> <button data-act="invclose">Cancel</button></p></div></div>`;
+}
+Object.assign(ACT, {
+  invok(i) { const v = RPX.invites.splice(+i, 1)[0], cl = v && RT.cl[v.acct]; if (!cl || cl.state !== "online") { toast("Sign on first."); paint(); return; }
+    cl.join(v.room, RC.bare(cl.jid).split("@")[0], null, v.password || undefined); openConv(v.acct, "room", v.room, true); paint(); },
+  invno(i) { RPX.invites.splice(+i, 1); paint(); },
+  async bmtoggle() { const c = RT.convs[RT.sel], cl = c && RT.cl[c.acct]; if (!c || !cl || cl.state !== "online") { toast("Sign on first."); return; }
+    const i = (S.bookmarks || []).findIndex(b => b.acct === c.acct && b.room === c.jid);
+    try { if (i >= 0) { await cl.bookmarkRemove(c.jid); S.bookmarks.splice(i, 1); toast("Bookmark removed on every device."); }
+      else { const nick = (cl.rooms[c.jid] && cl.rooms[c.jid].nick) || RC.bare(cl.jid).split("@")[0]; await cl.bookmarkSave(c.jid, { autojoin: true, nick, password: (cl.joinPw || {})[c.jid] || "" }); S.bookmarks.push({ acct: c.acct, room: c.jid, nick, autojoin: true, server: true }); toast("Bookmarked: joins by itself wherever you sign on."); }
+      save(); paint(); } catch (e) { toast("Bookmark not saved: " + e.message, 6000); } },
+  pwjoin() { const c = RT.convs[RT.sel], cl = c && RT.cl[c.acct]; if (!cl) return; const pw = prompt("Password for #" + c.jid.split("@")[0]); if (pw == null) return;
+    cl.join(c.jid, (cl.rooms[c.jid] && cl.rooms[c.jid].nick) || RC.bare(cl.jid).split("@")[0], null, pw); paint(); },
+  async rcfgopen() { const c = RT.convs[RT.sel], cl = c && RT.cl[c.acct]; if (!cl) return; RPX.cfg = { acct: c.acct, room: c.jid }; render();
+    try { RPX.cfg.fields = await cl.roomConfigGet(c.jid); try { RPX.cfg.members = await cl.members(c.jid); } catch (e) { RPX.cfg.members = []; } }
+    catch (e) { RPX.cfg.err = e.message === "forbidden" ? "Only the room's owner can change its settings." : "Couldn't read the settings: " + e.message; } render(); },
+  rcfgclose() { RPX.cfg = null; render(); },
+  async rcfgsave() { const m = RPX.cfg, cl = m && RT.cl[m.acct]; if (!cl) return; const pp = $("#rc_pp").checked, pw = $("#rc_pw").value;
+    const was = (m.fields.find(x => x.var === "muc#roomconfig_passwordprotectedroom") || {}).value === "1";
+    if (pp && !pw && !was) { toast("Type a password, or untick 'Needs a password'."); return; }
+    m.busy = 1; render();
+    try { await cl.roomConfigSet(m.room, { "muc#roomconfig_roomname": $("#rc_name").value.trim(), "muc#roomconfig_roomdesc": $("#rc_desc").value.trim(), "muc#roomconfig_membersonly": $("#rc_mo").checked, "muc#roomconfig_passwordprotectedroom": pp, "muc#roomconfig_roomsecret": pw });
+      if (pp && pw) { cl.joinPw = cl.joinPw || {}; cl.joinPw[m.room] = pw; }
+      RPX.cfg = null; toast("Room settings saved."); } catch (e) { m.busy = 0; m.err = "Not saved: " + e.message; } render(); },
+  async rcmemadd() { const m = RPX.cfg, cl = m && RT.cl[m.acct], j = $("#rc_newmem").value.trim().toLowerCase(); if (!cl) return; if (!/^[^@\s]+@[^@\s/]+$/.test(j)) { toast("Type an address like bob@localhost"); return; }
+    try { await cl.setAffiliation(m.room, j, "member"); m.members = await cl.members(m.room); } catch (e) { toast("Not added: " + e.message, 6000); } render(); },
+  async rcmemdel(j) { const m = RPX.cfg, cl = m && RT.cl[m.acct]; if (!cl) return; try { await cl.setAffiliation(m.room, j, "none"); m.members = await cl.members(m.room); } catch (e) { toast("Not removed: " + e.message, 6000); } render(); },
+  async invopen() { const c = RT.convs[RT.sel], cl = c && RT.cl[c.acct]; if (!cl) return; RPX.inv = { acct: c.acct, room: c.jid, password: (cl.joinPw || {})[c.jid] || "" };
+    try { Object.assign(RPX.inv, await cl.roomInfo(c.jid)); RPX.inv.password = RPX.inv.password ? (cl.joinPw || {})[c.jid] || "" : ""; } catch (e) {   } render(); },
+  invclose() { RPX.inv = null; render(); },
+  async invsend() { const m = RPX.inv, cl = m && RT.cl[m.acct]; if (!cl) return; const to = ($("#inv_addr").value.trim() || $("#inv_to").value || "").toLowerCase();
+    if (!/^[^@\s]+@[^@\s/]+$/.test(to)) { toast("Pick someone or type an address like bob@localhost"); return; }
+    try { if (m.membersOnly && $("#inv_member") && $("#inv_member").checked) await cl.setAffiliation(m.room, to, "member");
+      cl.invite(to, m.room, $("#inv_reason").value.trim(), m.password && $("#inv_pw") && $("#inv_pw").checked ? m.password : ""); RPX.inv = null; toast("Invite sent to " + to + "."); }
+    catch (e) { toast("Invite not sent: " + e.message, 6000); } render(); },
+});
+{
+  const jk0 = ACT.joinok; ACT.joinok = function () { const pwEl = $("#join_pw"), acct = $("#join_acct") && $("#join_acct").value, room = $("#join_room") && $("#join_room").value.trim().toLowerCase(), cl = RT.cl[acct];
+    if (cl && pwEl) { cl.joinPw = cl.joinPw || {}; if (pwEl.value) cl.joinPw[room] = pwEl.value; else delete cl.joinPw[room]; }
+    const saveIt = $("#join_save") && $("#join_save").checked, nick = $("#join_nick") && $("#join_nick").value.trim(); jk0();
+    if (saveIt && cl && cl.state === "online") cl.bookmarkSave(room, { autojoin: true, nick, password: (cl.joinPw || {})[room] || "" }).then(() => { const b = S.bookmarks.find(x => x.acct === acct && x.room === room); if (b) { b.server = true; save(); } }).catch(e => toast("Bookmark kept on this device only: " + e.message, 6000)); };
+  const vs0 = ACT.vcsave; ACT.vcsave = async function () { const m = MEM.info, cl = m && RT.cl[m.acct], v = m && m.v; const photo = v && v.photo;
+    await vs0(); if (!cl || MEM.info) return;
+    try { if (photo) await cl.avatarPublish(photo.b64, photo.type); else await cl.avatarClear(); } catch (e) { RT.warn.unshift({ t: Date.now(), text: "Avatar not published on PEP: " + e.message }); } };
+  APP.testSkip = (APP.testSkip || []).concat(["rcmemdel", "pwjoin", "bmtoggle", "invsend", "rcfgsave", "rcmemadd"]);
+  const st0 = APP.selftest; APP.selftest = () => { const r = st0() || { pass: 0, fail: [] }, fail = r.fail || (r.fail = []);
+    const s = "client/pc//Exodus 0.9.1<http://jabber.org/protocol/caps<http://jabber.org/protocol/disco#info<http://jabber.org/protocol/disco#items<http://jabber.org/protocol/muc<";
+    if (RC.b64(RC.sha1(RC.utf8(s))) !== "QgayPKawpkPSDYmwT/WM94uAlu0=") fail.push("caps: XEP-0115 example ver"); else r.pass++;
+    if (!/^[A-Za-z0-9+/]{27}=$/.test(rpCapsVer())) fail.push("caps: our ver " + rpCapsVer()); else r.pass++;
+    const bm = rpBm(new DOMParser().parseFromString(`<conference xmlns="${RPN.bm}" name="Coven" autojoin="true"><nick>JC</nick></conference>`, "application/xml").documentElement);
+    if (bm.name !== "Coven" || !bm.autojoin || bm.nick !== "JC" || bm.password !== "") fail.push("bookmark parse " + JSON.stringify(bm)); else r.pass++;
+    return r; };
+}
+
+</script>
+<script>
+if (inApp) { tell({ uds: "store-get" }); tell({ uds: "web-hello" }); setTimeout(() => { if (!loaded) { useLocal = true; boot(readLocal()); } }, 1500); }
+else boot(readLocal());
+</script>
+</body>
+</html>

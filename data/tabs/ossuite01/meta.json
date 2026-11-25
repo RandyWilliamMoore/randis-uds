@@ -1,0 +1,19 @@
+{
+ "id": "ossuite01",
+ "name": "Distro Studio",
+ "created": 1795505521.613028,
+ "icon": "tab-vm",
+ "section": "Tools",
+ "osdesign": true,
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795577981.538358,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

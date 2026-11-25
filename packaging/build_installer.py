@@ -44,7 +44,7 @@ def main(embed_zip, edition="developer"):
 
     app = os.path.join(STAGE, "app")
     os.makedirs(app)
-    tar = subprocess.run(["git", "archive", "HEAD"], cwd=ROOT, capture_output=True, check=True).stdout
+    tar = subprocess.run(["git", "archive", os.environ.get("UDS_BUILD_REF") or "HEAD"], cwd=ROOT, capture_output=True, check=True).stdout
     with tarfile.open(fileobj=io.BytesIO(tar)) as t:
         if edition != editions.DEFAULT:
             names = {m.name for m in t.getmembers()}

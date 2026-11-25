@@ -1,0 +1,971 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Open Hardware Studio</title>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<style>
+:root{--bg:#f9f9f7;--bg2:#fcfcfb;--bg3:#efeee9;--line:#dcdbd5;--tx:#0b0b0b;--mut:#52514e;--acc:#1c7a4a;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--bad:#d03b3b;
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948}
+body[data-theme=dark]{--bg:#0d0d0d;--bg2:#1a1a19;--bg3:#262624;--line:#383835;--tx:#f0efec;--mut:#c3c2b7;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+header b#apptitle{font-size:16px;color:var(--acc);margin-right:6px}
+#nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+#nav button{border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--mut)}
+#nav button.on{background:var(--acc);color:#fff}
+#nav button:hover:not(.on){background:var(--bg3)}
+#saved{font-size:11px;color:var(--mut)}
+main#view{flex:1;overflow:auto;padding:14px 18px}
+h2{margin:0 0 4px;font-size:21px}h3{margin:6px 0 8px;font-size:15px;color:var(--acc)}h4{margin:10px 0 4px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em}
+.lead{color:var(--mut);margin:0 0 12px;max-width:980px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}.row>.card{flex:1;min-width:300px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:2px;margin:0 0 6px}
+input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px}
+textarea{width:100%;min-height:80px;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--tx);border-radius:6px;padding:4px 10px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}button.x{padding:1px 7px;color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}td input,td select{width:100%;padding:2px 4px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+pre,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}pre{background:var(--bg3);padding:10px;border-radius:6px;overflow:auto;white-space:pre-wrap;margin:6px 0;max-height:420px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:var(--bg3);color:var(--mut)}
+.ok{color:var(--good)}.bad{color:var(--bad)}.warnc{color:#b7791f}
+.banner{border-left:4px solid var(--serious);background:var(--bg3);padding:8px 12px;border-radius:6px;margin:0 0 12px}
+.stat{font-size:26px;font-weight:600}.sub{font-size:12px;color:var(--mut)}
+svg text{fill:var(--mut);font-size:11px}svg .ink{fill:var(--tx)}
+.lnk{color:var(--s1);cursor:pointer;text-decoration:underline}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:9;max-width:80%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><b id="apptitle">Open Hardware Studio</b><nav id="nav"></nav><span id="saved"></span><button data-act="theme" title="Light / dark">◐</button></header>
+<main id="view"></main>
+<div id="toast"></div>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+"use strict";
+const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const inApp = window.parent !== window;
+const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100, r1 = n => Math.round(n * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (n, d) => (+n || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d });
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(+n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = n => (isFinite(n) ? Math.round(n * 1000) / 10 : 0) + "%";
+const SER = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)"];
+let toastT; function toast(t, ms) { const e = $("#toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => e.style.display = "none", ms || 3200); }
+let WEB_ON = false;
+function openLink(url) {
+  if (!inApp) { window.open(url, "_blank", "noopener"); return; }
+  if (WEB_ON) { tell({ uds: "web-pop", url }); return; }
+  copyText(url, "Link copied: paste it into your browser (or tick 'Web view' above this tab).");
+}
+function copyText(t, msg) { const fb = () => prompt("Copy this:", t); try { const p = navigator.clipboard && navigator.clipboard.writeText(t); if (p && p.then) p.then(() => toast(msg || "Copied.", 4000), fb); else fb(); } catch (e) { fb(); } }
+const L = (label, url) => `<span class="lnk" data-url="${esc(url)}">${esc(label)} ↗</span>`;
+
+let S, MEM = { page: null, sub: {} }, loaded = false, useLocal = true, saveT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const data = { [APP.key]: S };
+    if (inApp && !useLocal) tell({ uds: "store-set", data });
+    try { localStorage.setItem("uds-" + APP.key, JSON.stringify(S)); } catch (e) {}
+    const kb = Math.round(JSON.stringify(data).length / 1024), el = $("#saved");
+    if (el) el.textContent = `Saved · ${kb} KB`;
+    if (kb > 900) toast("Storage is nearly full: export a backup and remove some images.", 6000);
+  }, 400);
+}
+function readLocal() { try { return JSON.parse(localStorage.getItem("uds-" + APP.key) || "null"); } catch (e) { return null; } }
+function getP(path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), S); }
+function setP(path, val) { const p = path.split("."); let o = S; while (p.length > 1) { const k = p.shift(); if (o[k] == null) o[k] = {}; o = o[k]; } o[p[0]] = val; }
+function download(name, data, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: type || "text/plain" });
+  if (window.__dl) { window.__dl.push([name, typeof data === "string" ? data : "blob:" + blob.size]); }
+  if (inApp) { tell({ uds: "export-file", name, data: blob }); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const csvCell = c => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`;
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ""));
+}
+
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >> 8) & 255], u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  for (const [name, d] of files) {
+    const data = typeof d === "string" ? enc.encode(d) : d, nm = enc.encode(name), crc = crc32(data);
+    const head = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)]);
+    parts.push(head, nm, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nm);
+    off += head.length + nm.length + data.length;
+  }
+  const csize = central.reduce((a, b) => a + b.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+const AIQ = {};
+function askAI(prompt, cb) {
+  if (!inApp) { cb({ error: "Open this inside Randis UDS with an AI linked to use the AI helper." }); return; }
+  const id = "q10-" + uid(); AIQ[id] = cb;
+  tell({ uds: "planner-ask", id, history: [{ role: "user", content: String(prompt) }], context: APP.title + " app in Randis UDS." });
+}
+
+const F = (label, path, o) => { o = o || {}; const v = getP(path); const t = o.type || (typeof v === "number" ? "number" : "text");
+  if (o.opts) return `<label class="f">${esc(label)}<select data-p="${path}"${o.r ? " data-r" : ""}>${o.opts.map(x => { const [k, n] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(k)}"${String(v) === String(k) ? " selected" : ""}>${esc(n)}</option>`; }).join("")}</select></label>`;
+  if (t === "area") return `<label class="f">${esc(label)}<textarea data-p="${path}"${o.r ? " data-r" : ""} style="min-height:${o.h || 90}px">${esc(v)}</textarea></label>`;
+  if (t === "check") return `<label><input type="checkbox" data-p="${path}" data-r${v ? " checked" : ""}> ${esc(label)}</label>`;
+  return `<label class="f">${esc(label)}<input type="${t}" data-p="${path}"${t === "number" ? " data-num" : ""}${o.r ? " data-r" : ""} value="${esc(v)}"${o.step ? ` step="${o.step}"` : ""}${o.w ? ` style="width:${o.w}"` : ""}></label>`; };
+function TBL(path, cols, o) {
+  o = o || {}; const rows = getP(path) || [];
+  const head = cols.map(c => `<th>${esc(c[1])}</th>`).join("") + (o.extra ? o.extra.map(x => `<th>${esc(x[0])}</th>`).join("") : "") + "<th></th>";
+  const body = rows.map((r, i) => "<tr>" + cols.map(([k, , t, w]) => {
+    const p = `${path}.${i}.${k}`, v = r[k];
+    if (Array.isArray(t)) return `<td${w ? ` style="width:${w}"` : ""}><select data-p="${p}" data-r>${t.map(x => `<option${String(v) === String(x) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></td>`;
+    return `<td${w ? ` style="width:${w}"` : ""}><input data-p="${p}"${t === "number" ? ' type="number" data-num step="any"' : ""}${o.live ? " data-r" : ""} value="${esc(v)}"></td>`;
+  }).join("") + (o.extra ? o.extra.map(x => `<td class="num">${x[1](r, i)}</td>`).join("") : "") + `<td><button class="x" data-act="rowdel" data-arg="${path}|${i}">✕</button></td></tr>`).join("");
+  return `<table><tr>${head}</tr>${body}</table><button data-act="rowadd" data-arg="${path}">+ Add row</button>`;
+}
+function lineChart(series, o) {
+  o = o || {}; const W = o.w || 640, H = o.h || 220, P = { l: 46, r: 12, t: 10, b: 24 };
+  const all = series.flatMap(s => s.pts); if (!all.length) return `<p class="sub">No data yet.</p>`;
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) || 1, y0 = Math.min(0, ...ys), y1 = Math.max(...ys) * 1.08 || 1;
+  const X = x => P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r), Y = y => H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b);
+  let g = ""; for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P.l - 4}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`; }
+  g += `<text x="${P.l}" y="${H - 6}">${esc(o.xl ? o.xl(x0) : fmt(x0))}</text><text x="${W - P.r}" y="${H - 6}" text-anchor="end">${esc(o.xl ? o.xl(x1) : fmt(x1))}</text>`;
+  const lines = series.map((s, i) => `<polyline fill="none" stroke="${s.color || SER[i % 8]}" stroke-width="2" points="${s.pts.map(p => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join(" ")}"/>` +
+    s.pts.filter((p, j) => s.pts.length < 60 || j % Math.ceil(s.pts.length / 40) === 0).map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="6" fill="transparent"><title>${esc(s.name)}: ${esc(o.xl ? o.xl(p[0]) : fmt(p[0]))} → ${fmt(p[1])}</title></circle>`).join("")).join("");
+  const leg = series.length > 1 ? `<div class="legend">${series.map((s, i) => `<span><i style="background:${s.color || SER[i % 8]}"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  return leg + `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${g}${lines}</svg>`;
+}
+function barChart(items, o) {
+  o = o || {}; const W = o.w || 640, bh = 22, H = items.length * (bh + 6) + 8, lw = o.lw || 150, max = Math.max(...items.map(i => i.v), 1e-9);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">` + items.map((it, i) => { const y = 4 + i * (bh + 6), w = Math.max(1, (W - lw - 90) * it.v / max);
+    return `<text class="ink" x="${lw - 6}" y="${y + 15}" text-anchor="end">${esc(it.name)}</text><rect x="${lw}" y="${y}" width="${w}" height="${bh}" rx="4" fill="${it.color || SER[o.one ? 0 : i % 8]}"><title>${esc(it.name)}: ${esc(o.f ? o.f(it.v) : fmt(it.v))}</title></rect><text x="${lw + w + 6}" y="${y + 15}">${esc(o.f ? o.f(it.v) : fmt(it.v))}</text>`; }).join("") + "</svg>";
+}
+
+function nav() {
+  $("#nav").innerHTML = APP.pages.map(([id, label]) => `<button data-page="${id}" class="${MEM.page === id ? "on" : ""}">${esc(label)}</button>`).join("");
+}
+function go(id) { MEM.page = id; S._page = id; render(); }
+function render() {
+  nav(); const pg = APP.pages.find(p => p[0] === MEM.page) || APP.pages[0]; MEM.page = pg[0];
+  try { $("#view").innerHTML = pg[2](); if (APP.after) APP.after(pg[0]); }
+  catch (e) { $("#view").innerHTML = `<div class="card bad">This page hit an error: ${esc(e && e.stack || e)}</div>`; console.error(e); }
+}
+function boot(data) {
+  if (loaded) return; loaded = true;
+  S = Object.assign(APP.defaults(), data && typeof data === "object" ? data : {});
+  if (S._theme) document.body.dataset.theme = S._theme;
+  MEM.page = S._page || APP.pages[0][0]; render();
+}
+const ACT = {
+  theme() { S._theme = document.body.dataset.theme === "dark" ? "" : "dark"; document.body.dataset.theme = S._theme; save(); },
+  rowadd(path) { const a = getP(path) || []; const t = APP.rowTemplates && APP.rowTemplates[path]; a.push(t ? t() : {}); setP(path, a); save(); render(); },
+  rowdel(arg) { const [path, i] = arg.split("|"); getP(path).splice(+i, 1); save(); render(); },
+};
+function onField(e, final) {
+  const el = e.target, p = el.dataset && el.dataset.p; if (!p) return;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num !== undefined) v = num(v);
+  setP(p, v); save();
+  if (final && el.dataset.r !== undefined) render();
+  if (APP.onField) APP.onField(p, v, final);
+}
+document.addEventListener("input", e => { if (e.target.tagName === "SELECT" || e.target.type === "checkbox") return; onField(e, false); });
+document.addEventListener("change", e => { if (e.target.type === "file") { const a = e.target.dataset.file; if (a && ACT[a]) ACT[a]([...e.target.files], e.target); return; } onField(e, true); });
+document.addEventListener("click", e => {
+  const pg = e.target.closest("[data-page]"); if (pg) { go(pg.dataset.page); return; }
+  const l = e.target.closest(".lnk"); if (l) { openLink(l.dataset.url); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const f = ACT[b.dataset.act]; if (!f) return;
+  try { f(b.dataset.arg, b, e); } catch (err) { toast("That didn't work: " + err.message, 6000); console.error(err); }
+});
+window.addEventListener("message", e => {
+  const d = e.data; if (!d || typeof d.uds !== "string") return;
+  if (d.uds === "store") { if (!loaded) { useLocal = false; boot(d.data && d.data[APP.key] ? d.data[APP.key] : readLocal()); } }
+  else if (d.uds === "store-error") toast("Couldn't save: " + (d.note || ""), 6000);
+  else if (d.uds === "web-state") WEB_ON = !!d.on;
+  else if (d.uds === "exported" || d.uds === "exporting") toast(d.note || (d.ok ? "Saved." : "Not saved."));
+  else if (d.uds === "planner" && AIQ[d.id]) { if (d.done) { const cb = AIQ[d.id]; delete AIQ[d.id]; cb(d.error ? { error: d.error } : { text: d.text || "" }); } }
+});
+</script>
+<script>
+
+const PREFIX = [["R", "Resistor"], ["C", "Capacitor"], ["L", "Inductor"], ["D", "Diode"], ["LED", "LED"], ["Q", "Transistor"], ["U", "Chip (IC)"], ["IC", "Chip (IC)"],
+  ["J", "Connector / jack"], ["P", "Plug / header"], ["SW", "Switch"], ["S", "Switch"], ["Y", "Crystal"], ["X", "Crystal / oscillator"], ["F", "Fuse"], ["FB", "Ferrite bead"],
+  ["K", "Relay"], ["T", "Transformer"], ["BT", "Battery"], ["LS", "Speaker"], ["BZ", "Buzzer"], ["TP", "Test point"], ["RV", "Variable resistor / pot"], ["M", "Motor"], ["MOD", "Module"]];
+const PKG = {
+  "0402": { lib: "Resistor_SMD:R_0402_1005Metric", pins: 2, pads: () => [["1", -0.48, 0, 0.56, 0.62, "smd"], ["2", 0.48, 0, 0.56, 0.62, "smd"]], body: [1.0, 0.5] },
+  "0603": { lib: "Resistor_SMD:R_0603_1608Metric", pins: 2, pads: () => [["1", -0.825, 0, 0.8, 0.95, "smd"], ["2", 0.825, 0, 0.8, 0.95, "smd"]], body: [1.6, 0.8] },
+  "0805": { lib: "Resistor_SMD:R_0805_2012Metric", pins: 2, pads: () => [["1", -0.91, 0, 1.0, 1.45, "smd"], ["2", 0.91, 0, 1.0, 1.45, "smd"]], body: [2.0, 1.25] },
+  "1206": { lib: "Resistor_SMD:R_1206_3216Metric", pins: 2, pads: () => [["1", -1.46, 0, 1.15, 1.8, "smd"], ["2", 1.46, 0, 1.15, 1.8, "smd"]], body: [3.2, 1.6] },
+  "SOT-23": { lib: "Package_TO_SOT_SMD:SOT-23", pins: 3, pads: () => [["1", -0.95, 1.1, 0.6, 0.7, "smd"], ["2", 0.95, 1.1, 0.6, 0.7, "smd"], ["3", 0, -1.1, 0.6, 0.7, "smd"]], body: [2.9, 1.3] },
+  "SOIC": { lib: n => `Package_SO:SOIC-${n}_3.9x${(n / 2 * 1.27 + 0.1).toFixed(1)}mm_P1.27mm`, pins: 8, pads: n => dual(n, 1.27, 5.4, 1.55, 0.6, "smd"), body: n => [3.9, n / 2 * 1.27 + 0.1] },
+  "DIP": { lib: n => `Package_DIP:DIP-${n}_W7.62mm`, pins: 8, pads: n => dual(n, 2.54, 7.62, 1.6, 1.6, "thru"), body: n => [6.4, n / 2 * 2.54] },
+  "TO-220": { lib: "Package_TO_SOT_THT:TO-220-3_Vertical", pins: 3, pads: () => [["1", -2.54, 0, 1.9, 1.9, "thru"], ["2", 0, 0, 1.9, 1.9, "thru"], ["3", 2.54, 0, 1.9, 1.9, "thru"]], body: [10, 4.5] },
+  "LED-5mm": { lib: "LED_THT:LED_D5.0mm", pins: 2, pads: () => [["1", -1.27, 0, 1.8, 1.8, "thru"], ["2", 1.27, 0, 1.8, 1.8, "thru"]], body: [5.8, 5.8] },
+  "Radial-cap": { lib: "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm", pins: 2, pads: () => [["1", -1, 0, 1.6, 1.6, "thru"], ["2", 1, 0, 1.6, 1.6, "thru"]], body: [5, 5] },
+  "Header": { lib: n => `Connector_PinHeader_2.54mm:PinHeader_1x${String(n).padStart(2, "0")}_P2.54mm_Vertical`, pins: 4, pads: n => Array.from({ length: n }, (_, i) => [String(i + 1), 0, (i - (n - 1) / 2) * 2.54, 1.7, 1.7, "thru"]), body: n => [2.54, n * 2.54] },
+  "Module": { lib: n => `Module:Generic_${n}pin_2.54`, pins: 16, pads: n => dual(n, 2.54, 15.24, 1.7, 1.7, "thru"), body: n => [17.8, n / 2 * 2.54 + 2] },
+};
+function dual(n, pitch, span, w, h, type) { const half = Math.ceil(n / 2), out = []; for (let i = 0; i < half; i++) out.push([String(i + 1), -span / 2, (i - (half - 1) / 2) * pitch, w, h, type]);
+  for (let i = 0; i < n - half; i++) out.push([String(half + i + 1), span / 2, ((half - 1) / 2 - i) * pitch, w, h, type]); return out; }
+function fp(part) { const k = PKG[part.pkg] || PKG.Header, n = Math.max(1, Math.round(num(part.pins)) || k.pins);
+  return { lib: typeof k.lib === "function" ? k.lib(n) : k.lib, pads: k.pads(n), body: typeof k.body === "function" ? k.body(n) : k.body, n }; }
+const LIBRARY = [
+  ["Resistor 10k 0805", { ref: "R", value: "10k", pkg: "0805", pins: 2, price: 0.01 }], ["Capacitor 100nF 0805", { ref: "C", value: "100nF", pkg: "0805", pins: 2, price: 0.01 }],
+  ["Electrolytic 10uF", { ref: "C", value: "10uF 25V", pkg: "Radial-cap", pins: 2, price: 0.05 }], ["LED 5mm red", { ref: "D", value: "Red LED", pkg: "LED-5mm", pins: 2, price: 0.05 }],
+  ["NPN 2N3904 SOT-23", { ref: "Q", value: "MMBT3904", pkg: "SOT-23", pins: 3, price: 0.03 }], ["555 timer DIP-8", { ref: "U", value: "NE555", pkg: "DIP", pins: 8, price: 0.25 }],
+  ["Op-amp LM358 SOIC-8", { ref: "U", value: "LM358", pkg: "SOIC", pins: 8, price: 0.12 }], ["LM7805 regulator", { ref: "U", value: "LM7805", pkg: "TO-220", pins: 3, price: 0.3 }],
+  ["Header 1x4", { ref: "J", value: "Conn 1x4", pkg: "Header", pins: 4, price: 0.1 }], ["ESP32 dev module", { ref: "MOD", value: "ESP32-DevKitC", pkg: "Module", pins: 38, price: 6 }],
+  ["Arduino Nano", { ref: "MOD", value: "Arduino Nano", pkg: "Module", pins: 30, price: 4 }], ["Tactile switch", { ref: "SW", value: "Tact 6mm", pkg: "Header", pins: 2, price: 0.05 }],
+];
+const CODE_T = {
+  "Arduino: blink + serial": "// Board: Arduino Uno / Nano\nconst int LED = 13;\nvoid setup() {\n  pinMode(LED, OUTPUT);\n  Serial.begin(115200);\n}\nvoid loop() {\n  digitalWrite(LED, HIGH); delay(500);\n  digitalWrite(LED, LOW);  delay(500);\n  Serial.println(\"alive\");\n}\n",
+  "ESP32: read a sensor to serial": "// Board: ESP32 DevKitC (Arduino core)\nconst int SENSOR = 34;   // ADC pin\nvoid setup() { Serial.begin(115200); analogReadResolution(12); }\nvoid loop() {\n  int raw = analogRead(SENSOR);\n  float volts = raw * 3.3 / 4095.0;\n  Serial.printf(\"raw=%d volts=%.3f\\n\", raw, volts);\n  delay(1000);\n}\n",
+  "MicroPython (RP2040): button + LED": "# Board: Raspberry Pi Pico (MicroPython)\nfrom machine import Pin\nimport time\nled = Pin(25, Pin.OUT)\nbtn = Pin(15, Pin.IN, Pin.PULL_UP)\nwhile True:\n    led.value(0 if btn.value() else 1)\n    time.sleep_ms(10)\n",
+  "555 astable calculator note": "// No firmware: 555 astable.\n// f = 1.44 / ((R1 + 2*R2) * C)   duty = (R1 + R2) / (R1 + 2*R2)\n",
+};
+const LICENSES = [["CERN-OHL-S-2.0", "CERN-OHL-S 2.0 (hardware, strongly reciprocal)"], ["CERN-OHL-W-2.0", "CERN-OHL-W 2.0 (hardware, weakly reciprocal)"], ["CERN-OHL-P-2.0", "CERN-OHL-P 2.0 (hardware, permissive)"],
+  ["MIT", "MIT (code)"], ["GPL-3.0", "GPL 3.0 (code)"], ["CC-BY-SA-4.0", "CC BY-SA 4.0 (docs)"], ["CC-BY-4.0", "CC BY 4.0 (docs)"]];
+const APP = {
+  key: "ohw", title: "Open Hardware Studio",
+  defaults: () => ({
+    proj: { name: "Blinky 555", summary: "A tiny 555-timer LED blinker board, a first open-hardware project.", author: "", hwLicense: "CERN-OHL-S-2.0", swLicense: "MIT", docLicense: "CC-BY-SA-4.0", difficulty: "Easy", hours: 2, why: "", tags: "555, LED, beginner, PCB" },
+    photos: [], parts: [
+      { ref: "U1", value: "NE555", pkg: "DIP", pins: 8, mpn: "NE555P", maker: "TI", qty: 1, price: 0.25, supplier: "", notes: "" },
+      { ref: "R1", value: "1k", pkg: "0805", pins: 2, mpn: "", maker: "", qty: 1, price: 0.01, supplier: "", notes: "" },
+      { ref: "R2", value: "47k", pkg: "0805", pins: 2, mpn: "", maker: "", qty: 1, price: 0.01, supplier: "", notes: "" },
+      { ref: "C1", value: "10uF 25V", pkg: "Radial-cap", pins: 2, mpn: "", maker: "", qty: 1, price: 0.05, supplier: "", notes: "timing" },
+      { ref: "D1", value: "Red LED", pkg: "LED-5mm", pins: 2, mpn: "", maker: "", qty: 1, price: 0.05, supplier: "", notes: "" },
+      { ref: "R3", value: "330", pkg: "0805", pins: 2, mpn: "", maker: "", qty: 1, price: 0.01, supplier: "", notes: "LED current" },
+      { ref: "J1", value: "Power 1x2", pkg: "Header", pins: 2, mpn: "", maker: "", qty: 1, price: 0.1, supplier: "", notes: "5-9 V in" }],
+    nets: [{ name: "VCC", nodes: "U1.4 U1.8 R1.1 J1.1" }, { name: "GND", nodes: "U1.1 C1.2 D1.1 J1.2" }, { name: "DIS", nodes: "U1.7 R1.2 R2.1" },
+      { name: "THR", nodes: "U1.6 U1.2 R2.2 C1.1" }, { name: "OUT", nodes: "U1.3 R3.1" }, { name: "LED_A", nodes: "R3.2 D1.2" }],
+    board: { w: 40, h: 30, thick: 1.6, layers: 2, place: {} },
+    steps: [{ title: "Gather parts and tools", text: "Print the BOM. Tools: soldering iron, solder, flush cutters, multimeter." },
+      { title: "Solder the low parts first", text: "Resistors, then the IC socket, then the capacitor (watch polarity), the LED (long leg = anode) and the header." },
+      { title: "Test", text: "Before power: check VCC to GND is not a short. Power with 5-9 V and the LED should blink about once a second." }],
+    code: { tpl: "555 astable calculator note", text: CODE_T["555 astable calculator note"], file: "notes.txt" },
+    pub: { hackadayTitle: "", intro: "", safety: "Low voltage only. Check polarity of the capacitor and LED.", lessons: "" },
+  }),
+  rowTemplates: { parts: () => ({ ref: "R" + ((S.parts || []).length + 1), value: "", pkg: "0805", pins: 2, mpn: "", maker: "", qty: 1, price: 0, supplier: "", notes: "" }), nets: () => ({ name: "N" + ((S.nets || []).length + 1), nodes: "" }), steps: () => ({ title: "New step", text: "" }) },
+  pages: [["proj", "📋 Project", pageProj], ["photos", "📷 Photos & ID", pagePhotos], ["parts", "🧩 Parts & BOM", pageParts], ["sch", "🔌 Netlist", pageNets],
+    ["pcb", "🟩 Board", pagePcb], ["steps", "🛠 Build steps", pageSteps], ["code", "💻 Code", pageCode], ["pub", "📰 Publish drafts", pagePub]],
+  after: afterPage,
+  selftest,
+};
+
+function readiness() {
+  const c = [["Name and summary", S.proj.name && S.proj.summary.length > 20], ["At least one photo", S.photos.length > 0], ["Parts listed with values", S.parts.length > 0 && S.parts.every(p => p.value)],
+    ["Every part has a supplier or part number", S.parts.every(p => p.mpn || p.supplier)], ["Netlist passes the checks", erc().length === 0], ["Every part placed on the board", S.parts.every(p => S.board.place[p.ref])],
+    ["Three or more build steps", S.steps.length >= 3], ["Code or a note on why there is none", (S.code.text || "").trim().length > 0], ["Licenses picked", S.proj.hwLicense && S.proj.docLicense], ["Safety notes", (S.pub.safety || "").length > 10]];
+  return c;
+}
+function pageProj() {
+  const c = readiness(), done = c.filter(x => x[1]).length;
+  return `<h2>Open Hardware Studio</h2><p class="lead">Take a board from photos to a publish-ready open-source project: identify parts, list them, connect them, place them, export KiCad files and a BOM, write build steps and code, then make draft write-ups for Hackaday.io, Instructables and a GitHub README. <b>Drafts only: nothing is posted from here.</b></p>
+  <div class="row"><div class="card"><h3>Project</h3>${F("Name", "proj.name")}${F("One-line summary", "proj.summary", { type: "area", h: 50 })}${F("Why you made it", "proj.why", { type: "area", h: 50 })}
+  <div class="row">${F("Author / handle", "proj.author")}${F("Difficulty", "proj.difficulty", { opts: ["Easy", "Medium", "Hard"] })}${F("Build time (hours)", "proj.hours")}</div>${F("Tags (comma separated)", "proj.tags")}</div>
+  <div class="card"><h3>Licenses</h3>${F("Hardware", "proj.hwLicense", { opts: LICENSES.filter(l => l[0].startsWith("CERN")) })}${F("Code", "proj.swLicense", { opts: LICENSES.filter(l => /MIT|GPL/.test(l[0])) })}${F("Docs", "proj.docLicense", { opts: LICENSES.filter(l => l[0].startsWith("CC")) })}
+  <h3>Publish readiness: ${done} / ${c.length}</h3>${c.map(([t, ok]) => `<div>${ok ? '<span class="ok">✔</span>' : '<span class="bad">✘</span>'} ${esc(t)}</div>`).join("")}
+  <p><button data-act="exportZip" class="pri">⬇ Project package (.zip)</button> <button data-act="backup">Backup (.json)</button> <label class="pill">Restore <input type="file" data-file="restore" accept=".json" style="width:150px"></label></p></div></div>`;
+}
+
+const COLORS = [["black", 0, "#000"], ["brown", 1, "#7b3f00"], ["red", 2, "#d22"], ["orange", 3, "#f80"], ["yellow", 4, "#ee0"], ["green", 5, "#0a0"], ["blue", 6, "#22d"], ["violet", 7, "#90c"], ["grey", 8, "#888"], ["white", 9, "#fff"]];
+const MULT = [["silver", -2], ["gold", -1], ...COLORS.map(c => [c[0], c[1]])];
+const TOL = { brown: "±1%", red: "±2%", green: "±0.5%", blue: "±0.25%", violet: "±0.1%", grey: "±0.05%", gold: "±5%", silver: "±10%", none: "±20%" };
+function ohms(v) { return v >= 1e6 ? r2(v / 1e6) + "MΩ" : v >= 1e3 ? r2(v / 1e3) + "kΩ" : r2(v) + "Ω"; }
+function colorCode(bands) { const c = Object.fromEntries(COLORS.map(x => [x[0], x[1]])); const m = Object.fromEntries(MULT);
+  const digits = bands.slice(0, bands.length - 2).map(b => c[b]); if (digits.some(d => d == null)) return "?";
+  const val = +digits.join("") * Math.pow(10, m[bands[bands.length - 2]]); return ohms(val) + " " + (TOL[bands[bands.length - 1]] || ""); }
+const EIA96 = [100, 102, 105, 107, 110, 113, 115, 118, 121, 124, 127, 130, 133, 137, 140, 143, 147, 150, 154, 158, 162, 165, 169, 174, 178, 182, 187, 191, 196, 200, 205, 210, 215, 221, 226, 232, 237, 243, 249, 255, 261, 267, 274, 280, 287, 294, 301, 309, 316, 324, 332, 340, 348, 357, 365, 374, 383, 392, 402, 412, 422, 432, 442, 453, 464, 475, 487, 499, 511, 523, 536, 549, 562, 576, 590, 604, 619, 634, 649, 665, 681, 698, 715, 732, 750, 768, 787, 806, 825, 845, 866, 887, 909, 931, 953, 976];
+function smdCode(code) { code = String(code || "").trim().toUpperCase(); let m;
+  if ((m = code.match(/^(\d*)R(\d*)$/))) return ohms(parseFloat((m[1] || "0") + "." + (m[2] || "0")));
+  if ((m = code.match(/^(\d{2})([ABCDEFHXYZRS])$/))) { const k = { Z: 0.001, Y: 0.01, R: 0.01, X: 0.1, S: 0.1, A: 1, B: 10, H: 10, C: 100, D: 1000, E: 10000, F: 100000 }[m[2]]; return ohms(EIA96[+m[1] - 1] * k) + " ±1% (EIA-96)"; }
+  if ((m = code.match(/^(\d{2,3})(\d)$/))) return ohms(+m[1] * Math.pow(10, +m[2])) + (m[1].length === 3 ? " ±1%" : " ±5%");
+  return "unknown code"; }
+function capCode(code) { const m = String(code).trim().match(/^(\d{2})(\d)$/); if (!m) return "unknown code"; const pf = +m[1] * Math.pow(10, +m[2]);
+  return pf >= 1e6 ? r2(pf / 1e6) + " µF" : pf >= 1e3 ? r2(pf / 1e3) + " nF" : pf + " pF"; }
+function pagePhotos() {
+  MEM.bands = MEM.bands || ["brown", "black", "orange", "gold"];
+  const sel = (i, list) => `<select data-band="${i}">${list.map(x => `<option${MEM.bands[i] === x ? " selected" : ""}>${x}</option>`).join("")}</select>`;
+  const nb = MEM.bands.length;
+  return `<h2>Photos & part identification</h2><p class="lead">Add photos of the board (top, bottom, close-ups). Click on a photo to drop a marker on a part and give it a reference (R1, U2...). New references are added to the parts list.</p>
+  <div class="card"><label class="pill">➕ Add photos <input type="file" data-file="addPhotos" accept="image/*" multiple style="width:200px"></label> <span class="sub">Photos are shrunk to 1200 px wide so they fit in the app's storage.</span></div>
+  ${S.photos.map((ph, i) => `<div class="card"><div class="row" style="justify-content:space-between"><b>${esc(ph.name)}</b><span>${ph.marks.length} marker(s) <button class="x" data-act="delPhoto" data-arg="${i}">✕ photo</button></span></div>
+    <div style="position:relative;display:inline-block;max-width:100%"><img src="${ph.src}" data-ph="${i}" style="max-width:100%;cursor:crosshair;display:block">
+    ${ph.marks.map((m, j) => `<span title="${esc(m.ref)}" style="position:absolute;left:${m.x * 100}%;top:${m.y * 100}%;transform:translate(-50%,-50%);background:var(--acc);color:#fff;border-radius:10px;padding:0 6px;font-size:11px;cursor:pointer" data-act="delMark" data-arg="${i}|${j}">${esc(m.ref)}</span>`).join("")}</div></div>`).join("")}
+  <div class="row"><div class="card"><h3>Resistor colour bands</h3><p>Bands: ${nb === 4 ? `${sel(0, COLORS.map(c => c[0]))} ${sel(1, COLORS.map(c => c[0]))} ${sel(2, MULT.map(c => c[0]))} ${sel(3, Object.keys(TOL))}` : `${sel(0, COLORS.map(c => c[0]))} ${sel(1, COLORS.map(c => c[0]))} ${sel(2, COLORS.map(c => c[0]))} ${sel(3, MULT.map(c => c[0]))} ${sel(4, Object.keys(TOL))}`}
+    <button data-act="bands">${nb === 4 ? "5-band" : "4-band"}</button></p><p class="stat" id="bandval">${esc(colorCode(MEM.bands))}</p></div>
+  <div class="card"><h3>SMD resistor / capacitor codes</h3>${F2("Resistor code (103, 4702, 4R7, 01C)", "smd")}<p class="stat" id="smdval">${esc(smdCode(MEM.smd || "103"))}</p>${F2("Ceramic capacitor code (104, 222)", "cap")}<p class="stat" id="capval">${esc(capCode(MEM.cap || "104"))}</p></div>
+  <div class="card"><h3>Reference letters</h3><table>${PREFIX.map(p => `<tr><td><b>${p[0]}</b></td><td>${p[1]}</td></tr>`).join("")}</table></div></div>`;
+}
+const F2 = (label, k) => `<label class="f">${esc(label)}<input data-mem="${k}" value="${esc(MEM[k] || (k === "smd" ? "103" : "104"))}"></label>`;
+document.addEventListener("input", e => { const k = e.target.dataset && e.target.dataset.mem; if (!k) return; MEM[k] = e.target.value;
+  if (k === "smd") $("#smdval").textContent = smdCode(MEM.smd); if (k === "cap") $("#capval").textContent = capCode(MEM.cap); });
+document.addEventListener("change", e => { const i = e.target.dataset && e.target.dataset.band; if (i == null) return; MEM.bands[+i] = e.target.value; $("#bandval").textContent = colorCode(MEM.bands); });
+document.addEventListener("click", e => { const img = e.target.closest("img[data-ph]"); if (!img) return; const r = img.getBoundingClientRect(), i = +img.dataset.ph;
+  const ref = (prompt("Reference for this part (e.g. R1, U2):", nextRef()) || "").trim().toUpperCase(); if (!ref) return;
+  S.photos[i].marks.push({ x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, ref });
+  if (!S.parts.some(p => p.ref === ref)) S.parts.push(Object.assign(APP.rowTemplates.parts(), { ref, value: "", notes: "from photo " + S.photos[i].name }));
+  save(); render(); });
+function nextRef() { const n = S.parts.length + 1; return "U" + n; }
+Object.assign(ACT, {
+  addPhotos(files) { let left = files.length; files.forEach(f => { const rd = new FileReader(); rd.onload = () => { const im = new Image(); im.onload = () => {
+    const k = Math.min(1, 1200 / im.width), c = document.createElement("canvas"); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+    c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); S.photos.push({ name: f.name, src: c.toDataURL("image/jpeg", 0.82), marks: [] }); if (--left === 0) { save(); render(); } }; im.src = rd.result; }; rd.readAsDataURL(f); }); },
+  delPhoto(i) { if (confirm("Remove this photo?")) { S.photos.splice(+i, 1); save(); render(); } },
+  delMark(a) { const [i, j] = a.split("|").map(Number); S.photos[i].marks.splice(j, 1); save(); render(); },
+  bands() { MEM.bands = MEM.bands.length === 4 ? ["brown", "black", "black", "red", "brown"] : ["brown", "black", "orange", "gold"]; render(); },
+  libAdd(i) { const t = LIBRARY[+i][1], pre = t.ref; let n = 1; while (S.parts.some(p => p.ref === pre + n)) n++;
+    S.parts.push(Object.assign(APP.rowTemplates.parts(), t, { ref: pre + n })); save(); render(); },
+  bomCsv() { download(slug() + "_BOM.csv", bomCSV(), "text/csv"); },
+  kicadPcb() { download(slug() + ".kicad_pcb", kicadPcb()); },
+  kicadNet() { download(slug() + ".net", kicadNet()); },
+  boardSvg() { download(slug() + "_board.svg", boardSVG(true), "image/svg+xml"); },
+  autoPlace() { autoPlace(true); save(); render(); },
+  codeTpl() { S.code.text = CODE_T[S.code.tpl] || ""; save(); render(); },
+  codeDl() { download(S.code.file || "main.ino", S.code.text); },
+  mdHack() { download(slug() + "_hackaday.md", hackadayMD()); }, mdInst() { download(slug() + "_instructables.md", instructablesMD()); }, mdReadme() { download("README.md", readmeMD()); },
+  aiDoc() { askAI("Write a friendly 2-paragraph introduction for an open-source hardware project write-up. Project: " + JSON.stringify(S.proj) + " Parts: " + S.parts.map(p => p.ref + " " + p.value).join(", "),
+    r => { if (r.error) toast(r.error, 6000); else { S.pub.intro = r.text; save(); render(); } }); toast("Asking the linked AI…"); },
+  exportZip() { download(slug() + "_open_hardware.zip", makeZip(packageFiles())); },
+  backup() { download(slug() + "_ohw_backup.json", JSON.stringify(S, null, 1), "application/json"); },
+  restore(files) { const rd = new FileReader(); rd.onload = () => { try { const d = JSON.parse(rd.result); if (!d.parts) throw new Error("not an Open Hardware Studio backup"); S = Object.assign(APP.defaults(), d); save(); render(); toast("Restored."); } catch (e) { toast("Couldn't restore: " + e.message, 6000); } }; rd.readAsText(files[0]); },
+});
+const slug = () => (S.proj.name || "project").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "project";
+
+function bomGroups() { const g = {}; for (const p of S.parts) { const k = [p.value, p.pkg, p.mpn].join("|"); (g[k] = g[k] || { refs: [], p, qty: 0 }).refs.push(p.ref); g[k].qty += Math.max(1, num(p.qty)); } return Object.values(g); }
+function bomCSV() { return toCSV([["Item", "References", "Qty", "Value", "Footprint", "Manufacturer", "MPN", "Supplier", "Unit price", "Line total", "Notes"],
+  ...bomGroups().map((g, i) => [i + 1, g.refs.join(", "), g.qty, g.p.value, fp(g.p).lib, g.p.maker, g.p.mpn, g.p.supplier, num(g.p.price), r2(num(g.p.price) * g.qty), g.p.notes])]); }
+function pageParts() {
+  const total = S.parts.reduce((a, p) => a + num(p.price) * Math.max(1, num(p.qty)), 0);
+  return `<h2>Parts & BOM</h2><p class="lead">One row per part on the board. The package picks the KiCad footprint. The BOM groups identical parts.</p>
+  <div class="card"><h4>Quick add</h4>${LIBRARY.map((l, i) => `<button data-act="libAdd" data-arg="${i}">${esc(l[0])}</button>`).join(" ")}</div>
+  <div class="card">${TBL("parts", [["ref", "Ref", "text", "70px"], ["value", "Value", "text"], ["pkg", "Package", Object.keys(PKG), "110px"], ["pins", "Pins", "number", "60px"], ["mpn", "Part number", "text"], ["maker", "Maker", "text"], ["qty", "Qty", "number", "55px"], ["price", "Unit $", "number", "70px"], ["supplier", "Supplier / link", "text"], ["notes", "Notes", "text"]])}
+  <p>Parts: <b>${S.parts.length}</b> · BOM lines: <b>${bomGroups().length}</b> · Cost per board: <b>${money(total)}</b> · per 10 boards: <b>${money(total * 10)}</b></p><button data-act="bomCsv" class="pri">⬇ BOM (.csv)</button></div>`;
+}
+
+function nodesOf(n) { return String(n.nodes || "").split(/[\s,;]+/).filter(Boolean).map(t => { const [ref, pin] = t.split("."); return { ref: (ref || "").toUpperCase(), pin: pin || "1" }; }); }
+function erc() {
+  const out = [], refs = new Set(S.parts.map(p => p.ref)), used = new Set(), seen = {};
+  const dupRef = S.parts.map(p => p.ref).filter((r, i, a) => a.indexOf(r) !== i); dupRef.forEach(r => out.push(["bad", `Reference ${r} is used twice`]));
+  for (const n of S.nets) { const ns = nodesOf(n);
+    if (ns.length < 2) out.push(["warn", `Net ${n.name} has ${ns.length} connection(s); a net needs 2 or more`]);
+    for (const { ref, pin } of ns) { if (!refs.has(ref)) { out.push(["bad", `Net ${n.name}: ${ref} is not in the parts list`]); continue; }
+      const p = S.parts.find(x => x.ref === ref); if (+pin > fp(p).n || +pin < 1) out.push(["bad", `Net ${n.name}: ${ref} has no pin ${pin} (it has ${fp(p).n})`]);
+      const k = ref + "." + pin; if (seen[k] && seen[k] !== n.name) out.push(["bad", `${k} is in two nets (${seen[k]} and ${n.name})`]); seen[k] = n.name; used.add(ref); } }
+  S.parts.filter(p => !used.has(p.ref)).forEach(p => out.push(["warn", `${p.ref} is not connected to anything`]));
+  if (!S.nets.some(n => /^(GND|VSS|0V)$/i.test(n.name))) out.push(["warn", "No GND net"]);
+  return out;
+}
+function pageNets() {
+  const e = erc();
+  return `<h2>Netlist</h2><p class="lead">Each net lists the pins it joins as REF.PIN, e.g. <span class="mono">U1.8 R1.1 J1.1</span>. The checks run as you type.</p>
+  <div class="row"><div class="card" style="flex:2">${TBL("nets", [["name", "Net", "text", "120px"], ["nodes", "Pins (REF.PIN …)", "text"]], { live: true })}</div>
+  <div class="card"><h3>Checks</h3>${e.length ? e.map(([k, t]) => `<div class="${k === "bad" ? "bad" : "warnc"}">${k === "bad" ? "✘" : "⚠"} ${esc(t)}</div>`).join("") : '<div class="ok">✔ No problems found.</div>'}
+  <p><button data-act="kicadNet" class="pri">⬇ KiCad netlist (.net)</button> <button data-act="kicadSch">⬇ KiCad schematic (.kicad_sch)</button> <button data-act="schSvg">⬇ Schematic (.svg)</button></p></div></div>
+  <div class="card"><h3>Schematic sheet</h3><p class="sub">Each part is a box with numbered pins; a net name at a pin end joins every pin with that name (KiCad does the same with labels). ✕ = pin not connected. Not yet opened in real KiCad (needs KiCad installed).</p><div style="overflow:auto">${schSVG()}</div></div>
+  <div class="card"><h3>Connection map</h3><div id="netmap">${netMap()}</div></div>`;
+}
+function netMap() {
+  const W = 900, cols = Math.max(1, Math.ceil(Math.sqrt(S.parts.length))), bw = 120, bh = 46, gx = (W - 40) / cols, gy = 110;
+  const pos = {}; S.parts.forEach((p, i) => pos[p.ref] = [20 + (i % cols) * gx + gx / 2, 30 + Math.floor(i / cols) * gy + bh / 2]);
+  const H = Math.ceil(S.parts.length / cols) * gy + 30;
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+  S.nets.forEach((n, i) => { const ps = nodesOf(n).filter(x => pos[x.ref]); if (ps.length < 2) return; const c = SER[i % 8], hub = ps.reduce((a, x) => [a[0] + pos[x.ref][0] / ps.length, a[1] + pos[x.ref][1] / ps.length], [0, 0]);
+    ps.forEach(x => s += `<line x1="${pos[x.ref][0]}" y1="${pos[x.ref][1]}" x2="${hub[0]}" y2="${hub[1]}" stroke="${c}" stroke-width="2"><title>${esc(n.name)}: ${x.ref}.${x.pin}</title></line>`);
+    s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="4" fill="${c}"/><text class="ink" x="${hub[0] + 6}" y="${hub[1] - 4}">${esc(n.name)}</text>`; });
+  S.parts.forEach(p => { const [x, y] = pos[p.ref]; s += `<rect x="${x - bw / 2}" y="${y - bh / 2}" width="${bw}" height="${bh}" rx="6" fill="var(--bg2)" stroke="var(--line)"/><text class="ink" x="${x}" y="${y - 3}" text-anchor="middle" font-weight="600">${esc(p.ref)}</text><text x="${x}" y="${y + 13}" text-anchor="middle">${esc(p.value)}</text>`; });
+  return s + "</svg>";
+}
+function kicadNet() {
+  const q = s => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+  let s = `(export (version "E")\n  (design (source ${q(slug() + ".kicad_sch")}) (date ${q(new Date().toISOString())}) (tool "Randis UDS Open Hardware Studio"))\n  (components\n`;
+  for (const p of S.parts) s += `    (comp (ref ${q(p.ref)}) (value ${q(p.value || "~")}) (footprint ${q(fp(p).lib)})${p.mpn ? ` (fields (field (name "MPN") ${q(p.mpn)}))` : ""})\n`;
+  s += "  )\n  (nets\n";
+  S.nets.forEach((n, i) => { s += `    (net (code ${q(i + 1)}) (name ${q(n.name)})\n`; for (const x of nodesOf(n)) s += `      (node (ref ${q(x.ref)}) (pin ${q(x.pin)}))\n`; s += "    )\n"; });
+  return s + "  )\n)\n";
+}
+
+function autoPlace(all) {
+  let x = 4, y = 4, rowH = 0;
+  for (const p of S.parts) { if (!all && S.board.place[p.ref]) continue; const b = fp(p).body, w = b[0] + 3, h = b[1] + 3;
+    if (x + w > S.board.w - 2) { x = 4; y += rowH; rowH = 0; } S.board.place[p.ref] = [r1(x + w / 2), r1(y + h / 2), 0]; x += w; rowH = Math.max(rowH, h); }
+  if (y + rowH > S.board.h) { S.board.h = Math.ceil(y + rowH + 1); if (typeof toast === "function" && all) toast("The board grew to " + S.board.h + " mm tall so every part fits."); }
+}
+function netOfPad(ref, pin) { const i = S.nets.findIndex(n => nodesOf(n).some(x => x.ref === ref && x.pin === pin)); return i < 0 ? null : i; }
+function padXY(p, pad) { const pl = S.board.place[p.ref] || [0, 0, 0], a = (pl[2] || 0) * Math.PI / 180; return [pl[0] + pad[1] * Math.cos(a) - pad[2] * Math.sin(a), pl[1] + pad[1] * Math.sin(a) + pad[2] * Math.cos(a)]; }
+function boardSVG(standalone) {
+  const B = S.board, k = 14, W = B.w * k, H = B.h * k;
+  let s = `<svg ${standalone ? 'xmlns="http://www.w3.org/2000/svg" ' : ""}id="board" viewBox="-10 -10 ${W + 20} ${H + 20}" width="${Math.min(900, W + 20)}" style="background:#0b3d1e;border-radius:8px;touch-action:none">`;
+  s += `<rect x="0" y="0" width="${W}" height="${H}" fill="#14672f" stroke="#ffd34d" stroke-width="2"/>`;
+  for (let gx = 0; gx <= B.w; gx += 5) s += `<line x1="${gx * k}" y1="0" x2="${gx * k}" y2="${H}" stroke="#ffffff10"/>`;
+  for (let gy = 0; gy <= B.h; gy += 5) s += `<line x1="0" y1="${gy * k}" x2="${W}" y2="${gy * k}" stroke="#ffffff10"/>`;
+  S.nets.forEach(n => { const pts = []; for (const x of nodesOf(n)) { const p = S.parts.find(q => q.ref === x.ref); if (!p || !B.place[p.ref]) continue; const pad = fp(p).pads.find(q => q[0] === x.pin); if (pad) pts.push(padXY(p, pad)); }
+    for (let i = 1; i < pts.length; i++) s += `<line x1="${pts[i - 1][0] * k}" y1="${pts[i - 1][1] * k}" x2="${pts[i][0] * k}" y2="${pts[i][1] * k}" stroke="#ffffffa0" stroke-width="1" stroke-dasharray="3 2"><title>${esc(n.name)}</title></line>`; });
+  for (const p of S.parts) { const pl = B.place[p.ref]; if (!pl) continue; const f = fp(p);
+    s += `<g data-ref="${esc(p.ref)}" transform="translate(${pl[0] * k},${pl[1] * k}) rotate(${pl[2] || 0})" style="cursor:move"><rect x="${-f.body[0] / 2 * k}" y="${-f.body[1] / 2 * k}" width="${f.body[0] * k}" height="${f.body[1] * k}" fill="#00000040" stroke="#fff" stroke-width="1"/>`;
+    for (const pad of f.pads) s += `<${pad[5] === "thru" ? `circle cx="${pad[1] * k}" cy="${pad[2] * k}" r="${pad[3] / 2 * k}"` : `rect x="${(pad[1] - pad[3] / 2) * k}" y="${(pad[2] - pad[4] / 2) * k}" width="${pad[3] * k}" height="${pad[4] * k}"`} fill="#d4a84b"><title>${esc(p.ref)}.${pad[0]}</title></${pad[5] === "thru" ? "circle" : "rect"}>`;
+    s += `<text x="0" y="${-f.body[1] / 2 * k - 3}" text-anchor="middle" style="fill:#fff;font-size:11px">${esc(p.ref)}</text></g>`; }
+  return s + "</svg>";
+}
+function pagePcb() {
+  autoPlace(false);
+  const unplaced = S.parts.filter(p => !S.board.place[p.ref]).length;
+  return `<h2>Board</h2><p class="lead">Drag parts to place them; double-click a part to turn it 90°. Dashed lines are the connections still to route (ratsnest). Route the copper in KiCad after export.</p>
+  <div class="card"><div class="row">${F("Width (mm)", "board.w", { r: 1 })}${F("Height (mm)", "board.h", { r: 1 })}${F("Thickness (mm)", "board.thick")}${F("Copper layers", "board.layers", { opts: [[2, "2"], [4, "4"]] })}</div>
+  <button data-act="autoPlace">Auto-place all</button> <button data-act="kicadPcb" class="pri">⬇ KiCad board (.kicad_pcb)</button> <button data-act="boardSvg">⬇ Board picture (.svg)</button> ${unplaced ? `<span class="bad">${unplaced} unplaced</span>` : ""}</div>
+  <div class="card" id="boardwrap">${boardSVG()}</div>`;
+}
+function afterPage(id) {
+  if (id !== "pcb") return; const svg = $("#board"); if (!svg) return; let drag = null;
+  const pt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); };
+  svg.addEventListener("pointerdown", e => { const g = e.target.closest("g[data-ref]"); if (!g) return; const q = pt(e), pl = S.board.place[g.dataset.ref]; drag = { g, ref: g.dataset.ref, dx: q.x / 14 - pl[0], dy: q.y / 14 - pl[1] }; svg.setPointerCapture(e.pointerId); });
+  svg.addEventListener("pointermove", e => { if (!drag) return; const q = pt(e), pl = S.board.place[drag.ref]; pl[0] = clamp(Math.round((q.x / 14 - drag.dx) * 2) / 2, 0, S.board.w); pl[1] = clamp(Math.round((q.y / 14 - drag.dy) * 2) / 2, 0, S.board.h);
+    drag.g.setAttribute("transform", `translate(${pl[0] * 14},${pl[1] * 14}) rotate(${pl[2] || 0})`); });
+  svg.addEventListener("pointerup", () => { if (drag) { drag = null; save(); $("#boardwrap").innerHTML = boardSVG(); afterPage("pcb"); } });
+  svg.addEventListener("dblclick", e => { const g = e.target.closest("g[data-ref]"); if (!g) return; const pl = S.board.place[g.dataset.ref]; pl[2] = ((pl[2] || 0) + 90) % 360; save(); $("#boardwrap").innerHTML = boardSVG(); afterPage("pcb"); });
+}
+function kicadPcb() {
+  const q = s => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"', B = S.board;
+  const netIdx = {}; S.nets.forEach((n, i) => netIdx[n.name] = i + 1);
+  let s = `(kicad_pcb (version 20211014) (generator randis_uds_ohw)\n  (general (thickness ${num(B.thick) || 1.6}))\n  (paper "A4")\n  (title_block (title ${q(S.proj.name)}) (comment 1 ${q("Made in Randis UDS Open Hardware Studio. License: " + S.proj.hwLicense)}))\n  (layers\n`;
+  const L = [[0, "F.Cu", "signal"], ...(num(B.layers) === 4 ? [[1, "In1.Cu", "signal"], [2, "In2.Cu", "signal"]] : []), [31, "B.Cu", "signal"], [32, "B.Adhes", "user", "B.Adhesive"], [33, "F.Adhes", "user", "F.Adhesive"], [34, "B.Paste", "user"], [35, "F.Paste", "user"],
+    [36, "B.SilkS", "user", "B.Silkscreen"], [37, "F.SilkS", "user", "F.Silkscreen"], [38, "B.Mask", "user"], [39, "F.Mask", "user"], [40, "Dwgs.User", "user", "User.Drawings"], [44, "Edge.Cuts", "user"], [45, "Margin", "user"], [46, "B.CrtYd", "user", "B.Courtyard"], [47, "F.CrtYd", "user", "F.Courtyard"], [48, "B.Fab", "user"], [49, "F.Fab", "user"]];
+  for (const l of L) s += `    (${l[0]} ${q(l[1])} ${l[2]}${l[3] ? " " + q(l[3]) : ""})\n`;
+  s += `  )\n  (setup (pad_to_mask_clearance 0))\n  (net 0 "")\n`;
+  S.nets.forEach((n, i) => s += `  (net ${i + 1} ${q(n.name)})\n`);
+  for (const p of S.parts) { const f = fp(p), pl = B.place[p.ref] || [10, 10, 0];
+    s += `  (footprint ${q(f.lib)} (layer "F.Cu") (at ${pl[0]} ${pl[1]}${pl[2] ? " " + pl[2] : ""})\n    (fp_text reference ${q(p.ref)} (at 0 ${-r2(f.body[1] / 2 + 1.2)}) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))\n    (fp_text value ${q(p.value || "~")} (at 0 ${r2(f.body[1] / 2 + 1.2)}) (layer "F.Fab") (effects (font (size 1 1) (thickness 0.15))))\n`;
+    s += `    (fp_rect (start ${-r2(f.body[0] / 2)} ${-r2(f.body[1] / 2)}) (end ${r2(f.body[0] / 2)} ${r2(f.body[1] / 2)}) (layer "F.Fab") (width 0.1))\n`;
+    for (const pad of f.pads) { const ni = netOfPad(p.ref, pad[0]), net = ni == null ? "" : ` (net ${ni + 1} ${q(S.nets[ni].name)})`;
+      s += pad[5] === "thru" ? `    (pad ${q(pad[0])} thru_hole ${pad[0] === "1" ? "rect" : "circle"} (at ${r2(pad[1])} ${r2(pad[2])}) (size ${pad[3]} ${pad[4]}) (drill ${r2(pad[3] * 0.55)}) (layers *.Cu *.Mask)${net})\n`
+        : `    (pad ${q(pad[0])} smd roundrect (at ${r2(pad[1])} ${r2(pad[2])}) (size ${pad[3]} ${pad[4]}) (layers "F.Cu" "F.Paste" "F.Mask") (roundrect_rratio 0.25)${net})\n`; }
+    s += "  )\n"; }
+  const e = [[0, 0, B.w, 0], [B.w, 0, B.w, B.h], [B.w, B.h, 0, B.h], [0, B.h, 0, 0]];
+  for (const l of e) s += `  (gr_line (start ${l[0]} ${l[1]}) (end ${l[2]} ${l[3]}) (layer "Edge.Cuts") (width 0.1))\n`;
+  return s + ")\n";
+}
+
+function pageSteps() { return `<h2>Build steps</h2><p class="lead">These become the numbered steps on Instructables and the build section of every other write-up.</p>
+  <div class="card">${(S.steps || []).map((st, i) => `<div class="card"><div class="row" style="justify-content:space-between"><b>Step ${i + 1}</b><button class="x" data-act="rowdel" data-arg="steps|${i}">✕</button></div>${F("Title", `steps.${i}.title`)}${F("What to do", `steps.${i}.text`, { type: "area", h: 70 })}</div>`).join("")}
+  <button data-act="rowadd" data-arg="steps">+ Add step</button></div>`; }
+function pageCode() { return `<h2>Code</h2><p class="lead">Firmware or scripts that ship with the project. Pick a starting template or paste your own.</p>
+  <div class="card"><div class="row">${F("Template", "code.tpl", { opts: Object.keys(CODE_T) })}${F("File name", "code.file")}</div><button data-act="codeTpl">Load template</button> <button data-act="codeDl" class="pri">⬇ Save file</button>
+  ${F("Code", "code.text", { type: "area", h: 340 })}</div>`; }
+
+function partsMD() { return "| Ref | Qty | Value | Package | Part number |\n|---|---|---|---|---|\n" + bomGroups().map(g => `| ${g.refs.join(", ")} | ${g.qty} | ${g.p.value} | ${g.p.pkg} | ${g.p.mpn || "-"} |`).join("\n"); }
+function stepsMD(h) { return S.steps.map((s, i) => `${h} Step ${i + 1}: ${s.title}\n\n${s.text}\n`).join("\n"); }
+function licMD() { return `- Hardware: ${S.proj.hwLicense}\n- Code: ${S.proj.swLicense}\n- Documentation: ${S.proj.docLicense}`; }
+function hackadayMD() { return `# ${S.proj.hackadayTitle || S.proj.name}\n\n> DRAFT made in Randis UDS Open Hardware Studio. Not posted.\n\n**Summary:** ${S.proj.summary}\n\n## Description\n\n${S.pub.intro || S.proj.why || S.proj.summary}\n\n## Details\n\n- Board: ${S.board.w} x ${S.board.h} mm, ${S.board.layers} layers, ${S.board.thick} mm\n- Parts: ${S.parts.length} (${bomGroups().length} BOM lines)\n- Difficulty: ${S.proj.difficulty}, about ${S.proj.hours} h\n\n## Components\n\n${partsMD()}\n\n## Build instructions\n\n${stepsMD("###")}\n## Files\n\n- ${slug()}.kicad_pcb, ${slug()}.net (KiCad)\n- ${slug()}_BOM.csv\n- ${S.code.file}\n\n## Safety\n\n${S.pub.safety}\n\n## Licenses\n\n${licMD()}\n\nTags: ${S.proj.tags}\n`; }
+function instructablesMD() { return `# ${S.proj.name}\n\n> DRAFT made in Randis UDS Open Hardware Studio. Not posted.\n\n## Introduction\n\n${S.pub.intro || S.proj.summary}\n\n## Supplies\n\n${bomGroups().map(g => `- ${g.qty} x ${g.p.value} (${g.p.pkg})${g.p.supplier ? " - " + g.p.supplier : ""}`).join("\n")}\n\nTools: soldering iron, solder, flush cutters, multimeter.\n\n${stepsMD("##")}\n## Code\n\n\`\`\`\n${S.code.text}\n\`\`\`\n\n## Safety\n\n${S.pub.safety}\n\n${S.pub.lessons ? "## What I learned\n\n" + S.pub.lessons + "\n\n" : ""}## License\n\n${licMD()}\n`; }
+function readmeMD() { return `# ${S.proj.name}\n\n${S.proj.summary}\n\n![board](${slug()}_board.svg)\n\n## Bill of materials\n\n${partsMD()}\n\n## Build\n\n${stepsMD("###")}\n## Files\n\n| File | What |\n|---|---|\n| ${slug()}.kicad_pcb | KiCad board (parts placed, routing to do) |\n| ${slug()}.net | KiCad netlist |\n| ${slug()}_BOM.csv | Bill of materials |\n| ${S.code.file} | Code |\n\n## License\n\n${licMD()}\n\nMade with Randis UDS Open Hardware Studio.\n`; }
+function packageFiles() { const f = [["README.md", readmeMD()], ["docs/hackaday_draft.md", hackadayMD()], ["docs/instructables_draft.md", instructablesMD()], [`hardware/${slug()}.kicad_pcb`, kicadPcb()], [`hardware/${slug()}.net`, kicadNet()], [`hardware/${slug()}.kicad_sch`, kicadSch()], [`hardware/${slug()}_schematic.svg`, schSVG(true)],
+  [`hardware/${slug()}_BOM.csv`, bomCSV()], [`hardware/${slug()}_board.svg`, boardSVG(true)], [`firmware/${S.code.file || "main.ino"}`, S.code.text || ""], ["LICENSES.md", licMD() + "\n"]];
+  S.photos.forEach((p, i) => { const b = atob(p.src.split(",")[1] || ""), u = new Uint8Array(b.length); for (let j = 0; j < b.length; j++) u[j] = b.charCodeAt(j); f.push([`photos/${i + 1}_${p.name.replace(/[^\w.-]/g, "_").replace(/\.\w+$/, "")}.jpg`, u]); });
+  return f; }
+function pagePub() {
+  MEM.pubv = MEM.pubv || "hackaday"; const t = { hackaday: hackadayMD, instructables: instructablesMD, readme: readmeMD }[MEM.pubv]();
+  return `<div class="banner">These are <b>drafts</b>. Nothing is posted from here. Posting to Hackaday.io, Instructables, GitHub or anywhere else is done by you, by hand.</div>
+  <h2>Publish drafts</h2><div class="row"><div class="card">${F("Hackaday.io title (optional)", "proj.hackadayTitle")}${F("Introduction", "pub.intro", { type: "area", h: 90 })}<button data-act="aiDoc">✨ Write the intro with the linked AI</button>
+  ${F("Safety notes", "pub.safety", { type: "area", h: 50 })}${F("What I learned", "pub.lessons", { type: "area", h: 50 })}</div>
+  <div class="card" style="flex:2"><p>${["hackaday", "instructables", "readme"].map(v => `<button data-act="pubv" data-arg="${v}" class="${MEM.pubv === v ? "pri" : ""}">${{ hackaday: "Hackaday.io", instructables: "Instructables", readme: "GitHub README" }[v]}</button>`).join(" ")}</p>
+  <pre>${esc(t)}</pre><button data-act="mdHack">⬇ Hackaday .md</button> <button data-act="mdInst">⬇ Instructables .md</button> <button data-act="mdReadme">⬇ README.md</button> <button data-act="exportZip" class="pri">⬇ Everything (.zip)</button></div></div>`;
+}
+ACT.pubv = v => { MEM.pubv = v; render(); };
+
+function selftest() { const keep = S; S = APP.defaults(); autoPlace(true); try { return selftest1(); } finally { S = keep; } }
+function selftest1() {
+  const fail = [], bal = s => { let d = 0; for (const c of s.replace(/"(\\.|[^"\\])*"/g, "")) { if (c === "(") d++; if (c === ")") d--; if (d < 0) return false; } return d === 0; };
+  const pcb = kicadPcb(), net = kicadNet();
+  if (!bal(pcb)) fail.push("kicad_pcb parens unbalanced"); if (!bal(net)) fail.push("netlist parens unbalanced");
+  if ((pcb.match(/\(footprint /g) || []).length !== S.parts.length) fail.push("footprint count");
+  if (erc().length) fail.push("demo ERC: " + JSON.stringify(erc()));
+  if (colorCode(["brown", "black", "orange", "gold"]) !== "10kΩ ±5%") fail.push("colour code: " + colorCode(["brown", "black", "orange", "gold"]));
+  if (smdCode("103") !== "10kΩ ±5%") fail.push("smd 103: " + smdCode("103")); if (smdCode("4R7") !== "4.7Ω") fail.push("smd 4R7"); if (!smdCode("01C").startsWith("10kΩ")) fail.push("eia96 01C: " + smdCode("01C"));
+  if (capCode("104") !== "100 nF") fail.push("cap 104: " + capCode("104"));
+  const z = packageFiles(); if (z.length < 11) fail.push("package files");
+  { const sch = kicadSch(); if (!bal(sch)) fail.push("kicad_sch parens unbalanced"); let R; try { R = readSch(sch); } catch (e) { fail.push("kicad_sch does not parse: " + e.message); }
+    if (R) { if (R.nSym !== S.parts.length) fail.push("schematic symbols " + R.nSym); if (R.orphan) fail.push(R.orphan + " labels not on a pin end");
+      const want = {}; S.nets.forEach(n => { const ps = nodesOf(n).map(t => t.ref + "." + t.pin).filter(k => S.parts.some(p => p.ref + "." === k.slice(0, p.ref.length + 1))); if (ps.length) want[n.name] = ps.sort().join(" "); });
+      const got = {}; for (const n in R.nets) got[n] = R.nets[n].sort().join(" "); if (JSON.stringify(Object.entries(got).sort()) !== JSON.stringify(Object.entries(want).sort())) fail.push("schematic nets differ: " + JSON.stringify(got).slice(0, 300));
+      const pinsAll = S.parts.reduce((a, p) => a + Math.max(1, Math.round(num(p.pins)) || 1), 0); if (R.labels + R.nc !== pinsAll) fail.push(`labels ${R.labels} + no-connects ${R.nc} != pins ${pinsAll}`); }
+    const uu = sch.match(/\(uuid ([0-9a-f-]+)\)/g) || []; if (new Set(uu).size !== uu.length) fail.push("duplicate uuids");
+    let bad = ""; try { sexpr("(a (b \"x\")"); } catch (e) { bad = e.message; } if (!bad) fail.push("negative: unclosed s-expression not caught");
+    const broken = sch.replace(/\(label "([^"]+)" \(at ([\d.]+)/, (m, n, x) => `(label "${n}" (at ${+x + 2.54}`); if (!readSch(broken).orphan) fail.push("negative: a moved label not caught"); }
+  const bom = parseCSV(bomCSV()); if (bom.length !== bomGroups().length + 1) fail.push("bom rows");
+  return { fail, pcbBytes: pcb.length, netBytes: net.length, files: z.map(x => x[0]) };
+}
+
+</script>
+<script>
+
+const G254 = 2.54;
+function schUuid() { const h = "0123456789abcdef"; let s = ""; for (let i = 0; i < 32; i++) s += i === 12 ? "4" : i === 16 ? h[8 + Math.floor(Math.random() * 4)] : h[Math.floor(Math.random() * 16)]; return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`; }
+function schPins(n) {
+  const L = Math.ceil(n / 2), R = n - L, top = Math.floor((Math.max(L, R) - 1) / 2) * G254, out = [];
+  for (let i = 0; i < L; i++) out.push({ num: String(i + 1), x: -7.62, y: top - i * G254, ang: 0 });
+  for (let i = 0; i < R; i++) out.push({ num: String(n - i), x: 7.62, y: top - i * G254, ang: 180 });
+  return { pins: out, top, rows: Math.max(L, R, 1) };
+}
+function schGeom() {
+  const parts = S.parts.map(p => ({ p, n: Math.max(1, Math.round(num(p.pins)) || 1) })), cols = Math.max(1, Math.ceil(Math.sqrt(parts.length)));
+  const rowH = Math.max(...parts.map(x => schPins(x.n).rows), 1) * G254 + 20.32, colW = 45.72, out = [], ends = {};
+  parts.forEach((x, i) => { const X = 30.48 + (i % cols) * colW, Y = 30.48 + Math.floor(i / cols) * rowH, sp = schPins(x.n);
+    const pins = sp.pins.map(q => ({ num: q.num, x: r2(X + q.x), y: r2(Y - q.y), ang: q.ang }));
+    pins.forEach(q => ends[x.p.ref + "." + q.num] = [q.x, q.y]); out.push({ ref: x.p.ref, value: x.p.value, part: x.p, n: x.n, X, Y, sp, pins }); });
+  const netOf = {}; S.nets.forEach(n => nodesOf(n).forEach(t => netOf[t.ref + "." + t.pin] = n.name));
+  return { parts: out, ends, netOf, W: 30.48 + cols * colW, H: 30.48 + Math.ceil(parts.length / cols) * rowH };
+}
+function kicadSch() {
+  const q = s => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"', G = schGeom(), font = "(effects (font (size 1.27 1.27)))";
+  const libs = [...new Set(G.parts.map(x => x.n))].sort((a, b) => a - b);
+  let s = `(kicad_sch (version 20211123) (generator randis_uds_ohw)\n  (uuid ${schUuid()})\n  (paper "A3")\n  (title_block (title ${q(S.proj.name)}) (comment 1 ${q("Made in Randis UDS Open Hardware Studio. License: " + S.proj.hwLicense)}))\n  (lib_symbols\n`;
+  for (const n of libs) { const sp = schPins(n), nm = `OHW:BOX_${n}`, base = `BOX_${n}`;
+    s += `    (symbol ${q(nm)} (in_bom yes) (on_board yes)\n      (property "Reference" "U" (id 0) (at 0 ${r2(sp.top + 3.81)} 0) ${font})\n      (property "Value" ${q(base)} (id 1) (at 0 ${r2(sp.top - sp.rows * G254 - 1.27)} 0) ${font})\n      (property "Footprint" "" (id 2) (at 0 0 0) (effects (font (size 1.27 1.27)) hide))\n`;
+    s += `      (symbol ${q(base + "_0_1")} (rectangle (start -5.08 ${r2(sp.top + 1.27)}) (end 5.08 ${r2(sp.top - sp.rows * G254 + 1.27)}) (stroke (width 0.254) (type default) (color 0 0 0 0)) (fill (type background))))\n      (symbol ${q(base + "_1_1")}\n`;
+    for (const p of sp.pins) s += `        (pin passive line (at ${p.x} ${r2(p.y)} ${p.ang}) (length 2.54) (name "~" ${font}) (number ${q(p.num)} ${font}))\n`;
+    s += "      )\n    )\n"; }
+  s += "  )\n";
+  const labels = [], ncs = [];
+  for (const x of G.parts) { const id = schUuid(), f = fp(x.part).lib;
+    s += `  (symbol (lib_id ${q("OHW:BOX_" + x.n)}) (at ${x.X} ${x.Y} 0) (unit 1) (in_bom yes) (on_board yes) (uuid ${id})\n    (property "Reference" ${q(x.ref)} (id 0) (at ${x.X} ${r2(x.Y - x.sp.top - 3.81)} 0) ${font})\n    (property "Value" ${q(x.value || "~")} (id 1) (at ${x.X} ${r2(x.Y - x.sp.top + x.sp.rows * G254 + 1.27)} 0) ${font})\n    (property "Footprint" ${q(f)} (id 2) (at ${x.X} ${x.Y} 0) (effects (font (size 1.27 1.27)) hide))\n`;
+    if (x.part.mpn) s += `    (property "MPN" ${q(x.part.mpn)} (id 3) (at ${x.X} ${x.Y} 0) (effects (font (size 1.27 1.27)) hide))\n`;
+    for (const p of x.pins) { s += `    (pin ${q(p.num)} (uuid ${schUuid()}))\n`; const net = G.netOf[x.ref + "." + p.num];
+      if (net) labels.push([net, p.x, p.y, p.ang === 0 ? 180 : 0]); else ncs.push([p.x, p.y]); }
+    s += `  )\n`; x.uuid = id; }
+  for (const [net, x, y, a] of labels) s += `  (label ${q(net)} (at ${x} ${y} ${a}) (effects (font (size 1.27 1.27)) (justify ${a ? "right" : "left"} bottom)) (uuid ${schUuid()}))\n`;
+  for (const [x, y] of ncs) s += `  (no_connect (at ${x} ${y}) (uuid ${schUuid()}))\n`;
+  s += `  (sheet_instances (path "/" (page "1")))\n  (symbol_instances\n`;
+  for (const x of G.parts) s += `    (path ${q("/" + x.uuid)} (reference ${q(x.ref)}) (unit 1) (value ${q(x.value || "~")}) (footprint ${q(fp(x.part).lib)}))\n`;
+  return s + "  )\n)\n";
+}
+function sexpr(text) {
+  let i = 0; const tok = () => { while (i < text.length && /\s/.test(text[i])) i++; return text[i]; };
+  const read = () => { const c = tok(); if (c === "(") { i++; const L = []; while (tok() !== ")") { if (i >= text.length) throw new Error("unclosed list"); L.push(read()); } i++; return L; }
+    if (c === '"') { let s = ""; i++; while (text[i] !== '"') { if (i >= text.length) throw new Error("unclosed string"); if (text[i] === "\\") i++; s += text[i++]; } i++; return { s }; }
+    let a = ""; while (i < text.length && !/[\s()]/.test(text[i])) a += text[i++]; if (!a) throw new Error("bad token at " + i); return a; };
+  const v = read(); if (tok() !== undefined) throw new Error("text after the end"); return v;
+}
+function readSch(text) {
+  const T = sexpr(text), str = v => v && v.s != null ? v.s : v, kids = (L, h) => L.filter(x => Array.isArray(x) && x[0] === h);
+  if (T[0] !== "kicad_sch") throw new Error("not a kicad_sch");
+  const lib = {}; for (const sym of kids(kids(T, "lib_symbols")[0] || [], "symbol")) { const pins = []; for (const sub of kids(sym, "symbol")) for (const p of kids(sub, "pin")) { const at = kids(p, "at")[0], nb = kids(p, "number")[0]; pins.push({ num: str(nb[1]), x: +at[1], y: +at[2] }); } lib[str(sym[1])] = pins; }
+  const ends = {}; let nSym = 0;
+  for (const sym of kids(T, "symbol")) { nSym++; const at = kids(sym, "at")[0], ref = str(kids(sym, "property").find(p => str(p[1]) === "Reference")[2]), pins = lib[str(kids(sym, "lib_id")[0][1])] || [];
+    for (const p of pins) ends[r2(+at[1] + p.x) + "," + r2(+at[2] - p.y)] = ref + "." + p.num; }
+  const nets = {}; let orphan = 0; for (const l of kids(T, "label")) { const at = kids(l, "at")[0], k = r2(+at[1]) + "," + r2(+at[2]); if (!ends[k]) { orphan++; continue; } (nets[str(l[1])] = nets[str(l[1])] || []).push(ends[k]); }
+  return { nets, nSym, orphan, nc: kids(T, "no_connect").length, labels: kids(T, "label").length };
+}
+function schSVG(standalone) { const G = schGeom(), k = 5, W = G.W * k, H = G.H * k;
+  let s = `<svg ${standalone ? 'xmlns="http://www.w3.org/2000/svg" ' : ""}viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${Math.min(1100, W)}px;background:#fffdf6;border:1px solid var(--line);border-radius:6px">`;
+  for (const x of G.parts) { const top = x.Y - x.sp.top - 1.27, h = x.sp.rows * G254; s += `<rect x="${(x.X - 5.08) * k}" y="${top * k}" width="${10.16 * k}" height="${h * k}" fill="#fff6d8" stroke="#8a1c1c" stroke-width="1.5"/>`;
+    s += `<text x="${x.X * k}" y="${(top - 1.2) * k}" text-anchor="middle" style="font:600 11px sans-serif;fill:#333">${esc(x.ref)}</text><text x="${x.X * k}" y="${(top + h + 3.6) * k}" text-anchor="middle" style="font:10px sans-serif;fill:#555">${esc(x.value || "")}</text>`;
+    for (const p of x.pins) { const bx = p.ang === 0 ? p.x + 2.54 : p.x - 2.54, net = G.netOf[x.ref + "." + p.num];
+      s += `<line x1="${p.x * k}" y1="${p.y * k}" x2="${bx * k}" y2="${p.y * k}" stroke="#8a1c1c" stroke-width="1.5"/><text x="${(p.ang === 0 ? bx + 0.6 : bx - 0.6) * k}" y="${(p.y + 0.8) * k}" text-anchor="${p.ang === 0 ? "start" : "end"}" style="font:8px sans-serif;fill:#8a1c1c">${p.num}</text>`;
+      s += net ? `<text x="${(p.ang === 0 ? p.x - 0.6 : p.x + 0.6) * k}" y="${(p.y - 0.4) * k}" text-anchor="${p.ang === 0 ? "end" : "start"}" style="font:600 9px sans-serif;fill:#1c5a8a">${esc(net)}</text>` : `<path d="M${(p.x - 1) * k} ${(p.y - 1) * k}l${2 * k} ${2 * k}M${(p.x + 1) * k} ${(p.y - 1) * k}l${-2 * k} ${2 * k}" stroke="#1c5a8a" stroke-width="1.2"/>`; } }
+  return s + "</svg>"; }
+Object.assign(ACT, { kicadSch() { download(slug() + ".kicad_sch", kicadSch()); }, schSvg() { download(slug() + "_schematic.svg", schSVG(true), "image/svg+xml"); } });
+
+</script>
+<script>
+
+
+const RC = [
+  { id: "ps2", name: "PlayStation 2 class (2000)", cpu: "Emotion Engine: 64-bit MIPS-III/IV-based core (R5900) ~295 MHz + vector units", ram: "32 MB RDRAM", gpu: "Graphics Synthesizer, 4 MB embedded DRAM", io: "I/O processor = PS1-class R3000A (also runs PS1 games)", media: "DVD / CD", bios: "Yes: copyrighted system BIOS; the console won't boot without one", open: "Software emulation (PCSX2 is open source, GPL) on a strong PC/SBC; full hardware re-creation is beyond hobby FPGAs today.", diff: 5 },
+  { id: "ps1", name: "PlayStation (1994) class", cpu: "MIPS R3000A-compatible 33.9 MHz + geometry engine", ram: "2 MB main, 1 MB video", gpu: "2D/3D GPU, 1 MB VRAM", io: "CD-ROM controller", media: "CD", bios: "Yes (copyrighted). An open-source replacement BIOS exists in the PCSX-Redux project (OpenBIOS)", open: "FPGA cores (MiSTer project, GPL) and software emulators; use an open BIOS or your own console's dump only.", diff: 4 },
+  { id: "n64", name: "Nintendo 64 class (1996)", cpu: "NEC VR4300 (MIPS) 93.75 MHz", ram: "4 MB RDRAM (8 MB with expansion)", gpu: "Reality Co-Processor (RSP + RDP)", io: "Cartridge bus, PIF chip", media: "Cartridge", bios: "Small boot code in the PIF + cartridge CIC lock-out chips (copyrighted)", open: "FPGA cores exist (MiSTer N64, GPL); emulators.", diff: 4 },
+  { id: "snes", name: "Super NES class (1990)", cpu: "Ricoh 5A22 (65C816-based) up to 3.58 MHz", ram: "128 KB work RAM, 64 KB video RAM", gpu: "Two PPU chips", io: "SPC700 sound CPU + DSP", media: "Cartridge", bios: "No system BIOS; sound CPU has a small boot ROM (copyrighted); CIC lock-out chip", open: "FPGA cores (GPL); 65C816 CPUs are still made (WDC W65C816S).", diff: 3 },
+  { id: "md", name: "Mega Drive / Genesis class (1988)", cpu: "Motorola 68000 7.67 MHz + Zilog Z80 3.58 MHz", ram: "64 KB + 8 KB (Z80) + 64 KB VRAM", gpu: "VDP", io: "YM2612 FM + SN76489 PSG sound", media: "Cartridge", bios: "Later models have a small TMSS boot ROM (copyrighted)", open: "FPGA cores; 68000-compatible and Z80 chips are still available (Z80 production ended 2024; stock remains).", diff: 3 },
+  { id: "nes", name: "NES / Famicom class (1983)", cpu: "Ricoh 2A03: 6502 core (no decimal mode) + sound, 1.79 MHz", ram: "2 KB work RAM, 2 KB video RAM", gpu: "Ricoh 2C02 PPU", io: "Controller shift registers (4021), CIC lock-out (US)", media: "Cartridge", bios: "No BIOS", open: "FPGA cores (GPL); open homebrew tool chains (cc65, ca65); a W65C02S + FPGA/MCU video can build an NES-style machine.", diff: 2 },
+  { id: "gb", name: "Game Boy class (1989)", cpu: "Sharp SM83 (8080/Z80-like) ~4.19 MHz", ram: "8 KB work + 8 KB video", gpu: "LCD controller, 160x144, 4 shades", io: "Link port, serial", media: "Cartridge", bios: "256-byte boot ROM (copyrighted)", open: "Open boot ROM replacements exist (e.g. SameBoy's own boot ROMs, MIT); FPGA cores.", diff: 2 },
+  { id: "2600", name: "Atari 2600 class (1977)", cpu: "MOS 6507 (6502 with 13 address lines) 1.19 MHz", ram: "128 bytes (in the RIOT)", gpu: "TIA (video + sound)", io: "RIOT 6532", media: "Cartridge", bios: "No BIOS", open: "6502-family CPUs + FPGA or MCU for the TIA; big homebrew scene (dasm, batari Basic).", diff: 1 },
+];
+const RROUTES = [
+  ["Software emulation on a single-board computer", "Raspberry Pi 4/5, Orange Pi or a mini PC + an open-source emulator. Cheapest, runs most classics. PS2-class needs a strong PC.", "SBC, case, controller(s), HDMI, power", "low"],
+  ["FPGA re-creation (cycle-accurate hardware in HDL)", "Open cores re-implement the chips in Verilog/VHDL. Boards: DE10-Nano (MiSTer), open boards like ULX3S, Tang Nano/Primer.", "FPGA board, SDRAM module, I/O board, controller adapters", "medium"],
+  ["Discrete / modern-parts console", "Real chips still in production (W65C02S, W65C816S, 68000-compatible, Z80 stock) + a microcontroller or FPGA for video and sound. Original design, own firmware: what the Open 8-bit console below does.", "CPU, ROM, RAM, I/O chip, video MCU, glue logic", "low-medium"],
+];
+const LEGAL = ["Don't include, link or ask for BIOS, boot ROM, firmware or game files from the original makers: they are copyrighted.",
+  "Use open replacements (open BIOS projects, your own firmware) or homebrew games whose authors allow sharing.",
+  "Using a dump of a console or cartridge you own for yourself is a different question from sharing it, and laws differ by country: ask a lawyer before shipping anything that needs one.",
+  "Don't copy logos, names or case designs (trademarks and design rights); call it '<your name>, compatible with ...' only if a lawyer says the wording is fine.",
+  "Reverse engineering for compatibility has legal protection in many places (e.g. US case law, EU software directive), but clean-room practice is safest: one person documents behaviour, another writes the new code from the documents.",
+  "Lock-out / copy-protection chips: bypassing them can fall under anti-circumvention laws (DMCA §1201 in the US)."];
+
+const RPINS = {
+  cpu: { VPB: 1, RDY: 2, PHI1O: 3, IRQB: 4, MLB: 5, NMIB: 6, SYNC: 7, VDD: 8, A0: 9, A1: 10, A2: 11, A3: 12, A4: 13, A5: 14, A6: 15, A7: 16, A8: 17, A9: 18, A10: 19, A11: 20, VSS: 21, A12: 22, A13: 23, A14: 24, A15: 25, D7: 26, D6: 27, D5: 28, D4: 29, D3: 30, D2: 31, D1: 32, D0: 33, RWB: 34, BE: 36, PHI2: 37, SOB: 38, PHI2O: 39, RESB: 40 },
+  mem: { A14: 1, A12: 2, A7: 3, A6: 4, A5: 5, A4: 6, A3: 7, A2: 8, A1: 9, A0: 10, D0: 11, D1: 12, D2: 13, GND: 14, D3: 15, D4: 16, D5: 17, D6: 18, D7: 19, CE: 20, A10: 21, OE: 22, A11: 23, A9: 24, A8: 25, A13: 26, WE: 27, VCC: 28 },
+  via: { VSS: 1, PA0: 2, PA1: 3, PA2: 4, PA3: 5, PA4: 6, PA5: 7, PA6: 8, PA7: 9, PB0: 10, PB1: 11, PB2: 12, PB3: 13, PB4: 14, PB5: 15, PB6: 16, PB7: 17, CB1: 18, CB2: 19, VDD: 20, IRQB: 21, RWB: 22, CS2B: 23, CS1: 24, PHI2: 25, D7: 26, D6: 27, D5: 28, D4: 29, D3: 30, D2: 31, D1: 32, D0: 33, RESB: 34, RS3: 35, RS2: 36, RS1: 37, RS0: 38, CA2: 39, CA1: 40 },
+  nand: { "1A": 1, "1B": 2, "1Y": 3, "2A": 4, "2B": 5, "2Y": 6, GND: 7, "3Y": 8, "3A": 9, "3B": 10, "4Y": 11, "4A": 12, "4B": 13, VCC: 14 },
+  lvc245: { DIR: 1, A1: 2, A2: 3, A3: 4, A4: 5, A5: 6, A6: 7, A7: 8, A8: 9, GND: 10, B8: 11, B7: 12, B6: 13, B5: 14, B4: 15, B3: 16, B2: 17, B1: 18, OE: 19, VCC: 20 },
+  pico: { GP0: 1, GP1: 2, GND: 3, GP2: 4, GP3: 5, GP4: 6, GP5: 7, GP6: 9, GP7: 10, GP8: 11, GP9: 12, GP10: 14, GP11: 15, GP12: 16, GP13: 17, GP14: 19, GP15: 20, GP16: 21, GP17: 22, VSYS: 39, "3V3": 36 },
+  osc: { EN: 1, GND: 4, OUT: 5, VCC: 8 },
+};
+function r8Parts() {
+  const P = (ref, value, pkg, pins, mpn, maker, price, notes) => ({ ref, value, pkg, pins, mpn, maker, qty: 1, price, supplier: "", notes });
+  return [P("U1", "W65C02S 8-bit CPU", "DIP", 40, "W65C02S6TPG-14", "WDC", 8.5, "still in production"), P("U2", "28C256 32K EEPROM (firmware)", "DIP", 28, "AT28C256-15PU", "Microchip", 11, "$8000-$FFFF"),
+    P("U3", "62256 32K SRAM", "DIP", 28, "AS6C62256-55PCN", "Alliance", 3.5, "$0000-$3FFF used"), P("U4", "W65C22S VIA (controllers + video link)", "DIP", 40, "W65C22S6TPG-14", "WDC", 8, "$6000-$600F"),
+    P("U5", "74HC00 quad NAND (address decode)", "DIP", 14, "SN74HC00N", "TI", 0.5, ""), P("U6", "74HC00 quad NAND (decode)", "DIP", 14, "SN74HC00N", "TI", 0.5, "one gate used"),
+    P("U7", "Raspberry Pi Pico (RP2040) video + sound helper", "Module", 40, "SC0915", "Raspberry Pi", 4, "own firmware; VGA out"), P("U8", "74LVC245 level shifter 5V->3.3V", "TSSOP", 20, "SN74LVC245APWR", "TI", 0.6, "5 V tolerant inputs"),
+    P("X1", "1 MHz oscillator (half-size can)", "DIP", 8, "ECS-100AX-010", "ECS", 2, "CPU clock"), P("R1", "1k pull-up RDY", "0805", 2, "", "", 0.01, ""), P("R2", "1k pull-up IRQB", "0805", 2, "", "", 0.01, ""),
+    P("R3", "1k pull-up NMIB", "0805", 2, "", "", 0.01, ""), P("R4", "1k pull-up BE", "0805", 2, "", "", 0.01, ""), P("R5", "1k pull-up SOB", "0805", 2, "", "", 0.01, ""), P("R6", "10k reset pull-up", "0805", 2, "", "", 0.01, ""),
+    P("SW1", "Reset button", "Tactile", 2, "", "", 0.1, ""), P("R7", "470 VGA red DAC", "0805", 2, "", "", 0.01, ""), P("R8", "470 VGA green DAC", "0805", 2, "", "", 0.01, ""), P("R9", "470 VGA blue DAC", "0805", 2, "", "", 0.01, ""),
+    P("J1", "USB-C 5 V power (power-only)", "USB-C", 2, "", "", 0.6, "VBUS, GND"), P("J2", "Controller port 1 (5-pin header)", "Header", 5, "", "", 0.2, "VCC GND LATCH CLK DATA"), P("J3", "Controller port 2", "Header", 5, "", "", 0.2, ""),
+    P("J4", "VGA DE-15 (R G B HSYNC VSYNC GND)", "DE15", 6, "", "", 1.5, "simplified 6-pin use"), P("C1", "100nF decoupling U1", "0805", 2, "", "", 0.02, ""), P("C2", "100nF decoupling U2", "0805", 2, "", "", 0.02, ""),
+    P("C3", "100nF decoupling U3", "0805", 2, "", "", 0.02, ""), P("C4", "100nF decoupling U4", "0805", 2, "", "", 0.02, ""), P("C5", "10uF bulk", "0805", 2, "", "", 0.05, "")];
+}
+function r8Nets() {
+  const N = {}, add = (net, node) => (N[net] = N[net] || []).push(node), p = RPINS;
+  for (let i = 0; i <= 15; i++) add("A" + i, "U1." + p.cpu["A" + i]);
+  for (let i = 0; i <= 14; i++) { add("A" + i, "U2." + p.mem["A" + i]); add("A" + i, "U3." + p.mem["A" + i]); }
+  for (let i = 0; i <= 7; i++) { add("D" + i, "U1." + p.cpu["D" + i]); add("D" + i, "U2." + p.mem["D" + i]); add("D" + i, "U3." + p.mem["D" + i]); add("D" + i, "U4." + p.via["D" + i]); }
+  for (let i = 0; i <= 3; i++) add("A" + i, "U4." + p.via["RS" + i]);
+  add("A13", "U4." + p.via.CS1);
+  ["U1." + p.cpu.VDD, "U2." + p.mem.VCC, "U3." + p.mem.VCC, "U4." + p.via.VDD, "U5." + p.nand.VCC, "U6." + p.nand.VCC, "X1." + p.osc.VCC, "X1." + p.osc.EN, "U7." + p.pico.VSYS, "U2." + p.mem.WE,
+    "R1.1", "R2.1", "R3.1", "R4.1", "R5.1", "R6.1", "J1.1", "J2.1", "J3.1", "C1.1", "C2.1", "C3.1", "C4.1", "C5.1"].forEach(n => add("VCC", n));
+  ["U1." + p.cpu.VSS, "U2." + p.mem.GND, "U3." + p.mem.GND, "U4." + p.via.VSS, "U5." + p.nand.GND, "U6." + p.nand.GND, "X1." + p.osc.GND, "U7." + p.pico.GND, "U8." + p.lvc245.GND, "U8." + p.lvc245.OE, "U2." + p.mem.OE,
+    "SW1.2", "J1.2", "J2.2", "J3.2", "J4.6", "C1.2", "C2.2", "C3.2", "C4.2", "C5.2"].forEach(n => add("GND", n));
+  add("PHI2", "X1." + p.osc.OUT); add("PHI2", "U1." + p.cpu.PHI2); add("PHI2", "U4." + p.via.PHI2); add("PHI2", "U5." + p.nand["2A"]); add("PHI2", "U5." + p.nand["3A"]);
+  add("RWB", "U1." + p.cpu.RWB); add("RWB", "U4." + p.via.RWB); add("RWB", "U5." + p.nand["4A"]); add("RWB", "U5." + p.nand["4B"]);
+  add("RESB", "U1." + p.cpu.RESB); add("RESB", "U4." + p.via.RESB); add("RESB", "R6.2"); add("RESB", "SW1.1");
+  add("IRQB", "U1." + p.cpu.IRQB); add("IRQB", "U4." + p.via.IRQB); add("IRQB", "R2.2");
+  add("RDY", "U1." + p.cpu.RDY); add("RDY", "R1.2"); add("NMIB", "U1." + p.cpu.NMIB); add("NMIB", "R3.2"); add("BE", "U1." + p.cpu.BE); add("BE", "R4.2"); add("SOB", "U1." + p.cpu.SOB); add("SOB", "R5.2");
+  add("A15", "U5." + p.nand["1A"]); add("A15", "U5." + p.nand["1B"]);
+  ["U5." + p.nand["1Y"], "U2." + p.mem.CE, "U5." + p.nand["2B"], "U6." + p.nand["1A"]].forEach(n => add("NA15", n));
+  add("RAM_CE", "U5." + p.nand["2Y"]); add("RAM_CE", "U3." + p.mem.CE);
+  add("NRW", "U5." + p.nand["4Y"]); add("NRW", "U5." + p.nand["3B"]);
+  add("RAM_WE", "U5." + p.nand["3Y"]); add("RAM_WE", "U3." + p.mem.WE);
+  add("A14", "U3." + p.mem.OE); add("A14", "U6." + p.nand["1B"]);
+  add("VIA_CS2B", "U6." + p.nand["1Y"]); add("VIA_CS2B", "U4." + p.via.CS2B);
+  add("PAD_LATCH", "U4." + p.via.PB0); add("PAD_LATCH", "J2.3"); add("PAD_LATCH", "J3.3"); add("PAD_CLK", "U4." + p.via.PB1); add("PAD_CLK", "J2.4"); add("PAD_CLK", "J3.4");
+  add("PAD1_DATA", "U4." + p.via.PB2); add("PAD1_DATA", "J2.5"); add("PAD2_DATA", "U4." + p.via.PB3); add("PAD2_DATA", "J3.5");
+  for (let i = 0; i < 8; i++) { add("VD" + i, "U4." + p.via["PA" + i]); add("VD" + i, "U8." + p.lvc245["A" + (i + 1)]); add("VD" + i + "_3V", "U8." + p.lvc245["B" + (i + 1)]); add("VD" + i + "_3V", "U7." + p.pico["GP" + i]); }
+  add("3V3", "U7." + p.pico["3V3"]); add("3V3", "U8." + p.lvc245.VCC); add("3V3", "U8." + p.lvc245.DIR);
+  add("VGA_R", "U7." + p.pico.GP10); add("VGA_R", "R7.1"); add("VGA_R_OUT", "R7.2"); add("VGA_R_OUT", "J4.1");
+  add("VGA_G", "U7." + p.pico.GP11); add("VGA_G", "R8.1"); add("VGA_G_OUT", "R8.2"); add("VGA_G_OUT", "J4.2");
+  add("VGA_B", "U7." + p.pico.GP12); add("VGA_B", "R9.1"); add("VGA_B_OUT", "R9.2"); add("VGA_B_OUT", "J4.3");
+  add("HSYNC", "U7." + p.pico.GP13); add("HSYNC", "J4.4"); add("VSYNC", "U7." + p.pico.GP14); add("VSYNC", "J4.5");
+  return Object.entries(N).map(([name, nodes]) => ({ name, nodes: nodes.join(" ") }));
+}
+
+const OPS = {
+  LDA: { imm: 0xA9, zp: 0xA5, abs: 0xAD, absx: 0xBD }, LDX: { imm: 0xA2, zp: 0xA6, abs: 0xAE }, LDY: { imm: 0xA0, zp: 0xA4, abs: 0xAC },
+  STA: { zp: 0x85, abs: 0x8D, absx: 0x9D }, STX: { zp: 0x86, abs: 0x8E }, STY: { zp: 0x84, abs: 0x8C },
+  AND: { imm: 0x29, zp: 0x25, abs: 0x2D }, ORA: { imm: 0x09, zp: 0x05, abs: 0x0D }, EOR: { imm: 0x49, zp: 0x45, abs: 0x4D }, CMP: { imm: 0xC9, zp: 0xC5, abs: 0xCD },
+  ADC: { imm: 0x69, zp: 0x65, abs: 0x6D }, SBC: { imm: 0xE9, zp: 0xE5, abs: 0xED }, CPX: { imm: 0xE0, zp: 0xE4 }, CPY: { imm: 0xC0, zp: 0xC4 },
+  INC: { zp: 0xE6, abs: 0xEE }, DEC: { zp: 0xC6, abs: 0xCE }, ROL: { acc: 0x2A, zp: 0x26 }, ROR: { acc: 0x6A, zp: 0x66 }, ASL: { acc: 0x0A, zp: 0x06 }, LSR: { acc: 0x4A, zp: 0x46 },
+  JMP: { abs: 0x4C }, JSR: { abs: 0x20 }, RTS: { imp: 0x60 }, RTI: { imp: 0x40 }, BNE: { rel: 0xD0 }, BEQ: { rel: 0xF0 }, BCC: { rel: 0x90 }, BCS: { rel: 0xB0 }, BPL: { rel: 0x10 }, BMI: { rel: 0x30 },
+  INX: { imp: 0xE8 }, INY: { imp: 0xC8 }, DEX: { imp: 0xCA }, DEY: { imp: 0x88 }, TAX: { imp: 0xAA }, TXA: { imp: 0x8A }, TAY: { imp: 0xA8 }, TYA: { imp: 0x98 }, TXS: { imp: 0x9A },
+  PHA: { imp: 0x48 }, PLA: { imp: 0x68 }, CLC: { imp: 0x18 }, SEC: { imp: 0x38 }, CLI: { imp: 0x58 }, SEI: { imp: 0x78 }, NOP: { imp: 0xEA },
+};
+const BR = new Set(["BNE", "BEQ", "BCC", "BCS", "BPL", "BMI"]);
+function asm6502(src) {
+  const lines = src.split(/\r?\n/), sym = {}, errs = [], out = new Map(); let lst = [];
+  const val = (t, pass) => { t = t.trim(); let m;
+    if (/^\$[0-9a-f]+$/i.test(t)) return parseInt(t.slice(1), 16); if (/^%[01]+$/.test(t)) return parseInt(t.slice(1), 2); if (/^\d+$/.test(t)) return +t;
+    if ((m = /^([<>])(.+)$/.exec(t))) { const v = val(m[2], pass); return v == null ? null : m[1] === "<" ? v & 255 : (v >> 8) & 255; }
+    if (/^[a-z_]\w*$/i.test(t)) { if (t.toUpperCase() in sym) return sym[t.toUpperCase()]; if (pass === 2) errs.push("unknown label " + t); return pass === 1 ? 0xFFFF : null; }
+    errs.push("bad value " + t); return 0; };
+  for (const pass of [1, 2]) {
+    let pc = 0x8000; if (pass === 2) { out.clear(); lst = []; }
+    lines.forEach((raw, ln) => {
+      let l = raw.replace(/;.*$/, "").trim(); if (!l) return;
+      let m = /^([a-z_]\w*)\s*=\s*(.+)$/i.exec(l); if (m) { sym[m[1].toUpperCase()] = val(m[2], pass); return; }
+      m = /^([a-z_]\w*):\s*(.*)$/i.exec(l); if (m) { if (pass === 1) { if (m[1].toUpperCase() in sym) errs.push(`line ${ln + 1}: label ${m[1]} twice`); sym[m[1].toUpperCase()] = pc; } l = m[2].trim(); if (!l) return; }
+      const [op0, ...rest] = l.split(/\s+/), op = op0.toUpperCase(), arg = rest.join(" ").trim(), at = pc, bytes = [];
+      if (op === ".ORG") { pc = val(arg, pass); return; }
+      if (op === ".BYTE") arg.split(",").forEach(x => bytes.push(val(x, pass) & 255));
+      else if (op === ".WORD") arg.split(",").forEach(x => { const v = val(x, pass) || 0; bytes.push(v & 255, (v >> 8) & 255); });
+      else { const t = OPS[op]; if (!t) { if (pass === 2) errs.push(`line ${ln + 1}: unknown instruction ${op0}`); return; }
+        let mode, v = 0;
+        if (!arg) mode = t.imp != null ? "imp" : "acc";
+        else if (/^a$/i.test(arg)) mode = "acc";
+        else if (arg.startsWith("#")) { mode = "imm"; v = val(arg.slice(1), pass); }
+        else if (BR.has(op)) { mode = "rel"; v = val(arg, pass); }
+        else if (/,\s*x$/i.test(arg)) { mode = "absx"; v = val(arg.replace(/,\s*x$/i, ""), pass); }
+        else { v = val(arg, pass); mode = (v != null && v < 256 && t.zp != null && !(pass === 1 && v === 0xFFFF)) ? "zp" : "abs"; if (pass === 2 && mode === "abs" && t.abs == null && t.zp != null && v < 256) mode = "zp"; }
+        if (pass === 1 && mode === "zp" && /^[a-z_]\w*$/i.test(arg) && !(arg.toUpperCase() in sym)) mode = "abs";
+        if (t[mode] == null) { if (pass === 2) errs.push(`line ${ln + 1}: ${op} can't use ${mode}`); return; }
+        bytes.push(t[mode]);
+        if (mode === "imm" || mode === "zp") bytes.push((v || 0) & 255);
+        else if (mode === "abs" || mode === "absx") bytes.push((v || 0) & 255, ((v || 0) >> 8) & 255);
+        else if (mode === "rel") { const d = (v || 0) - (pc + 2); if (pass === 2 && (d < -128 || d > 127)) errs.push(`line ${ln + 1}: branch too far`); bytes.push(d & 255); } }
+      if (pass === 2) { bytes.forEach((b, i) => out.set(at + i, b)); lst.push(`${at.toString(16).toUpperCase().padStart(4, "0")}  ${bytes.map(b => b.toString(16).toUpperCase().padStart(2, "0")).join(" ").padEnd(12)} ${raw}`); }
+      pc += bytes.length;
+    });
+  }
+  const rom = new Uint8Array(0x8000).fill(0xFF); for (const [a, b] of out) if (a >= 0x8000) rom[a - 0x8000] = b;
+  return { rom, sym, errs: [...new Set(errs)], lst: lst.join("\n"), size: [...out.keys()].filter(a => a >= 0x8000 && a < 0xFFFA).length };
+}
+
+function emu(rom, pad) {
+  const ram = new Uint8Array(0x8000), via = { ddra: 0, ddrb: 0, ora: 0, orb: 0, latched: 0, bit: 0, last: 0 }, writesA = [];
+  let A = 0, X = 0, Y = 0, SP = 0xFD, P = 0x24, PC = 0, cyc = 0;
+  const padBits = () => { const b = pad(); let v = 0; b.forEach((on, i) => { if (on) v |= 1 << (7 - i); }); return v; };
+  const rd = a => { a &= 0xFFFF; if (a >= 0x8000) return rom[a - 0x8000]; if (a >= 0x6000 && a < 0x8000) { const r = a & 15;
+      if (r === 0) { const data = (via.latched >> (7 - Math.min(via.bit, 7))) & 1; return (via.orb & via.ddrb) | ((data ? 0 : 1) << 2) | 0x08; } if (r === 1) return via.ora; if (r === 2) return via.ddrb; if (r === 3) return via.ddra; return 0; }
+    return a < 0x4000 ? ram[a] : 0; };
+  const wr = (a, v) => { a &= 0xFFFF; v &= 255; if (a >= 0x6000 && a < 0x8000) { const r = a & 15;
+      if (r === 0) { const latchUp = (v & 1) && !(via.orb & 1), clkUp = (v & 2) && !(via.orb & 2); via.orb = v; if (v & 1) { via.latched = padBits(); via.bit = 0; } else if (clkUp) via.bit++; if (latchUp) via.latched = padBits(); }
+      else if (r === 1) { via.ora = v; writesA.push(v); } else if (r === 2) via.ddrb = v; else if (r === 3) via.ddra = v; return; }
+    if (a < 0x8000) ram[a] = v; };
+  const setZN = v => { P = (P & ~0x82) | (v & 0x80) | (v ? 0 : 2); return v; };
+  const C = () => P & 1, setC = c => { P = c ? P | 1 : P & ~1; };
+  const imm = () => rd(PC++), zp = () => rd(PC++), abs = () => { const l = rd(PC++), h = rd(PC++); return l | (h << 8); };
+  const push = v => { wr(0x100 + SP, v); SP = (SP - 1) & 255; }, pop = () => { SP = (SP + 1) & 255; return rd(0x100 + SP); };
+  const cmp = (r, v) => { setC(r >= v); setZN((r - v) & 255); };
+  const adc = v => { const s = A + v + C(); P = (P & ~0x40) | ((~(A ^ v) & (A ^ s) & 0x80) ? 0x40 : 0); setC(s > 255); A = setZN(s & 255); };
+  PC = rd(0xFFFC) | (rd(0xFFFD) << 8);
+  const step = () => { const op = rd(PC++); cyc++;
+    switch (op) {
+      case 0xA9: A = setZN(imm()); break; case 0xA5: A = setZN(rd(zp())); break; case 0xAD: A = setZN(rd(abs())); break; case 0xBD: A = setZN(rd(abs() + X)); break;
+      case 0xA2: X = setZN(imm()); break; case 0xA6: X = setZN(rd(zp())); break; case 0xAE: X = setZN(rd(abs())); break;
+      case 0xA0: Y = setZN(imm()); break; case 0xA4: Y = setZN(rd(zp())); break; case 0xAC: Y = setZN(rd(abs())); break;
+      case 0x85: wr(zp(), A); break; case 0x8D: wr(abs(), A); break; case 0x9D: wr(abs() + X, A); break; case 0x86: wr(zp(), X); break; case 0x8E: wr(abs(), X); break; case 0x84: wr(zp(), Y); break; case 0x8C: wr(abs(), Y); break;
+      case 0x29: A = setZN(A & imm()); break; case 0x25: A = setZN(A & rd(zp())); break; case 0x2D: A = setZN(A & rd(abs())); break;
+      case 0x09: A = setZN(A | imm()); break; case 0x05: A = setZN(A | rd(zp())); break; case 0x0D: A = setZN(A | rd(abs())); break;
+      case 0x49: A = setZN(A ^ imm()); break; case 0x45: A = setZN(A ^ rd(zp())); break; case 0x4D: A = setZN(A ^ rd(abs())); break;
+      case 0xC9: cmp(A, imm()); break; case 0xC5: cmp(A, rd(zp())); break; case 0xCD: cmp(A, rd(abs())); break; case 0xE0: cmp(X, imm()); break; case 0xE4: cmp(X, rd(zp())); break; case 0xC0: cmp(Y, imm()); break; case 0xC4: cmp(Y, rd(zp())); break;
+      case 0x69: adc(imm()); break; case 0x65: adc(rd(zp())); break; case 0x6D: adc(rd(abs())); break; case 0xE9: adc(imm() ^ 255); break; case 0xE5: adc(rd(zp()) ^ 255); break; case 0xED: adc(rd(abs()) ^ 255); break;
+      case 0xE6: { const a = zp(); wr(a, setZN((rd(a) + 1) & 255)); break; } case 0xEE: { const a = abs(); wr(a, setZN((rd(a) + 1) & 255)); break; }
+      case 0xC6: { const a = zp(); wr(a, setZN((rd(a) - 1) & 255)); break; } case 0xCE: { const a = abs(); wr(a, setZN((rd(a) - 1) & 255)); break; }
+      case 0x2A: { const c = C(); setC(A & 0x80); A = setZN(((A << 1) | c) & 255); break; } case 0x26: { const a = zp(), v = rd(a), c = C(); setC(v & 0x80); wr(a, setZN(((v << 1) | c) & 255)); break; }
+      case 0x6A: { const c = C(); setC(A & 1); A = setZN((A >> 1) | (c << 7)); break; } case 0x66: { const a = zp(), v = rd(a), c = C(); setC(v & 1); wr(a, setZN((v >> 1) | (c << 7))); break; }
+      case 0x0A: setC(A & 0x80); A = setZN((A << 1) & 255); break; case 0x06: { const a = zp(), v = rd(a); setC(v & 0x80); wr(a, setZN((v << 1) & 255)); break; }
+      case 0x4A: setC(A & 1); A = setZN(A >> 1); break; case 0x46: { const a = zp(), v = rd(a); setC(v & 1); wr(a, setZN(v >> 1)); break; }
+      case 0x4C: PC = abs(); break; case 0x20: { const t = abs(); const r = PC - 1; push(r >> 8); push(r & 255); PC = t; break; } case 0x60: { const l = pop(), h = pop(); PC = ((h << 8) | l) + 1; break; }
+      case 0x40: { P = pop(); const l = pop(), h = pop(); PC = (h << 8) | l; break; }
+      case 0xD0: case 0xF0: case 0x90: case 0xB0: case 0x10: case 0x30: { const d = imm(), off = d > 127 ? d - 256 : d, f = { 0xD0: !(P & 2), 0xF0: !!(P & 2), 0x90: !(P & 1), 0xB0: !!(P & 1), 0x10: !(P & 0x80), 0x30: !!(P & 0x80) }[op]; if (f) PC = (PC + off) & 0xFFFF; break; }
+      case 0xE8: X = setZN((X + 1) & 255); break; case 0xC8: Y = setZN((Y + 1) & 255); break; case 0xCA: X = setZN((X - 1) & 255); break; case 0x88: Y = setZN((Y - 1) & 255); break;
+      case 0xAA: X = setZN(A); break; case 0x8A: A = setZN(X); break; case 0xA8: Y = setZN(A); break; case 0x98: A = setZN(Y); break; case 0x9A: SP = X; break;
+      case 0x48: push(A); break; case 0x68: A = setZN(pop()); break; case 0x18: setC(0); break; case 0x38: setC(1); break; case 0x58: P &= ~4; break; case 0x78: P |= 4; break; case 0xEA: break;
+      default: throw new Error("opcode $" + op.toString(16).toUpperCase() + " at $" + (PC - 1).toString(16).toUpperCase() + " is not in this emulator");
+    } };
+  return { run(n) { for (let i = 0; i < n; i++) step(); }, writesA, state: () => ({ A, X, Y, SP, P, PC, cyc }), ram };
+}
+const FW0 = `; Randis 8 open console - boot firmware (original, MIT licence). Reads controller 1 and sends its buttons to the video helper.
+PORTB = $6000     ; VIA port B: PB0 latch, PB1 clock, PB2 pad 1 data
+PORTA = $6001     ; VIA port A: byte to the RP2040 video helper
+DDRB  = $6002
+DDRA  = $6003
+BUTTONS = $00     ; zero page: A B Select Start Up Down Left Right (1 = pressed)
+
+        .org $8000
+reset:  sei
+        ldx #$ff
+        txs
+        lda #%00000011
+        sta DDRB        ; latch + clock are outputs
+        lda #$ff
+        sta DDRA        ; port A drives the video link
+loop:   jsr readpad
+        lda BUTTONS
+        sta PORTA
+        jmp loop
+
+readpad: lda #%00000001
+        sta PORTB       ; latch high: the pad copies its buttons
+        lda #0
+        sta PORTB       ; latch low
+        sta BUTTONS
+        ldx #8
+rp1:    lda PORTB
+        and #%00000100  ; data bit: 0 = pressed
+        cmp #1          ; carry = 1 when released
+        rol BUTTONS
+        lda #%00000010
+        sta PORTB       ; clock high: next button
+        lda #0
+        sta PORTB
+        dex
+        bne rp1
+        lda BUTTONS
+        eor #$ff        ; turn it into 1 = pressed
+        sta BUTTONS
+        rts
+
+nmi:    rti
+irq:    rti
+
+        .org $fffa
+        .word nmi, reset, irq
+`;
+const PAD_NAMES = ["A", "B", "Select", "Start", "Up", "Down", "Left", "Right"];
+function padAdapterIno() {
+  return `// Randis controller adapter (original code, MIT). Classic shift-register pad (4021-style: LATCH, CLOCK, DATA) -> USB gamepad.
+// Board: Raspberry Pi Pico with the Arduino-Pico core (Earle Philhower), USB stack: Adafruit TinyUSB. Pad needs 3.3 V here.
+#include <Adafruit_TinyUSB.h>
+const int LATCH = 2, CLOCK = 3, DATA = 4;
+uint8_t const desc_hid_report[] = { TUD_HID_REPORT_DESC_GAMEPAD() };
+Adafruit_USBD_HID usb_hid(desc_hid_report, sizeof(desc_hid_report), HID_ITF_PROTOCOL_NONE, 2, false);
+hid_gamepad_report_t gp;
+void setup() { pinMode(LATCH, OUTPUT); pinMode(CLOCK, OUTPUT); pinMode(DATA, INPUT_PULLUP); usb_hid.begin(); while (!TinyUSBDevice.mounted()) delay(1); }
+uint8_t readPad() {                     // returns A B Select Start Up Down Left Right, 1 = pressed
+  digitalWrite(LATCH, HIGH); delayMicroseconds(12); digitalWrite(LATCH, LOW);
+  uint8_t b = 0;
+  for (int i = 0; i < 8; i++) { b = (b << 1) | (digitalRead(DATA) == LOW); digitalWrite(CLOCK, HIGH); delayMicroseconds(6); digitalWrite(CLOCK, LOW); delayMicroseconds(6); }
+  return b;
+}
+void loop() {
+  uint8_t b = readPad();
+  memset(&gp, 0, sizeof gp);
+  gp.buttons = (b & 0x80 ? GAMEPAD_BUTTON_A : 0) | (b & 0x40 ? GAMEPAD_BUTTON_B : 0) | (b & 0x20 ? GAMEPAD_BUTTON_SELECT : 0) | (b & 0x10 ? GAMEPAD_BUTTON_START : 0);
+  gp.y = (b & 0x08) ? -127 : (b & 0x04) ? 127 : 0;
+  gp.x = (b & 0x02) ? -127 : (b & 0x01) ? 127 : 0;
+  if (usb_hid.ready()) usb_hid.sendReport(0, &gp, sizeof gp);
+  delay(4);
+}
+`;
+}
+function picoVideoC() {
+  return `// Randis 8 video helper for the RP2040 (original skeleton, MIT). Reads the byte the 6502 writes to VIA port A (GP0-GP7)
+// and draws a square that moves with the buttons on 640x480 VGA (GP10-12 = R G B through 470 ohm, GP13 HSYNC, GP14 VSYNC).
+// STATUS: skeleton, NOT tested on hardware. Next: PIO programs for HSYNC/VSYNC/RGB timing (25.175 MHz pixel clock, 800x525 total).
+#include "pico/stdlib.h"
+#define W 80
+#define H 60
+static uint8_t fb[H][W];                     // 8x8-pixel cells, 3-bit colour
+static int px = 40, py = 30;
+static uint8_t read_link(void) { return (uint8_t)(gpio_get_all() & 0xFF); }
+int main(void) {
+  for (int i = 0; i < 8; i++) { gpio_init(i); gpio_set_dir(i, GPIO_IN); }
+  // TODO: start the VGA PIO state machines that scan fb[][] out (see the RP2040 datasheet, PIO chapter)
+  while (true) {
+    uint8_t b = read_link();               // A B Select Start Up Down Left Right
+    if (b & 0x08) py--; if (b & 0x04) py++; if (b & 0x02) px--; if (b & 0x01) px++;
+    px = (px + W) % W; py = (py + H) % H;
+    for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) fb[y][x] = 0;
+    fb[py][px] = (b & 0x80) ? 4 : 7;       // red when A is held, else white
+    sleep_ms(16);
+  }
+}
+`;
+}
+
+const RX = { pad: [false, false, false, false, false, false, false, false], out: null, lst: "" };
+function r8Diagram() {
+  const box = (x, y, w, h, t, s) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="var(--bg2)" stroke="var(--acc)" stroke-width="2"/><text class="ink" x="${x + w / 2}" y="${y + h / 2 - 2}" text-anchor="middle" style="font-size:13px">${t}</text><text x="${x + w / 2}" y="${y + h / 2 + 14}" text-anchor="middle" style="font-size:10px">${s || ""}</text>`;
+  const ln = (x1, y1, x2, y2, t) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--mut)" stroke-width="2"/>${t ? `<text x="${(x1 + x2) / 2 + 4}" y="${(y1 + y2) / 2 - 4}" style="font-size:10px">${t}</text>` : ""}`;
+  return `<svg viewBox="0 0 720 300" width="100%" style="max-width:720px">${box(20, 110, 130, 60, "W65C02S CPU", "1 MHz")}${box(220, 20, 120, 50, "28C256 ROM", "$8000-$FFFF")}${box(220, 90, 120, 50, "62256 RAM", "$0000-$3FFF")}
+   ${box(220, 160, 120, 50, "74HC00 ×2", "address decode")}${box(220, 230, 120, 50, "W65C22 VIA", "$6000")}${box(420, 200, 130, 50, "74LVC245", "5 V → 3.3 V")}${box(590, 200, 110, 50, "RP2040 Pico", "video + sound")}
+   ${box(420, 260, 130, 34, "Pads 1 + 2", "latch/clock/data")}${box(590, 120, 110, 50, "VGA out", "R G B H V")}
+   ${ln(150, 140, 220, 45, "A0-15 D0-7")}${ln(150, 140, 220, 115)}${ln(150, 140, 220, 185)}${ln(150, 140, 220, 255)}${ln(340, 255, 420, 225, "port A")}${ln(550, 225, 590, 225)}${ln(340, 265, 420, 277, "port B")}${ln(645, 200, 645, 170)}</svg>`;
+}
+function pageRetro() {
+  if (!S.retro) S.retro = { view: "consoles", target: "nes", src: FW0 };
+  const v = S.retro.view || "consoles", tabs = [["consoles", "Consoles"], ["plan", "Replica routes"], ["r8", "Open 8-bit console"], ["fw", "Firmware + emulator"], ["pad", "Controller adapter"], ["dl", "Downloads"]];
+  let body = "";
+  if (v === "consoles") body = `<div class="banner">Hardware facts below are public technical knowledge written from memory and <b>not yet checked</b> against datasheets. No BIOS, ROM, firmware or game files are included or linked, ever.</div>
+    <table><tr><th>Console class</th><th>CPU</th><th>Memory</th><th>Graphics</th><th>BIOS / boot code</th><th>Open route</th><th>Hobby difficulty</th></tr>${RC.map(c => `<tr><td><b>${esc(c.name)}</b></td><td class="sub">${esc(c.cpu)}</td><td class="sub">${esc(c.ram)}</td><td class="sub">${esc(c.gpu)}</td><td class="sub">${esc(c.bios)}</td><td class="sub">${esc(c.open)}</td><td>${"●".repeat(c.diff)}${"○".repeat(5 - c.diff)}</td></tr>`).join("")}</table>
+    <h3>Rules for an open replica</h3><ol>${LEGAL.map(t => `<li>${esc(t)}</li>`).join("")}</ol><p class="sub">Not legal advice.</p>`;
+  else if (v === "plan") { const c = RC.find(c => c.id === S.retro.target) || RC[0];
+    body = `<p>Target: <select data-p="retro.target" data-r>${RC.map(x => `<option value="${x.id}"${x.id === c.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select></p>
+    <table><tr><th>Route</th><th>How</th><th>Parts</th><th>Cost</th><th>Fit for ${esc(c.name)}</th></tr>${RROUTES.map((r, i) => `<tr><td><b>${esc(r[0])}</b></td><td class="sub">${esc(r[1])}</td><td class="sub">${esc(r[2])}</td><td>${r[3]}</td><td>${i === 0 ? "✓ works for every class (PS2 class needs a strong PC)" : i === 1 ? (c.diff <= 4 ? "✓ open cores exist" : "✗ too big for hobby FPGAs today") : (c.diff <= 2 ? "✓ same CPU family still made" : "partly: CPU family available, custom chips need FPGA/MCU")}</td></tr>`).join("")}</table>
+    <p class="sub">${esc(c.open)}</p><p class="sub">The 'Open 8-bit console' tab is a worked example of the discrete route for the ${esc(RC.find(x => x.id === "nes").name)} / Atari class: an original machine, not a copy.</p>`; }
+  else if (v === "r8") { const parts = r8Parts(), nets = r8Nets(), cost = parts.reduce((s, p) => s + p.price * p.qty, 0);
+    body = `<p class="lead">"Randis 8": an original open 8-bit console from parts made today. 6502-family CPU, 32 KB firmware ROM, 16 KB RAM, a VIA for two controllers and a byte link to an RP2040 that makes VGA video and sound. Licences: hardware CERN-OHL-S-2.0, firmware MIT.</p>
+    ${r8Diagram()}<div class="row"><div class="card"><h3>Memory map</h3><table><tr><td>$0000-$3FFF</td><td>RAM (zero page, stack at $0100)</td></tr><tr><td>$6000-$600F</td><td>VIA: $6000 port B (pads), $6001 port A (video link), $6002/3 directions</td></tr><tr><td>$8000-$FFF9</td><td>Firmware ROM</td></tr><tr><td>$FFFA-$FFFF</td><td>NMI, RESET, IRQ vectors</td></tr></table>
+    <h3>Address decode (2 × 74HC00)</h3><p class="sub">/A15 = NAND(A15,A15) → ROM /CE · RAM /CE = NAND(PHI2,/A15) · RAM /OE = A14 · /RW = NAND(RWB,RWB) · RAM /WE = NAND(PHI2,/RW) · VIA CS1 = A13, CS2B = NAND(/A15,A14)</p></div>
+    <div class="card"><h3>${parts.length} parts · ${nets.length} nets · ≈ ${money(cost)}</h3><p class="sub">Prices are rough single-unit estimates (unchecked). Pin numbers come from the datasheets as recalled: <b>check every pin against the current datasheet before ordering a board</b>.</p>
+     <p><button class="pri" data-act="r8Load">Load this design into the project</button> <span class="sub">(replaces the project's parts, netlist and steps; back up first)</span></p>
+     <table><tr><th>Ref</th><th>Part</th><th>MPN</th></tr>${parts.map(p => `<tr><td>${p.ref}</td><td>${esc(p.value)}</td><td class="sub">${esc(p.mpn)}</td></tr>`).join("")}</table></div></div>`; }
+  else if (v === "fw") { const a = asm6502(S.retro.src); RX.lst = a.lst;
+    body = `<p class="lead">Write firmware in 6502 assembly; the app assembles it into a 32 KB ROM image (burn it to the 28C256 with any EEPROM programmer, e.g. the open-source minipro tool) and runs it here on a small 6502 emulator wired like the real board, with a virtual controller.</p>
+    <div class="row"><div class="card"><textarea data-p="retro.src" style="min-height:420px">${esc(S.retro.src)}</textarea><p><button data-act="r8Asm" class="pri">Assemble</button> <button data-act="r8Run">▶ Run 20,000 steps</button> <button data-act="r8Reset">Reset to the boot firmware</button></p></div>
+    <div class="card" style="max-width:420px"><p>${a.errs.length ? `<span class="bad">${a.errs.map(esc).join("<br>")}</span>` : `<span class="ok">✓ ${a.size} bytes of code, vectors set (reset → $${(a.rom[0x7FFC] | (a.rom[0x7FFD] << 8)).toString(16).toUpperCase()})</span>`}</p>
+     <h4>Virtual controller (pad 1)</h4><p>${PAD_NAMES.map((n, i) => `<label class="pill"><input type="checkbox" data-pad="${i}"${RX.pad[i] ? " checked" : ""}> ${n}</label>`).join(" ")}</p>
+     <div id="emuout">${RX.out ? `<pre>${esc(RX.out)}</pre>` : `<p class="sub">Press Run.</p>`}</div><h4>Listing</h4><pre style="max-height:260px">${esc(a.lst)}</pre></div></div>`; }
+  else if (v === "pad") body = `<p class="lead">Use a classic shift-register controller (or one you build: a 4021-type chip and 8 buttons) on any computer: an RP2040 reads LATCH/CLOCK/DATA and shows up as a USB gamepad. Original code; the protocol (latch, then 8 clocked bits) is the standard way these chips work.</p>
+    <div class="row"><div class="card"><h3>Wiring</h3><table><tr><th>Pad</th><th>Pico</th></tr><tr><td>VCC</td><td>3V3 (pin 36)</td></tr><tr><td>GND</td><td>GND</td></tr><tr><td>LATCH</td><td>GP2</td></tr><tr><td>CLOCK</td><td>GP3</td></tr><tr><td>DATA</td><td>GP4</td></tr></table>
+     <h3>PS2-style pads</h3><p class="sub">Those use a 4-wire serial bus (command/data/clock/attention, like SPI mode 3, LSB first) and need a different reader: plan step, written from public protocol notes, not included yet.</p></div>
+    <div class="card"><pre>${esc(padAdapterIno())}</pre><button data-act="r8Ino">⬇ adapter.ino</button></div></div>`;
+  else if (v === "dl") body = `<p class="lead">Everything for the Randis 8 in one package: README with the rules, BOM, netlist, firmware source + ROM image + listing, video helper skeleton, controller adapter, diagram. No third-party firmware inside.</p>
+    <p><button class="pri" data-act="r8Zip">⬇ randis8_open_console.zip</button> <button data-act="r8Bin">⬇ ROM image (.bin)</button></p>`;
+  return `<h2>🎮 Retro Console Lab</h2><p>${tabs.map(([k, n]) => `<button data-act="rView" data-arg="${k}" class="${v === k ? "pri" : ""}">${n}</button>`).join(" ")}</p>${body}`;
+}
+function r8Files() {
+  const a = asm6502(S.retro.src), parts = r8Parts(), nets = r8Nets();
+  const readme = `# Randis 8: an open 8-bit console\n\nOriginal design made in Randis UDS Open Hardware Studio. Hardware: CERN-OHL-S-2.0. Firmware and code: MIT.\n\n## Rules\n${LEGAL.map(t => "- " + t).join("\n")}\n\nThis package contains no BIOS, ROM, firmware or game from any console maker.\n\n## Status\n- Firmware: assembled and run in the studio's 6502 emulator against a simulated controller.\n- Hardware: NOT built yet. Pin numbers are from datasheets as recalled: check every pin before ordering a PCB.\n- Video helper (pico_video.c): skeleton, not tested on hardware.\n\n## Memory map\n$0000-$3FFF RAM · $6000 VIA · $8000-$FFFF ROM\n`;
+  return [["README.md", readme], ["bom.csv", toCSV([["Ref", "Part", "Package", "Pins", "MPN", "Maker", "Qty", "Unit price (rough)", "Notes"], ...parts.map(p => [p.ref, p.value, p.pkg, p.pins, p.mpn, p.maker, p.qty, p.price, p.notes])])],
+    ["netlist.txt", nets.map(n => `${n.name}: ${n.nodes}`).join("\n") + "\n"], ["firmware/boot.asm", S.retro.src], ["firmware/boot.bin", a.rom], ["firmware/boot.lst", a.lst + "\n"],
+    ["video/pico_video.c", picoVideoC()], ["adapter/adapter.ino", padAdapterIno()], ["diagram.svg", r8Diagram().replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" style="font-family:sans-serif" ').replace(/var\(--[a-z0-9]+\)/g, "#444")]];
+}
+function runEmu() {
+  const a = asm6502(S.retro.src); if (a.errs.length) { RX.out = "Fix the assembly errors first."; return; }
+  const m = emu(a.rom, () => RX.pad); try { m.run(20000); } catch (e) { RX.out = "Stopped: " + e.message; return; }
+  const last = m.writesA[m.writesA.length - 1], st = m.state();
+  RX.out = `ran ${st.cyc} instructions, PC $${st.PC.toString(16).toUpperCase()}\nwrites to the video link (port A): ${m.writesA.length}\nlast byte: ${last == null ? "none" : "%" + last.toString(2).padStart(8, "0")} = ${last == null ? "" : PAD_NAMES.filter((n, i) => last & (1 << (7 - i))).join(" + ") || "no buttons"}`;
+}
+Object.assign(ACT, {
+  rView(k) { S.retro.view = k; save(); render(); },
+  r8Asm() { render(); },
+  r8Run() { runEmu(); render(); },
+  r8Reset() { if (confirm("Replace the editor with the original boot firmware?")) { S.retro.src = FW0; RX.out = null; save(); render(); } },
+  r8Load() { if (!confirm("Replace this project's parts, netlist and steps with the Randis 8 console?")) return;
+    S.parts = r8Parts(); S.nets = r8Nets(); S.proj.name = "Randis 8 open console"; S.proj.summary = "An original open 8-bit console: W65C02S CPU, 32K EEPROM, 32K SRAM, W65C22 VIA, RP2040 video helper, two controller ports. Own firmware, no third-party ROMs."; S.proj.tags = "6502, retro, console, open hardware";
+    S.board = { w: 160, h: 100, thick: 1.6, layers: 2, place: {} };
+    S.steps = [{ title: "Check the pinouts", text: "Compare every pin in the netlist with the current datasheets (W65C02S, W65C22S, AT28C256, AS6C62256, 74HC00, 74LVC245, Pico)." }, { title: "Breadboard first", text: "CPU + ROM + clock + reset; burn boot.bin; watch the address lines with a logic probe or LEDs." }, { title: "Add RAM, VIA, pads", text: "Then the level shifter and the Pico; flash the video helper." }, { title: "Then the PCB", text: "Only after the breadboard works." }];
+    save(); toast("Loaded: " + S.parts.length + " parts, " + S.nets.length + " nets. See Parts, Netlist and Board."); },
+  r8Ino() { download("adapter.ino", padAdapterIno()); },
+  r8Bin() { download("boot.bin", new Blob([asm6502(S.retro.src).rom], { type: "application/octet-stream" })); },
+  r8Zip() { download("randis8_open_console.zip", makeZip(r8Files())); },
+});
+document.addEventListener("change", e => { const i = e.target.dataset && e.target.dataset.pad; if (i != null) { RX.pad[+i] = e.target.checked; } });
+
+APP.pages.push(["retro", "🎮 Retro lab", pageRetro]);
+(() => { const d = APP.defaults; APP.defaults = () => Object.assign(d(), { retro: { view: "consoles", target: "nes", src: FW0 } });
+  const st = APP.selftest; APP.selftest = () => { const r = st() || { fail: [] }; (r.fail = r.fail || []).push(...retroSelftest()); if ("ok" in r) r.ok = !r.fail.length; return r; };
+  const tk = APP.testSkip || []; APP.testSkip = [...tk, "r8Load", "r8Reset"]; })();
+function retroSelftest() {
+  const fail = [];
+  try {
+    const a = asm6502(FW0); if (a.errs.length) fail.push("asm errors " + a.errs);
+    const rom = a.rom; if (rom[0] !== 0x78 || rom[1] !== 0xA2 || rom[2] !== 0xFF || rom[3] !== 0x9A) fail.push("first bytes " + [...rom.slice(0, 4)]);
+    if ((rom[0x7FFC] | (rom[0x7FFD] << 8)) !== 0x8000) fail.push("reset vector");
+    const t = asm6502(".org $8000\nx: lda #$12\n sta $0200\n sta $10\n bne x\n rol $10\n.org $fffc\n.word x"); const tb = [...t.rom.slice(0, 12)];
+    if (tb.join() !== [0xA9, 0x12, 0x8D, 0x00, 0x02, 0x85, 0x10, 0xD0, 0xF7, 0x26, 0x10, 0xFF].join()) fail.push("encodings " + tb.map(b => b.toString(16)));
+    const pads = [[1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 0, 0, 0, 0]];
+    pads.forEach(p => { const m = emu(rom, () => p.map(Boolean)); m.run(3000); const want = p.reduce((v, on, i) => v | (on ? 1 << (7 - i) : 0), 0), got = m.writesA[m.writesA.length - 1];
+      if (got !== want) fail.push(`emulated pad ${p.join("")}: port A ${got} want ${want}`); });
+    const nets = r8Nets(), nodes = nets.flatMap(n => n.nodes.split(" ")), dup = nodes.filter((x, i) => nodes.indexOf(x) !== i);
+    if (dup.length) fail.push("pins in two nets: " + [...new Set(dup)].join(" "));
+    const refs = new Set(r8Parts().map(p => p.ref)); const unknown = nodes.filter(n => !refs.has(n.split(".")[0])); if (unknown.length) fail.push("unknown refs " + unknown.slice(0, 5));
+    const pins = Object.fromEntries(r8Parts().map(p => [p.ref, p.pins])); const bad = nodes.filter(n => { const [r, pn] = n.split("."); return +pn < 1 || +pn > pins[r]; }); if (bad.length) fail.push("pin out of range " + bad.slice(0, 5));
+    if (nets.find(n => n.name === "D0").nodes.split(" ").length !== 4 || nets.find(n => n.name === "A15").nodes.split(" ").length !== 3) fail.push("bus fan-out");
+  } catch (e) { fail.push("retro exception " + e.message); }
+  return fail;
+}
+
+</script>
+<script>
+if (inApp) { tell({ uds: "store-get" }); tell({ uds: "web-hello" }); setTimeout(() => { if (!loaded) { useLocal = true; boot(readLocal()); } }, 1500); }
+else boot(readLocal());
+</script>
+</body>
+</html>

@@ -7,6 +7,8 @@ import threading
 import time
 import uuid
 
+import pathcheck
+
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", ".idea", ".vscode"}
 MAX_ENTRIES = 3000
 MAX_DEPTH = 4
@@ -25,8 +27,8 @@ def default_workspace(data_dir):
 
 
 def inside(root, path):
-    root, full = os.path.realpath(root), os.path.realpath(os.path.join(root, path))
-    if os.path.commonpath([root, full]) != root:
+    full = pathcheck.real(os.path.join(root, path))
+    if not pathcheck.within(root, full, allow_root=True):
         raise ValueError("That file is outside the workspace folder.")
     return full
 

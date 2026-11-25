@@ -1,0 +1,943 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Circuit & PCB Studio</title>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<style>
+:root{--bg:#f9f9f7;--bg2:#fcfcfb;--bg3:#efeee9;--line:#dcdbd5;--tx:#0b0b0b;--mut:#52514e;--acc:#1c7a4a;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--bad:#d03b3b;
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948}
+body[data-theme=dark]{--bg:#0d0d0d;--bg2:#1a1a19;--bg3:#262624;--line:#383835;--tx:#f0efec;--mut:#c3c2b7;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+header b#apptitle{font-size:16px;color:var(--acc);margin-right:6px}
+#nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+#nav button{border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--mut)}
+#nav button.on{background:var(--acc);color:#fff}
+#nav button:hover:not(.on){background:var(--bg3)}
+#saved{font-size:11px;color:var(--mut)}
+main#view{flex:1;overflow:auto;padding:14px 18px}
+h2{margin:0 0 4px;font-size:21px}h3{margin:6px 0 8px;font-size:15px;color:var(--acc)}h4{margin:10px 0 4px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em}
+.lead{color:var(--mut);margin:0 0 12px;max-width:980px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}.row>.card{flex:1;min-width:300px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:2px;margin:0 0 6px}
+input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px}
+textarea{width:100%;min-height:80px;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--tx);border-radius:6px;padding:4px 10px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}button.x{padding:1px 7px;color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}td input,td select{width:100%;padding:2px 4px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+pre,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}pre{background:var(--bg3);padding:10px;border-radius:6px;overflow:auto;white-space:pre-wrap;margin:6px 0;max-height:420px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:var(--bg3);color:var(--mut)}
+.ok{color:var(--good)}.bad{color:var(--bad)}.warnc{color:#b7791f}
+.banner{border-left:4px solid var(--serious);background:var(--bg3);padding:8px 12px;border-radius:6px;margin:0 0 12px}
+.stat{font-size:26px;font-weight:600}.sub{font-size:12px;color:var(--mut)}
+svg text{fill:var(--mut);font-size:11px}svg .ink{fill:var(--tx)}
+.lnk{color:var(--s1);cursor:pointer;text-decoration:underline}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:9;max-width:80%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><b id="apptitle">Circuit & PCB Studio</b><nav id="nav"></nav><span id="saved"></span><button data-act="theme" title="Light / dark">◐</button></header>
+<main id="view"></main>
+<div id="toast"></div>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+"use strict";
+const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const inApp = window.parent !== window;
+const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100, r1 = n => Math.round(n * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (n, d) => (+n || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d });
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(+n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = n => (isFinite(n) ? Math.round(n * 1000) / 10 : 0) + "%";
+const SER = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)"];
+let toastT; function toast(t, ms) { const e = $("#toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => e.style.display = "none", ms || 3200); }
+let WEB_ON = false;
+function openLink(url) {
+  if (!inApp) { window.open(url, "_blank", "noopener"); return; }
+  if (WEB_ON) { tell({ uds: "web-pop", url }); return; }
+  copyText(url, "Link copied: paste it into your browser (or tick 'Web view' above this tab).");
+}
+function copyText(t, msg) { const fb = () => prompt("Copy this:", t); try { const p = navigator.clipboard && navigator.clipboard.writeText(t); if (p && p.then) p.then(() => toast(msg || "Copied.", 4000), fb); else fb(); } catch (e) { fb(); } }
+const L = (label, url) => `<span class="lnk" data-url="${esc(url)}">${esc(label)} ↗</span>`;
+
+let S, MEM = { page: null, sub: {} }, loaded = false, useLocal = true, saveT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const data = { [APP.key]: S };
+    if (inApp && !useLocal) tell({ uds: "store-set", data });
+    try { localStorage.setItem("uds-" + APP.key, JSON.stringify(S)); } catch (e) {}
+    const kb = Math.round(JSON.stringify(data).length / 1024), el = $("#saved");
+    if (el) el.textContent = `Saved · ${kb} KB`;
+    if (kb > 900) toast("Storage is nearly full: export a backup and remove some images.", 6000);
+  }, 400);
+}
+function readLocal() { try { return JSON.parse(localStorage.getItem("uds-" + APP.key) || "null"); } catch (e) { return null; } }
+function getP(path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), S); }
+function setP(path, val) { const p = path.split("."); let o = S; while (p.length > 1) { const k = p.shift(); if (o[k] == null) o[k] = {}; o = o[k]; } o[p[0]] = val; }
+function download(name, data, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: type || "text/plain" });
+  if (window.__dl) { window.__dl.push([name, typeof data === "string" ? data : "blob:" + blob.size]); }
+  if (inApp) { tell({ uds: "export-file", name, data: blob }); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const csvCell = c => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`;
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ""));
+}
+
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >> 8) & 255], u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  for (const [name, d] of files) {
+    const data = typeof d === "string" ? enc.encode(d) : d, nm = enc.encode(name), crc = crc32(data);
+    const head = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)]);
+    parts.push(head, nm, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nm);
+    off += head.length + nm.length + data.length;
+  }
+  const csize = central.reduce((a, b) => a + b.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+const AIQ = {};
+function askAI(prompt, cb) {
+  if (!inApp) { cb({ error: "Open this inside Randis UDS with an AI linked to use the AI helper." }); return; }
+  const id = "q10-" + uid(); AIQ[id] = cb;
+  tell({ uds: "planner-ask", id, history: [{ role: "user", content: String(prompt) }], context: APP.title + " app in Randis UDS." });
+}
+
+const F = (label, path, o) => { o = o || {}; const v = getP(path); const t = o.type || (typeof v === "number" ? "number" : "text");
+  if (o.opts) return `<label class="f">${esc(label)}<select data-p="${path}"${o.r ? " data-r" : ""}>${o.opts.map(x => { const [k, n] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(k)}"${String(v) === String(k) ? " selected" : ""}>${esc(n)}</option>`; }).join("")}</select></label>`;
+  if (t === "area") return `<label class="f">${esc(label)}<textarea data-p="${path}"${o.r ? " data-r" : ""} style="min-height:${o.h || 90}px">${esc(v)}</textarea></label>`;
+  if (t === "check") return `<label><input type="checkbox" data-p="${path}" data-r${v ? " checked" : ""}> ${esc(label)}</label>`;
+  return `<label class="f">${esc(label)}<input type="${t}" data-p="${path}"${t === "number" ? " data-num" : ""}${o.r ? " data-r" : ""} value="${esc(v)}"${o.step ? ` step="${o.step}"` : ""}${o.w ? ` style="width:${o.w}"` : ""}></label>`; };
+function TBL(path, cols, o) {
+  o = o || {}; const rows = getP(path) || [];
+  const head = cols.map(c => `<th>${esc(c[1])}</th>`).join("") + (o.extra ? o.extra.map(x => `<th>${esc(x[0])}</th>`).join("") : "") + "<th></th>";
+  const body = rows.map((r, i) => "<tr>" + cols.map(([k, , t, w]) => {
+    const p = `${path}.${i}.${k}`, v = r[k];
+    if (Array.isArray(t)) return `<td${w ? ` style="width:${w}"` : ""}><select data-p="${p}" data-r>${t.map(x => `<option${String(v) === String(x) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></td>`;
+    return `<td${w ? ` style="width:${w}"` : ""}><input data-p="${p}"${t === "number" ? ' type="number" data-num step="any"' : ""}${o.live ? " data-r" : ""} value="${esc(v)}"></td>`;
+  }).join("") + (o.extra ? o.extra.map(x => `<td class="num">${x[1](r, i)}</td>`).join("") : "") + `<td><button class="x" data-act="rowdel" data-arg="${path}|${i}">✕</button></td></tr>`).join("");
+  return `<table><tr>${head}</tr>${body}</table><button data-act="rowadd" data-arg="${path}">+ Add row</button>`;
+}
+function lineChart(series, o) {
+  o = o || {}; const W = o.w || 640, H = o.h || 220, P = { l: 46, r: 12, t: 10, b: 24 };
+  const all = series.flatMap(s => s.pts); if (!all.length) return `<p class="sub">No data yet.</p>`;
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) || 1, y0 = Math.min(0, ...ys), y1 = Math.max(...ys) * 1.08 || 1;
+  const X = x => P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r), Y = y => H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b);
+  let g = ""; for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P.l - 4}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`; }
+  g += `<text x="${P.l}" y="${H - 6}">${esc(o.xl ? o.xl(x0) : fmt(x0))}</text><text x="${W - P.r}" y="${H - 6}" text-anchor="end">${esc(o.xl ? o.xl(x1) : fmt(x1))}</text>`;
+  const lines = series.map((s, i) => `<polyline fill="none" stroke="${s.color || SER[i % 8]}" stroke-width="2" points="${s.pts.map(p => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join(" ")}"/>` +
+    s.pts.filter((p, j) => s.pts.length < 60 || j % Math.ceil(s.pts.length / 40) === 0).map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="6" fill="transparent"><title>${esc(s.name)}: ${esc(o.xl ? o.xl(p[0]) : fmt(p[0]))} → ${fmt(p[1])}</title></circle>`).join("")).join("");
+  const leg = series.length > 1 ? `<div class="legend">${series.map((s, i) => `<span><i style="background:${s.color || SER[i % 8]}"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  return leg + `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${g}${lines}</svg>`;
+}
+function barChart(items, o) {
+  o = o || {}; const W = o.w || 640, bh = 22, H = items.length * (bh + 6) + 8, lw = o.lw || 150, max = Math.max(...items.map(i => i.v), 1e-9);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">` + items.map((it, i) => { const y = 4 + i * (bh + 6), w = Math.max(1, (W - lw - 90) * it.v / max);
+    return `<text class="ink" x="${lw - 6}" y="${y + 15}" text-anchor="end">${esc(it.name)}</text><rect x="${lw}" y="${y}" width="${w}" height="${bh}" rx="4" fill="${it.color || SER[o.one ? 0 : i % 8]}"><title>${esc(it.name)}: ${esc(o.f ? o.f(it.v) : fmt(it.v))}</title></rect><text x="${lw + w + 6}" y="${y + 15}">${esc(o.f ? o.f(it.v) : fmt(it.v))}</text>`; }).join("") + "</svg>";
+}
+
+function nav() {
+  $("#nav").innerHTML = APP.pages.map(([id, label]) => `<button data-page="${id}" class="${MEM.page === id ? "on" : ""}">${esc(label)}</button>`).join("");
+}
+function go(id) { MEM.page = id; S._page = id; render(); }
+let PRESS = false, HELD = false, IN_CHANGE = false, heldT;
+function flushHeld() { clearTimeout(heldT); if (HELD) { HELD = false; render(); } }
+document.addEventListener("pointerdown", e => { PRESS = !!(e.target.closest && e.target.closest("button,[data-act],[data-page],a,.lnk,label.pill")); }, true);
+document.addEventListener("pointerup", () => { if (!PRESS) return; PRESS = false; if (HELD) setTimeout(flushHeld, 0); }, true);
+function render() {
+  if (IN_CHANGE && PRESS) { HELD = true; clearTimeout(heldT); heldT = setTimeout(() => { PRESS = false; flushHeld(); }, 1000); return; }
+  HELD = false;
+  nav(); const pg = APP.pages.find(p => p[0] === MEM.page) || APP.pages[0]; MEM.page = pg[0];
+  try { $("#view").innerHTML = pg[2](); if (APP.after) APP.after(pg[0]); }
+  catch (e) { $("#view").innerHTML = `<div class="card bad">This page hit an error: ${esc(e && e.stack || e)}</div>`; console.error(e); }
+}
+function boot(data) {
+  if (loaded) return; loaded = true;
+  S = Object.assign(APP.defaults(), data && typeof data === "object" ? data : {});
+  if (S._theme) document.body.dataset.theme = S._theme;
+  MEM.page = S._page || APP.pages[0][0]; render();
+}
+const ACT = {
+  theme() { S._theme = document.body.dataset.theme === "dark" ? "" : "dark"; document.body.dataset.theme = S._theme; save(); },
+  rowadd(path) { const a = getP(path) || []; const t = APP.rowTemplates && APP.rowTemplates[path]; a.push(t ? t() : {}); setP(path, a); save(); render(); },
+  rowdel(arg) { const [path, i] = arg.split("|"); getP(path).splice(+i, 1); save(); render(); },
+};
+function onField(e, final) {
+  const el = e.target, p = el.dataset && el.dataset.p; if (!p) return;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num !== undefined) v = num(v);
+  setP(p, v); save();
+  IN_CHANGE = final;
+  try { if (final && el.dataset.r !== undefined) render(); if (APP.onField) APP.onField(p, v, final); } finally { IN_CHANGE = false; }
+}
+document.addEventListener("input", e => { if (e.target.tagName === "SELECT" || e.target.type === "checkbox") return; onField(e, false); });
+document.addEventListener("change", e => { if (e.target.type === "file") { const a = e.target.dataset.file; if (a && ACT[a]) ACT[a]([...e.target.files], e.target); return; } onField(e, true); });
+document.addEventListener("click", e => {
+  const pg = e.target.closest("[data-page]"); if (pg) { go(pg.dataset.page); return; }
+  const l = e.target.closest(".lnk"); if (l) { openLink(l.dataset.url); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const f = ACT[b.dataset.act]; if (!f) return;
+  try { f(b.dataset.arg, b, e); } catch (err) { toast("That didn't work: " + err.message, 6000); console.error(err); }
+});
+window.addEventListener("message", e => {
+  const d = e.data; if (!d || typeof d.uds !== "string") return;
+  if (d.uds === "store") { if (!loaded) { useLocal = false; boot(d.data && d.data[APP.key] ? d.data[APP.key] : readLocal()); } }
+  else if (d.uds === "store-error") toast("Couldn't save: " + (d.note || ""), 6000);
+  else if (d.uds === "web-state") WEB_ON = !!d.on;
+  else if (d.uds === "exported" || d.uds === "exporting") toast(d.note || (d.ok ? "Saved." : "Not saved."));
+  else if (d.uds === "planner" && AIQ[d.id]) { if (d.done) { const cb = AIQ[d.id]; delete AIQ[d.id]; cb(d.error ? { error: d.error } : { text: d.text || "" }); } }
+});
+</script>
+<script>
+const PKG = {
+  "0402": { lib: "Resistor_SMD:R_0402_1005Metric", pins: 2, pads: () => [["1", -0.48, 0, 0.56, 0.62, "smd"], ["2", 0.48, 0, 0.56, 0.62, "smd"]], body: [1.0, 0.5] },
+  "0603": { lib: "Resistor_SMD:R_0603_1608Metric", pins: 2, pads: () => [["1", -0.825, 0, 0.8, 0.95, "smd"], ["2", 0.825, 0, 0.8, 0.95, "smd"]], body: [1.6, 0.8] },
+  "0805": { lib: "Resistor_SMD:R_0805_2012Metric", pins: 2, pads: () => [["1", -0.91, 0, 1.0, 1.45, "smd"], ["2", 0.91, 0, 1.0, 1.45, "smd"]], body: [2.0, 1.25] },
+  "1206": { lib: "Resistor_SMD:R_1206_3216Metric", pins: 2, pads: () => [["1", -1.46, 0, 1.15, 1.8, "smd"], ["2", 1.46, 0, 1.15, 1.8, "smd"]], body: [3.2, 1.6] },
+  "SOT-23": { lib: "Package_TO_SOT_SMD:SOT-23", pins: 3, pads: () => [["1", -0.95, 1.1, 0.6, 0.7, "smd"], ["2", 0.95, 1.1, 0.6, 0.7, "smd"], ["3", 0, -1.1, 0.6, 0.7, "smd"]], body: [2.9, 1.3] },
+  "SOIC": { lib: n => `Package_SO:SOIC-${n}_3.9x${(n / 2 * 1.27 + 0.1).toFixed(1)}mm_P1.27mm`, pins: 8, pads: n => dual(n, 1.27, 5.4, 1.55, 0.6, "smd"), body: n => [3.9, n / 2 * 1.27 + 0.1] },
+  "DIP": { lib: n => `Package_DIP:DIP-${n}_W7.62mm`, pins: 8, pads: n => dual(n, 2.54, 7.62, 1.6, 1.6, "thru"), body: n => [6.4, n / 2 * 2.54] },
+  "TO-220": { lib: "Package_TO_SOT_THT:TO-220-3_Vertical", pins: 3, pads: () => [["1", -2.54, 0, 1.9, 1.9, "thru"], ["2", 0, 0, 1.9, 1.9, "thru"], ["3", 2.54, 0, 1.9, 1.9, "thru"]], body: [10, 4.5] },
+  "LED-5mm": { lib: "LED_THT:LED_D5.0mm", pins: 2, pads: () => [["1", -1.27, 0, 1.8, 1.8, "thru"], ["2", 1.27, 0, 1.8, 1.8, "thru"]], body: [5.8, 5.8] },
+  "Radial-cap": { lib: "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm", pins: 2, pads: () => [["1", -1, 0, 1.6, 1.6, "thru"], ["2", 1, 0, 1.6, 1.6, "thru"]], body: [5, 5] },
+  "Header": { lib: n => `Connector_PinHeader_2.54mm:PinHeader_1x${String(n).padStart(2, "0")}_P2.54mm_Vertical`, pins: 4, pads: n => Array.from({ length: n }, (_, i) => [String(i + 1), 0, (i - (n - 1) / 2) * 2.54, 1.7, 1.7, "thru"]), body: n => [2.54, n * 2.54] },
+  "Module": { lib: n => `Module:Generic_${n}pin_2.54`, pins: 16, pads: n => dual(n, 2.54, 15.24, 1.7, 1.7, "thru"), body: n => [17.8, n / 2 * 2.54 + 2] },
+};
+function dual(n, pitch, span, w, h, type) { const half = Math.ceil(n / 2), out = []; for (let i = 0; i < half; i++) out.push([String(i + 1), -span / 2, (i - (half - 1) / 2) * pitch, w, h, type]);
+  for (let i = 0; i < n - half; i++) out.push([String(half + i + 1), span / 2, ((half - 1) / 2 - i) * pitch, w, h, type]); return out; }
+function fp(part) { const k = PKG[part.pkg] || PKG.Header, n = Math.max(1, Math.round(num(part.pins)) || k.pins);
+  return { lib: typeof k.lib === "function" ? k.lib(n) : k.lib, pads: k.pads(n), body: typeof k.body === "function" ? k.body(n) : k.body, n }; }
+
+</script>
+<script>
+
+const G254 = 2.54;
+function schUuid() { const h = "0123456789abcdef"; let s = ""; for (let i = 0; i < 32; i++) s += i === 12 ? "4" : i === 16 ? h[8 + Math.floor(Math.random() * 4)] : h[Math.floor(Math.random() * 16)]; return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`; }
+function schPins(n) {
+  const L = Math.ceil(n / 2), R = n - L, top = Math.floor((Math.max(L, R) - 1) / 2) * G254, out = [];
+  for (let i = 0; i < L; i++) out.push({ num: String(i + 1), x: -7.62, y: top - i * G254, ang: 0 });
+  for (let i = 0; i < R; i++) out.push({ num: String(n - i), x: 7.62, y: top - i * G254, ang: 180 });
+  return { pins: out, top, rows: Math.max(L, R, 1) };
+}
+function schGeom() {
+  const parts = S.parts.map(p => ({ p, n: Math.max(1, Math.round(num(p.pins)) || 1) })), cols = Math.max(1, Math.ceil(Math.sqrt(parts.length)));
+  const rowH = Math.max(...parts.map(x => schPins(x.n).rows), 1) * G254 + 20.32, colW = 45.72, out = [], ends = {};
+  parts.forEach((x, i) => { const X = 30.48 + (i % cols) * colW, Y = 30.48 + Math.floor(i / cols) * rowH, sp = schPins(x.n);
+    const pins = sp.pins.map(q => ({ num: q.num, x: r2(X + q.x), y: r2(Y - q.y), ang: q.ang }));
+    pins.forEach(q => ends[x.p.ref + "." + q.num] = [q.x, q.y]); out.push({ ref: x.p.ref, value: x.p.value, part: x.p, n: x.n, X, Y, sp, pins }); });
+  const netOf = {}; S.nets.forEach(n => nodesOf(n).forEach(t => netOf[t.ref + "." + t.pin] = n.name));
+  return { parts: out, ends, netOf, W: 30.48 + cols * colW, H: 30.48 + Math.ceil(parts.length / cols) * rowH };
+}
+function kicadSch() {
+  const q = s => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"', G = schGeom(), font = "(effects (font (size 1.27 1.27)))";
+  const libs = [...new Set(G.parts.map(x => x.n))].sort((a, b) => a - b);
+  let s = `(kicad_sch (version 20211123) (generator randis_uds_ohw)\n  (uuid ${schUuid()})\n  (paper "A3")\n  (title_block (title ${q(S.proj.name)}) (comment 1 ${q("Made in Randis UDS Open Hardware Studio. License: " + S.proj.hwLicense)}))\n  (lib_symbols\n`;
+  for (const n of libs) { const sp = schPins(n), nm = `OHW:BOX_${n}`, base = `BOX_${n}`;
+    s += `    (symbol ${q(nm)} (in_bom yes) (on_board yes)\n      (property "Reference" "U" (id 0) (at 0 ${r2(sp.top + 3.81)} 0) ${font})\n      (property "Value" ${q(base)} (id 1) (at 0 ${r2(sp.top - sp.rows * G254 - 1.27)} 0) ${font})\n      (property "Footprint" "" (id 2) (at 0 0 0) (effects (font (size 1.27 1.27)) hide))\n`;
+    s += `      (symbol ${q(base + "_0_1")} (rectangle (start -5.08 ${r2(sp.top + 1.27)}) (end 5.08 ${r2(sp.top - sp.rows * G254 + 1.27)}) (stroke (width 0.254) (type default) (color 0 0 0 0)) (fill (type background))))\n      (symbol ${q(base + "_1_1")}\n`;
+    for (const p of sp.pins) s += `        (pin passive line (at ${p.x} ${r2(p.y)} ${p.ang}) (length 2.54) (name "~" ${font}) (number ${q(p.num)} ${font}))\n`;
+    s += "      )\n    )\n"; }
+  s += "  )\n";
+  const labels = [], ncs = [];
+  for (const x of G.parts) { const id = schUuid(), f = fp(x.part).lib;
+    s += `  (symbol (lib_id ${q("OHW:BOX_" + x.n)}) (at ${x.X} ${x.Y} 0) (unit 1) (in_bom yes) (on_board yes) (uuid ${id})\n    (property "Reference" ${q(x.ref)} (id 0) (at ${x.X} ${r2(x.Y - x.sp.top - 3.81)} 0) ${font})\n    (property "Value" ${q(x.value || "~")} (id 1) (at ${x.X} ${r2(x.Y - x.sp.top + x.sp.rows * G254 + 1.27)} 0) ${font})\n    (property "Footprint" ${q(f)} (id 2) (at ${x.X} ${x.Y} 0) (effects (font (size 1.27 1.27)) hide))\n`;
+    if (x.part.mpn) s += `    (property "MPN" ${q(x.part.mpn)} (id 3) (at ${x.X} ${x.Y} 0) (effects (font (size 1.27 1.27)) hide))\n`;
+    for (const p of x.pins) { s += `    (pin ${q(p.num)} (uuid ${schUuid()}))\n`; const net = G.netOf[x.ref + "." + p.num];
+      if (net) labels.push([net, p.x, p.y, p.ang === 0 ? 180 : 0]); else ncs.push([p.x, p.y]); }
+    s += `  )\n`; x.uuid = id; }
+  for (const [net, x, y, a] of labels) s += `  (label ${q(net)} (at ${x} ${y} ${a}) (effects (font (size 1.27 1.27)) (justify ${a ? "right" : "left"} bottom)) (uuid ${schUuid()}))\n`;
+  for (const [x, y] of ncs) s += `  (no_connect (at ${x} ${y}) (uuid ${schUuid()}))\n`;
+  s += `  (sheet_instances (path "/" (page "1")))\n  (symbol_instances\n`;
+  for (const x of G.parts) s += `    (path ${q("/" + x.uuid)} (reference ${q(x.ref)}) (unit 1) (value ${q(x.value || "~")}) (footprint ${q(fp(x.part).lib)}))\n`;
+  return s + "  )\n)\n";
+}
+function sexpr(text) {
+  let i = 0; const tok = () => { while (i < text.length && /\s/.test(text[i])) i++; return text[i]; };
+  const read = () => { const c = tok(); if (c === "(") { i++; const L = []; while (tok() !== ")") { if (i >= text.length) throw new Error("unclosed list"); L.push(read()); } i++; return L; }
+    if (c === '"') { let s = ""; i++; while (text[i] !== '"') { if (i >= text.length) throw new Error("unclosed string"); if (text[i] === "\\") i++; s += text[i++]; } i++; return { s }; }
+    let a = ""; while (i < text.length && !/[\s()]/.test(text[i])) a += text[i++]; if (!a) throw new Error("bad token at " + i); return a; };
+  const v = read(); if (tok() !== undefined) throw new Error("text after the end"); return v;
+}
+function readSch(text) {
+  const T = sexpr(text), str = v => v && v.s != null ? v.s : v, kids = (L, h) => L.filter(x => Array.isArray(x) && x[0] === h);
+  if (T[0] !== "kicad_sch") throw new Error("not a kicad_sch");
+  const lib = {}; for (const sym of kids(kids(T, "lib_symbols")[0] || [], "symbol")) { const pins = []; for (const sub of kids(sym, "symbol")) for (const p of kids(sub, "pin")) { const at = kids(p, "at")[0], nb = kids(p, "number")[0]; pins.push({ num: str(nb[1]), x: +at[1], y: +at[2] }); } lib[str(sym[1])] = pins; }
+  const ends = {}; let nSym = 0;
+  for (const sym of kids(T, "symbol")) { nSym++; const at = kids(sym, "at")[0], ref = str(kids(sym, "property").find(p => str(p[1]) === "Reference")[2]), pins = lib[str(kids(sym, "lib_id")[0][1])] || [];
+    for (const p of pins) ends[r2(+at[1] + p.x) + "," + r2(+at[2] - p.y)] = ref + "." + p.num; }
+  const nets = {}; let orphan = 0; for (const l of kids(T, "label")) { const at = kids(l, "at")[0], k = r2(+at[1]) + "," + r2(+at[2]); if (!ends[k]) { orphan++; continue; } (nets[str(l[1])] = nets[str(l[1])] || []).push(ends[k]); }
+  return { nets, nSym, orphan, nc: kids(T, "no_connect").length, labels: kids(T, "label").length };
+}
+function schSVG(standalone) { const G = schGeom(), k = 5, W = G.W * k, H = G.H * k;
+  let s = `<svg ${standalone ? 'xmlns="http://www.w3.org/2000/svg" ' : ""}viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${Math.min(1100, W)}px;background:#fffdf6;border:1px solid var(--line);border-radius:6px">`;
+  for (const x of G.parts) { const top = x.Y - x.sp.top - 1.27, h = x.sp.rows * G254; s += `<rect x="${(x.X - 5.08) * k}" y="${top * k}" width="${10.16 * k}" height="${h * k}" fill="#fff6d8" stroke="#8a1c1c" stroke-width="1.5"/>`;
+    s += `<text x="${x.X * k}" y="${(top - 1.2) * k}" text-anchor="middle" style="font:600 11px sans-serif;fill:#333">${esc(x.ref)}</text><text x="${x.X * k}" y="${(top + h + 3.6) * k}" text-anchor="middle" style="font:10px sans-serif;fill:#555">${esc(x.value || "")}</text>`;
+    for (const p of x.pins) { const bx = p.ang === 0 ? p.x + 2.54 : p.x - 2.54, net = G.netOf[x.ref + "." + p.num];
+      s += `<line x1="${p.x * k}" y1="${p.y * k}" x2="${bx * k}" y2="${p.y * k}" stroke="#8a1c1c" stroke-width="1.5"/><text x="${(p.ang === 0 ? bx + 0.6 : bx - 0.6) * k}" y="${(p.y + 0.8) * k}" text-anchor="${p.ang === 0 ? "start" : "end"}" style="font:8px sans-serif;fill:#8a1c1c">${p.num}</text>`;
+      s += net ? `<text x="${(p.ang === 0 ? p.x - 0.6 : p.x + 0.6) * k}" y="${(p.y - 0.4) * k}" text-anchor="${p.ang === 0 ? "end" : "start"}" style="font:600 9px sans-serif;fill:#1c5a8a">${esc(net)}</text>` : `<path d="M${(p.x - 1) * k} ${(p.y - 1) * k}l${2 * k} ${2 * k}M${(p.x + 1) * k} ${(p.y - 1) * k}l${-2 * k} ${2 * k}" stroke="#1c5a8a" stroke-width="1.2"/>`; } }
+  return s + "</svg>"; }
+Object.assign(ACT, { kicadSch() { download(slug() + ".kicad_sch", kicadSch()); }, schSvg() { download(slug() + "_schematic.svg", schSVG(true), "image/svg+xml"); } });
+
+</script>
+<script>
+
+const RSP = (() => {
+  const SUF = [["meg", 1e6], ["f", 1e-15], ["p", 1e-12], ["n", 1e-9], ["u", 1e-6], ["µ", 1e-6], ["m", 1e-3], ["k", 1e3], ["g", 1e9], ["t", 1e12]];
+  function val(s) {
+    if (s == null) return NaN; const t = String(s).trim().toLowerCase(); const m = t.match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([a-zµ]*)/);
+    if (!m) return NaN; let v = parseFloat(m[1]); const u = m[2];
+    for (const [k, f] of SUF) if (u.startsWith(k)) { v *= f; break; }
+    return v;
+  }
+  function params(toks) { const o = {}; for (const t of toks) { const m = t.match(/^(\w+)=(.+)$/); if (m) o[m[1].toUpperCase()] = val(m[2]); } return o; }
+  function parse(text) {
+    const els = [], cmds = [], nodes = { "0": 0 }, names = ["0"], errs = [];
+    const node = n => { n = String(n).toLowerCase(); if (n === "gnd") n = "0"; if (!(n in nodes)) { nodes[n] = names.length; names.push(n); } return nodes[n]; };
+    let first = true, title = null;
+    String(text).split(/\r?\n/).forEach((raw, li) => {
+      let line = raw.replace(/;.*$/, "").trim(); if (!line || line[0] === "*") { if (line) first = false; return; }
+      const wasFirst = first; first = false;
+      line = line.replace(/\(\s*/g, "(").replace(/\s*\)/g, ")");
+      const fn = line.match(/(PULSE|SIN)\(([^)]*)\)/i); let src = null;
+      if (fn) { src = { kind: fn[1].toUpperCase(), a: fn[2].split(/[\s,]+/).filter(Boolean).map(val) }; line = line.replace(fn[0], ""); }
+      const tk = line.split(/\s+/).filter(Boolean), name = tk[0], ty = name[0].toUpperCase();
+      if (ty === ".") { cmds.push({ cmd: name.toLowerCase(), args: tk.slice(1) }); return; }
+      try {
+        if ("RCL".includes(ty)) { const v = val(tk[3]); if (!(v > 0)) throw new Error("needs a positive value"); els.push({ ty, name, a: node(tk[1]), b: node(tk[2]), v }); }
+        else if (ty === "V" || ty === "I") { let dc = 0; const i = tk.findIndex(x => x.toUpperCase() === "DC"); if (i > 0) dc = val(tk[i + 1]); else if (tk[3] != null && !isNaN(val(tk[3]))) dc = val(tk[3]); if (src && i < 0 && tk[3] == null) dc = src.kind === "PULSE" ? src.a[0] : src.a[0]; els.push({ ty, name, a: node(tk[1]), b: node(tk[2]), dc, src }); }
+        else if (ty === "D") { const p = params(tk.slice(3)); els.push({ ty, name, a: node(tk[1]), b: node(tk[2]), is: p.IS || 1e-14, n: p.N || 1 }); }
+        else if (ty === "E") els.push({ ty, name, a: node(tk[1]), b: node(tk[2]), c: node(tk[3]), d: node(tk[4]), g: val(tk[5]) });
+        else if (ty === "M") { const p = params(tk.slice(6)), pm = (tk[5] || "NMOS").toUpperCase() === "PMOS";
+          els.push({ ty, name, d: node(tk[1]), g: node(tk[2]), s: node(tk[3]), pmos: pm, W: p.W || 1e-6, L: p.L || 1e-6, KP: p.KP || (pm ? 40e-6 : 100e-6), VTO: Math.abs(p.VTO || (pm ? 0.8 : 0.7)), LAM: p.LAMBDA != null ? p.LAMBDA : 0.02 }); node(tk[4]); }
+        else throw new Error("unknown element type " + ty);
+      } catch (e) { if (wasFirst) title = raw.trim(); else errs.push(`line ${li + 1} (${name}): ${e.message}`); }
+    });
+    return { els, cmds, nodes, names, errs, title };
+  }
+  function srcAt(e, t) {
+    if (!e.src || t == null) return e.dc;
+    const a = e.src.a;
+    if (e.src.kind === "SIN") { const [vo, va, f, td] = [a[0] || 0, a[1] || 0, a[2] || 0, a[3] || 0]; return t < td ? vo : vo + va * Math.sin(2 * Math.PI * f * (t - td)); }
+    const [v1, v2, td, tr, tf, pw, per] = [a[0] || 0, a[1] || 0, a[2] || 0, a[3] || 1e-9, a[4] || 1e-9, a[5] || 1, a[6] || Infinity];
+    if (t < td) return v1; let x = (t - td) % per;
+    if (x < tr) return v1 + (v2 - v1) * x / tr; x -= tr; if (x < pw) return v2; x -= pw; if (x < tf) return v2 + (v1 - v2) * x / tf; return v1;
+  }
+  function solveLin(A, b) {
+    const n = b.length;
+    for (let c = 0; c < n; c++) {
+      let p = c, mx = Math.abs(A[c][c]); for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > mx) { mx = Math.abs(A[r][c]); p = r; }
+      if (mx < 1e-30) throw new Error("the circuit has no unique solution (floating node or loop of voltage sources)");
+      if (p !== c) { [A[c], A[p]] = [A[p], A[c]]; [b[c], b[p]] = [b[p], b[c]]; }
+      for (let r = c + 1; r < n; r++) { const f = A[r][c] / A[c][c]; if (!f) continue; for (let k = c; k < n; k++) A[r][k] -= f * A[c][k]; b[r] -= f * b[c]; }
+    }
+    const x = new Array(n).fill(0);
+    for (let r = n - 1; r >= 0; r--) { let s = b[r]; for (let k = r + 1; k < n; k++) s -= A[r][k] * x[k]; x[r] = s / A[r][r]; }
+    return x;
+  }
+  const VT = 0.025852;
+  function solve(ck, mode, guess) {
+    const N = ck.names.length - 1, br = {}; let k = N;
+    for (const e of ck.els) if (e.ty === "V" || e.ty === "E" || e.ty === "L") br[e.name] = k++;
+    const size = k; let x = guess ? guess.slice() : new Array(size).fill(0);
+    const V = (sol, n) => n ? sol[n - 1] : 0;
+    const nonlin = ck.els.some(e => e.ty === "D" || e.ty === "M");
+    for (let it = 0; it < 200; it++) {
+      const A = Array.from({ length: size }, () => new Array(size).fill(0)), b = new Array(size).fill(0);
+      const G = (p, q, g) => { if (p) A[p - 1][p - 1] += g; if (q) A[q - 1][q - 1] += g; if (p && q) { A[p - 1][q - 1] -= g; A[q - 1][p - 1] -= g; } };
+      const I = (p, q, i) => { if (p) b[p - 1] -= i; if (q) b[q - 1] += i; };
+      for (let n = 0; n < N; n++) A[n][n] += 1e-12;
+      for (const e of ck.els) {
+        if (e.ty === "R") G(e.a, e.b, 1 / e.v);
+        else if (e.ty === "C") { if (mode.dt) { const g = e.v / mode.dt, vp = V(mode.prev, e.a) - V(mode.prev, e.b); G(e.a, e.b, g); I(e.a, e.b, -g * vp); } }
+        else if (e.ty === "I") I(e.a, e.b, srcAt(e, mode.t));
+        else if (e.ty === "V" || e.ty === "L" || e.ty === "E") {
+          const j = br[e.name]; if (e.a) { A[e.a - 1][j] += 1; A[j][e.a - 1] += 1; } if (e.b) { A[e.b - 1][j] -= 1; A[j][e.b - 1] -= 1; }
+          if (e.ty === "V") b[j] = srcAt(e, mode.t) * (mode.scale == null ? 1 : mode.scale);
+          else if (e.ty === "E") { if (e.c) A[j][e.c - 1] -= e.g; if (e.d) A[j][e.d - 1] += e.g; }
+          else if (mode.dt) { A[j][j] -= e.v / mode.dt; b[j] = -e.v / mode.dt * mode.prev[j]; }
+        } else if (e.ty === "D") {
+          let vd = V(x, e.a) - V(x, e.b); const nvt = e.n * VT; vd = Math.min(vd, 1.2);
+          const ex = Math.exp(vd / nvt), id = e.is * (ex - 1), gd = e.is / nvt * ex + 1e-12;
+          G(e.a, e.b, gd); I(e.a, e.b, id - gd * vd);
+        } else if (e.ty === "M") {
+          const sg = e.pmos ? -1 : 1; let d = e.d, s = e.s; let vds = sg * (V(x, d) - V(x, s)); if (vds < 0) { [d, s] = [s, d]; vds = -vds; }
+          const vgs = sg * (V(x, e.g) - V(x, s)), beta = e.KP * e.W / e.L, vov = vgs - e.VTO;
+          let id = 0, gm = 0, gds = 1e-12;
+          if (vov > 0) { if (vds < vov) { id = beta * (vov * vds - vds * vds / 2) * (1 + e.LAM * vds); gm = beta * vds * (1 + e.LAM * vds); gds = beta * (vov - vds) * (1 + e.LAM * vds) + beta * (vov * vds - vds * vds / 2) * e.LAM; }
+            else { id = beta / 2 * vov * vov * (1 + e.LAM * vds); gm = beta * vov * (1 + e.LAM * vds); gds = beta / 2 * vov * vov * e.LAM + 1e-12; } }
+          const ieq = sg * (id - gm * vgs - gds * vds);
+          G(d, s, gds);
+          if (d) { if (e.g) A[d - 1][e.g - 1] += gm; if (s) A[d - 1][s - 1] -= gm; }
+          if (s) { if (e.g) A[s - 1][e.g - 1] -= gm; A[s - 1][s - 1] += gm; }
+          I(d, s, ieq);
+        }
+      }
+      const nx = solveLin(A, b);
+      if (!nonlin) return { x: nx, br, iters: 1 };
+      let dmax = 0; for (let i = 0; i < size; i++) { let dv = nx[i] - x[i]; if (i < N && Math.abs(dv) > 0.5) dv = Math.sign(dv) * 0.5; x[i] += dv; dmax = Math.max(dmax, Math.abs(dv)); }
+      if (dmax < 1e-9) return { x, br, iters: it + 1 };
+    }
+    throw new Error("Newton did not converge (try smaller steps or check the circuit)");
+  }
+  function opRaw(ck) {
+    let g = null; for (const sc of [0.25, 0.5, 0.75]) g = solve(ck, { scale: sc }, g && g.x).x;
+    return solve(ck, {}, g);
+  }
+  function op(ck) { return result(ck, opRaw(ck)); }
+  function result(ck, r) { const o = { v: {}, i: {} }; ck.names.forEach((n, i) => { if (i) o.v[n] = r.x[i - 1]; }); for (const k in r.br) o.i[k] = r.x[r.br[k]]; o.v["0"] = 0; return o; }
+  function tran(ck, step, stop) {
+    if (!(step > 0) || !(stop > step)) throw new Error(".tran needs step > 0 and stop > step");
+    if (stop / step > 20000) throw new Error("too many points (max 20000): make the step bigger");
+    const r = solve(ck, { t: 0 }, opRaw(ck).x);
+    const out = { t: [0], v: {}, i: {} }; ck.names.forEach((n, i) => { if (i) out.v[n] = [r.x[i - 1]]; }); for (const k in r.br) out.i[k] = [r.x[r.br[k]]];
+    let prev = r.x;
+    for (let t = step; t <= stop + step / 2; t += step) {
+      const s = solve(ck, { dt: step, prev, t }, prev); prev = s.x; out.t.push(t);
+      ck.names.forEach((n, i) => { if (i) out.v[n].push(s.x[i - 1]); }); for (const k in s.br) out.i[k].push(s.x[s.br[k]]);
+    }
+    return out;
+  }
+  function dc(ck, src, a, b, st) {
+    const e = ck.els.find(x => x.name.toLowerCase() === String(src).toLowerCase()); if (!e) throw new Error("no source " + src);
+    const out = { x: [], v: {} }; ck.names.forEach((n, i) => { if (i) out.v[n] = []; }); let g = null; const keep = e.dc, keepSrc = e.src; e.src = null;
+    try { for (let x = a; st > 0 ? x <= b + st / 2 : x >= b + st / 2; x += st) { e.dc = x; const r = solve(ck, {}, g && g.x); g = r; out.x.push(x); ck.names.forEach((n, i) => { if (i) out.v[n].push(r.x[i - 1]); }); } }
+    finally { e.dc = keep; e.src = keepSrc; }
+    return out;
+  }
+  function run(text) {
+    const ck = parse(text), res = { ck, errs: ck.errs.slice() };
+    if (!ck.els.length) { res.errs.push("no elements"); return res; }
+    try {
+      res.op = op(ck);
+      for (const c of ck.cmds) {
+        if (c.cmd === ".tran") res.tran = tran(ck, val(c.args[0]), val(c.args[1]));
+        if (c.cmd === ".dc") res.dc = dc(ck, c.args[0], val(c.args[1]), val(c.args[2]), val(c.args[3]));
+      }
+    } catch (e) { res.errs.push(e.message); }
+    return res;
+  }
+  function selftest() {
+    const fail = [], ok = [], near = (a, b, tol, what) => (Math.abs(a - b) <= tol ? ok : fail).push(`${what}: ${a.toPrecision(5)} vs ${b}`);
+    let r = run("V1 in 0 DC 10\nR1 in out 1k\nR2 out 0 3k\n.op"); near(r.op.v.out, 7.5, 1e-6, "divider");
+    near(r.op.i.V1, -2.5e-3, 1e-9, "divider source current");
+    r = run("V1 in 0 PULSE(0 5 0 1n 1n 1 2)\nR1 in out 1k\nC1 out 0 1u\n.tran 10u 5m"); { const t = r.tran.t, v = r.tran.v.out, i = t.findIndex(x => x >= 1e-3 - 1e-9); near(v[i], 5 * (1 - Math.exp(-1)), 0.03, "RC at one tau"); near(v[v.length - 1], 5, 0.05, "RC settled"); }
+    r = run("V1 in 0 DC 5\nR1 in a 1k\nD1 a 0\n.op"); near(r.op.v.a, 0.65, 0.12, "diode drop");
+    r = run("V1 a 0 DC 1\nR1 a b 1k\nL1 b 0 1m\n.tran 1u 10u"); near(r.op.i.L1, 1e-3, 1e-6, "inductor DC short");
+    r = run("VDD vdd 0 DC 3.3\nVIN in 0 DC 0\nMP out in vdd vdd PMOS W=2u L=1u\nMN out in 0 0 NMOS W=1u L=1u\n.dc VIN 0 3.3 0.1");
+    { const v = r.dc.v.out; near(v[0], 3.3, 0.01, "CMOS inverter in=0"); near(v[v.length - 1], 0, 0.01, "CMOS inverter in=VDD"); const mid = r.dc.x.findIndex((x, i) => v[i] < 1.65); (mid > 10 && mid < 24 ? ok : fail).push("inverter switch point near middle: " + r.dc.x[mid]); }
+    r = run("V1 in 0 DC 1\nE1 out 0 in fb 1e5\nR1 out fb 9k\nR2 fb 0 1k\n.op"); near(r.op.v.out, 10, 0.01, "op-amp gain of 10");
+    r = run("V1 a 0 DC 1\nR1 a b 1k\n.op"); (r.errs.length === 0 ? ok : fail).push("dangling resistor end handled by gmin");
+    r = run("R1 a b 1x\nQ1 a b c"); (r.errs.length >= 1 ? ok : fail).push("bad lines reported: " + r.errs.length);
+    return { ok, fail };
+  }
+  function withTitle(text, title) { const t = String(text), f = t.split(/\r?\n/).find(l => l.trim()); return f && f.trim()[0] === "*" ? t : "* " + (title || "Randis UDS circuit") + "\n" + t; }
+  return { val, parse, run, op, tran, dc, srcAt, selftest, withTitle };
+})();
+function rspPlot(res, nodes, o) {
+  o = o || {}; const src = res.tran || res.dc; if (!src) return `<p class="sub">No .tran or .dc line: only the operating point was found.</p>`;
+  const xs = res.tran ? res.tran.t : res.dc.x, every = Math.max(1, Math.ceil(xs.length / 600));
+  const ser = nodes.filter(n => src.v[n]).map(n => ({ name: "V(" + n + ")", pts: xs.filter((_, i) => i % every === 0).map((x, j) => [x, src.v[n][j * every]]) }));
+  return lineChart(ser, { h: o.h || 240, xl: x => res.tran ? siFmt(x) + "s" : siFmt(x) + "V" });
+}
+function siFmt(v) { const a = Math.abs(v); if (!a) return "0"; const u = [[1e9, "G"], [1e6, "M"], [1e3, "k"], [1, ""], [1e-3, "m"], [1e-6, "µ"], [1e-9, "n"], [1e-12, "p"]]; for (const [f, s] of u) if (a >= f * 0.999) return +(v / f).toPrecision(4) + s; return v.toExponential(2); }
+
+</script>
+<script>
+
+const RPCB = (() => {
+  const nodesOfN = n => String(n.nodes || "").split(/[\s,;]+/).filter(Boolean).map(t => { const [ref, pin] = t.split("."); return { ref: (ref || "").toUpperCase(), pin: pin || "1" }; });
+  function pads(B) {
+    const out = [], netOf = {}; B.nets.forEach((n, k) => nodesOfN(n).forEach(x => netOf[x.ref + "." + x.pin] = k));
+    for (const p of B.parts) { const pl = B.board.place[p.ref]; if (!pl) continue; const f = fp(p), rot = ((pl[2] || 0) % 360 + 360) % 360, a = rot * Math.PI / 180, sw = rot === 90 || rot === 270;
+      for (const pad of f.pads) { const x = pl[0] + pad[1] * Math.cos(a) - pad[2] * Math.sin(a), y = pl[1] + pad[1] * Math.sin(a) + pad[2] * Math.cos(a);
+        const k = netOf[p.ref + "." + pad[0]]; out.push({ ref: p.ref, pin: pad[0], x, y, w: sw ? pad[4] : pad[3], h: sw ? pad[3] : pad[4], thru: pad[5] === "thru", net: k == null ? -1 : k, drill: pad[5] === "thru" ? Math.max(0.6, Math.min(1.2, Math.min(pad[3], pad[4]) - 0.6)) : 0 }); } }
+    return out;
+  }
+  function route(B, o) {
+    o = Object.assign({ g: 0.5, tw: 0.25, clear: 0.2, via: 0.6, viaDrill: 0.3, viaCost: 8, layers: 2, widths: {} }, o || {});
+    const wOf = k => Math.max(o.tw, +o.widths[k] || 0);
+    const g = o.g, nx = Math.floor(B.board.w / g) + 1, ny = Math.floor(B.board.h / g) + 1, NL = Math.min(2, o.layers || 2), N = nx * ny;
+    const owner = new Int32Array(N * NL).fill(-1), keep = new Int32Array(N * NL).fill(-1), P = pads(B), target = new Map();
+    const cx = i => (i % nx) * g, cy = i => Math.floor((i % N) / nx) * g, lay = i => Math.floor(i / N);
+    const edge = 0.5; for (let i = 0; i < N; i++) { const x = cx(i), y = cy(i); if (x < edge || y < edge || x > B.board.w - edge || y > B.board.h - edge) for (let l = 0; l < NL; l++) owner[l * N + i] = -2; }
+    const mark = (l, x0, y0, x1, y1, k) => { for (let yy = Math.max(0, Math.ceil(y0 / g)); yy <= Math.min(ny - 1, Math.floor(y1 / g)); yy++) for (let xx = Math.max(0, Math.ceil(x0 / g)); xx <= Math.min(nx - 1, Math.floor(x1 / g)); xx++) { const i = l * N + yy * nx + xx; keep[i] = keep[i] === -1 || keep[i] === k ? k : -9; } };
+    const m = o.clear + o.tw / 2;
+    for (const p of P) for (let l = 0; l < NL; l++) { if (!p.thru && l > 0) continue; mark(l, p.x - p.w / 2 - m, p.y - p.h / 2 - m, p.x + p.w / 2 + m, p.y + p.h / 2 + m, p.net < 0 ? -9 : p.net); }
+    for (const p of P) { if (p.net < 0) continue; const cells = []; for (let l = 0; l < NL; l++) { if (!p.thru && l > 0) continue;
+        for (let yy = Math.max(0, Math.ceil((p.y - p.h / 2) / g)); yy <= Math.min(ny - 1, Math.floor((p.y + p.h / 2) / g)); yy++) for (let xx = Math.max(0, Math.ceil((p.x - p.w / 2) / g)); xx <= Math.min(nx - 1, Math.floor((p.x + p.w / 2) / g)); xx++) cells.push(l * N + yy * nx + xx);
+        const c = l * N + Math.min(ny - 1, Math.max(0, Math.round(p.y / g))) * nx + Math.min(nx - 1, Math.max(0, Math.round(p.x / g))); if (!cells.includes(c)) cells.push(c); }
+      cells.forEach(c => { keep[c] = p.net; if (owner[c] === -2) owner[c] = -1; }); p.cells = cells; }
+    let wide = null;
+    const free = (i, k) => (owner[i] === -1 || owner[i] === k) && (keep[i] === -1 || keep[i] === k) && !(wide && wide.has(i));
+    const wideBlock = k => { const w = wOf(k); if (w <= o.tw + 1e-9) return null; const m2 = o.clear + w / 2, set = new Set();
+      for (const p of P) { if (p.net === k) continue; for (let l = 0; l < NL; l++) { if (!p.thru && l > 0) continue;
+        for (let yy = Math.max(0, Math.ceil((p.y - p.h / 2 - m2) / g)); yy <= Math.min(ny - 1, Math.floor((p.y + p.h / 2 + m2) / g)); yy++) for (let xx = Math.max(0, Math.ceil((p.x - p.w / 2 - m2) / g)); xx <= Math.min(nx - 1, Math.floor((p.x + p.w / 2 + m2) / g)); xx++) set.add(l * N + yy * nx + xx); } }
+      return set; };
+    const reserve = (c, k) => { const w = wOf(k), rad = w / 2 + o.clear + o.tw / 2, n = Math.ceil(rad / g), r = c % N, l = lay(c), x = r % nx, y = Math.floor(r / nx); if (w <= o.tw + 1e-9) return;
+      for (let dy = -n; dy <= n; dy++) for (let dx = -n; dx <= n; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= nx || yy >= ny || Math.hypot(dx, dy) * g > rad + 1e-9) continue; const q = l * N + yy * nx + xx; if (keep[q] === -1) keep[q] = k; } };
+    const segs = [], vias = [], fails = [];
+    function dijkstra(srcs, tgt, k) {
+      const dist = new Float64Array(N * NL).fill(Infinity), prev = new Int32Array(N * NL).fill(-1), H = [];
+      const push = (d, i) => { H.push([d, i]); let c = H.length - 1; while (c) { const pp = (c - 1) >> 1; if (H[pp][0] <= H[c][0]) break; [H[pp], H[c]] = [H[c], H[pp]]; c = pp; } };
+      const pop = () => { const top = H[0], last = H.pop(); if (H.length) { H[0] = last; let c = 0; for (;;) { const l = 2 * c + 1, r = l + 1; let s = c; if (l < H.length && H[l][0] < H[s][0]) s = l; if (r < H.length && H[r][0] < H[s][0]) s = r; if (s === c) break; [H[s], H[c]] = [H[c], H[s]]; c = s; } } return top; };
+      for (const s of srcs) { dist[s] = 0; push(0, s); }
+      while (H.length) { const [d, i] = pop(); if (d > dist[i]) continue; if (tgt.has(i)) { const path = []; let c = i; while (c !== -1) { path.push(c); c = prev[c]; } return path.reverse(); }
+        const l = lay(i), r = i % N, x = r % nx, y = Math.floor(r / nx);
+        const nb = []; if (x > 0) nb.push([i - 1, 1]); if (x < nx - 1) nb.push([i + 1, 1]); if (y > 0) nb.push([i - nx, 1]); if (y < ny - 1) nb.push([i + nx, 1]);
+        if (NL > 1) { const j = l ? i - N : i + N; nb.push([j, o.viaCost]); }
+        for (const [j, c] of nb) { if (!free(j, k)) continue; if (c === o.viaCost && !(free(i, k) && viaOk(r, k))) continue; const nd = d + c; if (nd < dist[j]) { dist[j] = nd; prev[j] = i; push(nd, j); } } }
+      return null;
+    }
+    const viaOk = (r, k) => { const x = r % nx, y = Math.floor(r / nx); for (let l = 0; l < NL; l++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= nx || yy >= ny) return false; const j = l * N + yy * nx + xx; if ((owner[j] !== -1 && owner[j] !== k) || (keep[j] !== -1 && keep[j] !== k)) return false; } return true; };
+    const order = o.order ? o.order.slice() : B.nets.map((n, k) => k).sort((a, b) => netSpan(P, a) - netSpan(P, b)); const failNets = new Set();
+    for (const k of order) {
+      const ps = P.filter(p => p.net === k && p.cells); if (ps.length < 2) continue; wide = wideBlock(k);
+      const tree = new Set(ps[0].cells); ps[0].cells.forEach(c => owner[c] = owner[c] === -2 ? -2 : k);
+      const left = ps.slice(1);
+      while (left.length) {
+        left.sort((a, b) => Math.hypot(a.x - ps[0].x, a.y - ps[0].y) - Math.hypot(b.x - ps[0].x, b.y - ps[0].y));
+        const p = left.shift(), tg = new Set(p.cells.filter(c => free(c, k))), path = dijkstra([...tree].filter(c => free(c, k)), tg, k);
+        if (!path) { fails.push(`${B.nets[k].name}: ${p.ref}.${p.pin}`); failNets.add(k); continue; }
+        for (let j = 0; j < path.length; j++) { const c = path[j]; owner[c] = k; tree.add(c); reserve(c, k);
+          if (j && lay(c) !== lay(path[j - 1])) { const r = c % N; vias.push({ x: cx(r), y: cy(r), net: k }); for (let l = 0; l < NL; l++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = r % nx + dx, yy = Math.floor(r / nx) + dy, q = l * N + yy * nx + xx; if (keep[q] === -1) keep[q] = k; } }
+          else if (j) segs.push({ l: lay(c), x1: cx(path[j - 1]), y1: cy(path[j - 1]), x2: cx(c), y2: cy(c), net: k, w: wOf(k) }); }
+        p.cells.forEach(c => tree.add(c)); }
+    }
+    wide = null;
+    return { segs: mergeSegs(segs), vias, fails, failNets: [...failNets], pads: P, o, grid: [nx, ny], order };
+  }
+  function routeBest(B, o, tries) {
+    let R = route(B, o); const first = R.fails.length; let best = R, n = 1;
+    while (best.fails.length && n < (tries || 5)) { const fn = R.failNets, ord = [...fn, ...R.order.filter(k => !fn.includes(k))];
+      R = route(B, Object.assign({}, o, { order: ord })); n++; if (R.fails.length < best.fails.length) best = R; if (!R.failNets.length) break; }
+    best.tries = n; best.firstFails = first; return best;
+  }
+  const segW = (R, s) => s.w || R.o.tw;
+  function netSpan(P, k) { const ps = P.filter(p => p.net === k); if (!ps.length) return 0; const xs = ps.map(p => p.x), ys = ps.map(p => p.y); return Math.max(...xs) - Math.min(...xs) + Math.max(...ys) - Math.min(...ys); }
+  function mergeSegs(a) { const out = []; for (const s of a) { const t = out[out.length - 1];
+      if (t && t.l === s.l && t.net === s.net && t.x2 === s.x1 && t.y2 === s.y1 && ((t.x1 === t.x2 && s.x1 === s.x2) || (t.y1 === t.y2 && s.y1 === s.y2))) { t.x2 = s.x2; t.y2 = s.y2; } else out.push(Object.assign({}, s)); } return out; }
+  const dPtSeg = (px, py, s) => { const dx = s.x2 - s.x1, dy = s.y2 - s.y1, L = dx * dx + dy * dy; let t = L ? ((px - s.x1) * dx + (py - s.y1) * dy) / L : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(px - s.x1 - t * dx, py - s.y1 - t * dy); };
+  const segX = (a, b) => { const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])); const A = [a.x1, a.y1], B2 = [a.x2, a.y2], C = [b.x1, b.y1], D = [b.x2, b.y2]; return o(A, B2, C) * o(A, B2, D) < 0 && o(C, D, A) * o(C, D, B2) < 0; };
+  const dSegSeg = (a, b) => segX(a, b) ? 0 : Math.min(dPtSeg(a.x1, a.y1, b), dPtSeg(a.x2, a.y2, b), dPtSeg(b.x1, b.y1, a), dPtSeg(b.x2, b.y2, a));
+  const dSegRect = (s, p) => { const x0 = p.x - p.w / 2, x1 = p.x + p.w / 2, y0 = p.y - p.h / 2, y1 = p.y + p.h / 2, inR = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    if (inR(s.x1, s.y1) || inR(s.x2, s.y2)) return 0; const E = [[x0, y0, x1, y0], [x1, y0, x1, y1], [x1, y1, x0, y1], [x0, y1, x0, y0]].map(e => ({ x1: e[0], y1: e[1], x2: e[2], y2: e[3] })); return Math.min(...E.map(e => dSegSeg(s, e))); };
+
+  function pourOf(B, R, onLayer) { const nm = String((B.route && B.route.pour) || "").trim().toUpperCase(); if (!nm) return null; const k = B.nets.findIndex(n => String(n.name).toUpperCase() === nm); if (k < 0) return null;
+    const pl = +((B.route && B.route.pourLayer) == null ? 1 : B.route.pourLayer), layer = onLayer != null ? +onLayer : pl === 2 ? 1 : pl, cl = R.o.clear, e = 0.5, cuts = [];
+    for (const p of R.pads) { if (p.net === k || (!p.thru && layer > 0)) continue; cuts.push(p.thru ? { t: "c", x: p.x, y: p.y, d: Math.min(p.w, p.h) + 2 * cl } : { t: "r", x: p.x, y: p.y, w: p.w + 2 * cl, h: p.h + 2 * cl }); }
+    for (const v of R.vias) if (v.net !== k) cuts.push({ t: "c", x: v.x, y: v.y, d: R.o.via + 2 * cl });
+    for (const s of R.segs) if (s.l === layer && s.net !== k) cuts.push({ t: "s", x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2, d: segW(R, s) + 2 * cl });
+    const box = [e, e, B.board.w - e, B.board.h - e], spokes = [], ro = B.route || {}, key = JSON.stringify([nm, layer, ro.thermal, ro.spoke, ro.islands, cl, B.board.w, B.board.h]);
+    const cache = POUR_CACHE.get(R) || new Map(); POUR_CACHE.set(R, cache); if (cache.has(key)) return cache.get(key);
+    const otherCuts = cuts.slice(), sw = +(ro.spoke || 0.3), gap = Math.max(cl, 0.3); let nThermal = 0, nDirect = 0;
+    const clearOf = (sg, w) => otherCuts.every(q => q.t === "c" ? dPtSeg(q.x, q.y, sg) - w / 2 - q.d / 2 >= 0 : q.t === "r" ? dSegRect(sg, q) - w / 2 >= 0 : dSegSeg(sg, q) - w / 2 - q.d / 2 >= 0);
+    if (ro.thermal !== false) for (const p of R.pads) { if (p.net !== k || !(p.thru || layer === 0)) continue;
+      const hx = (p.thru ? Math.min(p.w, p.h) : p.w) / 2, hy = (p.thru ? Math.min(p.w, p.h) : p.h) / 2, ok = [];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const L = (dx ? hx : hy) + gap + 0.15, sg = { x1: p.x, y1: p.y, x2: p.x + dx * L, y2: p.y + dy * L };
+        if (sg.x2 > box[0] && sg.x2 < box[2] && sg.y2 > box[1] && sg.y2 < box[3] && clearOf(sg, sw)) ok.push(sg); }
+      if (ok.length < 2) { nDirect++; continue; } nThermal++;
+      cuts.push(p.thru ? { t: "c", x: p.x, y: p.y, d: 2 * hx + 2 * gap, relief: 1 } : { t: "r", x: p.x, y: p.y, w: p.w + 2 * gap, h: p.h + 2 * gap, relief: 1 });
+      ok.forEach(sg => spokes.push({ ...sg, w: sw })); }
+    let islands = 0, islandArea = 0;
+    if (ro.islands !== false) { const c = Math.max(0.1, B.board.w / 600, B.board.h / 600), nx = Math.ceil(B.board.w / c), ny = Math.ceil(B.board.h / c), cu = new Uint8Array(nx * ny), net = new Uint8Array(nx * ny);
+      const each = (bx0, by0, bx1, by1, f) => { for (let j = Math.max(0, Math.floor(by0 / c)); j <= Math.min(ny - 1, Math.floor(by1 / c)); j++) for (let i = Math.max(0, Math.floor(bx0 / c)); i <= Math.min(nx - 1, Math.floor(bx1 / c)); i++) f(i, j, (i + 0.5) * c, (j + 0.5) * c); };
+      each(box[0], box[1], box[2], box[3], (i, j, x, y) => { if (x >= box[0] && x <= box[2] && y >= box[1] && y <= box[3]) cu[j * nx + i] = 1; });
+      for (const q of cuts) { if (q.t === "c") each(q.x - q.d / 2, q.y - q.d / 2, q.x + q.d / 2, q.y + q.d / 2, (i, j, x, y) => { if (Math.hypot(x - q.x, y - q.y) < q.d / 2) cu[j * nx + i] = 0; });
+        else if (q.t === "r") each(q.x - q.w / 2, q.y - q.h / 2, q.x + q.w / 2, q.y + q.h / 2, (i, j, x, y) => { if (Math.abs(x - q.x) < q.w / 2 && Math.abs(y - q.y) < q.h / 2) cu[j * nx + i] = 0; });
+        else each(Math.min(q.x1, q.x2) - q.d / 2, Math.min(q.y1, q.y2) - q.d / 2, Math.max(q.x1, q.x2) + q.d / 2, Math.max(q.y1, q.y2) + q.d / 2, (i, j, x, y) => { if (dPtSeg(x, y, q) < q.d / 2) cu[j * nx + i] = 0; }); }
+      const own = (sg, w) => each(Math.min(sg.x1, sg.x2) - w / 2, Math.min(sg.y1, sg.y2) - w / 2, Math.max(sg.x1, sg.x2) + w / 2, Math.max(sg.y1, sg.y2) + w / 2, (i, j, x, y) => { if (dPtSeg(x, y, sg) <= w / 2) net[j * nx + i] = 1; });
+      for (const p of R.pads) if (p.net === k && (p.thru || layer === 0)) each(p.x - p.w / 2, p.y - p.h / 2, p.x + p.w / 2, p.y + p.h / 2, (i, j, x, y) => { if (p.thru ? Math.hypot(x - p.x, y - p.y) <= Math.min(p.w, p.h) / 2 : Math.abs(x - p.x) <= p.w / 2 && Math.abs(y - p.y) <= p.h / 2) net[j * nx + i] = 1; });
+      for (const v of R.vias) if (v.net === k) own({ x1: v.x, y1: v.y, x2: v.x, y2: v.y }, R.o.via);
+      for (const s of R.segs) if (s.net === k && s.l === layer) own(s, segW(R, s));
+      for (const sp of spokes) own(sp, sp.w);
+      const seen = new Uint8Array(nx * ny), st = []; for (let i = 0; i < nx * ny; i++) if (net[i]) { seen[i] = 1; st.push(i); }
+      while (st.length) { const i = st.pop(), x = i % nx, y = (i - x) / nx; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= nx || Y >= ny) continue; const q = Y * nx + X; if (!seen[q] && (cu[q] || net[q])) { seen[q] = 1; st.push(q); } } }
+      const isl = new Uint8Array(nx * ny); for (let i = 0; i < nx * ny; i++) if (cu[i] && !seen[i]) isl[i] = 1;
+      const lab = new Uint8Array(nx * ny); for (let i = 0; i < nx * ny; i++) { if (!isl[i] || lab[i]) continue; islands++; const s2 = [i]; lab[i] = 1;
+        while (s2.length) { const a = s2.pop(), x = a % nx, y = (a - x) / nx; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= nx || Y >= ny) continue; const q = Y * nx + X; if (isl[q] && !lab[q]) { lab[q] = 1; s2.push(q); } } } }
+      for (let j = 0; j < ny; j++) { let i = 0; while (i < nx) { if (!isl[j * nx + i]) { i++; continue; } let e2 = i; while (e2 + 1 < nx && isl[j * nx + e2 + 1]) e2++;
+          const n = e2 - i + 1; islandArea += n * c * c; cuts.push({ t: "r", x: (i + n / 2) * c, y: (j + 0.5) * c, w: n * c + 0.002, h: c + 0.002, island: 1 });   i = e2 + 1; } } }
+    const val = { net: k, name: B.nets[k].name, layer, edge: e, box, cuts, spokes, nThermal, nDirect, islands, islandArea };
+    cache.set(key, val); return val; }
+  const POUR_CACHE = new WeakMap();
+
+  function pours(B, R) { const pl = +((B.route && B.route.pourLayer) == null ? 1 : B.route.pourLayer); return (pl === 2 ? [pourOf(B, R, 0), pourOf(B, R, 1)] : [pourOf(B, R)]).filter(Boolean); }
+  function stitchOf(B, R) { const P = pours(B, R); if (P.length < 2) return []; const ro = B.route || {}, pitch = Math.max(1, +(ro.stitch || 4)), rv = R.o.via / 2, cl = R.o.clear, key = JSON.stringify(["st", pitch, P.map(p => p.cuts.length)]);
+    const cache = POUR_CACHE.get(R); if (cache && cache.has(key)) return cache.get(key);
+    const outOf = (x, y, q) => q.t === "c" ? Math.hypot(x - q.x, y - q.y) >= q.d / 2 + rv : q.t === "r" ? Math.max(Math.abs(x - q.x) - q.w / 2, Math.abs(y - q.y) - q.h / 2) >= rv || Math.hypot(Math.max(0, Math.abs(x - q.x) - q.w / 2), Math.max(0, Math.abs(y - q.y) - q.h / 2)) >= rv : dPtSeg(x, y, q) >= q.d / 2 + rv;
+    const out = [], b = P[0].box; for (let y = b[1] + pitch / 2; y <= b[3] - pitch / 4; y += pitch) for (let x = b[0] + pitch / 2; x <= b[2] - pitch / 4; x += pitch) {
+      if (P.some(po => x - rv < po.box[0] || x + rv > po.box[2] || y - rv < po.box[1] || y + rv > po.box[3])) continue;
+      if (!P.every(po => po.cuts.every(q => outOf(x, y, q)))) continue;
+      if (R.pads.some(p => Math.hypot(Math.max(0, Math.abs(x - p.x) - p.w / 2), Math.max(0, Math.abs(y - p.y) - p.h / 2)) < rv + cl)) continue;
+      if (R.vias.some(v => Math.hypot(v.x - x, v.y - y) < 2 * rv + cl)) continue;
+      out.push({ x, y, net: P[0].net, stitch: 1 }); }
+    if (cache) cache.set(key, out); return out; }
+  function drc(B, R) {
+    const o = R.o, errs = [], cl = o.clear - 1e-6;
+    for (let i = 0; i < R.segs.length; i++) for (let j = i + 1; j < R.segs.length; j++) { const a = R.segs[i], b = R.segs[j]; if (a.l !== b.l || a.net === b.net) continue; const d = dSegSeg(a, b) - (segW(R, a) + segW(R, b)) / 2; if (d < cl) errs.push(`track gap ${r2(d)} mm between ${B.nets[a.net].name} and ${B.nets[b.net].name} (layer ${a.l ? "B" : "F"})`); }
+    for (const s of R.segs) for (const p of R.pads) { if (p.net === s.net || (!p.thru && s.l > 0)) continue; const d = (p.thru ? Math.max(0, dPtSeg(p.x, p.y, s) - Math.min(p.w, p.h) / 2) : dSegRect(s, p)) - segW(R, s) / 2; if (d < cl) errs.push(`track ${B.nets[s.net].name} ${r2(d)} mm from pad ${p.ref}.${p.pin}`); }
+    for (const v of R.vias) { for (const s of R.segs) if (s.net !== v.net && dPtSeg(v.x, v.y, s) - segW(R, s) / 2 - o.via / 2 < cl) errs.push(`via of ${B.nets[v.net].name} too close to track ${B.nets[s.net].name}`);
+      for (const p of R.pads) if (p.net !== v.net && Math.hypot(p.x - v.x, p.y - v.y) - o.via / 2 - Math.max(p.w, p.h) / 2 < cl) errs.push(`via of ${B.nets[v.net].name} too close to pad ${p.ref}.${p.pin}`); }
+    for (const v of (R.extraStitch || []).concat(stitchOf(B, R))) {
+      for (const s of R.segs) if (s.net !== v.net && dPtSeg(v.x, v.y, s) - segW(R, s) / 2 - o.via / 2 < cl) errs.push(`stitching via too close to track ${B.nets[s.net].name}`);
+      for (const p of R.pads) if (p.net !== v.net && Math.hypot(Math.max(0, Math.abs(v.x - p.x) - p.w / 2), Math.max(0, Math.abs(v.y - p.y) - p.h / 2)) - o.via / 2 < cl) errs.push(`stitching via too close to pad ${p.ref}.${p.pin}`);
+      for (const w of R.vias) if (w.net !== v.net && Math.hypot(w.x - v.x, w.y - v.y) - o.via < cl) errs.push(`stitching via too close to a ${B.nets[w.net].name} via`); }
+    for (let i = 0; i < R.pads.length; i++) for (let j = i + 1; j < R.pads.length; j++) { const a = R.pads[i], b = R.pads[j]; if (a.net === b.net && a.net >= 0) continue; if (!a.thru && !b.thru && false) continue;
+      const gx = Math.abs(a.x - b.x) - (a.w + b.w) / 2, gy = Math.abs(a.y - b.y) - (a.h + b.h) / 2, d = Math.max(gx, gy) > 0 ? Math.hypot(Math.max(0, gx), Math.max(0, gy)) : Math.max(gx, gy); if (d < cl) errs.push(`pads ${a.ref}.${a.pin} and ${b.ref}.${b.pin} only ${r2(d)} mm apart`); }
+    for (const p of R.pads) if (p.x - p.w / 2 < 0.3 || p.y - p.h / 2 < 0.3 || p.x + p.w / 2 > B.board.w - 0.3 || p.y + p.h / 2 > B.board.h - 0.3) errs.push(`pad ${p.ref}.${p.pin} too close to the board edge`);
+    R.fails.forEach(f => errs.push("not routed: " + f));
+    return [...new Set(errs)];
+  }
+  function gerber(B, R, layer, kind) {
+    const H = B.board.h, c = v => Math.round(v * 1e6), lines = [`G04 Randis UDS Circuit & PCB Studio*`, `%TF.FileFunction,${{ cu: layer ? "Copper,L2,Bot" : "Copper,L1,Top", mask: layer ? "Soldermask,Bot" : "Soldermask,Top", silk: "Legend,Top", edge: "Profile,NP" }[kind]}*%`, "%FSLAX46Y46*%", "%MOMM*%", "%LPD*%"];
+    const ap = new Map(); let nA = 10; const A = def => { if (!ap.has(def)) { ap.set(def, "D" + nA); lines.push(`%ADD${nA}${def}*%`); nA++; } return ap.get(def); };
+    const body = [], sel = d => body.push(d + "*"), mv = (x, y, op) => body.push(`X${c(x)}Y${c(H - y)}${op}*`);
+    const grow = kind === "mask" ? 0.05 : 0, f4 = v => (+v).toFixed(4);
+    if (kind === "edge") { sel(A(`C,${f4(0.1)}`)); mv(0, 0, "D02"); mv(B.board.w, 0, "D01"); mv(B.board.w, H, "D01"); mv(0, H, "D01"); mv(0, 0, "D01"); }
+    else if (kind === "silk") { sel(A(`C,${f4(0.15)}`)); for (const p of B.parts) { const pl = B.board.place[p.ref]; if (!pl) continue; const b = fp(p).body, sw = [90, 270].includes(((pl[2] || 0) % 360 + 360) % 360), w = (sw ? b[1] : b[0]) / 2 + 0.3, h = (sw ? b[0] : b[1]) / 2 + 0.3;
+        mv(pl[0] - w, pl[1] - h, "D02"); mv(pl[0] + w, pl[1] - h, "D01"); mv(pl[0] + w, pl[1] + h, "D01"); mv(pl[0] - w, pl[1] + h, "D01"); mv(pl[0] - w, pl[1] - h, "D01"); }
+      for (const t of silkTexts(B)) for (const st of strokeText(t.s, t.x, t.y, t.h)) { st.forEach(([x, y], i) => mv(x, y, i ? "D01" : "D02")); } }
+    else {
+      const P = kind === "cu" ? pours(B, R).find(po => po.layer === layer) : null;
+      if (P && P.layer === layer) { const [x0, y0, x1, y1] = P.box; body.push("G04 copper pour " + P.name + "*", "G36*"); mv(x0, y0, "D02"); mv(x1, y0, "D01"); mv(x1, y1, "D01"); mv(x0, y1, "D01"); mv(x0, y0, "D01"); body.push("G37*", "%LPC*%");
+        for (const q of P.cuts) { if (q.t === "c") { sel(A(`C,${f4(q.d)}`)); mv(q.x, q.y, "D03"); } else if (q.t === "r") { sel(A(`R,${f4(q.w)}X${f4(q.h)}`)); mv(q.x, q.y, "D03"); } else { sel(A(`C,${f4(q.d)}`)); mv(q.x1, q.y1, "D02"); mv(q.x2, q.y2, "D01"); } }
+        body.push("%LPD*%");
+        if (P.spokes.length) { body.push("G04 thermal spokes*"); for (const sp of P.spokes) { sel(A(`C,${f4(sp.w)}`)); mv(sp.x1, sp.y1, "D02"); mv(sp.x2, sp.y2, "D01"); } body.push("G04 end thermal spokes*"); } }
+      for (const p of R.pads) { if (!p.thru && layer > 0) continue; sel(A(p.thru ? `C,${f4(Math.min(p.w, p.h) + grow * 2)}` : `R,${f4(p.w + grow * 2)}X${f4(p.h + grow * 2)}`)); mv(p.x, p.y, "D03"); }
+      for (const v of R.vias) { if (kind === "mask") continue; sel(A(`C,${f4(R.o.via)}`)); mv(v.x, v.y, "D03"); }
+      if (kind === "cu") { const st = stitchOf(B, R); if (st.length) { body.push("G04 stitching vias " + st.length + "*"); sel(A(`C,${f4(R.o.via)}`)); for (const v of st) mv(v.x, v.y, "D03"); } }
+      if (kind === "cu") for (const s of R.segs) if (s.l === layer) { sel(A(`C,${f4(segW(R, s))}`)); mv(s.x1, s.y1, "D02"); mv(s.x2, s.y2, "D01"); }
+    }
+    return lines.concat(body, ["M02*"]).join("\n") + "\n";
+  }
+  const FONT = { "0": "0,0 4,0 4,6 0,6 0,0|0,0 4,6", "1": "1,5 2,6 2,0|1,0 3,0", "2": "0,5 1,6 3,6 4,5 4,4 0,0 4,0", "3": "0,6 4,6 2,3.5 3,3.5 4,2.5 4,1 3,0 1,0 0,1", "4": "3,0 3,6 0,2 4,2",
+    "5": "4,6 0,6 0,3.5 3,3.5 4,2.5 4,1 3,0 0,0", "6": "4,6 1,6 0,5 0,1 1,0 3,0 4,1 4,2.5 3,3.5 0,3.5", "7": "0,6 4,6 1,0", "8": "1,3 0,4 0,5 1,6 3,6 4,5 4,4 3,3 1,3 0,2 0,1 1,0 3,0 4,1 4,2 3,3", "9": "0,0 3,0 4,1 4,5 3,6 1,6 0,5 0,3.5 1,2.5 4,2.5",
+    A: "0,0 0,4 2,6 4,4 4,0|0,3 4,3", B: "0,0 0,6 3,6 4,5 4,4 3,3 0,3|3,3 4,2 4,1 3,0 0,0", C: "4,1 3,0 1,0 0,1 0,5 1,6 3,6 4,5", D: "0,0 0,6 2.5,6 4,4.5 4,1.5 2.5,0 0,0", E: "4,0 0,0 0,6 4,6|0,3 3,3", F: "0,0 0,6 4,6|0,3 3,3",
+    G: "4,5 3,6 1,6 0,5 0,1 1,0 3,0 4,1 4,3 2,3", H: "0,0 0,6|4,0 4,6|0,3 4,3", I: "1,0 3,0|2,0 2,6|1,6 3,6", J: "0,1 1,0 2,0 3,1 3,6|2,6 4,6", K: "0,0 0,6|4,6 0,2|1.3,3.3 4,0", L: "0,6 0,0 4,0", M: "0,0 0,6 2,3 4,6 4,0", N: "0,0 0,6 4,0 4,6",
+    O: "1,0 3,0 4,1 4,5 3,6 1,6 0,5 0,1 1,0", P: "0,0 0,6 3,6 4,5 4,4 3,3 0,3", Q: "1,0 3,0 4,1 4,5 3,6 1,6 0,5 0,1 1,0|2.5,1.5 4,0", R: "0,0 0,6 3,6 4,5 4,4 3,3 0,3|2,3 4,0", S: "4,5 3,6 1,6 0,5 0,4 1,3 3,3 4,2 4,1 3,0 1,0 0,1", T: "0,6 4,6|2,6 2,0",
+    U: "0,6 0,1 1,0 3,0 4,1 4,6", V: "0,6 2,0 4,6", W: "0,6 1,0 2,3 3,0 4,6", X: "0,0 4,6|0,6 4,0", Y: "0,6 2,3 4,6|2,3 2,0", Z: "0,6 4,6 0,0 4,0", "-": "0.5,3 3.5,3", "+": "0.5,3 3.5,3|2,1.5 2,4.5", "_": "0,0 4,0", ".": "1.8,0 2.2,0 2.2,0.4 1.8,0.4 1.8,0", "/": "0,0 4,6", " ": "" };
+  const textW = (s, h) => String(s).length * h;
+  function strokeText(s, x, y, h) {
+    const k = h / 6, out = []; let cx = x - textW(s, h) / 2 + k; for (const ch of String(s).toUpperCase()) { const g = FONT[ch] != null ? FONT[ch] : FONT["-"];
+      if (g) for (const st of g.split("|")) out.push(st.trim().split(/\s+/).map(p => { const [a, b] = p.split(",").map(Number); return [cx + a * k, y + h / 2 - b * k]; }));
+      cx += 6 * k; } return out; }
+  function silkTexts(B) { const out = [], h = 1.0;
+    for (const p of B.parts) { const pl = B.board.place[p.ref]; if (!pl) continue; const b = fp(p).body, sw = [90, 270].includes(((pl[2] || 0) % 360 + 360) % 360), bh = (sw ? b[0] : b[1]) / 2 + 0.3;
+      let y = pl[1] - bh - 0.3 - h / 2; if (y - h / 2 < 0.3) y = pl[1] + bh + 0.3 + h / 2; out.push({ s: p.ref, x: pl[0], y, h }); }
+    const nm = (B.proj && B.proj.name) || ""; if (nm && textW(nm, 1.2) < B.board.w - 2) out.push({ s: nm, x: 1 + textW(nm, 1.2) / 2, y: B.board.h - 1.2, h: 1.2 });
+    return out; }
+  function drill(B, R) {
+    const H = B.board.h, tools = new Map(), hits = []; for (const p of R.pads) if (p.thru) hits.push([p.drill, p.x, p.y]); for (const v of R.vias) hits.push([R.o.viaDrill, v.x, v.y]); for (const v of stitchOf(B, R)) hits.push([R.o.viaDrill, v.x, v.y]);
+    hits.forEach(h => { const k = h[0].toFixed(3); if (!tools.has(k)) tools.set(k, "T" + (tools.size + 1)); });
+    let s = "M48\n; Randis UDS Circuit & PCB Studio\nMETRIC,TZ\n"; for (const [d, t] of tools) s += `${t}C${d}\n`; s += "%\nG90\nG05\n";
+    for (const [d, t] of tools) { s += t + "\n"; for (const h of hits) if (h[0].toFixed(3) === d) s += `X${h[1].toFixed(3)}Y${(H - h[2]).toFixed(3)}\n`; }
+    return s + "M30\n";
+  }
+  function readGerber(text) {
+    const ap = new Set(), r = { regions: 0, clears: 0, flashes: 0, draws: 0, moves: 0, undefinedAp: 0, ended: /M02\*\s*$/.test(text), minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, fmt: /%FSLAX46Y46\*%/.test(text) };
+    let cur = null, inRegion = false, clear = false; for (const raw of text.split(/\n/)) { const l = raw.trim(); let m;
+      if (l === "G36*") { inRegion = true; r.regions++; continue; } if (l === "G37*") { inRegion = false; continue; } if (l === "%LPC*%") { clear = true; continue; } if (l === "%LPD*%") { clear = false; continue; }
+      if ((m = l.match(/^%ADD(\d+)/))) ap.add("D" + m[1]); else if ((m = l.match(/^(D\d+)\*$/)) && +m[1].slice(1) >= 10) { cur = m[1]; if (!ap.has(cur)) r.undefinedAp++; }
+      else if ((m = l.match(/^X(-?\d+)Y(-?\d+)(D0[123])\*$/))) { const x = +m[1] / 1e6, y = +m[2] / 1e6; r.minX = Math.min(r.minX, x); r.maxX = Math.max(r.maxX, x); r.minY = Math.min(r.minY, y); r.maxY = Math.max(r.maxY, y); if (clear) r.clears++; if (inRegion) continue; if (!cur) r.undefinedAp++; if (m[3] === "D03") r.flashes++; else if (m[3] === "D01") r.draws++; else r.moves++; } }
+    return r;
+  }
+  return { pourOf, pours, stitchOf, pads, route, routeBest, drc, gerber, drill, readGerber, nodesOfN, dSegSeg, dSegRect, strokeText, silkTexts, FONT };
+})();
+
+</script>
+<script>
+
+const PSTAGES = [["concept", "Concept"], ["schem", "Schematic"], ["sim", "Simulation"], ["bom", "Parts + BOM"], ["layout", "Layout + routing"], ["drc", "DRC"], ["files", "Gerber / drill / pick-and-place"], ["order", "Fab + assembly order (draft)"], ["hand", "Board in hand"]];
+const FABS = [["JLCPCB", "https://jlcpcb.com", "PCB + assembly; takes Gerber zip, BOM and CPL (pick-and-place) CSV."], ["PCBWay", "https://www.pcbway.com", "PCB + assembly, many options."], ["OSH Park", "https://oshpark.com", "US, purple boards; takes Gerbers or a .kicad_pcb."], ["Aisler", "https://aisler.net", "EU; takes Gerbers or KiCad files."]];
+const nodesOf = RPCB.nodesOfN;
+function slug() { if (!S.proj.hwLicense) S.proj.hwLicense = "CERN-OHL-S-2.0"; return slugP(); }
+const APP = {
+  key: "pcb", title: "Circuit & PCB Studio", testSkip: ["restore", "ohwIn"],
+  defaults: () => ({
+    flow: {}, proj: { name: "filtered_buffer", hwLicense: "CERN-OHL-S-2.0", goal: "Low-pass filter (10k + 100nF, about 160 Hz) on an input signal, buffered by an op-amp, with a power LED.", qty: 5, finish: "HASL (lead-free)", color: "Green", thick: 1.6 },
+    parts: [
+      { ref: "J1", value: "Power + signal in", pkg: "Header", pins: 3, mpn: "", maker: "", qty: 1, price: 0.1, supplier: "" },
+      { ref: "J2", value: "Signal out", pkg: "Header", pins: 2, mpn: "", maker: "", qty: 1, price: 0.08, supplier: "" },
+      { ref: "R1", value: "330", pkg: "0805", pins: 2, mpn: "", maker: "", qty: 1, price: 0.01, supplier: "" },
+      { ref: "D1", value: "Red LED", pkg: "LED-5mm", pins: 2, mpn: "", maker: "", qty: 1, price: 0.05, supplier: "" },
+      { ref: "R2", value: "10k", pkg: "0805", pins: 2, mpn: "", maker: "", qty: 1, price: 0.01, supplier: "" },
+      { ref: "C2", value: "100nF", pkg: "0805", pins: 2, mpn: "", maker: "", qty: 1, price: 0.01, supplier: "" },
+      { ref: "C1", value: "100nF", pkg: "0805", pins: 2, mpn: "", maker: "", qty: 1, price: 0.01, supplier: "" },
+      { ref: "U1", value: "LM358", pkg: "SOIC", pins: 8, mpn: "LM358DR", maker: "TI", qty: 1, price: 0.12, supplier: "" }],
+    nets: [{ name: "VCC", nodes: "J1.1 R1.1 U1.8 C1.1" }, { name: "GND", nodes: "J1.2 D1.1 U1.4 U1.5 C1.2 C2.2 J2.2" }, { name: "U1B_UNUSED", nodes: "U1.6 U1.7" }, { name: "SIG_IN", nodes: "J1.3 R2.1" }, { name: "LED_A", nodes: "R1.2 D1.2" },
+      { name: "FILT", nodes: "R2.2 C2.1 U1.3" }, { name: "OUT", nodes: "U1.1 U1.2 J2.1" }],
+    board: { w: 40, h: 30, thick: 1.6, layers: 2, place: {} },
+    route: { g: 0.5, tw: 0.25, clear: 0.2, power: "VCC GND", pw: 0.4, tries: 5, pour: "GND", pourLayer: 1, thermal: true, spoke: 0.3, islands: true, stitch: 4 },
+    simExtra: "* sources and analysis (parts R, C, L, D come from the schematic)\nVS VCC 0 DC 5\nVIN SIG_IN 0 PULSE(0 5 1m 1u 1u 5m 10m)\n* U1 as an ideal buffer\nEU1 OUT 0 FILT OUT 1e5\n.tran 20u 12m",
+    plotNodes: "SIG_IN FILT OUT", notes: "",
+  }),
+  rowTemplates: { parts: () => ({ ref: "R" + (S.parts.length + 1), value: "", pkg: "0805", pins: 2, mpn: "", maker: "", qty: 1, price: 0, supplier: "" }), nets: () => ({ name: "N" + (S.nets.length + 1), nodes: "" }) },
+  pages: [["home", "🧭 Flow", pageHome], ["schem", "✏ Schematic", pageSchem], ["sim", "〰 Simulate", pageSim], ["bom", "📋 Parts + BOM", pageBom], ["board", "🟩 Layout + routing", pageBoard], ["files", "📦 Fab files", pageFiles], ["order", "🏭 Order drafts", pageOrder], ["data", "💾 Data", pageData]],
+  after: () => {}, selftest,
+};
+function pageHome() {
+  return `<h2>Circuit & PCB Studio</h2><p class="lead">From an idea to a board in your hand: draw the circuit as parts + connections, simulate it, list the parts, place and route the board, check it, then make the files a board house needs. Routing, DRC, Gerbers and drill files are made by our own code. <b>Orders are drafts only: nothing is sent.</b> Works with the <b>Open Hardware Studio</b> tab (same parts, footprints and board): import its backup, or export there for KiCad files.</p>
+  <div class="card"><table><tr><th>Step</th><th>Done</th><th>Status</th><th></th></tr>${PSTAGES.map(([k, n]) => `<tr><td>${n}</td><td><input type="checkbox" data-p="flow.${k}" data-r${S.flow[k] ? " checked" : ""}></td><td class="sub">${stageStat(k)}</td><td>${stageGo(k)}</td></tr>`).join("")}</table></div>
+  <div class="card">${F("Project", "proj.name")}${F("What it's for", "proj.goal", { type: "area", h: 60 })}</div>`;
+}
+function stageStat(k) { const e = erc(); return { concept: S.proj.goal ? "written" : "empty", schem: `${S.parts.length} parts, ${S.nets.length} nets, ${e.length ? e.length + " warnings" : "checks pass"}`, sim: simNetlist().split("\n").filter(l => /^[RCLD]/i.test(l)).length + " parts in the sim", bom: bomGroups().length + " BOM lines", layout: `${S.parts.filter(p => S.board.place[p.ref]).length}/${S.parts.length} placed${MEM.R ? `, ${MEM.R.segs.length} tracks, ${MEM.R.vias.length} vias` : ", not routed"}`, drc: MEM.drc ? (MEM.drc.length ? MEM.drc.length + " problems" : "clean") : "route first", files: MEM.R ? "ready" : "route first", order: "drafts only", hand: "bring-up list" }[k]; }
+function stageGo(k) { const p = { concept: "home", schem: "schem", sim: "sim", bom: "bom", layout: "board", drc: "board", files: "files", order: "order", hand: "order" }[k]; return p === "home" ? "" : `<button data-page="${p}">Open</button>`; }
+function erc() {
+  const w = [], seen = {}; for (const p of S.parts) { if (seen[p.ref]) w.push("two parts called " + p.ref); seen[p.ref] = p; }
+  S.nets.forEach(n => { const ns = nodesOf(n); if (ns.length < 2) w.push(`net ${n.name} has ${ns.length} connection`); for (const x of ns) { const p = seen[x.ref]; if (!p) w.push(`net ${n.name}: no part ${x.ref}`); else if (!fp(p).pads.some(q => q[0] === x.pin)) w.push(`net ${n.name}: ${x.ref} has no pin ${x.pin}`); } });
+  const used = {}; S.nets.forEach(n => nodesOf(n).forEach(x => { const k = x.ref + "." + x.pin; if (used[k]) w.push(`${k} is in two nets (${used[k]}, ${n.name})`); used[k] = n.name; }));
+  for (const p of S.parts) { const free = fp(p).pads.filter(q => !used[p.ref + "." + q[0]]).map(q => q[0]); if (free.length) w.push(`${p.ref} pins not connected: ${free.join(", ")}`); }
+  if (!S.nets.some(n => /^(gnd|0|vss)$/i.test(n.name))) w.push("no GND net");
+  return w;
+}
+function pageSchem() {
+  const e = erc();
+  return `<h2>Schematic</h2><p class="lead">Parts, then nets: each net lists the pins it joins as REF.PIN (for example <span class="mono">U1.4 C1.2</span>). The package sets the footprint (shared with Open Hardware Studio).</p>
+  <div class="card"><h3>Parts</h3>${TBL("parts", [["ref", "Ref", "text", "60px"], ["value", "Value", "text"], ["pkg", "Package", Object.keys(PKG), "110px"], ["pins", "Pins", "number", "60px"], ["mpn", "Part number", "text"], ["price", "Price", "number", "70px"], ["qty", "Qty", "number", "50px"]], { live: false })}</div>
+  <div class="row"><div class="card"><h3>Nets</h3>${TBL("nets", [["name", "Net", "text", "110px"], ["nodes", "Pins (REF.PIN …)", "text"]])}</div>
+  <div class="card"><h3>Checks (ERC)</h3>${e.length ? `<ul>${e.map(x => `<li class="warnc">${esc(x)}</li>`).join("")}</ul>` : '<p class="ok">All pins connected, every net has 2+ pins, a GND net exists.</p>'}<button data-act="rerender">Re-check</button></div></div>
+  <div class="card"><h3>Schematic sheet</h3><p class="sub">Same writer as Open Hardware Studio: a box symbol per part, a net label at every connected pin, a no-connect flag on unused pins. Opens in KiCad 6+ (labels with the same name are connected).</p>
+  <button data-act="kicadSch">⬇ KiCad schematic (.kicad_sch)</button> <button data-act="schSvg">⬇ Sheet picture (.svg)</button><div style="overflow:auto;margin-top:8px">${(S.proj.hwLicense = S.proj.hwLicense || "CERN-OHL-S-2.0", schSVG())}</div></div>
+  <div class="card"><h3>Connection map</h3>${schemSVG()}</div>`;
+}
+function schemSVG() {
+  const n = S.parts.length || 1, R = 150, cx = 330, cy = 190, pos = {}; S.parts.forEach((p, i) => pos[p.ref] = [cx + R * 1.6 * Math.cos(2 * Math.PI * i / n), cy + R * Math.sin(2 * Math.PI * i / n)]);
+  let s = `<svg viewBox="0 0 660 380" width="100%" style="max-width:660px">`;
+  S.nets.forEach((nt, i) => { const ps = nodesOf(nt).filter(x => pos[x.ref]); if (!ps.length) return; const hub = ps.reduce((a, x) => [a[0] + pos[x.ref][0] / ps.length, a[1] + pos[x.ref][1] / ps.length], [0, 0]), c = SER[i % 8];
+    ps.forEach(x => s += `<line x1="${hub[0]}" y1="${hub[1]}" x2="${pos[x.ref][0]}" y2="${pos[x.ref][1]}" stroke="${c}" stroke-width="2"><title>${esc(nt.name)}: ${x.ref}.${x.pin}</title></line>`); s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="4" fill="${c}"/><text x="${hub[0] + 5}" y="${hub[1] - 5}" style="fill:${c};font-size:11px">${esc(nt.name)}</text>`; });
+  S.parts.forEach(p => { const [x, y] = pos[p.ref]; s += `<rect x="${x - 34}" y="${y - 13}" width="68" height="26" rx="4" fill="var(--bg2)" stroke="var(--tx)"/><text x="${x}" y="${y + 4}" text-anchor="middle" style="fill:var(--tx);font-size:11px">${esc(p.ref)} ${esc(String(p.value).slice(0, 7))}</text>`; });
+  return s + "</svg>";
+}
+function simNetlist() {
+  const netOf = {}; S.nets.forEach(n => nodesOf(n).forEach(x => netOf[x.ref + "." + x.pin] = /^(gnd|vss)$/i.test(n.name) ? "0" : n.name));
+  const lines = ["* made from the schematic by Circuit & PCB Studio"];
+  for (const p of S.parts) { const t = p.ref.match(/^(LED|[RCLD])/i); if (!t) continue; const a = netOf[p.ref + ".1"], b = netOf[p.ref + ".2"]; if (!a || !b) { lines.push(`* ${p.ref}: pin 1 or 2 not connected, skipped`); continue; }
+    const ty = t[1].toUpperCase() === "LED" ? "D" : t[1].toUpperCase();
+    if (ty === "D") lines.push(/led/i.test(p.value) || /^LED/i.test(p.ref) ? `D${p.ref} ${b} ${a} N=1.8` : `D${p.ref} ${b} ${a}`);
+    else { const v = RSP.val(String(p.value).split(/\s/)[0]); if (!(v > 0)) { lines.push(`* ${p.ref}: value "${p.value}" isn't a number, skipped`); continue; } lines.push(`${ty}${p.ref} ${a} ${b} ${v}`); } }
+  return lines.join("\n") + "\n" + S.simExtra.replace(/\bGND\b/g, "0") + "\n";
+}
+function pageSim() {
+  const net = simNetlist(); let r; try { r = RSP.run(net); } catch (e) { r = { errs: [e.message] }; }
+  const nodes = S.plotNodes.split(/[\s,]+/).filter(Boolean).map(x => x.toLowerCase());
+  return `<h2>Simulate</h2><p class="lead">Resistors, capacitors, inductors and diodes/LEDs come straight from the schematic. Add sources, models for chips (an op-amp as an ideal amplifier, E line) and the analysis below. Engine: RSPICE (ours).</p>
+  <div class="row"><div class="card">${F("Sources, chip models, analysis", "simExtra", { type: "area", h: 170 })}${F("Plot nodes", "plotNodes")}<button class="pri" data-act="rerender">▶ Simulate</button> <button data-act="cir">⬇ Netlist (.cir)</button></div>
+  <div class="card"><h3>Netlist used</h3><pre class="mono" style="max-height:220px;overflow:auto">${esc(net)}</pre>${r.errs.length ? `<p class="bad">${r.errs.map(esc).join("<br>")}</p>` : '<p class="ok">Simulated.</p>'}</div></div>
+  ${r.op ? `<div class="card"><h3>Operating point</h3>${Object.entries(r.op.v).filter(([n]) => n !== "0").map(([n, v]) => `<span class="pill">${esc(n)} = ${siFmt(v)}V</span>`).join(" ")}</div>` : ""}
+  ${r.tran || r.dc ? `<div class="card">${rspPlot(r, nodes)}</div>` : ""}`;
+}
+function bomGroups() { const g = {}; for (const p of S.parts) { const k = [p.value, p.pkg, p.pins, p.mpn].join("|"); (g[k] = g[k] || { value: p.value, pkg: p.pkg, fp: fp(p).lib, mpn: p.mpn, refs: [], price: num(p.price) }).refs.push(p.ref); } return Object.values(g); }
+function pageBom() {
+  const G = bomGroups(), per = G.reduce((s, x) => s + x.refs.length * x.price, 0);
+  return `<h2>Parts + BOM</h2><div class="row"><div class="card"><div class="stat">${money(per)} per board</div><p class="sub">${S.parts.length} parts in ${G.length} lines · ${money(per * num(S.proj.qty))} for ${S.proj.qty} boards (parts only)</p>${F("Boards", "proj.qty", { r: 1 })}
+  <button class="pri" data-act="bomCsv">⬇ BOM (.csv, assembly format)</button></div>
+  <div class="card"><table><tr><th>Value</th><th>Refs</th><th>Footprint</th><th>Part no.</th><th class="num">Each</th></tr>${G.map(x => `<tr><td>${esc(x.value)}</td><td>${esc(x.refs.join(", "))}</td><td class="sub">${esc(x.fp)}</td><td>${esc(x.mpn || "")}${x.mpn ? "" : '<span class="warnc">none</span>'}</td><td class="num">${money(x.price)}</td></tr>`).join("")}</table></div></div>`;
+}
+const bomCSV = () => toCSV([["Comment", "Designator", "Footprint", "Part number", "Qty"], ...bomGroups().map(x => [x.value, x.refs.join(","), x.fp, x.mpn || "", x.refs.length])]);
+function autoPlace() {
+  const list = S.parts.slice().sort((a, b) => fp(b).body[0] * fp(b).body[1] - fp(a).body[0] * fp(a).body[1]); let x = 2.5, y = 2.5, rowH = 0; const B = S.board; B.place = {};
+  for (const p of list) { const b = fp(p).body, ext = Math.max(...fp(p).pads.map(q => Math.max(Math.abs(q[1]) + q[3] / 2, b[0] / 2))) * 2, w = ext + 2.5, h = Math.max(b[1], ...fp(p).pads.map(q => Math.abs(q[2]) * 2 + q[4])) + 2.5;
+    if (x + w > B.w - 1.5) { x = 2.5; y += rowH; rowH = 0; } B.place[p.ref] = [r1(x + w / 2), r1(y + h / 2), 0]; x += w; rowH = Math.max(rowH, h); }
+  if (y + rowH > B.h - 1) B.h = Math.ceil(y + rowH + 1.5);
+}
+function netWidths() { const w = {}, names = String(S.route.power || "").toUpperCase().split(/[\s,;]+/).filter(Boolean), pw = num(S.route.pw); if (pw > num(S.route.tw)) S.nets.forEach((n, k) => { if (names.includes(String(n.name).toUpperCase())) w[k] = pw; }); return w; }
+function doRoute() { const t0 = performance.now(); MEM.R = RPCB.routeBest(S, { g: num(S.route.g), tw: num(S.route.tw), clear: num(S.route.clear), widths: netWidths() }, num(S.route.tries) || 5); MEM.drc = RPCB.drc(S, MEM.R); MEM.ms = Math.round(performance.now() - t0); MEM.placeKey = JSON.stringify([S.board, S.nets, S.parts.map(p => [p.ref, p.pkg, p.pins]), S.route]); }
+function stale() { return MEM.R && MEM.placeKey !== JSON.stringify([S.board, S.nets, S.parts.map(p => [p.ref, p.pkg, p.pins]), S.route]); }
+function boardSVG2(standalone) {
+  const B = S.board, k = 16, W = B.w * k, H = B.h * k, R = MEM.R && !stale() ? MEM.R : null;
+  let s = `<svg ${standalone ? 'xmlns="http://www.w3.org/2000/svg" ' : ""}viewBox="-10 -10 ${W + 20} ${H + 20}" width="${Math.min(900, W + 20)}" style="background:#0b3d1e;border-radius:8px"><rect x="0" y="0" width="${W}" height="${H}" fill="#14672f" stroke="#ffd34d" stroke-width="2"/>`;
+  for (const PO of R ? RPCB.pours(S, R) : []) { const [x0, y0, x1, y1] = PO.box, col = PO.layer ? "#3d6fb8" : "#b8503d"; s += `<g opacity="0.45"><rect x="${x0 * k}" y="${y0 * k}" width="${(x1 - x0) * k}" height="${(y1 - y0) * k}" fill="${col}"><title>${esc(PO.name)} pour (${PO.layer ? "bottom" : "top"})</title></rect>`;
+    for (const q of PO.cuts) s += q.t === "c" ? `<circle cx="${q.x * k}" cy="${q.y * k}" r="${q.d / 2 * k}" fill="#14672f"/>` : q.t === "r" ? `<rect x="${(q.x - q.w / 2) * k}" y="${(q.y - q.h / 2) * k}" width="${q.w * k}" height="${q.h * k}" fill="#14672f"/>` : `<line x1="${q.x1 * k}" y1="${q.y1 * k}" x2="${q.x2 * k}" y2="${q.y2 * k}" stroke="#14672f" stroke-width="${q.d * k}" stroke-linecap="round"/>`;
+    for (const sp of PO.spokes || []) s += `<line x1="${sp.x1 * k}" y1="${sp.y1 * k}" x2="${sp.x2 * k}" y2="${sp.y2 * k}" stroke="${col}" stroke-width="${sp.w * k}"/>`;
+    s += `<title>${esc(PO.name)} pour: ${PO.nThermal} thermal pads, ${PO.nDirect} direct, ${PO.islands} islands removal</title></g>`; }
+  if (R) for (const v of RPCB.stitchOf(S, R)) s += `<circle cx="${v.x * k}" cy="${v.y * k}" r="${R.o.via / 2 * k}" fill="#9aa"><title>GND stitching via</title></circle><circle cx="${v.x * k}" cy="${v.y * k}" r="${R.o.viaDrill / 2 * k}" fill="#222"/>`;
+  if (R) { for (const sg of R.segs.filter(x => x.l === 1)) s += `<line x1="${sg.x1 * k}" y1="${sg.y1 * k}" x2="${sg.x2 * k}" y2="${sg.y2 * k}" stroke="#4f86e6" stroke-width="${(sg.w || R.o.tw) * k}" stroke-linecap="round"><title>${esc(S.nets[sg.net].name)} (bottom)</title></line>`;
+    for (const sg of R.segs.filter(x => x.l === 0)) s += `<line x1="${sg.x1 * k}" y1="${sg.y1 * k}" x2="${sg.x2 * k}" y2="${sg.y2 * k}" stroke="#e0533d" stroke-width="${(sg.w || R.o.tw) * k}" stroke-linecap="round"><title>${esc(S.nets[sg.net].name)} (top)</title></line>`; }
+  for (const p of RPCB.pads(S)) s += p.thru ? `<circle cx="${p.x * k}" cy="${p.y * k}" r="${Math.min(p.w, p.h) / 2 * k}" fill="#d4a84b"><title>${p.ref}.${p.pin}</title></circle><circle cx="${p.x * k}" cy="${p.y * k}" r="${p.drill / 2 * k}" fill="#0b3d1e"/>` : `<rect x="${(p.x - p.w / 2) * k}" y="${(p.y - p.h / 2) * k}" width="${p.w * k}" height="${p.h * k}" fill="#d4a84b"><title>${p.ref}.${p.pin}</title></rect>`;
+  if (R) for (const v of R.vias) s += `<circle cx="${v.x * k}" cy="${v.y * k}" r="${R.o.via / 2 * k}" fill="#bbb"/><circle cx="${v.x * k}" cy="${v.y * k}" r="${R.o.viaDrill / 2 * k}" fill="#222"/>`;
+  for (const st of RPCB.silkTexts(Object.assign({ proj: S.proj }, S)).flatMap(t => RPCB.strokeText(t.s, t.x, t.y, t.h))) s += `<polyline points="${st.map(p => (p[0] * k).toFixed(1) + "," + (p[1] * k).toFixed(1)).join(" ")}" fill="none" stroke="#fff" stroke-width="${0.15 * k}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return s + "</svg>";
+}
+function pageBoard() {
+  const unplaced = S.parts.filter(p => !S.board.place[p.ref]).map(p => p.ref), R = MEM.R && !stale() ? MEM.R : null;
+  return `<h2>Layout + routing</h2><p class="lead">Place the parts (auto or by numbers), then route: a maze router on a ${S.route.g} mm grid finds each connection on the top (red) or bottom (blue) copper, adding vias when it has to change sides. The DRC then measures every gap on the real shapes.</p>
+  <div class="row"><div class="card" style="flex:2;overflow:auto">${boardSVG2()}</div>
+  <div class="card"><div class="row" style="gap:6px">${F("Width mm", "board.w", { r: 1, w: "70px" })}${F("Height mm", "board.h", { r: 1, w: "70px" })}${F("Grid mm", "route.g", { opts: [["0.25", "0.25"], ["0.5", "0.5"]], r: 1 })}${F("Track mm", "route.tw", { r: 1, w: "60px" })}${F("Clearance mm", "route.clear", { r: 1, w: "60px" })}</div>
+  <div class="row" style="gap:6px">${F("Power nets (wider)", "route.power", { r: 1, w: "130px" })}${F("Power track mm", "route.pw", { r: 1, w: "60px" })}${F("Route tries", "route.tries", { r: 1, w: "50px" })}${F("Copper pour net (blank = none)", "route.pour", { r: 1, w: "80px" })}${F("Pour layer", "route.pourLayer", { opts: [["1", "bottom"], ["0", "top"], ["2", "both + stitching vias"]], r: 1 })}${String(S.route.pourLayer) === "2" ? F("Stitch pitch mm", "route.stitch", { r: 1, w: "55px" }) : ""}${F("Thermal spokes", "route.thermal", { type: "check", r: 1 })}${F("Remove islands", "route.islands", { type: "check", r: 1 })}</div>
+  <button data-act="place">Auto-place</button> <button class="pri" data-act="routeAll">⚡ Route + DRC</button> <button data-act="svgBoard">⬇ Picture (.svg)</button>
+  ${unplaced.length ? `<p class="bad">Not placed: ${esc(unplaced.join(", "))}</p>` : ""}
+  ${R ? `<p><b>${R.segs.length}</b> tracks · <b>${R.vias.length}</b> vias · ${MEM.ms} ms · ${R.tries > 1 ? `${R.tries} tries (first try: ${R.firstFails} not routed) · ` : ""}${R.fails.length ? `<span class="bad">${R.fails.length} not routed</span>` : '<span class="ok">all routed</span>'}</p><p>DRC: ${MEM.drc.length ? `<b class="bad">${MEM.drc.length} problems</b><br><span class="mono" style="font-size:11px">${MEM.drc.slice(0, 12).map(esc).join("<br>")}</span>` : '<b class="ok">clean</b> (track-track, track-pad, via, pad-pad, board edge)'}</p>` : `<p class="sub">${MEM.R ? "Board changed since the last route: route again." : "Not routed yet."}</p>`}
+  <h4>Placement (x, y mm, rotation °)</h4><table>${S.parts.map(p => { const pl = S.board.place[p.ref] || ["", "", 0]; return `<tr><td>${esc(p.ref)}</td>${[0, 1, 2].map(j => `<td><input data-act-place="${esc(p.ref)}|${j}" value="${pl[j]}" style="width:56px"></td>`).join("")}</tr>`; }).join("")}</table></div></div>`;
+}
+document.addEventListener("change", e => { const a = e.target.dataset && e.target.dataset.actPlace; if (!a) return; const [ref, j] = a.split("|"); const pl = S.board.place[ref] || [S.board.w / 2, S.board.h / 2, 0]; pl[+j] = +j === 2 ? (Math.round(num(e.target.value) / 90) * 90) % 360 : num(e.target.value); S.board.place[ref] = pl; save(); render(); });
+function fabFiles() {
+  const R = MEM.R, n = slugP(), H = S.board.h;
+  const cpl = toCSV([["Designator", "Mid X", "Mid Y", "Layer", "Rotation"], ...S.parts.filter(p => S.board.place[p.ref]).map(p => [p.ref, S.board.place[p.ref][0].toFixed(3) + "mm", (H - S.board.place[p.ref][1]).toFixed(3) + "mm", "Top", S.board.place[p.ref][2] || 0])]);
+  return [[`${n}-F_Cu.gtl`, RPCB.gerber(S, R, 0, "cu")], [`${n}-B_Cu.gbl`, RPCB.gerber(S, R, 1, "cu")], [`${n}-F_Mask.gts`, RPCB.gerber(S, R, 0, "mask")], [`${n}-B_Mask.gbs`, RPCB.gerber(S, R, 1, "mask")],
+    [`${n}-F_Silkscreen.gto`, RPCB.gerber(Object.assign({ proj: S.proj }, S), R, 0, "silk")], [`${n}-Edge_Cuts.gm1`, RPCB.gerber(S, R, 0, "edge")], [`${n}.drl`, RPCB.drill(S, R)], [`${n}_BOM.csv`, bomCSV()], [`${n}_CPL.csv`, cpl], [`${n}.kicad_sch`, (S.proj.hwLicense = S.proj.hwLicense || "CERN-OHL-S-2.0", kicadSch())]];
+}
+function pageFiles() {
+  if (!MEM.R || stale()) return `<h2>Fab files</h2><div class="card">Route the board first. <button data-page="board">Layout + routing</button></div>`;
+  const files = fabFiles(), chk = files.filter(f => /\.g[a-z0-9]+$/.test(f[0])).map(f => [f[0], RPCB.readGerber(f[1])]);
+  return `<h2>Fab files</h2><p class="lead">Gerber RS-274X (copper, solder mask, silkscreen outline, board edge), Excellon drill, BOM and pick-and-place (CPL). Each Gerber is read back by our checker below.</p>
+  ${MEM.drc.length ? `<div class="banner">DRC has ${MEM.drc.length} problems: fix them before sending these anywhere.</div>` : ""}
+  <div class="card"><button class="pri" data-act="fabZip">⬇ All fab files (.zip)</button> <button data-act="toOhw">⬇ Open Hardware Studio backup (for KiCad export)</button></div>
+  <div class="card"><table><tr><th>File</th><th class="num">Flashes</th><th class="num">Draws</th><th>Size (mm)</th><th>Check</th></tr>${chk.map(([f, r]) => `<tr><td class="mono">${esc(f)}</td><td class="num">${r.flashes}</td><td class="num">${r.draws}</td><td>${isFinite(r.minX) ? `${r2(r.maxX - r.minX)} × ${r2(r.maxY - r.minY)}` : "-"}</td><td class="${r.ended && r.fmt && !r.undefinedAp ? "ok" : "bad"}">${r.ended && r.fmt && !r.undefinedAp ? "ok" : "problem"}</td></tr>`).join("")}</table>
+  <p class="sub">Drill: ${(files.find(f => f[0].endsWith(".drl"))[1].match(/^X/gm) || []).length} holes. Not checked in a real Gerber viewer yet (gerbv / KiCad viewer need installing).</p></div>`;
+}
+function orderMD(fab) {
+  const G = bomGroups(), smd = S.parts.filter(p => !fp(p).pads.some(q => q[5] === "thru")).length;
+  return `# DRAFT board order: ${S.proj.name}\n\n> DRAFT made by Randis UDS Circuit & PCB Studio. Not sent, no account made, nothing paid. Check the board house's own form and price.\n\n## Board (${fab})\n\n- Size: ${S.board.w} x ${S.board.h} mm, ${S.board.layers} layers, ${S.proj.thick} mm, ${S.proj.color} mask, ${S.proj.finish}\n- Quantity: ${S.proj.qty}\n- Min track / gap: ${S.route.tw} / ${S.route.clear} mm; vias 0.3 mm drill / 0.6 mm pad\n- Files: ${slugP()}_fab.zip (Gerbers + drill)\n- DRC (ours): ${MEM.drc.length ? MEM.drc.length + " problems" : "clean"}\n\n## Assembly (optional)\n\n- ${S.parts.length} parts, ${smd} surface-mount, ${S.parts.length - smd} through-hole, top side only\n- BOM: ${slugP()}_BOM.csv (${G.length} lines; ${G.filter(x => !x.mpn).length} lines have no part number yet)\n- Pick-and-place: ${slugP()}_CPL.csv\n\n## Before ordering\n\n1. Fix every DRC problem and look at the files in a Gerber viewer.\n2. Fill in part numbers the assembler stocks.\n3. Your OK for the exact order.\n`;
+}
+function pageOrder() {
+  return `<h2>Order drafts + board in hand</h2><div class="banner"><b>Drafts only.</b> Nothing is uploaded, ordered or paid from here, and no accounts are made.</div>
+  <div class="row"><div class="card"><h3>Board houses</h3><table>${FABS.map(f => `<tr><td><b>${esc(f[0])}</b> ${L("site", f[1])}</td><td class="sub">${esc(f[2])}</td></tr>`).join("")}</table></div>
+  <div class="card">${F("Board house", "proj.fab", { opts: FABS.map(f => f[0]) })}${F("Boards", "proj.qty")}${F("Mask colour", "proj.color", { opts: ["Green", "Black", "Blue", "Red", "White", "Purple"] })}${F("Finish", "proj.finish", { opts: ["HASL (lead-free)", "ENIG", "OSP"] })}
+  <button class="pri" data-act="orderDraft" ${MEM.R && !stale() ? "" : "disabled"}>⬇ Order draft (.md + files .zip)</button>${MEM.R && !stale() ? "" : ' <span class="sub">route first</span>'}</div></div>
+  <div class="card"><h3>Board in hand: bring-up</h3><table>${["Look for solder bridges under a magnifier", "Check power to ground is not a short (meter, before power)", "First power-up with a current-limited supply", "Measure each supply rail", "Test each function against the simulation", "Write down fixes for the next board revision"].map((x, i) => `<tr><td><input type="checkbox" data-p="flow.bring${i}"${S.flow["bring" + i] ? " checked" : ""}></td><td>${esc(x)}</td></tr>`).join("")}</table></div>`;
+}
+function pageData() { return `<h2>Data</h2><div class="card"><button data-act="backup">Backup (.json)</button> <label class="pill">Restore <input type="file" data-file="restore" accept=".json" style="width:150px"></label> <label class="pill">Import Open Hardware Studio backup <input type="file" data-file="ohwIn" accept=".json" style="width:150px"></label> <button data-act="reset">Reset to the example</button></div><div class="card">${F("Notes", "notes", { type: "area", h: 160 })}</div>`; }
+const slugP = () => (S.proj.name || "board").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "board";
+Object.assign(ACT, {
+  rerender() { render(); }, place() { autoPlace(); MEM.R = null; save(); render(); },
+  routeAll() { if (S.parts.some(p => !S.board.place[p.ref])) autoPlace(); doRoute(); save(); render(); toast(MEM.drc.length ? `Routed: ${MEM.drc.length} DRC problems` : "Routed, DRC clean"); },
+  svgBoard() { download(slugP() + "_board.svg", boardSVG2(true)); }, cir() { download(slugP() + ".cir", RSP.withTitle(simNetlist(), slugP())); }, bomCsv() { download(slugP() + "_BOM.csv", bomCSV()); },
+  fabZip() { download(slugP() + "_fab.zip", makeZip(fabFiles())); },
+  orderDraft() { const f = fabFiles(), fab = S.proj.fab || FABS[0][0]; download(slugP() + "_order_DRAFT.zip", makeZip([["ORDER_DRAFT.md", orderMD(fab)], ...f.map(x => ["fab/" + x[0], x[1]])])); },
+  toOhw() { download(slugP() + "_ohw_backup.json", JSON.stringify({ proj: { name: S.proj.name, summary: S.proj.goal, author: "", hwLicense: "CERN-OHL-S-2.0", swLicense: "MIT", docLicense: "CC-BY-SA-4.0", difficulty: "Medium", hours: 2, why: "", tags: "" }, parts: S.parts, nets: S.nets, board: S.board }, null, 1), "application/json"); },
+  ohwIn(files) { const rd = new FileReader(); rd.onload = () => { try { const d = JSON.parse(rd.result); if (!Array.isArray(d.parts) || !Array.isArray(d.nets)) throw new Error("not an Open Hardware Studio backup"); S.parts = d.parts; S.nets = d.nets; S.board = Object.assign({ w: 40, h: 30, thick: 1.6, layers: 2, place: {} }, d.board || {}); if (d.proj && d.proj.name) S.proj.name = d.proj.name; MEM.R = null; save(); render(); toast(`Imported ${S.parts.length} parts and ${S.nets.length} nets.`); } catch (e) { toast("Couldn't import: " + e.message, 6000); } }; rd.readAsText(files[0]); },
+  backup() { download(slugP() + "_pcb_backup.json", JSON.stringify(S, null, 1), "application/json"); },
+  restore(files) { const rd = new FileReader(); rd.onload = () => { try { const d = JSON.parse(rd.result); if (!d.parts || !d.route) throw new Error("not a Circuit & PCB Studio backup"); S = Object.assign(APP.defaults(), d); MEM.R = null; save(); render(); toast("Restored."); } catch (e) { toast("Couldn't restore: " + e.message, 6000); } }; rd.readAsText(files[0]); },
+  reset() { if (!confirm("Reset to the example?")) return; S = APP.defaults(); MEM.R = null; save(); render(); },
+});
+function selftest() {
+  const ok = [], fail = [], chk = (c, m) => (c ? ok : fail).push(m), keep = JSON.stringify(S);
+  try {
+    S = APP.defaults(); chk(erc().length === 0, "example schematic passes ERC: " + erc().join("; "));
+    const r = RSP.run(simNetlist()); chk(!r.errs.length && r.tran, "schematic simulates: " + r.errs.join(";"));
+    if (r.tran) { const t = r.tran.t, i = t.findIndex(x => x >= 6e-3 - 1e-9), f = r.tran.v.filt[i]; chk(f > 4.9 && Math.abs(r.tran.v.out[i] - f) < 0.01, `filter settles to 5 V and the buffer follows: FILT ${f.toFixed(3)} OUT ${r.tran.v.out[i].toFixed(3)}`);
+      const j = t.findIndex(x => x >= 1e-3 + 1e-3 - 1e-9); chk(Math.abs(r.tran.v.filt[j] - 5 * (1 - Math.exp(-1))) < 0.15, "RC = 1 ms: one tau after the step " + r.tran.v.filt[j].toFixed(3)); }
+    autoPlace(); chk(S.parts.every(p => S.board.place[p.ref]), "every part placed");
+    doRoute(); chk(!MEM.R.fails.length, "every connection routed (" + MEM.R.fails.join(", ") + ")"); chk(!MEM.drc.length, "DRC clean: " + MEM.drc.slice(0, 3).join("; "));
+    for (let k = 0; k < S.nets.length; k++) chk(netConnected(k), "net " + S.nets[k].name + " is one connected piece");
+    { const sch = kicadSch(), back = readSch(sch), want = {}; S.nets.forEach(n => want[n.name] = nodesOf(n).map(t => t.ref + "." + t.pin).sort().join(" "));
+      const got = {}; for (const k in back.nets) got[k] = back.nets[k].sort().join(" "); chk(JSON.stringify(Object.entries(got).sort()) === JSON.stringify(Object.entries(want).sort()) && !back.orphan && back.nSym === S.parts.length, `schematic sheet reads back: ${back.nSym} symbols, ${Object.keys(got).length} nets, ${back.labels} labels`);
+      const moved = sch.replace(/\(label "SIG_IN" \(at ([\d.]+) /, (m, x) => `(label "SIG_IN" (at ${(+x + 1.27).toFixed(2)} `); chk(readSch(moved).orphan === 1, "negative: a label moved off its pin is caught");
+      chk(/schematic|<svg/.test(schSVG()), "sheet draws"); }
+    { const bot = fabFiles()[1][1], g = RPCB.readGerber(bot), PO = RPCB.pourOf(S, MEM.R); chk(g.regions === 1 && g.ended && !g.undefinedAp, "bottom copper has one pour region and reads back");
+      chk(PO && g.clears === PO.cuts.length + PO.cuts.filter(q => q.t === "s").length, `pour cut-outs written: ${PO && PO.cuts.length} shapes (${g.clears} coordinates)`);
+      const pv = pourParse(bot), cl = S.route.clear; let worst = 1e9, pts = 0;
+      for (const p of MEM.R.pads.filter(p => p.thru && p.net !== PO.net)) for (let a = 0; a < 24; a++) { const r = Math.min(p.w, p.h) / 2 + cl * 0.95, x = p.x + r * Math.cos(a * Math.PI / 12), y = p.y + r * Math.sin(a * Math.PI / 12); pts++; if (pv.copper(x, y)) worst = Math.min(worst, r - Math.min(p.w, p.h) / 2); }
+      for (const s of MEM.R.segs.filter(s => s.l === 1 && s.net !== PO.net)) for (let t = 0; t <= 1; t += 0.25) for (const sd of [-1, 1]) { const L = Math.hypot(s.x2 - s.x1, s.y2 - s.y1) || 1, nx = -(s.y2 - s.y1) / L, ny = (s.x2 - s.x1) / L, off = (s.w || MEM.R.o.tw) / 2 + cl * 0.95;
+        const x = s.x1 + t * (s.x2 - s.x1) + sd * nx * off, y = s.y1 + t * (s.y2 - s.y1) + sd * ny * off; pts++; if (pv.copper(x, y)) worst = Math.min(worst, cl * 0.95); }
+      chk(worst === 1e9 && pts > 50, `no pour copper inside the clearance of other nets (${pts} probe points)`);
+      const gp = MEM.R.pads.find(p => p.thru && p.net === PO.net); chk(gp && pv.copper(gp.x + Math.min(gp.w, gp.h) / 2 + 0.1, gp.y), "pour touches a GND through-hole pad");
+      chk(Math.abs(pv.box[0] - 0.5) < 1e-6 && Math.abs(pv.box[1] - 0.5) < 1e-6 && Math.abs(pv.box[2] - (S.board.w - 0.5)) < 1e-6 && Math.abs(pv.box[3] - (S.board.h - 0.5)) < 1e-6 && !pv.copper(0.2, 0.2), "pour stops 0.5 mm from the board edge");
+      const sv = S.route.pour; S.route.pour = ""; chk(RPCB.readGerber(fabFiles()[1][1]).regions === 0, "pour off: no region"); S.route.pour = sv;
+      const rr = Math.min(gp.w, gp.h) / 2, gapT = Math.max(S.route.clear, 0.3), d45 = (rr + gapT / 2) / Math.SQRT2;
+      chk(PO.nThermal > 0 && PO.spokes.length >= 2 * PO.nThermal && !pv.copper(gp.x + d45, gp.y + d45) && pv.spokes.length === PO.spokes.length, `thermal relief: ${PO.nThermal} pads, ${PO.spokes.length} spokes, ${PO.nDirect} direct; ring is clear at 45°`);
+      chk(PO.spokes.every(sp => MEM.R.pads.filter(p => p.net !== PO.net && p.thru).every(p => RPCB.dSegSeg(sp, { x1: p.x, y1: p.y, x2: p.x, y2: p.y }) - sp.w / 2 - Math.min(p.w, p.h) / 2 >= S.route.clear - 1e-9)), "no spoke comes within the clearance of another net's pad");
+      S.route.thermal = false; MEM.R = Object.assign({}, MEM.R); const P0 = RPCB.pourOf(S, MEM.R), pv0 = pourParse(fabFiles()[1][1]); chk(P0.spokes.length === 0 && pv0.copper(gp.x + d45, gp.y + d45), "thermal off: pad joins the pour directly"); S.route.thermal = true;
+      const nG = S.nets.findIndex(n => n.name === "GND"), nS = S.nets.findIndex(n => n.name === "SIG_IN"), Bi = { nets: S.nets, board: { w: 30, h: 20 }, route: Object.assign({}, S.route) };
+      const sq = [[7, 7], [13, 7], [13, 13], [7, 13], [7, 7]], Ri = { pads: [{ x: 22, y: 10, w: 1.6, h: 1.6, thru: true, net: nG, ref: "J1", pin: 1 }], vias: [], segs: sq.slice(0, 4).map((a, i) => ({ l: 1, x1: a[0], y1: a[1], x2: sq[i + 1][0], y2: sq[i + 1][1], net: nS, w: 0.25 })), fails: [], o: MEM.R.o };
+      const Pi = RPCB.pourOf(Bi, Ri), inner = (6 - 0.25 - 2 * S.route.clear) ** 2; chk(Pi.islands === 1 && Math.abs(Pi.islandArea - inner) / inner < 0.1, `island found and removed: ${Pi.islands} island, ${r2(Pi.islandArea)} mm² (expected about ${r2(inner)})`);
+      const Si = JSON.stringify(S); S = Object.assign(S, { board: Object.assign({}, S.board, { w: 30, h: 20 }) }); const pvi = pourParse(RPCB.gerber(Bi, Ri, 1, "cu")); S = JSON.parse(Si);
+      chk(!pvi.copper(10, 10) && pvi.copper(3, 10) && pvi.copper(22 + 0.8 + 0.1, 10), "island copper gone from the Gerber, the rest of the pour kept and joined to J1");
+      Bi.route.islands = false; chk(RPCB.pourOf(Bi, Object.assign({}, Ri)).islands === 0 && RPCB.pourOf(Bi, Object.assign({}, Ri)).cuts.every(q => !q.island), "islands off: nothing removed");
+      chk(RPCB.pourOf(S, MEM.R).islands >= 0, `example board: ${RPCB.pourOf(S, MEM.R).islands} island(s) removed`); }
+    { const keepPL = S.route.pourLayer, R = MEM.R; S.route.pourLayer = 2; const P2 = RPCB.pours(S, R), st = RPCB.stitchOf(S, R), F = fabFiles(), top = F[0][1], bot = F[1][1];
+      const gT = RPCB.readGerber(top), gB = RPCB.readGerber(bot), pT = pourParse(top), pB = pourParse(bot), cl = R.o.clear, rv = R.o.via / 2;
+      chk(P2.length === 2 && P2[0].layer === 0 && P2[1].layer === 1 && gT.regions === 1 && gB.regions === 1, `both layers poured: top ${gT.regions} region, bottom ${gB.regions}`);
+      chk(P2[0].cuts.some(q => q.t === "r") && P2[0].cuts.length !== P2[1].cuts.length, `top pour cuts round SMD/top items (${P2[0].cuts.length} vs bottom ${P2[1].cuts.length})`);
+      const ring = v => [0, 1, 2, 3, 4, 5, 6, 7].map(i => [v.x + rv * Math.cos(i * Math.PI / 4), v.y + rv * Math.sin(i * Math.PI / 4)]);
+      chk(st.length >= 4 && st.every(v => ring(v).concat([[v.x, v.y]]).every(([x, y]) => pT.copper(x, y) && pB.copper(x, y))), `${st.length} stitching vias, each fully on pour copper of both layers (Gerber read back)`);
+      let worst = 1e9; for (const v of st) { for (const sg of R.segs) if (sg.net !== v.net) worst = Math.min(worst, RPCB.dSegSeg(sg, { x1: v.x, y1: v.y, x2: v.x, y2: v.y }) - (sg.w || R.o.tw) / 2 - rv);
+        for (const p of R.pads) worst = Math.min(worst, Math.hypot(Math.max(0, Math.abs(v.x - p.x) - p.w / 2), Math.max(0, Math.abs(v.y - p.y) - p.h / 2)) - rv); for (const w of R.vias) worst = Math.min(worst, Math.hypot(w.x - v.x, w.y - v.y) - 2 * rv); }
+      chk(worst >= cl - 1e-6, `closest stitching via to any pad/other-net track/via: ${r2(worst)} mm (clearance ${cl})`);
+      const holes = (F.find(f => f[0].endsWith(".drl"))[1].match(/^X/gm) || []).length; chk(holes === RPCB.pads(S).filter(p => p.thru).length + R.vias.length + st.length, `drill file has the ${st.length} stitching vias (${holes} holes)`);
+      chk((top.match(/stitching vias/g) || []).length === 1 && (bot.match(/stitching vias/g) || []).length === 1, "stitching vias flashed on both copper layers");
+      chk(RPCB.drc(S, R).length === MEM.drc.length, `DRC with stitching: ${RPCB.drc(S, R).length} problems (was ${MEM.drc.length})`);
+      const vcc = R.segs.find(sg => S.nets[sg.net].name === "VCC"); R.extraStitch = vcc ? [{ x: (vcc.x1 + vcc.x2) / 2, y: (vcc.y1 + vcc.y2) / 2, net: P2[0].net }] : []; chk(vcc && RPCB.drc(S, R).some(e => /stitching via too close to track VCC/.test(e)), "negative: a stitching via on a VCC track is caught by DRC"); delete R.extraStitch;
+      S.route.stitch = 2; const st2 = RPCB.stitchOf(S, R); chk(st2.length > 2 * st.length, `pitch 2 mm gives more vias (${st2.length} vs ${st.length})`); S.route.stitch = 4;
+      S.route.pourLayer = keepPL; chk(RPCB.stitchOf(S, R).length === 0 && RPCB.readGerber(fabFiles()[0][1]).regions === 0, "one-layer pour: no stitching vias, top has no pour"); }
+    const files = fabFiles(); for (const [f, t] of files) if (/\.g(tl|bl|ts|bs|to|m1)$/.test(f)) { const g = RPCB.readGerber(t); chk(g.ended && g.fmt && !g.undefinedAp && (g.flashes + g.draws) > 0, f + " reads back"); }
+    const edge = RPCB.readGerber(files.find(f => f[0].endsWith(".gm1"))[1]); chk(Math.abs(edge.maxX - S.board.w) < 1e-6 && Math.abs(edge.maxY - S.board.h) < 1e-6, "board edge is " + S.board.w + " x " + S.board.h);
+    const holes = (files.find(f => f[0].endsWith(".drl"))[1].match(/^X/gm) || []).length, th = RPCB.pads(S).filter(p => p.thru).length + MEM.R.vias.length; chk(holes === th, `drill holes ${holes} = through pads + vias ${th}`);
+    { const vcc = S.nets.findIndex(n => n.name === "VCC"), ws = MEM.R.segs.filter(s => s.net === vcc).map(s => s.w); chk(ws.length && ws.every(w => Math.abs(w - 0.4) < 1e-9), "VCC tracks are 0.4 mm wide (" + ws.length + " tracks)");
+      chk(MEM.R.segs.filter(s => S.nets[s.net].name === "SIG_IN").every(s => Math.abs(s.w - 0.25) < 1e-9), "signal tracks stay 0.25 mm");
+      chk(/%ADD\d+C,0\.4000\*%/.test(files[0][1] + files[1][1]), "copper Gerber has the 0.4 mm power aperture"); }
+    { const silk = RPCB.readGerber(files.find(f => f[0].endsWith(".gto"))[1]), strokes = RPCB.silkTexts(Object.assign({ proj: S.proj }, S)).flatMap(t => RPCB.strokeText(t.s, t.x, t.y, t.h));
+      chk(silk.draws > S.parts.length * 4 + 20 && silk.minX >= 0 && silk.maxX <= S.board.w && silk.minY >= 0 && silk.maxY <= S.board.h, `silkscreen text inside the board (${silk.draws} draws, ${strokes.length} strokes)`);
+      const ok8 = RPCB.strokeText("R1", 10, 10, 1); chk(ok8.length === 4 && ok8.every(st => st.every(([x, y]) => x > 8.9 && x < 11.1 && y >= 9.49 && y <= 10.51)), "R1 is 4 strokes in a 2 x 1 mm box");
+      chk(Object.keys(RPCB.FONT).length >= 42, "font has 0-9, A-Z and symbols"); }
+    { chk(MEM.R.tries >= 1 && MEM.R.fails.length <= MEM.R.firstFails, "reorder-and-retry keeps the best attempt"); }
+    { const wb = { segs: [{ l: 0, x1: 0, y1: 0, x2: 10, y2: 0, net: 0, w: 0.4 }, { l: 0, x1: 0, y1: 0.4, x2: 10, y2: 0.4, net: 1, w: 0.25 }], vias: [], pads: [], fails: [], o: { tw: 0.25, clear: 0.2, via: 0.6 } };
+      chk(RPCB.drc({ nets: S.nets, board: { w: 50, h: 50 } }, wb).some(e => /track gap 0.08/.test(e)), "negative: a wide track too close fails DRC: " + RPCB.drc({ nets: S.nets, board: { w: 50, h: 50 } }, wb).join(";")); }
+    const bad = { segs: [{ l: 0, x1: 0, y1: 0, x2: 10, y2: 0, net: 0 }, { l: 0, x1: 0, y1: 0.35, x2: 10, y2: 0.35, net: 1 }], vias: [], pads: [], fails: [], o: { tw: 0.25, clear: 0.2, via: 0.6 } };
+    chk(RPCB.drc({ nets: S.nets, board: { w: 50, h: 50 } }, bad).some(e => /track gap/.test(e)), "negative: a 0.1 mm track gap fails DRC");
+    const blocked = APP.defaults(); blocked.board.w = 12; blocked.board.h = 8; S = blocked; autoPlace(); S.board.h = 8; S.board.w = 12; doRoute(); chk(MEM.drc.length > 0, "negative: a board too small reports problems (" + MEM.drc.length + ")");
+  } catch (e) { fail.push("selftest crashed: " + e.message); }
+  S = JSON.parse(keep); MEM.R = null; return { ok, fail };
+}
+function pourParse(text) {
+  const H = S.board.h, ap = {}, cuts = [], spokes = []; let box = null, reg = [], inR = false, clear = false, cur = null, last = null, inSp = false;
+  for (const raw of text.split(/\n/)) { const l = raw.trim(); let m;
+    if (l === "G04 thermal spokes*") { inSp = true; continue; } if (l === "G04 end thermal spokes*") { inSp = false; continue; }
+    if (l === "G36*") { inR = true; reg = []; continue; } if (l === "G37*") { inR = false; const xs = reg.map(p => p[0]), ys = reg.map(p => p[1]); box = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; continue; }
+    if (l === "%LPC*%") { clear = true; continue; } if (l === "%LPD*%") { clear = false; continue; }
+    if ((m = l.match(/^%ADD(\d+)(C|R),([\d.]+)(?:X([\d.]+))?\*%$/))) { ap["D" + m[1]] = m[2] === "C" ? { c: +m[3] } : { w: +m[3], h: +m[4] }; continue; }
+    if ((m = l.match(/^(D\d+)\*$/))) { cur = ap[m[1]]; continue; }
+    if ((m = l.match(/^X(-?\d+)Y(-?\d+)(D0[123])\*$/))) { const x = +m[1] / 1e6, y = H - +m[2] / 1e6; if (inR) { reg.push([x, y]); continue; }
+      if (clear) { if (m[3] === "D03") cuts.push({ x, y, a: cur }); else if (m[3] === "D01" && last) cuts.push({ x1: last[0], y1: last[1], x2: x, y2: y, a: cur }); }
+      else if (inSp && m[3] === "D01" && last) spokes.push({ x1: last[0], y1: last[1], x2: x, y2: y, w: cur.c }); last = [x, y]; } }
+  const cut = (x, y) => cuts.some(q => q.x1 != null ? RPCB.dSegSeg({ x1: q.x1, y1: q.y1, x2: q.x2, y2: q.y2 }, { x1: x, y1: y, x2: x, y2: y }) < q.a.c / 2 : q.a.c ? Math.hypot(x - q.x, y - q.y) < q.a.c / 2 : Math.abs(x - q.x) < q.a.w / 2 && Math.abs(y - q.y) < q.a.h / 2);
+  const spoke = (x, y) => spokes.some(q => RPCB.dSegSeg(q, { x1: x, y1: y, x2: x, y2: y }) <= q.w / 2);
+  return { box, cuts, spokes, cut, spoke, copper: (x, y) => (!!box && x >= box[0] && x <= box[2] && y >= box[1] && y <= box[3] && !cut(x, y)) || spoke(x, y) }; }
+function netConnected(k) {
+  const R = MEM.R, items = []; R.pads.filter(p => p.net === k).forEach(p => items.push({ t: "p", p })); R.segs.filter(s => s.net === k).forEach(s => items.push({ t: "s", s })); R.vias.filter(v => v.net === k).forEach(v => items.push({ t: "v", v }));
+  const par = items.map((_, i) => i), f = i => par[i] === i ? i : (par[i] = f(par[i])), u = (a, b) => par[f(a)] = f(b);
+  const touch = (a, b) => { const L = it => it.t === "s" ? [it.s.l] : it.t === "v" ? [0, 1] : it.p.thru ? [0, 1] : [0];
+    if (!L(a).some(l => L(b).includes(l))) return false;
+    const geo = it => it.t === "s" ? it.s : it.t === "v" ? { x1: it.v.x, y1: it.v.y, x2: it.v.x, y2: it.v.y } : null;
+    if (a.t === "p" && b.t === "p") return false; if (a.t === "p") return RPCB.dSegRect(geo(b), a.p) < 1e-6; if (b.t === "p") return RPCB.dSegRect(geo(a), b.p) < 1e-6; return RPCB.dSegSeg(geo(a), geo(b)) < 1e-6; };
+  for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) if (touch(items[i], items[j])) u(i, j);
+  return new Set(items.map((_, i) => f(i))).size === 1;
+}
+
+</script>
+<script>
+if (inApp) { tell({ uds: "store-get" }); tell({ uds: "web-hello" }); setTimeout(() => { if (!loaded) { useLocal = true; boot(readLocal()); } }, 1500); }
+else boot(readLocal());
+</script>
+</body>
+</html>

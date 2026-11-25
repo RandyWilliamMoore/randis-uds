@@ -1,0 +1,17 @@
+{
+ "id": "machshop01",
+ "name": "Machine Shop",
+ "created": 1795506402.7879565,
+ "section": "Tools",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795555819.365642,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

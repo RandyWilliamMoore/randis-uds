@@ -4,6 +4,7 @@ import json, os
 EDITIONS = {
     "developer": {"name": "Randis UDS Developer Edition", "tabs_first": []},
     "marketplace": {"name": "Randis UDS Marketplace Edition", "tabs_first": ["catalog"]},
+    "marketing": {"name": "Randis UDS Marketing Edition", "tabs_first": ["funnel0001", "addev00001", "reachviz01", "promostudio"]},
 }
 DEFAULT = "developer"
 

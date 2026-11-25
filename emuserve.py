@@ -1,5 +1,7 @@
 # Randis UDS. Copyright (C) 2026 Randy Moore. GPLv3 with additional terms: every copy, clone or derivative must attribute this work first and conspicuously. See LICENSE and NOTICE.md. Original: https://github.com/RandyWilliamMoore/randis-uds
-import http.server, os, posixpath, re, secrets, threading, urllib.parse, urllib.request
+import http.server, os, posixpath, re, secrets, socket, threading, urllib.parse, urllib.request
+
+import pathcheck
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 VENDOR = os.path.join(HERE, "ui", "vendor", "emulatorjs")
@@ -34,9 +36,8 @@ def resolve(path, token):
     rel = posixpath.normpath(rest[5:])
     if rel.startswith("..") or rel.startswith("/") or "\\" in rel or ":" in rel or rel == ".":
         return None
-    full = os.path.realpath(os.path.join(VENDOR, *rel.split("/")))
-    root = os.path.realpath(VENDOR)
-    if not full.startswith(root + os.sep):
+    full = pathcheck.real(os.path.join(VENDOR, *rel.split("/")))
+    if not pathcheck.within(VENDOR, full):
         return None
     if not os.path.isfile(full) and not fetch(rel, full):
         return None
@@ -116,6 +117,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 class _HTTPServer(http.server.ThreadingHTTPServer):
     allow_reuse_address = False
     daemon_threads = True
+
+    def server_bind(self):
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
 
 class Server:

@@ -1,0 +1,17 @@
+{
+ "id": "archsuite01",
+ "name": "Dig Lab",
+ "created": 1795507946.0944746,
+ "section": "Learn",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795579465.5191243,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

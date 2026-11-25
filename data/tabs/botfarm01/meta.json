@@ -1,0 +1,19 @@
+{
+ "id": "botfarm01",
+ "name": "Bot Farm",
+ "created": 1795071106.68576,
+ "botfarm": true,
+ "icon": "tab-botfarm",
+ "section": "Bots & AI",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795503801.7605805,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

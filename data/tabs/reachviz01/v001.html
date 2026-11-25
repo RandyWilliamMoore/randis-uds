@@ -1,0 +1,306 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Reach Visualizer</title>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<style>
+:root{--bg:#f9f9f7;--bg2:#fcfcfb;--bg3:#efeee9;--line:#dcdbd5;--tx:#0b0b0b;--mut:#52514e;--acc:#c2185b;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--bad:#d03b3b;
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948}
+body[data-theme=dark]{--bg:#0d0d0d;--bg2:#1a1a19;--bg3:#262624;--line:#383835;--tx:#f0efec;--mut:#c3c2b7;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+header b#apptitle{font-size:16px;color:var(--acc);margin-right:6px}
+#nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+#nav button{border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--mut)}
+#nav button.on{background:var(--acc);color:#fff}
+#nav button:hover:not(.on){background:var(--bg3)}
+#saved{font-size:11px;color:var(--mut)}
+main#view{flex:1;overflow:auto;padding:14px 18px}
+h2{margin:0 0 4px;font-size:21px}h3{margin:6px 0 8px;font-size:15px;color:var(--acc)}h4{margin:10px 0 4px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em}
+.lead{color:var(--mut);margin:0 0 12px;max-width:980px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}.row>.card{flex:1;min-width:300px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:2px;margin:0 0 6px}
+input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px}
+textarea{width:100%;min-height:80px;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--tx);border-radius:6px;padding:4px 10px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}button.x{padding:1px 7px;color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}td input,td select{width:100%;padding:2px 4px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+pre,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}pre{background:var(--bg3);padding:10px;border-radius:6px;overflow:auto;white-space:pre-wrap;margin:6px 0;max-height:420px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:var(--bg3);color:var(--mut)}
+.ok{color:var(--good)}.bad{color:var(--bad)}.warnc{color:#b7791f}
+.banner{border-left:4px solid var(--serious);background:var(--bg3);padding:8px 12px;border-radius:6px;margin:0 0 12px}
+.stat{font-size:26px;font-weight:600}.sub{font-size:12px;color:var(--mut)}
+svg text{fill:var(--mut);font-size:11px}svg .ink{fill:var(--tx)}
+.lnk{color:var(--s1);cursor:pointer;text-decoration:underline}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:9;max-width:80%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><b id="apptitle">Reach Visualizer</b><nav id="nav"></nav><span id="saved"></span><button data-act="theme" title="Light / dark">◐</button></header>
+<main id="view"></main>
+<div id="toast"></div>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+"use strict";
+const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const inApp = window.parent !== window;
+const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100, r1 = n => Math.round(n * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (n, d) => (+n || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d });
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(+n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = n => (isFinite(n) ? Math.round(n * 1000) / 10 : 0) + "%";
+const SER = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)"];
+let toastT; function toast(t, ms) { const e = $("#toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => e.style.display = "none", ms || 3200); }
+let WEB_ON = false;
+function openLink(url) {
+  if (!inApp) { window.open(url, "_blank", "noopener"); return; }
+  if (WEB_ON) { tell({ uds: "web-pop", url }); return; }
+  copyText(url, "Link copied: paste it into your browser (or tick 'Web view' above this tab).");
+}
+function copyText(t, msg) { const fb = () => prompt("Copy this:", t); try { const p = navigator.clipboard && navigator.clipboard.writeText(t); if (p && p.then) p.then(() => toast(msg || "Copied.", 4000), fb); else fb(); } catch (e) { fb(); } }
+const L = (label, url) => `<span class="lnk" data-url="${esc(url)}">${esc(label)} ↗</span>`;
+
+let S, MEM = { page: null, sub: {} }, loaded = false, useLocal = true, saveT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const data = { [APP.key]: S };
+    if (inApp && !useLocal) tell({ uds: "store-set", data });
+    try { localStorage.setItem("uds-" + APP.key, JSON.stringify(S)); } catch (e) {}
+    const kb = Math.round(JSON.stringify(data).length / 1024), el = $("#saved");
+    if (el) el.textContent = `Saved · ${kb} KB`;
+    if (kb > 900) toast("Storage is nearly full: export a backup and remove some images.", 6000);
+  }, 400);
+}
+function readLocal() { try { return JSON.parse(localStorage.getItem("uds-" + APP.key) || "null"); } catch (e) { return null; } }
+function getP(path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), S); }
+function setP(path, val) { const p = path.split("."); let o = S; while (p.length > 1) { const k = p.shift(); if (o[k] == null) o[k] = {}; o = o[k]; } o[p[0]] = val; }
+function download(name, data, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: type || "text/plain" });
+  if (window.__dl) { window.__dl.push([name, typeof data === "string" ? data : "blob:" + blob.size]); }
+  if (inApp) { tell({ uds: "export-file", name, data: blob }); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const csvCell = c => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`;
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ""));
+}
+
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >> 8) & 255], u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  for (const [name, d] of files) {
+    const data = typeof d === "string" ? enc.encode(d) : d, nm = enc.encode(name), crc = crc32(data);
+    const head = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)]);
+    parts.push(head, nm, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nm);
+    off += head.length + nm.length + data.length;
+  }
+  const csize = central.reduce((a, b) => a + b.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+const AIQ = {};
+function askAI(prompt, cb) {
+  if (!inApp) { cb({ error: "Open this inside Randis UDS with an AI linked to use the AI helper." }); return; }
+  const id = "q10-" + uid(); AIQ[id] = cb;
+  tell({ uds: "planner-ask", id, history: [{ role: "user", content: String(prompt) }], context: APP.title + " app in Randis UDS." });
+}
+
+const F = (label, path, o) => { o = o || {}; const v = getP(path); const t = o.type || (typeof v === "number" ? "number" : "text");
+  if (o.opts) return `<label class="f">${esc(label)}<select data-p="${path}"${o.r ? " data-r" : ""}>${o.opts.map(x => { const [k, n] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(k)}"${String(v) === String(k) ? " selected" : ""}>${esc(n)}</option>`; }).join("")}</select></label>`;
+  if (t === "area") return `<label class="f">${esc(label)}<textarea data-p="${path}"${o.r ? " data-r" : ""} style="min-height:${o.h || 90}px">${esc(v)}</textarea></label>`;
+  if (t === "check") return `<label><input type="checkbox" data-p="${path}" data-r${v ? " checked" : ""}> ${esc(label)}</label>`;
+  return `<label class="f">${esc(label)}<input type="${t}" data-p="${path}"${t === "number" ? " data-num" : ""}${o.r ? " data-r" : ""} value="${esc(v)}"${o.step ? ` step="${o.step}"` : ""}${o.w ? ` style="width:${o.w}"` : ""}></label>`; };
+function TBL(path, cols, o) {
+  o = o || {}; const rows = getP(path) || [];
+  const head = cols.map(c => `<th>${esc(c[1])}</th>`).join("") + (o.extra ? o.extra.map(x => `<th>${esc(x[0])}</th>`).join("") : "") + "<th></th>";
+  const body = rows.map((r, i) => "<tr>" + cols.map(([k, , t, w]) => {
+    const p = `${path}.${i}.${k}`, v = r[k];
+    if (Array.isArray(t)) return `<td${w ? ` style="width:${w}"` : ""}><select data-p="${p}" data-r>${t.map(x => `<option${String(v) === String(x) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></td>`;
+    return `<td${w ? ` style="width:${w}"` : ""}><input data-p="${p}"${t === "number" ? ' type="number" data-num step="any"' : ""}${o.live ? " data-r" : ""} value="${esc(v)}"></td>`;
+  }).join("") + (o.extra ? o.extra.map(x => `<td class="num">${x[1](r, i)}</td>`).join("") : "") + `<td><button class="x" data-act="rowdel" data-arg="${path}|${i}">✕</button></td></tr>`).join("");
+  return `<table><tr>${head}</tr>${body}</table><button data-act="rowadd" data-arg="${path}">+ Add row</button>`;
+}
+function lineChart(series, o) {
+  o = o || {}; const W = o.w || 640, H = o.h || 220, P = { l: 46, r: 12, t: 10, b: 24 };
+  const all = series.flatMap(s => s.pts); if (!all.length) return `<p class="sub">No data yet.</p>`;
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) || 1, y0 = Math.min(0, ...ys), y1 = Math.max(...ys) * 1.08 || 1;
+  const X = x => P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r), Y = y => H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b);
+  let g = ""; for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P.l - 4}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`; }
+  g += `<text x="${P.l}" y="${H - 6}">${esc(o.xl ? o.xl(x0) : fmt(x0))}</text><text x="${W - P.r}" y="${H - 6}" text-anchor="end">${esc(o.xl ? o.xl(x1) : fmt(x1))}</text>`;
+  const lines = series.map((s, i) => `<polyline fill="none" stroke="${s.color || SER[i % 8]}" stroke-width="2" points="${s.pts.map(p => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join(" ")}"/>` +
+    s.pts.filter((p, j) => s.pts.length < 60 || j % Math.ceil(s.pts.length / 40) === 0).map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="6" fill="transparent"><title>${esc(s.name)}: ${esc(o.xl ? o.xl(p[0]) : fmt(p[0]))} → ${fmt(p[1])}</title></circle>`).join("")).join("");
+  const leg = series.length > 1 ? `<div class="legend">${series.map((s, i) => `<span><i style="background:${s.color || SER[i % 8]}"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  return leg + `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${g}${lines}</svg>`;
+}
+function barChart(items, o) {
+  o = o || {}; const W = o.w || 640, bh = 22, H = items.length * (bh + 6) + 8, lw = o.lw || 150, max = Math.max(...items.map(i => i.v), 1e-9);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">` + items.map((it, i) => { const y = 4 + i * (bh + 6), w = Math.max(1, (W - lw - 90) * it.v / max);
+    return `<text class="ink" x="${lw - 6}" y="${y + 15}" text-anchor="end">${esc(it.name)}</text><rect x="${lw}" y="${y}" width="${w}" height="${bh}" rx="4" fill="${it.color || SER[o.one ? 0 : i % 8]}"><title>${esc(it.name)}: ${esc(o.f ? o.f(it.v) : fmt(it.v))}</title></rect><text x="${lw + w + 6}" y="${y + 15}">${esc(o.f ? o.f(it.v) : fmt(it.v))}</text>`; }).join("") + "</svg>";
+}
+
+function nav() {
+  $("#nav").innerHTML = APP.pages.map(([id, label]) => `<button data-page="${id}" class="${MEM.page === id ? "on" : ""}">${esc(label)}</button>`).join("");
+}
+function go(id) { MEM.page = id; S._page = id; render(); }
+function render() {
+  nav(); const pg = APP.pages.find(p => p[0] === MEM.page) || APP.pages[0]; MEM.page = pg[0];
+  try { $("#view").innerHTML = pg[2](); if (APP.after) APP.after(pg[0]); }
+  catch (e) { $("#view").innerHTML = `<div class="card bad">This page hit an error: ${esc(e && e.stack || e)}</div>`; console.error(e); }
+}
+function boot(data) {
+  if (loaded) return; loaded = true;
+  S = Object.assign(APP.defaults(), data && typeof data === "object" ? data : {});
+  if (S._theme) document.body.dataset.theme = S._theme;
+  MEM.page = S._page || APP.pages[0][0]; render();
+}
+const ACT = {
+  theme() { S._theme = document.body.dataset.theme === "dark" ? "" : "dark"; document.body.dataset.theme = S._theme; save(); },
+  rowadd(path) { const a = getP(path) || []; const t = APP.rowTemplates && APP.rowTemplates[path]; a.push(t ? t() : {}); setP(path, a); save(); render(); },
+  rowdel(arg) { const [path, i] = arg.split("|"); getP(path).splice(+i, 1); save(); render(); },
+};
+function onField(e, final) {
+  const el = e.target, p = el.dataset && el.dataset.p; if (!p) return;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num !== undefined) v = num(v);
+  setP(p, v); save();
+  if (final && el.dataset.r !== undefined) render();
+  if (APP.onField) APP.onField(p, v, final);
+}
+document.addEventListener("input", e => { if (e.target.tagName === "SELECT" || e.target.type === "checkbox") return; onField(e, false); });
+document.addEventListener("change", e => { if (e.target.type === "file") { const a = e.target.dataset.file; if (a && ACT[a]) ACT[a]([...e.target.files], e.target); return; } onField(e, true); });
+document.addEventListener("click", e => {
+  const pg = e.target.closest("[data-page]"); if (pg) { go(pg.dataset.page); return; }
+  const l = e.target.closest(".lnk"); if (l) { openLink(l.dataset.url); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const f = ACT[b.dataset.act]; if (!f) return;
+  try { f(b.dataset.arg, b, e); } catch (err) { toast("That didn't work: " + err.message, 6000); console.error(err); }
+});
+window.addEventListener("message", e => {
+  const d = e.data; if (!d || typeof d.uds !== "string") return;
+  if (d.uds === "store") { if (!loaded) { useLocal = false; boot(d.data && d.data[APP.key] ? d.data[APP.key] : readLocal()); } }
+  else if (d.uds === "store-error") toast("Couldn't save: " + (d.note || ""), 6000);
+  else if (d.uds === "web-state") WEB_ON = !!d.on;
+  else if (d.uds === "exported" || d.uds === "exporting") toast(d.note || (d.ok ? "Saved." : "Not saved."));
+  else if (d.uds === "planner" && AIQ[d.id]) { if (d.done) { const cb = AIQ[d.id]; delete AIQ[d.id]; cb(d.error ? { error: d.error } : { text: d.text || "" }); } }
+});
+</script>
+<script>
+
+const COLS = { date: ["date", "day", "week", "month"], channel: ["channel", "source", "platform", "campaign", "network"], impressions: ["impressions", "impr", "views", "imps"],
+  reach: ["reach", "unique", "people reached", "users"], clicks: ["clicks", "link clicks", "sessions", "visits"], conversions: ["conversions", "purchases", "results", "leads", "signups", "sign-ups"],
+  spend: ["spend", "cost", "amount spent"], revenue: ["revenue", "value", "sales", "conversion value"] };
+const METRICS = ["impressions", "reach", "clicks", "conversions", "spend", "revenue"];
+const TOOLS = [
+  ["Ads", "Google Ads, Meta Ads Manager, LinkedIn Campaign Manager, TikTok Ads, Reddit Ads", "impressions, reach, clicks, spend, conversions", "Export report as CSV"],
+  ["Web analytics", "Google Analytics 4, Plausible, Matomo, Umami", "sessions, users, sources, conversions, revenue", "Export / Looker Studio CSV"],
+  ["Email", "Mailchimp, Buttondown, ConvertKit, Brevo", "sends, opens, clicks, unsubscribes", "Campaign report CSV"],
+  ["Social (organic)", "YouTube Studio, Meta Business Suite, X analytics, TikTok analytics", "views, reach, followers, engagement", "Export analytics CSV"],
+  ["Search", "Google Search Console, Bing Webmaster", "impressions, clicks, CTR, position", "Performance export"],
+  ["Shop / payments", "Shopify, WooCommerce, Stripe, Ko-fi, Gumroad", "orders, revenue, customers", "Orders/payouts CSV"],
+  ["CRM", "HubSpot, Pipedrive, a spreadsheet", "leads, deals, stages, won revenue", "Deals CSV"],
+];
+const APP = {
+  key: "reach", title: "Reach Visualizer",
+  defaults: () => ({ rows: sampleRows(), metric: "impressions", channelFilter: "", rf: { pop: 500000, imps: 1200000, k: 1.3, target: 60 }, src: "Sample data (made up)" }),
+  pages: [["dash", "📊 Dashboard", pageDash], ["funnels", "🔻 Funnels", pageFunnels], ["rf", "📡 Reach & frequency", pageRF], ["flow", "🌊 Flow", pageFlow], ["data", "📥 Data", pageData], ["tools", "🧰 Tools map", pageTools]],
+  selftest,
+};
+function sampleRows() { const ch = [["Search ads", 40000, .045, .06, .5, 55], ["Social ads", 120000, .009, .025, .8, 40], ["Email", 15000, .06, .05, 0, 45], ["Organic video", 80000, .012, .02, 0, 40], ["Referral", 6000, .1, .07, 0, 50]], rows = [];
+  for (let d = 0; d < 28; d++) { const dt = new Date(Date.UTC(2026, 9, 1 + d)).toISOString().slice(0, 10), wk = 1 + 0.25 * Math.sin(d / 3.5);
+    for (const [name, imp, ctr, cvr, cpc, aov] of ch) { const I = Math.round(imp / 28 * wk * (0.9 + (d * 7 % 5) / 25)), C = Math.round(I * ctr), V = Math.round(C * cvr * 10) / 10;
+      rows.push({ date: dt, channel: name, impressions: I, reach: Math.round(I / (1.6 + (d % 3) * 0.1)), clicks: C, conversions: V, spend: Math.round(C * cpc * 100) / 100, revenue: Math.round(V * aov * 100) / 100 }); } }
+  return rows; }
+function filtered() { return S.rows.filter(r => !S.channelFilter || r.channel === S.channelFilter); }
+function sum(rows, k) { return rows.reduce((a, r) => a + num(r[k]), 0); }
+function byChannel(rows) { const g = {}; for (const r of rows) { const c = g[r.channel] = g[r.channel] || { channel: r.channel }; for (const k of METRICS) c[k] = (c[k] || 0) + num(r[k]); } return Object.values(g).sort((a, b) => b.impressions - a.impressions); }
+function channels() { return [...new Set(S.rows.map(r => r.channel))]; }
+function kpis(rows) { const t = Object.fromEntries(METRICS.map(k => [k, sum(rows, k)])); return { ...t, ctr: t.clicks / (t.impressions || 1), cvr: t.conversions / (t.clicks || 1), cpa: t.spend / (t.conversions || 1), roas: t.revenue / (t.spend || 1), freq: t.impressions / (t.reach || 1) }; }
+const chColor = name => SER[channels().indexOf(name) % 8];
+function filterBar() { return `<div class="card row" style="align-items:flex-end">${F("Channel", "channelFilter", { opts: [["", "All channels"], ...channels().map(c => [c, c])], r: 1 })}<span class="sub">${S.rows.length} rows · ${esc(S.src)}</span></div>`; }
+function pageDash() { const rows = filtered(), K = kpis(rows), bc = byChannel(rows), dates = [...new Set(rows.map(r => r.date))].sort();
+  const series = (S.channelFilter ? [S.channelFilter] : channels()).slice(0, 8).map(c => ({ name: c, color: chColor(c), pts: dates.map((d, i) => [i, sum(rows.filter(r => r.date === d && r.channel === c), S.metric)]) }));
+  return `<h2>Dashboard</h2>${filterBar()}<div class="grid">${[["Impressions", fmt(K.impressions, 0)], ["Reach", fmt(K.reach, 0)], ["Frequency", fmt(K.freq, 2)], ["Clicks", fmt(K.clicks, 0)], ["Click rate", pct(K.ctr)], ["Conversions", fmt(K.conversions, 1)], ["Conversion rate", pct(K.cvr)], ["Spend", "$" + fmt(K.spend, 0)], ["Cost per conversion", "$" + fmt(K.cpa, 2)], ["Return on spend", fmt(K.roas, 2) + "×"]]
+    .map(([k, v]) => `<div class="card"><div class="stat">${v}</div><div class="sub">${k}</div></div>`).join("")}</div>
+  <div class="card"><div class="row">${F("Trend of", "metric", { opts: METRICS, r: 1 })}</div>${lineChart(series, { h: 240, xl: i => dates[Math.round(i)] || "" })}</div>
+  <div class="row"><div class="card"><h3>${esc(S.metric)} by channel</h3>${barChart(bc.map(c => ({ name: c.channel, v: c[S.metric], color: chColor(c.channel) })), { lw: 130 })}</div>
+  <div class="card"><h3>Table</h3><table><tr><th>Channel</th>${METRICS.map(m => `<th class="num">${m}</th>`).join("")}<th class="num">CTR</th><th class="num">ROAS</th></tr>${bc.map(c => `<tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${chColor(c.channel)}"></i> ${esc(c.channel)}</td>${METRICS.map(m => `<td class="num">${fmt(c[m], 0)}</td>`).join("")}<td class="num">${pct(c.clicks / (c.impressions || 1))}</td><td class="num">${c.spend ? fmt(c.revenue / c.spend, 2) + "×" : "-"}</td></tr>`).join("")}</table>
+  <button data-act="sumCsv">⬇ Summary (.csv)</button></div></div>`; }
+function pageFunnels() { const bc = byChannel(filtered()), steps = ["impressions", "clicks", "conversions"];
+  return `<h2>Funnels by channel</h2><p class="lead">Same scale for every channel, so you can compare. The rate under each bar is the share of the step before.</p>${filterBar()}<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${bc.map(c => {
+    const vals = steps.map(s => c[s]), mx = Math.max(...bc.map(x => x.impressions), 1);
+    return `<div class="card"><h3 style="color:var(--tx)"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${chColor(c.channel)}"></i> ${esc(c.channel)}</h3><svg viewBox="0 0 280 130" width="100%">${vals.map((v, i) => { const w = Math.max(2, 270 * Math.sqrt(v / mx)); return `<rect x="${(280 - w) / 2}" y="${i * 42}" width="${w}" height="30" rx="4" fill="${chColor(c.channel)}" opacity="${1 - i * 0.25}"><title>${steps[i]}: ${fmt(v, 0)}</title></rect><text class="ink" x="140" y="${i * 42 + 20}" text-anchor="middle">${steps[i]} ${fmt(v, 0)}${i ? " (" + pct(v / (vals[i - 1] || 1)) + ")" : ""}</text>`; }).join("")}</svg></div>`; }).join("")}</div>
+  <p class="sub">Bar widths use the square root of the count so small channels stay visible.</p>`; }
+function reachModel(pop, imps, k) { const grp = imps / (pop || 1) * 100; return pop * (1 - Math.exp(-k * grp / 100)); }
+function pageRF() { const r = S.rf, R = reachModel(num(r.pop), num(r.imps), num(r.k)), freq = num(r.imps) / (R || 1), need = -Math.log(1 - Math.min(99.9, num(r.target)) / 100) / num(r.k) * num(r.pop);
+  const pts = []; for (let i = 0; i <= 40; i++) { const im = num(r.pop) * 5 * i / 40; pts.push([im, reachModel(num(r.pop), im, num(r.k)) / num(r.pop) * 100]); }
+  return `<h2>Reach & frequency</h2><p class="lead">How many different people your impressions reach, and how often each sees you. Reach grows fast at first, then slows as the same people see you again (reach = audience × (1 − e<sup>−k·GRP/100</sup>)). Fit k from your own data: the dashboard's frequency tells you how much overlap you get.</p>
+  <div class="row"><div class="card" style="max-width:360px">${F("Audience size", "rf.pop", { r: 1 })}${F("Impressions", "rf.imps", { r: 1 })}${F("Spread factor k (higher = less overlap)", "rf.k", { r: 1, step: 0.1 })}${F("Target reach %", "rf.target", { r: 1 })}
+  <table><tr><td>People reached</td><td class="num"><b>${fmt(R, 0)}</b> (${pct(R / num(r.pop))})</td></tr><tr><td>Average frequency</td><td class="num">${fmt(freq, 2)}</td></tr><tr><td>Impressions for ${r.target}% reach</td><td class="num"><b>${fmt(need, 0)}</b></td></tr></table><button data-act="fitK">Fit k from my data</button></div>
+  <div class="card"><h3>Reach curve</h3>${lineChart([{ name: "Reach %", pts }], { h: 260, xl: x => fmt(x / 1000, 0) + "k imp." })}</div></div>`; }
+function pageFlow() { const bc = byChannel(filtered()), K = kpis(filtered()), W = 820, H = 380, cols = [["impressions", 40], ["clicks", 330], ["conversions", 620]];
+  let s = ""; const colSum = m => bc.reduce((a, c) => a + Math.sqrt(c[m] || 0), 0), kk = (H - 40 - 8 * bc.length) / Math.max(1e-9, ...cols.map(([m]) => colSum(m))), sc = v => Math.max(2, kk * Math.sqrt(v || 0));
+  const pos = {}; cols.forEach(([m, x]) => { let y = 20; pos[m] = {}; for (const c of bc) { const h = sc(c[m]); pos[m][c.channel] = [x, y, h]; y += h + 8; } });
+  for (let i = 0; i < 2; i++) { const [a] = cols[i], [b] = cols[i + 1]; for (const c of bc) { const [x1, y1, h1] = pos[a][c.channel], [x2, y2, h2] = pos[b][c.channel], xm = (x1 + 150 + x2) / 2;
+    s += `<path d="M${x1 + 150},${y1} C${xm},${y1} ${xm},${y2} ${x2},${y2} L${x2},${y2 + h2} C${xm},${y2 + h2} ${xm},${y1 + h1} ${x1 + 150},${y1 + h1} Z" fill="${chColor(c.channel)}" opacity="0.35"><title>${esc(c.channel)}: ${a} ${fmt(c[a], 0)} → ${b} ${fmt(c[b], 0)}</title></path>`; } }
+  cols.forEach(([m, x]) => { for (const c of bc) { const [, y, h] = pos[m][c.channel]; s += `<rect x="${x}" y="${y}" width="150" height="${h}" rx="3" fill="${chColor(c.channel)}"><title>${esc(c.channel)} ${m}: ${fmt(c[m], 0)}</title></rect>`; } s += `<text class="ink" x="${x + 75}" y="14" text-anchor="middle">${m}</text>`; });
+  return `<h2>Flow</h2><p class="lead">Where people come from and how many move on, per channel (heights use the square root so every channel shows).</p>${filterBar()}<div class="card"><div class="legend">${bc.map(c => `<span><i style="background:${chColor(c.channel)}"></i>${esc(c.channel)}</span>`).join("")}</div><svg viewBox="0 0 ${W} ${H + 40}" width="100%" style="max-width:${W}px">${s}</svg></div>`; }
+function pageData() { return `<h2>Data</h2><p class="lead">Open a CSV export from any tool. Columns are matched by name (date, channel/source/platform, impressions/views, reach, clicks/sessions, conversions/purchases/leads, spend/cost, revenue/value). You can add several files; their rows are combined.</p>
+  <div class="card"><label class="pill">Open CSV <input type="file" data-file="csvOpen" accept=".csv,.txt" multiple style="width:180px"></label> <button data-act="sample">Use the sample data</button> <button data-act="clear">Clear all rows</button> <button data-act="rowsCsv">⬇ Combined rows (.csv)</button></div>
+  <div class="card"><p>${S.rows.length} rows from ${esc(S.src)}</p><table><tr>${["date", "channel", ...METRICS].map(k => `<th>${k}</th>`).join("")}</tr>${S.rows.slice(0, 25).map(r => `<tr>${["date", "channel", ...METRICS].map(k => `<td>${esc(r[k])}</td>`).join("")}</tr>`).join("")}</table></div>`; }
+function pageTools() { return `<h2>Tools map</h2><p class="lead">Which tool gives which numbers, and how to get them in here. Today every source comes in as a CSV export (nothing logs in to your accounts).</p>
+  <div class="card"><table><tr><th>Kind</th><th>Tools</th><th>What it gives</th><th>How to bring it in</th></tr>${TOOLS.map(t => `<tr><td><b>${esc(t[0])}</b></td><td>${esc(t[1])}</td><td>${esc(t[2])}</td><td>${esc(t[3])}</td></tr>`).join("")}</table></div>`; }
+function importCSV(text, name) { const rows = parseCSV(text); if (rows.length < 2) throw new Error("no rows"); const head = rows[0].map(h => h.trim().toLowerCase()), map = {};
+  for (const [k, names] of Object.entries(COLS)) { const i = head.findIndex(h => names.includes(h)); const j = i >= 0 ? i : head.findIndex(h => names.some(n => h.includes(n))); if (j >= 0) map[k] = j; }
+  if (map.date == null && map.channel == null) throw new Error("couldn't find a date or channel column");
+  return rows.slice(1).map(r => { const o = { date: map.date != null ? r[map.date] : "", channel: map.channel != null ? r[map.channel] : name }; for (const m of METRICS) o[m] = map[m] != null ? num(String(r[map[m]]).replace(/[$,%\s]/g, "")) : 0; return o; }); }
+Object.assign(ACT, {
+  csvOpen(files) { let all = [], left = files.length, errs = []; for (const f of files) { const r = new FileReader(); r.onload = () => { try { all = all.concat(importCSV(r.result, f.name.replace(/\.\w+$/, ""))); } catch (e) { errs.push(f.name + ": " + e.message); }
+    if (--left === 0) { if (all.length) { S.rows = S.src.startsWith("Sample") ? all : S.rows.concat(all); S.src = files.map(x => x.name).join(", "); save(); render(); } toast(`${all.length} rows added.` + (errs.length ? " Problems: " + errs.join("; ") : ""), 6000); } }; r.readAsText(f); } },
+  sample() { S.rows = sampleRows(); S.src = "Sample data (made up)"; save(); render(); }, clear() { if (confirm("Remove every row?")) { S.rows = []; S.src = "nothing yet"; save(); render(); } },
+  rowsCsv() { download("marketing_rows.csv", toCSV([["date", "channel", ...METRICS], ...S.rows.map(r => [r.date, r.channel, ...METRICS.map(m => r[m])])]), "text/csv"); },
+  sumCsv() { download("channel_summary.csv", toCSV([["channel", ...METRICS, "ctr", "roas"], ...byChannel(filtered()).map(c => [c.channel, ...METRICS.map(m => r2(c[m])), r2(c.clicks / (c.impressions || 1)), c.spend ? r2(c.revenue / c.spend) : ""])]), "text/csv"); },
+  fitK() { const K = kpis(S.rows); if (!K.reach || !K.impressions) return toast("Your data needs reach and impressions columns."); const pop = num(S.rf.pop), f = Math.min(0.999, K.reach / pop); S.rf.imps = K.impressions; S.rf.k = r2(-Math.log(1 - f) / (K.impressions / pop)); save(); render(); toast("k = " + S.rf.k + " from your data."); },
+});
+function selftest() { const keep = S, fail = [], out = {}; S = APP.defaults();
+  try { const rows = importCSV('Day,Source,Impr.,Link clicks,Purchases,Amount spent,Conversion value\n2026-10-01,Meta,"1,000",20,2,$15.50,60\n2026-10-02,Meta,500,10,1,7,30', "x");
+    if (rows.length !== 2 || rows[0].impressions !== 1000 || rows[0].spend !== 15.5 || rows[0].channel !== "Meta" || rows[1].revenue !== 30) fail.push("import " + JSON.stringify(rows));
+    const R = reachModel(1000, 1000, 1); if (Math.abs(R - 1000 * (1 - Math.exp(-1))) > 1e-6) fail.push("reach model");
+    const K = kpis(S.rows); out.kpis = { imp: Math.round(K.impressions), roas: r2(K.roas) }; if (!(K.impressions > 0 && K.roas > 0)) fail.push("kpis");
+    if (byChannel(S.rows).length !== 5) fail.push("channels");
+  } catch (e) { fail.push("exception " + e.stack); } finally { S = keep; } return { fail, out }; }
+
+</script>
+<script>
+if (inApp) { tell({ uds: "store-get" }); tell({ uds: "web-hello" }); setTimeout(() => { if (!loaded) { useLocal = true; boot(readLocal()); } }, 1500); }
+else boot(readLocal());
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+ "id": "pcbstudio1",
+ "name": "Circuit & PCB Studio",
+ "created": 1795506949.4825006,
+ "section": "Create",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795581496.4846675,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

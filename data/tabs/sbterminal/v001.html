@@ -1,0 +1,306 @@
+<!doctype html>
+<!-- Made with Randis UDS by Randy Moore - https://github.com/RandyWilliamMoore/randis-uds - https://ko-fi.com/moorescombinatoricsmatrix -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email Terminal</title>
+<style>
+:root{--ph:#4dff88;--dim:#25a85a;--bg:#03140a;--glow:0 0 6px rgba(77,255,136,.6);--hi:#c8ffd9}
+body.amber{--ph:#ffc247;--dim:#b7821f;--bg:#140d02;--glow:0 0 6px rgba(255,194,71,.6);--hi:#ffe9b8}
+body.blue{--ph:#5be2ff;--dim:#2a93b0;--bg:#021018;--glow:0 0 6px rgba(91,226,255,.6);--hi:#d4f7ff}
+body.paper{--ph:#13603a;--dim:#5b8f72;--bg:#f6fbe9;--glow:none;--hi:#0a3d22}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;font-family:"Consolas","Lucida Console","Courier New",monospace}
+body{background:linear-gradient(135deg,#bbf7d0,#a5f3fc 50%,#fde68a)}
+#desk{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px}
+#monitor{position:relative;width:100%;height:100%;max-width:1400px;background:linear-gradient(#fdfbf3,#e9e4d3);border-radius:26px;padding:20px 22px 54px;box-shadow:inset 0 2px 0 #fff,inset 0 -3px 0 #cfc8b2,0 14px 34px rgba(21,128,61,.25)}
+#badge{position:absolute;left:26px;bottom:14px;display:flex;align-items:center;gap:8px;color:#57534e;font:600 12px "Segoe UI",Arial,sans-serif;letter-spacing:2px}
+#badge b{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;background:#15803d;color:#fff;font-size:12px;letter-spacing:0}
+#led{position:absolute;right:30px;bottom:20px;width:11px;height:11px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e}
+#screen{position:relative;height:100%;background:var(--bg);border-radius:16px;overflow:hidden;color:var(--ph);text-shadow:var(--glow);display:flex;flex-direction:column;box-shadow:inset 0 0 40px rgba(0,0,0,.45)}
+body.paper #screen{box-shadow:inset 0 0 30px rgba(19,96,58,.15)}
+#screen:after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(rgba(0,0,0,.13) 0 1px,transparent 1px 3px)}
+body.paper #screen:after{background:repeating-linear-gradient(rgba(19,96,58,.04) 0 1px,transparent 1px 3px)}
+#out{flex:1;overflow-y:auto;padding:14px 18px 4px;font-size:15px;line-height:1.38;white-space:pre-wrap;word-break:break-word}
+#out::-webkit-scrollbar{width:10px}#out::-webkit-scrollbar-thumb{background:var(--dim);border-radius:5px}
+.dim{color:var(--dim)}.hi{color:var(--hi);font-weight:700}.inv{background:var(--ph);color:var(--bg);text-shadow:none;padding:0 4px}
+.err{color:#ff8fa3}body.paper .err{color:#be123c}
+#out a{color:var(--hi)}
+#line{display:flex;align-items:center;padding:6px 18px 10px;font-size:15px;gap:8px}
+#prompt{white-space:nowrap}
+#cmd{flex:1;background:transparent;border:0;outline:0;color:var(--hi);font:inherit;caret-color:var(--ph);text-shadow:var(--glow)}
+#keys{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 12px}
+#keys button{font:inherit;font-size:13px;background:transparent;color:var(--ph);border:1px solid var(--dim);border-radius:6px;padding:4px 10px;cursor:pointer;text-shadow:var(--glow)}
+#keys button:hover{background:var(--ph);color:var(--bg);text-shadow:none}
+#boot{position:absolute;inset:0;background:var(--bg);padding:24px 26px;font-size:15px;white-space:pre-wrap;z-index:5;cursor:pointer}
+#boot.gone{display:none}
+.cur{display:inline-block;width:.6em;background:var(--ph);animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+#file{display:none}
+</style></head><body>
+<div id="desk"><div id="monitor"><div id="screen">
+<div id="boot"></div>
+<div id="out" aria-live="polite"></div>
+<div id="line"><span id="prompt">mail&gt;</span><input id="cmd" autocomplete="off" spellcheck="false" aria-label="Type a command"></div>
+<div id="keys">
+<button data-c="help">help</button><button data-c="list">list</button><button data-c="read 1">read 1</button><button data-c="search kite">search kite</button>
+<button data-c="flag 2">flag 2</button><button data-c="compose">compose</button><button data-c="import">import mail</button><button data-c="theme">theme</button><button data-c="connect">connect account</button>
+</div>
+</div><div id="badge"><b>ET</b>EMAIL TERMINAL</div><div id="led"></div></div></div>
+<input type="file" id="file" accept=".eml,.mbox,.txt,message/rfc822,application/mbox" multiple>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const out = $("out"), cmd = $("cmd");
+const store = (() => { const mem = {}; return {
+  get(k, d) { try { const v = localStorage.getItem("eterm-" + k); if (v != null) return JSON.parse(v); } catch (e) {} return k in mem ? mem[k] : d; },
+  set(k, v) { mem[k] = v; try { localStorage.setItem("eterm-" + k, JSON.stringify(v)); } catch (e) {} } }; })();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const print = (t, cls) => { const d = document.createElement("div"); if (cls) d.className = cls; d.textContent = t; out.appendChild(d); out.scrollTop = out.scrollHeight; return d; };
+const printHTML = h => { const d = document.createElement("div"); d.innerHTML = h; out.appendChild(d); out.scrollTop = out.scrollHeight; return d; };
+const APP_NOTE = "Connecting a live mail account (IMAP/SMTP) is not in this version yet. Import a .eml or .mbox file you exported instead.";
+
+const day = n => { const d = new Date(); d.setDate(d.getDate() - n); d.setHours(8 + (n * 3) % 10, (n * 17) % 60, 0, 0); return d.toUTCString().replace("GMT", "+0000"); };
+const SAMPLE = () => [
+  { from: "Terminal Helper <helper@example.com>", subject: "Welcome to your Email Terminal!", ago: 0, body: "Hello and welcome! 👋\n\nThis is a sample inbox so you can try every command:\n\n  list          see your messages\n  read 2        open message number 2\n  search kite   find messages about kites\n  flag 3        star a message\n  compose       write a new email\n  theme         switch the screen colour\n\nWant your own mail in here? Export a message (.eml) or a mailbox (.mbox)\nfrom your mail program and type: import\n\nHappy typing!\nThe Terminal Helper" },
+  { from: "Pip Garden <pip@example.com>", subject: "Tomatoes are finally in! 🍅", ago: 1, body: "Hi!\n\nThe garden club's tomato bed went wild this week. We have far too many,\nso bring a bag on Saturday morning and take as many as you like.\n\nAlso: the sunflowers are now taller than the shed. Photos soon.\n\nGreen thumbs up,\nPip" },
+  { from: "Juno Park <juno@example.com>", subject: "Pancake Saturday?", ago: 1, body: "Hey you,\n\nI found a recipe for fluffy blueberry pancakes and I need taste testers.\nMy kitchen, Saturday at ten? I will make way too many, as usual.\n\nBring syrup if you have the good kind!\n\nJuno" },
+  { from: "Maple Street Library <desk@example.com>", subject: "Your library hold is ready", ago: 2, body: "Good news!\n\nThe book you asked us to hold, \"The Big Book of Paper Planes\",\nis waiting for you at the front desk. We will keep it for 7 days.\n\nSee you soon,\nThe Maple Street Library team" },
+  { from: "Theo Brass <theo@example.com>", subject: "Band practice moved to Thursday", ago: 3, body: "Hi band!\n\nThe hall is busy on Wednesday, so practice moves to Thursday at 7.\nWe will run the new song twice and then the old favourites.\n\nDrummers: please remember the spare sticks this time. 🥁\n\nTheo" },
+  { from: "Sunny Hills Club <club@example.com>", subject: "Kite day this weekend 🪁", ago: 4, body: "Calling all kite fliers!\n\nThe forecast says breezy and bright, so kite day is ON.\nMeet at the top of Sunny Hill on Sunday after lunch.\n\nNo kite? We have a table of paper, sticks and string so you can build one.\nPrize for the longest tail!\n\nSee you in the sky,\nSunny Hills Club" },
+  { from: "Lens Lovers <hello@example.com>", subject: "Photo contest winners", ago: 6, body: "Thank you to everyone who entered the \"Colours of Spring\" photo contest!\n\n  1st place: a rainbow over the duck pond\n  2nd place: a very proud cat in a flower pot\n  3rd place: chalk drawings after the rain\n\nThe next theme is \"Something Round\". Start snapping!\n\nLens Lovers" },
+  { from: "Rosa Bell <rosa@example.com>", subject: "Recipe: lemon sunshine bars", ago: 8, body: "My dear,\n\nYou asked for the lemon bars, so here they are:\n\n  - 1 cup flour, 1/2 cup butter, 1/4 cup sugar for the base\n  - 2 eggs, 1 cup sugar, juice of 2 lemons for the top\n\nBake the base 15 minutes, pour on the top, bake 20 more.\nDust with sugar and share them with someone nice.\n\nLove,\nRosa" }
+].map((m, i) => ({ id: i + 1, from: m.from, to: "you@example.com", subject: m.subject, date: day(m.ago), body: m.body, unread: i > 0, flag: false, folder: "inbox" }));
+
+let st = store.get("state", null);
+if (!st || !Array.isArray(st.msgs)) st = { msgs: SAMPLE(), next: 9, theme: "green" };
+const save = () => store.set("state", st);
+const setTheme = t => { document.body.className = t === "green" ? "" : t; st.theme = t; save(); };
+setTheme(st.theme || "green");
+
+const byId = n => st.msgs.find(m => m.id === +n && m.folder !== "gone");
+const short = (s, n) => { s = String(s || ""); return s.length > n ? s.slice(0, n - 1) + "…" : s.padEnd(n); };
+const who = f => { const m = /^\s*"?([^"<]*?)"?\s*<([^>]+)>/.exec(f || ""); return m ? (m[1] || m[2]) : (f || "(unknown)"); };
+const when = d => { const t = new Date(d); return isNaN(t) ? "" : t.toLocaleDateString(undefined, { month: "short", day: "numeric" }); };
+
+function list(folder, items, title) {
+  items = items || st.msgs.filter(m => m.folder === folder);
+  print(title || ("📬 " + folder.toUpperCase() + "  (" + items.length + " message" + (items.length === 1 ? "" : "s") + ")"), "hi");
+  if (!items.length) { print("  nothing here yet", "dim"); return; }
+  print("  #    ★  " + short("FROM", 22) + " " + short("SUBJECT", 40) + " DATE", "dim");
+  items.forEach(m => print((m.unread ? "> " : "  ") + String(m.id).padEnd(4) + " " + (m.flag ? "★" : " ") + "  " + short(who(m.from), 22) + " " + short(m.subject || "(no subject)", 40) + " " + when(m.date), m.unread ? "hi" : ""));
+}
+
+function read(n) {
+  const m = byId(n);
+  if (!m) return print("No message number " + n + ". Type list to see the numbers.", "err");
+  m.unread = false; save();
+  print("──────────────────────────────────────────────", "dim");
+  print("Message " + m.id + (m.flag ? "  ★ flagged" : "") + (m.folder !== "inbox" ? "  (" + m.folder + ")" : ""), "hi");
+  print("From:    " + m.from); if (m.to) print("To:      " + m.to);
+  print("Date:    " + m.date); print("Subject: " + (m.subject || "(no subject)"));
+  print("──────────────────────────────────────────────", "dim");
+  print(m.body || "(empty message)");
+  print("──────────────────────────────────────────────", "dim");
+  print("reply " + m.id + " · flag " + m.id + " · delete " + m.id + " · save " + m.id, "dim");
+}
+
+function bin(s) { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; }
+function dec(bytes, cs) { try { return new TextDecoder((cs || "utf-8").trim().toLowerCase()).decode(bytes); } catch (e) { return new TextDecoder("utf-8").decode(bytes); } }
+function qp(s) { return s.replace(/=\r?\n/g, "").replace(/=([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16))); }
+function b64(s) { try { return atob(s.replace(/[^A-Za-z0-9+/=]/g, "")); } catch (e) { return ""; } }
+function words(s) {
+  s = dec(bin(s), "utf-8");
+  return s.replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=(\s+(?==\?))?/g, (_, cs, enc, txt) => dec(bin(enc.toUpperCase() === "B" ? b64(txt) : qp(txt.replace(/_/g, " "))), cs));
+}
+function heads(raw) {
+  const h = {}; raw.replace(/\r?\n[ \t]+/g, " ").split(/\r?\n/).forEach(l => { const i = l.indexOf(":"); if (i > 0) { const k = l.slice(0, i).trim().toLowerCase(); if (!(k in h)) h[k] = l.slice(i + 1).trim(); } });
+  return h;
+}
+function param(v, name) { const m = new RegExp(name + '\\s*=\\s*"?([^";]+)"?', "i").exec(v || ""); return m ? m[1] : ""; }
+function part(raw, depth) {
+  const cut = raw.search(/\r?\n\r?\n/); const hraw = cut < 0 ? raw : raw.slice(0, cut), body = cut < 0 ? "" : raw.slice(cut).replace(/^\r?\n\r?\n/, "");
+  const h = heads(hraw), ct = (h["content-type"] || "text/plain").toLowerCase();
+  if (ct.startsWith("multipart/") && depth < 6) {
+    const bd = param(h["content-type"], "boundary"); if (!bd) return { h, text: body };
+    const parts = body.split("--" + bd).slice(1).filter(p => !p.startsWith("--")).map(p => part(p.replace(/^\r?\n/, ""), depth + 1));
+    const plain = parts.find(p => p.kind === "plain") || parts.find(p => p.kind === "html") || parts.find(p => p.text);
+    return { h, text: plain ? plain.text : "", kind: plain ? plain.kind : "" };
+  }
+  const enc = (h["content-transfer-encoding"] || "").toLowerCase();
+  if (ct.startsWith("text/") || !h["content-type"]) {
+    let t = enc === "base64" ? b64(body) : enc === "quoted-printable" ? qp(body) : body;
+    t = dec(bin(t), param(h["content-type"], "charset") || "utf-8");
+    if (ct.startsWith("text/html")) {
+      t = t.replace(/<(script|style)[\s\S]*?<\/\1>/gi, "").replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d)>/gi, "\n").replace(/<[^>]+>/g, "")
+        .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\n{3,}/g, "\n\n");
+      return { h, text: t.trim(), kind: "html" };
+    }
+    return { h, text: t.trim(), kind: "plain" };
+  }
+  return { h, text: "", kind: "file", name: words(param(h["content-disposition"], "filename") || param(h["content-type"], "name")) };
+}
+function parseOne(raw) {
+  raw = raw.replace(/^\s+/, "");
+  const p = part(raw, 0), h = p.h;
+  if (!h.from && !h.subject && !h.date) return null;
+  let body = p.text || ""; if (body.length > 40000) body = body.slice(0, 40000) + "\n\n[message shortened]";
+  return { id: st.next++, from: words(h.from || "(unknown)"), to: words(h.to || ""), subject: words(h.subject || ""), date: h.date || "", body, unread: true, flag: false, folder: "inbox", imported: true };
+}
+function parseFile(text) {
+  if (/^From [^\r\n]*\r?\n/.test(text)) {
+    return text.split(/\r?\n(?=From [^\r\n]*\r?\n[A-Za-z-]+:)/).map(c => c.replace(/^From [^\r\n]*\r?\n/, "").replace(/^>(>*From )/gm, "$1")).filter(c => c.trim());
+  }
+  return [text];
+}
+$("file").onchange = async e => {
+  const files = [...e.target.files]; e.target.value = ""; let got = 0, bad = 0;
+  for (const f of files) {
+    try {
+      const buf = new Uint8Array(await f.arrayBuffer()); let s = ""; for (let i = 0; i < buf.length; i += 8192) s += String.fromCharCode.apply(null, buf.subarray(i, i + 8192));
+      for (const raw of parseFile(s).slice(0, 2000)) { const m = parseOne(raw); if (m) { st.msgs.unshift(m); got++; } else bad++; }
+    } catch (x) { bad++; }
+  }
+  save();
+  print("📥 Imported " + got + " message" + (got === 1 ? "" : "s") + (bad ? " (" + bad + " part" + (bad === 1 ? "" : "s") + " could not be read)" : "") + ". They stay on this device only.", got ? "hi" : "err");
+  if (got) list("inbox");
+};
+
+function eml(m) {
+  const enc = s => /[^\x20-\x7e]/.test(s) ? "=?UTF-8?B?" + btoa(unescape(encodeURIComponent(s))) + "?=" : s;
+  return [m.from ? "From: " + m.from : "", "To: " + (m.to || ""), "Subject: " + enc(m.subject || ""), "Date: " + (m.date || new Date().toUTCString()),
+    "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "", (m.body || "").replace(/\r?\n/g, "\r\n")].filter((l, i) => l || i > 3).join("\r\n") + "\r\n";
+}
+function download(name, text) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "message/rfc822" })); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const fname = s => (String(s || "message").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 40) || "message") + ".eml";
+
+let draft = null;
+function startCompose(to, subject, quote) {
+  draft = { step: to ? "subject" : "to", to: to || "", subject: subject || "", body: [], quote: quote || "" };
+  print("✏️  New message. Type cancel at any step to stop.", "hi");
+  if (to) { print("To: " + to); if (subject) { print("Subject: " + subject); draft.step = "body"; bodyHelp(); return; } }
+  ask();
+}
+function bodyHelp() { print("Type your message. A line with just a dot ( . ) finishes it.", "dim"); setPrompt("  | "); }
+function ask() { setPrompt(draft.step === "to" ? "To: " : draft.step === "subject" ? "Subject: " : draft.step === "body" ? "  | " : "send> "); }
+function composeLine(l) {
+  if (/^cancel$/i.test(l.trim())) { draft = null; setPrompt(); return print("Draft thrown away.", "dim"); }
+  if (draft.step === "to") { print("To: " + l); draft.to = l.trim(); draft.step = "subject"; return ask(); }
+  if (draft.step === "subject") { print("Subject: " + l); draft.subject = l.trim(); draft.step = "body"; return bodyHelp(); }
+  if (draft.step === "body") {
+    if (l.trim() === ".") {
+      if (draft.quote) draft.body.push("", draft.quote);
+      draft.step = "send"; print(".", "dim");
+      print("Ready! Type  save  to download it as an .eml file,  mail  to open it in your mail app,  or  cancel.", "hi"); return ask();
+    }
+    print("  | " + l); draft.body.push(l); return;
+  }
+  const a = l.trim().toLowerCase(); print("send> " + l);
+  const m = { from: "", to: draft.to, subject: draft.subject, date: new Date().toUTCString().replace("GMT", "+0000"), body: draft.body.join("\n") };
+  if (a === "save" || a === "s") {
+    download(fname(m.subject), eml(m)); keepSent(m);
+    print("💾 Saved " + fname(m.subject) + ". Open it with your mail program to send it.", "hi");
+  } else if (a === "mail" || a === "m") {
+    let body = m.body; if (body.length > 1500) body = body.slice(0, 1500) + "\n[shortened, use save for the full text]";
+    const href = "mailto:" + encodeURIComponent(m.to).replace(/%40/g, "@").replace(/%2C/gi, ",") + "?subject=" + encodeURIComponent(m.subject) + "&body=" + encodeURIComponent(body);
+    keepSent(m);
+    printHTML('📨 <a href="' + esc(href) + '" target="_blank" rel="noopener">Click here to open it in your mail app</a> <span class="dim">(if nothing opens, this browser blocked it; type  save ' + m.id + '  to get the .eml instead)</span>');
+  } else return print("Type save, mail or cancel.", "dim");
+  draft = null; setPrompt();
+}
+function keepSent(m) { m.id = st.next++; m.folder = "sent"; m.unread = false; m.flag = false; m.from = m.from || "me"; st.msgs.push(m); save(); }
+
+const HELP = [
+  ["help", "show this list"], ["list  (or ls)", "inbox; also: list flagged, list sent, list trash, list all"], ["read N", "open message N (or just type the number)"],
+  ["search WORDS", "find messages by sender, subject or text"], ["compose", "write a new email"], ["reply N", "answer message N"],
+  ["flag N", "star or unstar message N"], ["delete N", "move message N to the trash (undelete N brings it back)"], ["save N", "download message N as an .eml file"],
+  ["import", "load your own .eml or .mbox file"], ["theme [green|amber|blue|paper]", "change the screen colours"], ["clear", "wipe the screen"],
+  ["connect", "about live mail accounts"], ["reset", "bring back the sample inbox"]];
+function help() { print("COMMANDS", "hi"); HELP.forEach(([c, d]) => print("  " + c.padEnd(32) + d)); print("Tip: ↑ and ↓ bring back earlier commands, Tab finishes a command name.", "dim"); }
+const NAMES = ["help", "list", "ls", "read", "search", "compose", "reply", "flag", "delete", "undelete", "save", "import", "theme", "clear", "connect", "reset", "next"];
+
+let lastRead = 0;
+function run(line) {
+  const l = line.trim(); if (!l) return;
+  if (draft) return composeLine(line);
+  print(promptText + " " + l, "dim");
+  const [c0, ...rest] = l.split(/\s+/), c = c0.toLowerCase(), arg = rest.join(" "), n = parseInt(rest[0], 10);
+  const need = () => { if (!rest[0] || isNaN(n)) { print("Which message? Try: " + c + " 1", "err"); return false; } if (!byId(n)) { print("No message number " + n + ".", "err"); return false; } return true; };
+  if (/^\d+$/.test(c)) { lastRead = +c; return read(c); }
+  switch (c) {
+    case "help": case "?": case "commands": return help();
+    case "list": case "ls": case "inbox": case "dir": {
+      const f = (rest[0] || "inbox").toLowerCase();
+      if (f === "flagged" || f === "starred") return list(null, st.msgs.filter(m => m.flag && m.folder !== "trash"), "★ FLAGGED");
+      if (f === "all") return list(null, st.msgs.filter(m => m.folder !== "trash"), "📚 ALL MAIL");
+      if (["inbox", "sent", "trash"].includes(f)) return list(f);
+      return print("Folders: inbox, flagged, sent, trash, all", "err");
+    }
+    case "read": case "open": case "cat": case "show": if (need()) { lastRead = n; read(n); } return;
+    case "next": { const ids = st.msgs.filter(m => m.folder === "inbox").map(m => m.id); const i = ids.indexOf(lastRead); const nx = ids[i + 1] || ids[0]; if (!nx) return print("Inbox is empty.", "dim"); lastRead = nx; return read(nx); }
+    case "search": case "find": case "grep": {
+      if (!arg) return print("Search for what? Try: search pancakes", "err");
+      const q = arg.toLowerCase(), hits = st.msgs.filter(m => m.folder !== "trash" && (m.from + " " + m.subject + " " + m.body).toLowerCase().includes(q));
+      return list(null, hits, "🔎 " + hits.length + " match" + (hits.length === 1 ? "" : "es") + " for \"" + arg + "\"");
+    }
+    case "compose": case "new": case "write": return startCompose(arg || "");
+    case "reply": case "re": {
+      if (!need()) return; const m = byId(n), to = (/<([^>]+)>/.exec(m.from) || [, m.from])[1];
+      const subj = /^re:/i.test(m.subject) ? m.subject : "Re: " + m.subject;
+      return startCompose(to, subj, "On " + when(m.date) + ", " + who(m.from) + " wrote:\n" + m.body.split("\n").map(x => "> " + x).join("\n"));
+    }
+    case "flag": case "star": if (need()) { const m = byId(n); m.flag = !m.flag; save(); print((m.flag ? "★ Flagged " : "☆ Unflagged ") + "message " + n + ": " + m.subject, "hi"); } return;
+    case "delete": case "del": case "rm": if (need()) { const m = byId(n); if (m.folder === "trash") { m.folder = "gone"; print("🗑 Message " + n + " is gone for good.", "hi"); } else { m.folder = "trash"; print("🗑 Moved message " + n + " to the trash. Type  undelete " + n + "  to bring it back.", "hi"); } save(); } return;
+    case "undelete": case "restore": if (need()) { const m = byId(n); m.folder = m.from === "me" ? "sent" : "inbox"; save(); print("♻️  Message " + n + " is back.", "hi"); } return;
+    case "save": case "export": case "download": if (need()) { const m = byId(n); download(fname(m.subject), eml(m)); print("💾 Saved " + fname(m.subject), "hi"); } return;
+    case "import": case "load": case "open-file": print("📂 Pick an .eml or .mbox file you exported from your mail program…", "dim"); return $("file").click();
+    case "theme": case "color": case "colour": {
+      const order = ["green", "amber", "blue", "paper"], want = (rest[0] || "").toLowerCase();
+      const t = order.includes(want) ? want : order[(order.indexOf(st.theme || "green") + 1) % order.length];
+      if (want && !order.includes(want)) print("Themes: " + order.join(", "), "dim");
+      setTheme(t); return print("🎨 Theme: " + t, "hi");
+    }
+    case "clear": case "cls": out.innerHTML = ""; return;
+    case "connect": case "account": case "login": case "imap": case "smtp":
+      print("🔌 " + APP_NOTE, "hi");
+      return print("In this browser you can import mail you exported (.eml or .mbox) and save new messages as .eml files. Nothing is sent anywhere and no account details are asked for.", "dim");
+    case "reset": st = { msgs: SAMPLE(), next: 9, theme: st.theme }; save(); print("✨ Sample inbox is back.", "hi"); return list("inbox");
+    case "about": case "version": return print("Email Terminal 1.0 · a cheerful green-screen mail reader. Your mail never leaves this device.", "hi");
+    default: print("Unknown command: " + c0 + ". Type help to see what I can do.", "err");
+  }
+}
+
+let promptText = "mail>";
+function setPrompt(p) { promptText = p || "mail>"; $("prompt").textContent = promptText; }
+const hist = []; let hi = 0;
+cmd.addEventListener("keydown", e => {
+  if (e.key === "Enter") { const v = cmd.value; cmd.value = ""; if (v.trim() && !draft) { hist.push(v); } hi = hist.length; run(v); }
+  else if (e.key === "ArrowUp" && !draft) { if (hi > 0) { hi--; cmd.value = hist[hi]; } e.preventDefault(); }
+  else if (e.key === "ArrowDown" && !draft) { if (hi < hist.length - 1) { hi++; cmd.value = hist[hi]; } else { hi = hist.length; cmd.value = ""; } e.preventDefault(); }
+  else if (e.key === "Tab" && !draft) { e.preventDefault(); const w = cmd.value.toLowerCase(); const m = NAMES.filter(x => x.startsWith(w)); if (w && m.length === 1) cmd.value = m[0] + " "; else if (w && m.length) print(m.join("  "), "dim"); }
+});
+$("screen").addEventListener("click", e => { if (!String(getSelection())) cmd.focus(); });
+document.querySelectorAll("#keys button").forEach(b => b.onclick = e => {
+  e.stopPropagation();
+  if (draft) { draft = null; setPrompt(); print("Draft thrown away.", "dim"); }
+  run(b.dataset.c); cmd.focus();
+});
+
+const boot = $("boot");
+const lines = ["EMAIL TERMINAL 1.0", "", "Memory check ........ 640K OK  😄", "Keyboard ............ found", "Screen glow ......... bright", "Mail store .......... this device only", "Loading inbox ....... " + st.msgs.filter(m => m.folder === "inbox").length + " messages", "", "READY. Press any key or click to start."];
+let bi = 0, done = false;
+function finishBoot() {
+  if (done) return; done = true; boot.classList.add("gone");
+  print("EMAIL TERMINAL 1.0  ·  type help for commands", "hi");
+  print("This is a sample inbox with friendly made-up mail. Type  import  to load your own .eml or .mbox file.", "dim");
+  print("");
+  list("inbox"); cmd.focus();
+}
+function step() { if (done) return; if (bi < lines.length) { boot.textContent = lines.slice(0, ++bi).join("\n"); const c = document.createElement("span"); c.className = "cur"; c.innerHTML = "&nbsp;"; boot.appendChild(c); setTimeout(step, bi === 1 ? 300 : 150); } else setTimeout(finishBoot, 600); }
+boot.addEventListener("click", finishBoot);
+addEventListener("keydown", e => { if (!done) { e.preventDefault(); finishBoot(); } }, true);
+step();
+})();
+</script>
+</body></html>

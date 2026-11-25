@@ -1,0 +1,669 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>IoT Command</title>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<style>
+:root{--bg:#f9f9f7;--bg2:#fcfcfb;--bg3:#efeee9;--line:#dcdbd5;--tx:#0b0b0b;--mut:#52514e;--acc:#256abf;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--bad:#d03b3b;
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948}
+body[data-theme=dark]{--bg:#0d0d0d;--bg2:#1a1a19;--bg3:#262624;--line:#383835;--tx:#f0efec;--mut:#c3c2b7;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+header b#apptitle{font-size:16px;color:var(--acc);margin-right:6px}
+#nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+#nav button{border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--mut)}
+#nav button.on{background:var(--acc);color:#fff}
+#nav button:hover:not(.on){background:var(--bg3)}
+#saved{font-size:11px;color:var(--mut)}
+main#view{flex:1;overflow:auto;padding:14px 18px}
+h2{margin:0 0 4px;font-size:21px}h3{margin:6px 0 8px;font-size:15px;color:var(--acc)}h4{margin:10px 0 4px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em}
+.lead{color:var(--mut);margin:0 0 12px;max-width:980px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}.row>.card{flex:1;min-width:300px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:2px;margin:0 0 6px}
+input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px}
+textarea{width:100%;min-height:80px;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--tx);border-radius:6px;padding:4px 10px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}button.x{padding:1px 7px;color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}td input,td select{width:100%;padding:2px 4px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+pre,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}pre{background:var(--bg3);padding:10px;border-radius:6px;overflow:auto;white-space:pre-wrap;margin:6px 0;max-height:420px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:var(--bg3);color:var(--mut)}
+.ok{color:var(--good)}.bad{color:var(--bad)}.warnc{color:#b7791f}
+.banner{border-left:4px solid var(--serious);background:var(--bg3);padding:8px 12px;border-radius:6px;margin:0 0 12px}
+.stat{font-size:26px;font-weight:600}.sub{font-size:12px;color:var(--mut)}
+svg text{fill:var(--mut);font-size:11px}svg .ink{fill:var(--tx)}
+.lnk{color:var(--s1);cursor:pointer;text-decoration:underline}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:9;max-width:80%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><b id="apptitle">IoT Command</b><nav id="nav"></nav><span id="saved"></span><button data-act="theme" title="Light / dark">◐</button></header>
+<main id="view"></main>
+<div id="toast"></div>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+"use strict";
+const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const inApp = window.parent !== window;
+const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100, r1 = n => Math.round(n * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (n, d) => (+n || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d });
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(+n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = n => (isFinite(n) ? Math.round(n * 1000) / 10 : 0) + "%";
+const SER = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)"];
+let toastT; function toast(t, ms) { const e = $("#toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => e.style.display = "none", ms || 3200); }
+let WEB_ON = false;
+function openLink(url) {
+  if (!inApp) { window.open(url, "_blank", "noopener"); return; }
+  if (WEB_ON) { tell({ uds: "web-pop", url }); return; }
+  copyText(url, "Link copied: paste it into your browser (or tick 'Web view' above this tab).");
+}
+function copyText(t, msg) { const fb = () => prompt("Copy this:", t); try { const p = navigator.clipboard && navigator.clipboard.writeText(t); if (p && p.then) p.then(() => toast(msg || "Copied.", 4000), fb); else fb(); } catch (e) { fb(); } }
+const L = (label, url) => `<span class="lnk" data-url="${esc(url)}">${esc(label)} ↗</span>`;
+
+let S, MEM = { page: null, sub: {} }, loaded = false, useLocal = true, saveT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const data = { [APP.key]: S };
+    if (inApp && !useLocal) tell({ uds: "store-set", data });
+    try { localStorage.setItem("uds-" + APP.key, JSON.stringify(S)); } catch (e) {}
+    const kb = Math.round(JSON.stringify(data).length / 1024), el = $("#saved");
+    if (el) el.textContent = `Saved · ${kb} KB`;
+    if (kb > 900) toast("Storage is nearly full: export a backup and remove some images.", 6000);
+  }, 400);
+}
+function readLocal() { try { return JSON.parse(localStorage.getItem("uds-" + APP.key) || "null"); } catch (e) { return null; } }
+function getP(path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), S); }
+function setP(path, val) { const p = path.split("."); let o = S; while (p.length > 1) { const k = p.shift(); if (o[k] == null) o[k] = {}; o = o[k]; } o[p[0]] = val; }
+function download(name, data, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: type || "text/plain" });
+  if (window.__dl) { window.__dl.push([name, typeof data === "string" ? data : "blob:" + blob.size]); }
+  if (inApp) { tell({ uds: "export-file", name, data: blob }); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const csvCell = c => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`;
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ""));
+}
+
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >> 8) & 255], u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  for (const [name, d] of files) {
+    const data = typeof d === "string" ? enc.encode(d) : d, nm = enc.encode(name), crc = crc32(data);
+    const head = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)]);
+    parts.push(head, nm, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nm);
+    off += head.length + nm.length + data.length;
+  }
+  const csize = central.reduce((a, b) => a + b.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+const AIQ = {};
+function askAI(prompt, cb) {
+  if (!inApp) { cb({ error: "Open this inside Randis UDS with an AI linked to use the AI helper." }); return; }
+  const id = "q10-" + uid(); AIQ[id] = cb;
+  tell({ uds: "planner-ask", id, history: [{ role: "user", content: String(prompt) }], context: APP.title + " app in Randis UDS." });
+}
+
+const F = (label, path, o) => { o = o || {}; const v = getP(path); const t = o.type || (typeof v === "number" ? "number" : "text");
+  if (o.opts) return `<label class="f">${esc(label)}<select data-p="${path}"${o.r ? " data-r" : ""}>${o.opts.map(x => { const [k, n] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(k)}"${String(v) === String(k) ? " selected" : ""}>${esc(n)}</option>`; }).join("")}</select></label>`;
+  if (t === "area") return `<label class="f">${esc(label)}<textarea data-p="${path}"${o.r ? " data-r" : ""} style="min-height:${o.h || 90}px">${esc(v)}</textarea></label>`;
+  if (t === "check") return `<label><input type="checkbox" data-p="${path}" data-r${v ? " checked" : ""}> ${esc(label)}</label>`;
+  return `<label class="f">${esc(label)}<input type="${t}" data-p="${path}"${t === "number" ? " data-num" : ""}${o.r ? " data-r" : ""} value="${esc(v)}"${o.step ? ` step="${o.step}"` : ""}${o.w ? ` style="width:${o.w}"` : ""}></label>`; };
+function TBL(path, cols, o) {
+  o = o || {}; const rows = getP(path) || [];
+  const head = cols.map(c => `<th>${esc(c[1])}</th>`).join("") + (o.extra ? o.extra.map(x => `<th>${esc(x[0])}</th>`).join("") : "") + "<th></th>";
+  const body = rows.map((r, i) => "<tr>" + cols.map(([k, , t, w]) => {
+    const p = `${path}.${i}.${k}`, v = r[k];
+    if (Array.isArray(t)) return `<td${w ? ` style="width:${w}"` : ""}><select data-p="${p}" data-r>${t.map(x => `<option${String(v) === String(x) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></td>`;
+    return `<td${w ? ` style="width:${w}"` : ""}><input data-p="${p}"${t === "number" ? ' type="number" data-num step="any"' : ""}${o.live ? " data-r" : ""} value="${esc(v)}"></td>`;
+  }).join("") + (o.extra ? o.extra.map(x => `<td class="num">${x[1](r, i)}</td>`).join("") : "") + `<td><button class="x" data-act="rowdel" data-arg="${path}|${i}">✕</button></td></tr>`).join("");
+  return `<table><tr>${head}</tr>${body}</table><button data-act="rowadd" data-arg="${path}">+ Add row</button>`;
+}
+function lineChart(series, o) {
+  o = o || {}; const W = o.w || 640, H = o.h || 220, P = { l: 46, r: 12, t: 10, b: 24 };
+  const all = series.flatMap(s => s.pts); if (!all.length) return `<p class="sub">No data yet.</p>`;
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) || 1, y0 = Math.min(0, ...ys), y1 = Math.max(...ys) * 1.08 || 1;
+  const X = x => P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r), Y = y => H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b);
+  let g = ""; for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P.l - 4}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`; }
+  g += `<text x="${P.l}" y="${H - 6}">${esc(o.xl ? o.xl(x0) : fmt(x0))}</text><text x="${W - P.r}" y="${H - 6}" text-anchor="end">${esc(o.xl ? o.xl(x1) : fmt(x1))}</text>`;
+  const lines = series.map((s, i) => `<polyline fill="none" stroke="${s.color || SER[i % 8]}" stroke-width="2" points="${s.pts.map(p => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join(" ")}"/>` +
+    s.pts.filter((p, j) => s.pts.length < 60 || j % Math.ceil(s.pts.length / 40) === 0).map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="6" fill="transparent"><title>${esc(s.name)}: ${esc(o.xl ? o.xl(p[0]) : fmt(p[0]))} → ${fmt(p[1])}</title></circle>`).join("")).join("");
+  const leg = series.length > 1 ? `<div class="legend">${series.map((s, i) => `<span><i style="background:${s.color || SER[i % 8]}"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  return leg + `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${g}${lines}</svg>`;
+}
+function barChart(items, o) {
+  o = o || {}; const W = o.w || 640, bh = 22, H = items.length * (bh + 6) + 8, lw = o.lw || 150, max = Math.max(...items.map(i => i.v), 1e-9);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">` + items.map((it, i) => { const y = 4 + i * (bh + 6), w = Math.max(1, (W - lw - 90) * it.v / max);
+    return `<text class="ink" x="${lw - 6}" y="${y + 15}" text-anchor="end">${esc(it.name)}</text><rect x="${lw}" y="${y}" width="${w}" height="${bh}" rx="4" fill="${it.color || SER[o.one ? 0 : i % 8]}"><title>${esc(it.name)}: ${esc(o.f ? o.f(it.v) : fmt(it.v))}</title></rect><text x="${lw + w + 6}" y="${y + 15}">${esc(o.f ? o.f(it.v) : fmt(it.v))}</text>`; }).join("") + "</svg>";
+}
+
+function nav() {
+  $("#nav").innerHTML = APP.pages.map(([id, label]) => `<button data-page="${id}" class="${MEM.page === id ? "on" : ""}">${esc(label)}</button>`).join("");
+}
+function go(id) { MEM.page = id; S._page = id; render(); }
+let PRESS = false, HELD = false, IN_CHANGE = false, heldT;
+function flushHeld() { clearTimeout(heldT); if (HELD) { HELD = false; render(); } }
+document.addEventListener("pointerdown", e => { PRESS = !!(e.target.closest && e.target.closest("button,[data-act],[data-page],a,.lnk,label.pill")); }, true);
+document.addEventListener("pointerup", () => { if (!PRESS) return; PRESS = false; if (HELD) setTimeout(flushHeld, 0); }, true);
+function render() {
+  if (IN_CHANGE && PRESS) { HELD = true; clearTimeout(heldT); heldT = setTimeout(() => { PRESS = false; flushHeld(); }, 1000); return; }
+  HELD = false;
+  nav(); const pg = APP.pages.find(p => p[0] === MEM.page) || APP.pages[0]; MEM.page = pg[0];
+  try { $("#view").innerHTML = pg[2](); if (APP.after) APP.after(pg[0]); }
+  catch (e) { $("#view").innerHTML = `<div class="card bad">This page hit an error: ${esc(e && e.stack || e)}</div>`; console.error(e); }
+}
+function boot(data) {
+  if (loaded) return; loaded = true;
+  S = Object.assign(APP.defaults(), data && typeof data === "object" ? data : {});
+  if (S._theme) document.body.dataset.theme = S._theme;
+  MEM.page = S._page || APP.pages[0][0]; render();
+}
+const ACT = {
+  theme() { S._theme = document.body.dataset.theme === "dark" ? "" : "dark"; document.body.dataset.theme = S._theme; save(); },
+  rowadd(path) { const a = getP(path) || []; const t = APP.rowTemplates && APP.rowTemplates[path]; a.push(t ? t() : {}); setP(path, a); save(); render(); },
+  rowdel(arg) { const [path, i] = arg.split("|"); getP(path).splice(+i, 1); save(); render(); },
+};
+function onField(e, final) {
+  const el = e.target, p = el.dataset && el.dataset.p; if (!p) return;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num !== undefined) v = num(v);
+  setP(p, v); save();
+  IN_CHANGE = final;
+  try { if (final && el.dataset.r !== undefined) render(); if (APP.onField) APP.onField(p, v, final); } finally { IN_CHANGE = false; }
+}
+document.addEventListener("input", e => { if (e.target.tagName === "SELECT" || e.target.type === "checkbox") return; onField(e, false); });
+document.addEventListener("change", e => { if (e.target.type === "file") { const a = e.target.dataset.file; if (a && ACT[a]) ACT[a]([...e.target.files], e.target); return; } onField(e, true); });
+document.addEventListener("click", e => {
+  const pg = e.target.closest("[data-page]"); if (pg) { go(pg.dataset.page); return; }
+  const l = e.target.closest(".lnk"); if (l) { openLink(l.dataset.url); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const f = ACT[b.dataset.act]; if (!f) return;
+  try { f(b.dataset.arg, b, e); } catch (err) { toast("That didn't work: " + err.message, 6000); console.error(err); }
+});
+window.addEventListener("message", e => {
+  const d = e.data; if (!d || typeof d.uds !== "string") return;
+  if (d.uds === "store") { if (!loaded) { useLocal = false; boot(d.data && d.data[APP.key] ? d.data[APP.key] : readLocal()); } }
+  else if (d.uds === "store-error") toast("Couldn't save: " + (d.note || ""), 6000);
+  else if (d.uds === "web-state") WEB_ON = !!d.on;
+  else if (d.uds === "exported" || d.uds === "exporting") toast(d.note || (d.ok ? "Saved." : "Not saved."));
+  else if (d.uds === "planner" && AIQ[d.id]) { if (d.done) { const cb = AIQ[d.id]; delete AIQ[d.id]; cb(d.error ? { error: d.error } : { text: d.text || "" }); } }
+});
+</script>
+<script>
+
+const DEV_T = {
+  "Temperature sensor": { kind: "sensor", metric: "temp", unit: "°C", model: "sine", base: 21, amp: 3, noise: 0.3, period: 120 },
+  "Humidity sensor": { kind: "sensor", metric: "humidity", unit: "%", model: "walk", base: 45, amp: 10, noise: 0.8 },
+  "Air quality (PM2.5)": { kind: "sensor", metric: "pm25", unit: "µg/m³", model: "walk", base: 12, amp: 15, noise: 1.5 },
+  "CO2 sensor": { kind: "sensor", metric: "co2", unit: "ppm", model: "sine", base: 650, amp: 250, noise: 15, period: 300 },
+  "Motion sensor": { kind: "sensor", metric: "motion", unit: "0/1", model: "events", base: 0, amp: 1, rate: 0.08 },
+  "Door contact": { kind: "sensor", metric: "open", unit: "0/1", model: "events", base: 0, amp: 1, rate: 0.03 },
+  "Water leak": { kind: "sensor", metric: "leak", unit: "0/1", model: "events", base: 0, amp: 1, rate: 0.005 },
+  "Energy meter": { kind: "sensor", metric: "power", unit: "W", model: "walk", base: 400, amp: 300, noise: 25 },
+  "Soil moisture": { kind: "sensor", metric: "moisture", unit: "%", model: "decay", base: 60, amp: 30, noise: 0.4 },
+  "GPS tracker": { kind: "sensor", metric: "speed", unit: "km/h", model: "walk", base: 30, amp: 30, noise: 3, moves: true },
+  "Smart plug": { kind: "actuator", metric: "on", unit: "0/1", model: "state", base: 0 },
+  "Relay": { kind: "actuator", metric: "on", unit: "0/1", model: "state", base: 0 },
+  "Thermostat": { kind: "actuator", metric: "setpoint", unit: "°C", model: "state", base: 21 },
+  "Fan": { kind: "actuator", metric: "on", unit: "0/1", model: "state", base: 0 },
+  "Valve": { kind: "actuator", metric: "open", unit: "0/1", model: "state", base: 0 },
+  "Gateway": { kind: "gateway", metric: "uptime", unit: "s", model: "count", base: 0 },
+};
+const PROTOS = [
+  ["MQTT", "Pub/sub over TCP or WebSocket via a broker", "LAN/Internet", "kB/s-MB/s", "Low", "Sensors to cloud, home automation"],
+  ["CoAP", "REST-like over UDP for tiny devices", "LAN/6LoWPAN", "kB/s", "Very low", "Constrained sensors"],
+  ["HTTP / REST", "Request/response, webhooks", "Internet", "MB/s", "High", "Cloud APIs, gateways"],
+  ["WebSocket", "Two-way stream over HTTP", "Internet", "MB/s", "Medium", "Dashboards, live data"],
+  ["Modbus TCP / RTU", "Register reads/writes, industrial", "LAN / RS-485 1.2 km", "kB/s", "Low", "PLCs, meters, drives"],
+  ["BACnet", "Building automation objects", "LAN / MS/TP", "kB/s", "Low", "HVAC, lighting, access"],
+  ["OPC UA", "Typed industrial data model, secure", "LAN/Internet", "MB/s", "Medium", "Factory, SCADA"],
+  ["Zigbee", "2.4 GHz mesh, needs a coordinator", "10-100 m mesh", "250 kb/s", "Very low", "Home sensors, bulbs"],
+  ["Z-Wave", "Sub-GHz mesh for homes", "30-100 m mesh", "100 kb/s", "Very low", "Locks, switches"],
+  ["Thread / Matter", "IPv6 mesh + common app layer", "Mesh", "250 kb/s", "Very low", "New smart-home devices"],
+  ["BLE", "Bluetooth Low Energy", "10-100 m", "1-2 Mb/s", "Very low", "Wearables, beacons"],
+  ["LoRaWAN", "Long-range sub-GHz, gateways", "2-15 km", "0.3-50 kb/s", "Very low", "Farms, cities, meters"],
+  ["NB-IoT / LTE-M", "Cellular for IoT", "Carrier coverage", "~100 kb/s-1 Mb/s", "Low", "Trackers, utility meters"],
+  ["Wi-Fi", "802.11 LAN", "50 m", "Mb/s-Gb/s", "High", "Cameras, plugs"],
+  ["CAN bus", "Vehicle / machine bus", "40 m-1 km", "125 kb/s-1 Mb/s", "Low", "Cars, robots"],
+  ["RS-485 / RS-232 / UART", "Serial lines", "1.2 km (485)", "kb/s", "Low", "Instruments, PLCs"],
+  ["I²C / SPI", "On-board chip buses", "cm", "100 kHz-50 MHz", "Very low", "Sensors on a board"],
+];
+const FEEDS = [
+  { id: "usgs", name: "USGS earthquakes, past day (M2.5+)", url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson", key: false, fetch: true },
+  { id: "meteo", name: "Open-Meteo current weather at the map centre", url: "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m", key: false, fetch: true },
+  { id: "eonet", name: "NASA EONET open natural events", url: "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=50", key: false, fetch: true },
+  { id: "nws", name: "US National Weather Service alerts", url: "https://api.weather.gov/alerts/active?status=actual", key: false, fetch: false },
+  { id: "openaq", name: "OpenAQ air quality stations", url: "https://docs.openaq.org/", key: true, fetch: false },
+  { id: "opensky", name: "OpenSky aircraft positions", url: "https://openskynetwork.github.io/opensky-api/", key: false, fetch: false },
+  { id: "noaa_tides", name: "NOAA tides & currents", url: "https://api.tidesandcurrents.noaa.gov/api/prod/", key: false, fetch: false },
+  { id: "osm", name: "OpenStreetMap (maps, places)", url: "https://www.openstreetmap.org/", key: false, fetch: false },
+];
+const APP = {
+  key: "iot", title: "IoT Command", testSkip: ["feed", "connect", "serialOn", "pollStart", "recStart"],
+  defaults: () => ({
+    devices: [mkDev("Temperature sensor", "Kitchen temp", 37.548, -121.988), mkDev("Humidity sensor", "Kitchen humidity", 37.548, -121.988), mkDev("CO2 sensor", "Office CO2", 37.549, -121.986),
+      mkDev("Motion sensor", "Hall motion", 37.5485, -121.987), mkDev("Energy meter", "House power", 37.5482, -121.9875), mkDev("Fan", "Office fan", 37.549, -121.986), mkDev("Smart plug", "Heater plug", 37.548, -121.988)],
+    rules: [{ name: "Stuffy office", dev: "", metric: "co2", op: ">", val: 900, forS: 5, act: "set", target: "", set: 1, on: true },
+      { name: "Cold kitchen", dev: "", metric: "temp", op: "<", val: 19, forS: 3, act: "alert", target: "", set: 1, on: true }],
+    link: { url: "ws://localhost:9001/mqtt", client: "randis-uds-iot", topics: "home/#", user: "" },
+    tick: 1, feedsOut: {}, center: [37.548, -121.988],
+    poll: { every: 10 }, ha: { base: "http://homeassistant.local:8123" }, serial: { baud: 9600 }, rec: { every: 5, keep: false }, mb: { gw: "http://127.0.0.1:8830" },
+  }),
+  rowTemplates: { rules: () => ({ name: "New rule", dev: "", metric: "temp", op: ">", val: 0, forS: 0, act: "alert", target: "", set: 1, on: true }) },
+  pages: [["over", "📡 Overview", pageOver], ["devices", "🔧 Devices", pageDevices], ["sim", "▶ Simulator", pageSim], ["rules", "⚙ Rules", pageRules], ["map", "🗺 Map", pageMap],
+    ["proto", "🌐 Protocols", pageProto], ["data", "🛰 Data feeds", pageData], ["link", "🔌 Real-world link", pageLink], ["hist", "🗄 History", pageHist], ["export", "⬇ Export", pageExport]],
+  after: id => { if (id === "sim" || id === "over") drawLive(); },
+  selftest,
+};
+function mkDev(type, name, lat, lon) { const t = DEV_T[type]; return { id: "d" + uid().slice(0, 5), name, type, kind: t.kind, metric: t.metric, unit: t.unit, model: t.model, base: t.base, amp: t.amp || 0, noise: t.noise || 0, period: t.period || 60, rate: t.rate || 0, lat, lon, topic: "home/" + name.toLowerCase().replace(/\W+/g, "_") + "/" + t.metric, proto: "MQTT", source: "sim" }; }
+const _def = APP.defaults; APP.defaults = () => { const d = _def(); d.rules[0].dev = d.devices[2].id; d.rules[0].target = d.devices[5].id; d.rules[1].dev = d.devices[0].id; return d; };
+
+const RT = { t: 0, vals: {}, hist: {}, timer: null, log: [], held: {}, armedUntil: 0, ws: null, wsState: "closed", wsMsgs: [], poll: null, pollLast: {}, ser: null, serState: "closed", serLines: [], rec: { timer: null, rows: [], since: null } };
+function stepDev(d, t) {
+  let v = RT.vals[d.id]; if (v == null) v = d.base;
+  const n = () => (Math.random() * 2 - 1) * d.noise;
+  if (d.model === "sine") v = d.base + d.amp * Math.sin(2 * Math.PI * t / (d.period || 60)) + n();
+  else if (d.model === "walk") v = clamp(v + n() * 2 + (d.base - v) * 0.02, d.base - d.amp, d.base + d.amp);
+  else if (d.model === "events") v = Math.random() < (d.rate || 0.05) ? 1 - (v ? 1 : 0) : v;
+  else if (d.model === "decay") { v = v - 0.05 + n() * 0.1; if (v < d.base - d.amp) v = d.base; }
+  else if (d.model === "count") v = t;
+  if (d.fault === "stuck") v = RT.vals[d.id] == null ? d.base : RT.vals[d.id];
+  if (d.fault === "spike" && Math.random() < 0.1) v = d.base + d.amp * 5;
+  return r2(v);
+}
+function tick() {
+  RT.t += S.tick || 1;
+  for (const d of S.devices) { if (d.kind === "actuator") { if (RT.vals[d.id] == null) RT.vals[d.id] = d.base; } else if (d.source === "sim") RT.vals[d.id] = stepDev(d, RT.t);
+    const h = RT.hist[d.id] = RT.hist[d.id] || []; h.push([RT.t, RT.vals[d.id]]); if (h.length > 300) h.shift(); }
+  runRules(); if (MEM.page === "sim" || MEM.page === "over") drawLive();
+}
+const OPS = { ">": (a, b) => a > b, "<": (a, b) => a < b, ">=": (a, b) => a >= b, "<=": (a, b) => a <= b, "=": (a, b) => a == b, "!=": (a, b) => a != b };
+function runRules() {
+  for (const [i, r] of S.rules.entries()) { if (!r.on) continue; const v = RT.vals[r.dev]; if (v == null) continue;
+    const hit = OPS[r.op] ? OPS[r.op](v, num(r.val)) : false;
+    if (!hit) { RT.held[i] = null; continue; } RT.held[i] = RT.held[i] == null ? RT.t : RT.held[i];
+    if (RT.t - RT.held[i] < num(r.forS)) continue; if (RT.held[i] === "done") continue;
+    RT.held[i] = "done"; const dn = devName(r.dev);
+    if (r.act === "alert") logEv("alert", `${r.name}: ${dn} ${r.metric} ${r.op} ${r.val} (now ${v})`);
+    else if (r.act === "set") { const tg = S.devices.find(d => d.id === r.target); if (tg) { command(tg, num(r.set), "rule " + r.name); } }
+    else logEv("log", `${r.name}: ${dn} = ${v}`); }
+}
+function devName(id) { const d = S.devices.find(x => x.id === id); return d ? d.name : "?"; }
+function logEv(kind, text) { RT.log.unshift([new Date().toLocaleTimeString(), kind, text]); if (RT.log.length > 200) RT.log.pop(); }
+function command(dev, value, why) {
+  if (dev.source === "sim") { RT.vals[dev.id] = value; logEv("sim", `${dev.name} ← ${value} (${why}) [simulated]`); return "sim"; }
+  if (READ_ONLY_SRC.includes(dev.source)) { logEv("blocked", `${dev.name} ← ${value}: ${dev.source} is a read-only adapter, nothing sent`); return "readonly"; }
+  if (!armed()) { logEv("blocked", `${dev.name} ← ${value} (${why}) BLOCKED: real actuation is locked. Arm it with someone watching.`); return "blocked"; }
+  if (!RT.ws || RT.wsState !== "open") { logEv("blocked", `${dev.name} ← ${value}: no live link`); return "nolink"; }
+  RT.ws.send(mqttPublish(dev.topic + "/set", String(value))); logEv("REAL", `${dev.name} ← ${value} (${why}) sent to ${dev.topic}/set`); return "sent";
+}
+const armed = () => Date.now() < RT.armedUntil;
+Object.assign(ACT, {
+  run() { if (RT.timer) { clearInterval(RT.timer); RT.timer = null; } else RT.timer = setInterval(tick, 1000 * (S.tick || 1)); render(); },
+  step() { for (let i = 0; i < 10; i++) tick(); render(); },
+  fault(a) { const [id, f] = a.split("|"); const d = S.devices.find(x => x.id === id); if (d) { d.fault = d.fault === f ? "" : f; save(); render(); } },
+  toggle(id) { const d = S.devices.find(x => x.id === id); if (d) { command(d, RT.vals[d.id] ? 0 : 1, "button"); render(); } },
+  addDev(type) { const c = S.center; S.devices.push(mkDev(type, type + " " + (S.devices.length + 1), +(num(c[0]) + (Math.random() - .5) * .004).toFixed(5), +(num(c[1]) + (Math.random() - .5) * .004).toFixed(5))); save(); render(); },
+  delDev(i) { S.devices.splice(+i, 1); save(); render(); },
+  clearLog() { RT.log = []; render(); },
+  feed(id) { fetchFeed(id); },
+  arm() { const p = prompt("Real devices can move, switch power or open valves. Someone must be watching. Type I AM WATCHING to arm for 10 minutes:");
+    if ((p || "").trim().toUpperCase() === "I AM WATCHING") { RT.armedUntil = Date.now() + 600000; logEv("ARM", "Real actuation armed for 10 minutes (someone watching)."); } else toast("Not armed."); render(); },
+  disarm() { RT.armedUntil = 0; logEv("ARM", "Disarmed."); render(); },
+  connect() { linkConnect(); }, disconnect() { if (RT.ws) RT.ws.close(); },
+  exNodeRed() { download("iot_flows_node_red.json", nodeRed(), "application/json"); }, exHA() { download("iot_home_assistant_mqtt.yaml", haYaml()); },
+  exCsv() { download("iot_devices.csv", toCSV([["id", "name", "type", "metric", "unit", "lat", "lon", "topic", "protocol", "source"], ...S.devices.map(d => [d.id, d.name, d.type, d.metric, d.unit, d.lat, d.lon, d.topic, d.proto, d.source])]), "text/csv"); },
+  exLog() { download("iot_event_log.csv", toCSV([["time", "kind", "event"], ...RT.log]), "text/csv"); },
+  exHist() { const rows = [["t", ...S.devices.map(d => d.name)]]; const n = Math.max(0, ...S.devices.map(d => (RT.hist[d.id] || []).length));
+    for (let i = 0; i < n; i++) rows.push([i, ...S.devices.map(d => ((RT.hist[d.id] || [])[i] || [])[1])]); download("iot_history.csv", toCSV(rows), "text/csv"); },
+  exGeo() { download("iot_devices.geojson", JSON.stringify({ type: "FeatureCollection", features: S.devices.map(d => ({ type: "Feature", geometry: { type: "Point", coordinates: [d.lon, d.lat] }, properties: { name: d.name, type: d.type, value: RT.vals[d.id] } })) }, null, 1), "application/geo+json"); },
+  backup() { download("iot_backup.json", JSON.stringify(S, null, 1), "application/json"); },
+});
+
+function pageOver() {
+  const sens = S.devices.filter(d => d.kind === "sensor"), act = S.devices.filter(d => d.kind === "actuator"), alerts = RT.log.filter(l => l[1] === "alert").length;
+  return `<h2>IoT Command</h2><p class="lead">Every device, network and data source in one place. Start in the simulator; link real systems on the Real-world link page. <b>Real actuation is locked</b>: it needs someone watching to arm.</p>
+  <div class="grid"><div class="card"><div class="stat">${S.devices.length}</div><div class="sub">devices (${sens.length} sensors, ${act.length} actuators)</div></div>
+  <div class="card"><div class="stat">${RT.timer ? "Running" : "Paused"}</div><div class="sub">simulator · t = ${RT.t}s</div></div>
+  <div class="card"><div class="stat">${S.rules.filter(r => r.on).length}</div><div class="sub">rules on · ${alerts} alert(s)</div></div>
+  <div class="card"><div class="stat ${armed() ? "bad" : "ok"}">${armed() ? "ARMED" : "Locked"}</div><div class="sub">real actuation · link ${RT.wsState}</div></div></div>
+  <div class="card"><button data-act="run" class="pri">${RT.timer ? "⏸ Pause" : "▶ Run simulator"}</button> <button data-act="step">+10 s</button></div>
+  <div class="card"><h3>Live</h3><div id="live"></div></div>${logCard()}`;
+}
+function logCard() { return `<div class="card"><h3>Event log <button data-act="clearLog">Clear</button> <button data-act="exLog">⬇ CSV</button></h3><div style="max-height:220px;overflow:auto">${RT.log.length ? RT.log.slice(0, 80).map(l => `<div class="mono"><span class="sub">${l[0]}</span> <b class="${l[1] === "blocked" || l[1] === "REAL" ? "bad" : l[1] === "alert" ? "warnc" : ""}">${esc(l[1])}</b> ${esc(l[2])}</div>`).join("") : '<span class="sub">Nothing yet.</span>'}</div></div>`; }
+function pageDevices() {
+  return `<h2>Devices</h2><p class="lead">Add from a template, then set the name, location, MQTT topic and whether it is simulated or real. Real devices are read-only until armed.</p>
+  <div class="card"><h4>Add a device</h4>${Object.keys(DEV_T).map(t => `<button data-act="addDev" data-arg="${esc(t)}">${esc(t)}</button>`).join(" ")}</div>
+  <div class="card"><table><tr><th>Name</th><th>Type</th><th>Lat</th><th>Lon</th><th>Topic</th><th>Protocol</th><th>Source</th><th>Model</th><th>Base</th><th>Swing</th><th>Noise</th><th></th></tr>
+  ${S.devices.map((d, i) => `<tr><td><input data-p="devices.${i}.name" value="${esc(d.name)}"></td><td>${esc(d.type)}<div class="sub">${esc(d.metric)} (${esc(d.unit)})</div></td>
+  <td><input data-p="devices.${i}.lat" data-num type="number" step="any" value="${d.lat}" style="width:90px"></td><td><input data-p="devices.${i}.lon" data-num type="number" step="any" value="${d.lon}" style="width:100px"></td>
+  <td><input data-p="devices.${i}.topic" value="${esc(d.topic)}"></td><td><select data-p="devices.${i}.proto">${PROTOS.map(p => `<option${p[0] === d.proto ? " selected" : ""}>${p[0]}</option>`).join("")}</select></td>
+  <td><select data-p="devices.${i}.source" data-r>${SOURCES.map(([k, n]) => `<option value="${k}"${d.source === k ? " selected" : ""}>${n}</option>`).join("")}</select>${READ_ONLY_SRC.includes(d.source) ? `<input data-p="devices.${i}.addr" value="${esc(d.addr || "")}" placeholder="${esc(ADDR_HINT[d.source])}" title="${esc(ADDR_HINT[d.source])}" style="width:190px;margin-top:4px">` : ""}</td>
+  <td>${esc(d.model)}</td><td><input data-p="devices.${i}.base" data-num type="number" step="any" value="${d.base}" style="width:70px"></td><td><input data-p="devices.${i}.amp" data-num type="number" step="any" value="${d.amp}" style="width:60px"></td><td><input data-p="devices.${i}.noise" data-num type="number" step="any" value="${d.noise}" style="width:60px"></td>
+  <td><button class="x" data-act="delDev" data-arg="${i}">✕</button></td></tr>`).join("")}</table></div>`;
+}
+function pageSim() {
+  return `<h2>Simulator</h2><p class="lead">Simulated devices make readings every second. Rules run on every reading. Inject faults to test your rules and alerts.</p>
+  <div class="card"><button data-act="run" class="pri">${RT.timer ? "⏸ Pause" : "▶ Run"}</button> <button data-act="step">+10 s</button> ${F("Seconds per step", "tick", { w: "80px" })}</div>
+  <div class="card"><table><tr><th>Device</th><th>Value</th><th>Faults</th><th>Control</th></tr>${S.devices.map(d => `<tr><td>${esc(d.name)} <span class="pill">${d.source}</span></td><td class="num" id="v-${d.id}">${RT.vals[d.id] == null ? "-" : fmt(RT.vals[d.id])} ${esc(d.unit)}</td>
+  <td>${d.kind === "sensor" ? `<button data-act="fault" data-arg="${d.id}|stuck" class="${d.fault === "stuck" ? "pri" : ""}">stuck</button> <button data-act="fault" data-arg="${d.id}|spike" class="${d.fault === "spike" ? "pri" : ""}">spikes</button>` : ""}</td>
+  <td>${d.kind === "actuator" ? `<button data-act="toggle" data-arg="${d.id}">Toggle</button>` : ""}</td></tr>`).join("")}</table></div>
+  <div class="card"><h3>Live chart</h3><div id="live"></div></div>${logCard()}`;
+}
+function drawLive() {
+  const el = $("#live"); if (!el) return;
+  const byUnit = {}; for (const d of S.devices) { if (d.kind === "gateway") continue; (byUnit[d.unit] = byUnit[d.unit] || []).push(d); }
+  el.innerHTML = Object.entries(byUnit).map(([u, ds]) => `<h4>${esc(u)}</h4>` + lineChart(ds.map(d => ({ name: d.name, pts: (RT.hist[d.id] || []).slice(-120) })), { h: 160 })).join("") || '<p class="sub">Press Run.</p>';
+  for (const d of S.devices) { const c = $("#v-" + d.id); if (c) c.textContent = (RT.vals[d.id] == null ? "-" : fmt(RT.vals[d.id])) + " " + d.unit; }
+}
+function pageRules() {
+  const devOpts = S.devices.map(d => [d.id, d.name]);
+  return `<h2>Rules</h2><p class="lead">When a device's reading matches for a number of seconds, do something: raise an alert, log it, or set an actuator. Setting a <b>real</b> actuator is blocked unless armed.</p>
+  <div class="card"><table><tr><th>On</th><th>Name</th><th>When device</th><th>is</th><th>Value</th><th>For (s)</th><th>Then</th><th>Target</th><th>Set to</th><th></th></tr>
+  ${S.rules.map((r, i) => `<tr><td><input type="checkbox" data-p="rules.${i}.on"${r.on ? " checked" : ""}></td><td><input data-p="rules.${i}.name" value="${esc(r.name)}"></td>
+  <td><select data-p="rules.${i}.dev">${devOpts.map(o => `<option value="${o[0]}"${o[0] === r.dev ? " selected" : ""}>${esc(o[1])}</option>`).join("")}</select></td>
+  <td><select data-p="rules.${i}.op">${Object.keys(OPS).map(o => `<option${o === r.op ? " selected" : ""}>${esc(o)}</option>`).join("")}</select></td>
+  <td><input data-p="rules.${i}.val" data-num type="number" step="any" value="${r.val}" style="width:80px"></td><td><input data-p="rules.${i}.forS" data-num type="number" value="${r.forS}" style="width:60px"></td>
+  <td><select data-p="rules.${i}.act">${["alert", "log", "set"].map(o => `<option${o === r.act ? " selected" : ""}>${o}</option>`).join("")}</select></td>
+  <td><select data-p="rules.${i}.target"><option value="">-</option>${S.devices.filter(d => d.kind === "actuator").map(d => `<option value="${d.id}"${d.id === r.target ? " selected" : ""}>${esc(d.name)}</option>`).join("")}</select></td>
+  <td><input data-p="rules.${i}.set" data-num type="number" step="any" value="${r.set}" style="width:60px"></td><td><button class="x" data-act="rowdel" data-arg="rules|${i}">✕</button></td></tr>`).join("")}</table>
+  <button data-act="rowadd" data-arg="rules">+ Add rule</button></div>${logCard()}`;
+}
+function pageMap() {
+  const pts = S.devices.map(d => [d.lat, d.lon, d.name, d.kind, RT.vals[d.id]]).concat((S.feedsOut.points || []).map(p => [p.lat, p.lon, p.name, "feed", p.v]));
+  const lats = pts.map(p => p[0]), lons = pts.map(p => p[1]);
+  let la0 = Math.min(...lats), la1 = Math.max(...lats), lo0 = Math.min(...lons), lo1 = Math.max(...lons); const pad = Math.max(0.002, (la1 - la0) * 0.1, (lo1 - lo0) * 0.1);
+  la0 -= pad; la1 += pad; lo0 -= pad; lo1 += pad; const W = 900, H = 480, X = lo => (lo - lo0) / (lo1 - lo0) * W, Y = la => H - (la - la0) / (la1 - la0) * H;
+  const col = { sensor: "var(--s1)", actuator: "var(--s2)", gateway: "var(--s7)", feed: "var(--s8)" };
+  let g = ""; for (let i = 0; i <= 6; i++) { const lo = lo0 + (lo1 - lo0) * i / 6, la = la0 + (la1 - la0) * i / 6; g += `<line x1="${X(lo)}" y1="0" x2="${X(lo)}" y2="${H}" stroke="var(--line)"/><text x="${X(lo) + 2}" y="${H - 3}">${lo.toFixed(3)}</text><line x1="0" y1="${Y(la)}" x2="${W}" y2="${Y(la)}" stroke="var(--line)"/><text x="2" y="${Y(la) - 2}">${la.toFixed(3)}</text>`; }
+  const dots = pts.map(p => `<circle cx="${X(p[1])}" cy="${Y(p[0])}" r="${p[3] === "feed" ? 5 : 7}" fill="${col[p[3]]}" stroke="var(--bg2)" stroke-width="2"><title>${esc(p[2])}${p[4] != null ? ": " + fmt(p[4]) : ""}</title></circle>`).join("");
+  const c = S.center;
+  return `<h2>Map</h2><p class="lead">Devices and data-feed points by latitude and longitude. Hover a dot for its reading. ${L("Open this area in OpenStreetMap", `https://www.openstreetmap.org/#map=16/${c[0]}/${c[1]}`)}</p>
+  <div class="card"><div class="legend">${Object.entries(col).map(([k, v]) => `<span><i style="background:${v}"></i>${k}</span>`).join("")}</div><svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;background:var(--bg)">${g}${dots}</svg>
+  <div class="row">${F("Map centre latitude", "center.0")}${F("Map centre longitude", "center.1")}</div></div>`;
+}
+function pageProto() {
+  MEM.mq = MEM.mq || ["home/+/temp", "home/kitchen/temp"];
+  return `<h2>Protocols & networks</h2><p class="lead">What each way of talking to devices is good for.</p>
+  <div class="card"><table><tr><th>Protocol</th><th>What</th><th>Range</th><th>Data rate</th><th>Power</th><th>Typical use</th></tr>${PROTOS.map(p => `<tr>${p.map((c, i) => `<td>${i ? esc(c) : `<b>${esc(c)}</b>`}</td>`).join("")}</tr>`).join("")}</table></div>
+  <div class="card"><h3>MQTT topic tester</h3><p class="sub">+ matches one level, # matches the rest.</p><div class="row"><label class="f">Subscription<input data-mq="0" value="${esc(MEM.mq[0])}"></label><label class="f">Topic<input data-mq="1" value="${esc(MEM.mq[1])}"></label></div>
+  <p class="stat" id="mqres">${mqttMatch(MEM.mq[0], MEM.mq[1]) ? '<span class="ok">matches</span>' : '<span class="bad">no match</span>'}</p>
+  <h4>Your device topics that match</h4><div id="mqlist" class="mono">${S.devices.filter(d => mqttMatch(MEM.mq[0], d.topic)).map(d => esc(d.topic)).join("<br>") || "none"}</div></div>`;
+}
+document.addEventListener("input", e => { const k = e.target.dataset && e.target.dataset.mq; if (k == null) return; MEM.mq[+k] = e.target.value;
+  $("#mqres").innerHTML = mqttMatch(MEM.mq[0], MEM.mq[1]) ? '<span class="ok">matches</span>' : '<span class="bad">no match</span>';
+  $("#mqlist").innerHTML = S.devices.filter(d => mqttMatch(MEM.mq[0], d.topic)).map(d => esc(d.topic)).join("<br>") || "none"; });
+function mqttMatch(sub, topic) { const s = String(sub).split("/"), t = String(topic).split("/");
+  for (let i = 0; i < s.length; i++) { if (s[i] === "#") return i === s.length - 1; if (i >= t.length) return false; if (s[i] !== "+" && s[i] !== t[i]) return false; } return s.length === t.length; }
+function pageData() {
+  const o = S.feedsOut;
+  return `<h2>Public data feeds</h2><p class="lead">Read-only public data you can pull in and show on the map next to your devices. Fetching only reads; nothing is sent about you except the request itself.</p>
+  <div class="card"><table><tr><th>Feed</th><th>Key?</th><th></th></tr>${FEEDS.map(f => `<tr><td><b>${esc(f.name)}</b><div class="sub mono">${esc(f.url)}</div></td><td>${f.key ? "needs a free key" : "no key"}</td>
+  <td>${f.fetch ? `<button data-act="feed" data-arg="${f.id}">Fetch now</button>` : L("Docs", f.url)}</td></tr>`).join("")}</table></div>
+  <div class="card"><h3>Last fetch</h3>${o.when ? `<p>${esc(o.name)} at ${esc(o.when)}: <b>${(o.points || []).length}</b> point(s) on the map${o.note ? " · " + esc(o.note) : ""}</p>` : '<span class="sub">Nothing fetched yet.</span>'}
+  ${(o.points || []).slice(0, 15).map(p => `<div>${esc(p.name)} <span class="sub">${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}</span></div>`).join("")}</div>`;
+}
+async function fetchFeed(id) {
+  const f = FEEDS.find(x => x.id === id); const url = f.url.replace("{lat}", S.center[0]).replace("{lon}", S.center[1]); toast("Fetching " + f.name + "…");
+  try { const r = await fetch(url); if (!r.ok) throw new Error("HTTP " + r.status); const j = await r.json(); let pts = [], note = "";
+    if (id === "usgs") pts = j.features.map(x => ({ lat: x.geometry.coordinates[1], lon: x.geometry.coordinates[0], name: x.properties.title, v: x.properties.mag }));
+    if (id === "eonet") pts = j.events.filter(e => e.geometry && e.geometry.length).map(e => { const g = e.geometry[e.geometry.length - 1]; const c = g.type === "Point" ? g.coordinates : g.coordinates[0][0]; return { lat: c[1], lon: c[0], name: e.title }; });
+    if (id === "meteo") { const c = j.current; pts = [{ lat: S.center[0], lon: S.center[1], name: `Weather: ${c.temperature_2m} °C, ${c.relative_humidity_2m}% RH, wind ${c.wind_speed_10m} km/h`, v: c.temperature_2m }]; note = "temperature_2m " + c.temperature_2m; }
+    S.feedsOut = { name: f.name, when: new Date().toLocaleString(), points: pts.slice(0, 500), note }; save(); render(); toast("Got " + pts.length + " point(s).");
+  } catch (e) { toast("Couldn't fetch: " + e.message + " (offline, or the site blocks in-app requests).", 7000); }
+}
+
+const enc = new TextEncoder();
+function mqStr(s) { const b = enc.encode(s); return [b.length >> 8, b.length & 255, ...b]; }
+function mqLen(n) { const o = []; do { let d = n % 128; n = Math.floor(n / 128); if (n > 0) d |= 128; o.push(d); } while (n > 0); return o; }
+function mqttConnect(client, user, pass) { let flags = 0x02; const pl = [...mqStr(client)]; if (user) { flags |= 0x80; pl.push(...mqStr(user)); } if (pass) { flags |= 0x40; pl.push(...mqStr(pass)); }
+  const vh = [...mqStr("MQTT"), 4, flags, 0, 60]; const body = [...vh, ...pl]; return new Uint8Array([0x10, ...mqLen(body.length), ...body]); }
+function mqttSubscribe(id, topics) { const pl = topics.flatMap(t => [...mqStr(t), 0]); const body = [id >> 8, id & 255, ...pl]; return new Uint8Array([0x82, ...mqLen(body.length), ...body]); }
+function mqttPublish(topic, msg) { const body = [...mqStr(topic), ...enc.encode(msg)]; return new Uint8Array([0x30, ...mqLen(body.length), ...body]); }
+function mqttParse(buf) { const b = new Uint8Array(buf), type = b[0] >> 4; let m = 1, len = 0, i = 1, d; do { d = b[i++]; len += (d & 127) * m; m *= 128; } while (d & 128);
+  if (type === 3) { const tl = (b[i] << 8) | b[i + 1]; const topic = new TextDecoder().decode(b.slice(i + 2, i + 2 + tl)); const qos = (b[0] >> 1) & 3; const start = i + 2 + tl + (qos ? 2 : 0); return { type, topic, msg: new TextDecoder().decode(b.slice(start, i + len)) }; }
+  return { type, rc: b[i + 1] }; }
+function linkConnect() {
+  try { if (RT.ws) RT.ws.close(); const ws = new WebSocket(S.link.url, "mqtt"); ws.binaryType = "arraybuffer"; RT.ws = ws; RT.wsState = "connecting"; render();
+    ws.onopen = () => ws.send(mqttConnect(S.link.client || "randis-uds", S.link.user, MEM.pass || ""));
+    ws.onmessage = e => { const p = mqttParse(e.data);
+      if (p.type === 2) { if (p.rc === 0) { RT.wsState = "open"; ws.send(mqttSubscribe(1, String(S.link.topics).split(/[\s,]+/).filter(Boolean))); logEv("link", "Connected; subscribed (read-only)."); } else { RT.wsState = "refused " + p.rc; } render(); }
+      if (p.type === 3) { RT.wsMsgs.unshift([new Date().toLocaleTimeString(), p.topic, p.msg]); if (RT.wsMsgs.length > 100) RT.wsMsgs.pop();
+        for (const d of S.devices) if (d.source === "real" && d.topic === p.topic) { const v = parseFloat(p.msg); RT.vals[d.id] = isFinite(v) ? v : p.msg; }
+        if (MEM.page === "link") render(); } };
+    ws.onclose = () => { RT.wsState = "closed"; logEv("link", "Link closed."); render(); }; ws.onerror = () => { RT.wsState = "error"; render(); };
+  } catch (e) { toast("Couldn't connect: " + e.message, 6000); }
+}
+function pageLink() {
+  return `<div class="banner"><b>Safety:</b> linking <i>reads</i> real devices. Sending commands to real devices (switching power, motors, valves) is <b>locked</b>. It can only be armed for 10 minutes at a time with someone watching, and every command is logged.</div>
+  <h2>Real-world link</h2><p class="lead">Connect to an MQTT broker over WebSocket (Mosquitto, EMQX, HiveMQ, Home Assistant's broker). Devices marked <b>real</b> take their readings from their topic.</p>
+  <div class="row"><div class="card">${F("Broker WebSocket URL", "link.url")}${F("Client id", "link.client")}${F("Subscribe to (space separated)", "link.topics")}${F("User (optional)", "link.user")}
+  <label class="f">Password (not saved)<input type="password" data-mem2="pass"></label>
+  <button data-act="connect" class="pri">Connect (read-only)</button> <button data-act="disconnect">Disconnect</button> <span class="pill">${esc(RT.wsState)}</span></div>
+  <div class="card"><h3>Actuation lock</h3><p class="stat ${armed() ? "bad" : "ok"}">${armed() ? "ARMED until " + new Date(RT.armedUntil).toLocaleTimeString() : "Locked"}</p>
+  ${armed() ? '<button data-act="disarm" class="pri">Disarm now</button>' : '<button data-act="arm">Arm (someone watching)</button>'}
+  <h4>Still planned</h4><div class="sub">OPC UA through a gateway. (Modbus TCP: done, see Read-only adapters.)</div></div></div>${adaptersCard()}
+  <div class="card"><h3>Messages</h3>${RT.wsMsgs.length ? RT.wsMsgs.slice(0, 40).map(m => `<div class="mono"><span class="sub">${m[0]}</span> <b>${esc(m[1])}</b> ${esc(m[2])}</div>`).join("") : '<span class="sub">None yet.</span>'}</div>${logCard()}`;
+}
+document.addEventListener("input", e => { if (e.target.dataset && e.target.dataset.mem2) MEM[e.target.dataset.mem2] = e.target.value; });
+
+const SOURCES = [["sim", "sim"], ["real", "MQTT (real)"], ["http", "HTTP poll"], ["ha", "Home Assistant"], ["serial", "USB serial"], ["modbus", "Modbus TCP"], ["manual", "manual"]];
+const READ_ONLY_SRC = ["http", "ha", "serial", "modbus"];
+const ADDR_HINT = { http: "URL | json.path  e.g. https://api.example/now | current.temp", ha: "entity id  e.g. sensor.kitchen_temperature", serial: "key in the line  e.g. temp (temp=21.5)", modbus: "host[:port]/unit/HR100[/f32 · f32sw word-swapped · f32bs byte-swapped · f32le both · also u16 i16 u32 i32 u64 i64 f64][*0.1]  e.g. 192.168.1.50/1/IR3/i16*0.1" };
+function jsonPath(obj, path) { if (!path) return obj; let o = obj; for (const part of String(path).match(/[^.[\]]+/g) || []) { if (o == null) return undefined; o = o[/^\d+$/.test(part) ? +part : part]; } return o; }
+function readingOf(v) { if (v && typeof v === "object" && "state" in v) v = v.state; const n = parseFloat(v); return isFinite(n) && String(v).trim() !== "" ? n : (v === "on" ? 1 : v === "off" ? 0 : v); }
+function parseSerialLine(line) { line = String(line).trim(); if (!line) return {};
+  if (line[0] === "{") { try { const o = JSON.parse(line); const out = {}; for (const k in o) out[k] = readingOf(o[k]); return out; } catch (e) { return {}; } }
+  if (/^[-+]?\d*\.?\d+(e[-+]?\d+)?$/i.test(line)) return { value: +line };
+  const out = {}; for (const m of line.matchAll(/([A-Za-z_][\w.-]*)\s*[=:]\s*([^\s,;]+)/g)) out[m[1]] = readingOf(m[2]); return out; }
+
+const MB_FC = { CO: 1, DI: 2, HR: 3, IR: 4 };
+function modbusAddr(a) { const m = String(a || "").trim().match(/^([^/\s:]+)(?::(\d+))?\/(\d+)\/(HR|IR|CO|DI)(\d+)(?:\/(u16|i16|u32|i32|f32|u64|i64|f64)(sw|bs|le)?)?(?:\*([-+]?\d*\.?\d+(?:e[-+]?\d+)?))?$/i);
+  if (!m) return null; return { host: m[1], port: +(m[2] || 502), unit: +m[3], fc: MB_FC[m[4].toUpperCase()], addr: +m[5], type: (m[6] || (/CO|DI/i.test(m[4]) ? "bool" : "u16")).toLowerCase(), swap: /sw/i.test(m[7] || "") && /32|64/.test(m[6] || ""), order: mbOrder(m[6], m[7]), scale: m[8] == null ? 1 : +m[8] }; }
+
+function mbOrder(type, suf) { suf = String(suf || "").toLowerCase(); const w = MB_W[String(type || "u16").toLowerCase()] || 1;
+  if (w === 1) return suf === "bs" || suf === "le" ? "bs" : "be"; return suf || "be"; }
+
+const MB_W = { u16: 1, i16: 1, u32: 2, i32: 2, f32: 2, u64: 4, i64: 4, f64: 4, bool: 1 };
+function mbDecode(raw, off, type, order, scale) { const w = MB_W[type]; if (off + w > raw.length) return undefined; let v;
+  order = order === true ? "sw" : order === false || order == null ? "be" : order;
+  if (type === "bool") return raw[off] ? 1 : 0;
+  let words = raw.slice(off, off + w); if (w > 1 && (order === "sw" || order === "le")) words = words.reverse();
+  if (order === "bs" || order === "le") words = words.map(x => ((x & 0xff) << 8) | (x >> 8));
+  const dv = new DataView(new ArrayBuffer(2 * w)); words.forEach((x, i) => dv.setUint16(2 * i, x));
+  v = type === "u16" ? dv.getUint16(0) : type === "i16" ? dv.getInt16(0) : type === "u32" ? dv.getUint32(0) : type === "i32" ? dv.getInt32(0) : type === "f32" ? dv.getFloat32(0)
+    : type === "f64" ? dv.getFloat64(0) : type === "u64" ? Number(dv.getBigUint64(0)) : Number(dv.getBigInt64(0));
+  return scale !== 1 ? v * scale : v; }
+
+function mbBatches(devs, gap = 8) { const groups = {}, bad = [];
+  for (const d of devs) { const a = modbusAddr(d.addr); if (!a) { bad.push(d); continue; } (groups[[a.host, a.port, a.unit, a.fc].join("|")] = groups[[a.host, a.port, a.unit, a.fc].join("|")] || []).push({ d, a }); }
+  const out = []; for (const g of Object.values(groups)) { g.sort((x, y) => x.a.addr - y.a.addr); const lim = g[0].a.fc <= 2 ? 2000 : 125; let cur = null;
+    for (const m of g) { const end = m.a.addr + MB_W[m.a.type];
+      if (cur && m.a.addr - cur.end <= gap && Math.max(cur.end, end) - cur.start <= lim) { cur.end = Math.max(cur.end, end); cur.members.push(m); }
+      else { cur = { host: m.a.host, port: m.a.port, unit: m.a.unit, fc: m.a.fc, start: m.a.addr, end, members: [m] }; out.push(cur); } } }
+  return { batches: out, bad }; }
+async function mbFetchRaw(host, port, unit, fc, addr, count) { const q = new URLSearchParams({ host, port, unit, fc, addr, count, type: fc <= 2 ? "bool" : "u16" });
+  const r = await fetch(String(S.mb.gw || "").replace(/\/+$/, "") + "/read?" + q, { method: "GET", cache: "no-store" });
+  if (!r.ok) { let why = ""; try { why = ": " + (await r.json()).error; } catch (e) {} throw new Error("HTTP " + r.status + why); } return (await r.json()).raw; }
+async function pollModbus(devs) { const { batches, bad } = mbBatches(devs); let ok = 0; RT.mbRequests = 0;
+  for (const d of bad) RT.pollLast[d.id] = [new Date().toLocaleTimeString(), "bad Modbus address", null];
+  const one = async (bt, list) => { try { RT.mbRequests++; const raw = await mbFetchRaw(bt.host, bt.port, bt.unit, bt.fc, bt.start, bt.end - bt.start);
+      for (const m of list) { const v = mbDecode(raw, m.a.addr - bt.start, m.a.type, m.a.order, m.a.scale); if (v === undefined) RT.pollLast[m.d.id] = [new Date().toLocaleTimeString(), "error: short reply", null]; else { setReading(m.d, v, "modbus"); ok++; } }
+      return true; } catch (e) { if (list.length > 1) return e; for (const m of list) RT.pollLast[m.d.id] = [new Date().toLocaleTimeString(), "error: " + e.message, null]; return e; } };
+  await Promise.all(batches.map(async bt => { const r = await one(bt, bt.members); if (r !== true && bt.members.length > 1)
+    for (const m of bt.members) await one({ ...bt, start: m.a.addr, end: m.a.addr + MB_W[m.a.type] }, [m]); }));
+  return ok; }
+function httpTarget(d) { if (d.source === "modbus") { const a = modbusAddr(d.addr); if (!a) return { url: "", path: "", headers: {}, err: "bad Modbus address" };
+    const q = new URLSearchParams({ host: a.host, port: a.port, unit: a.unit, fc: a.fc, addr: a.addr, type: a.type, scale: a.scale }); if (a.order && a.order !== "be") q.set("order", a.order); return { url: String(S.mb.gw || "").replace(/\/+$/, "") + "/read?" + q, path: "value", headers: {} }; }
+  if (d.source === "ha") { const base = String(S.ha.base || "").replace(/\/+$/, ""); return { url: `${base}/api/states/${encodeURIComponent(String(d.addr || "").trim())}`, path: "", headers: MEM.haToken ? { Authorization: "Bearer " + MEM.haToken } : {} }; }
+  const [url, path] = String(d.addr || "").split("|").map(x => x.trim()); return { url, path, headers: {} }; }
+function setReading(d, v, from) { RT.vals[d.id] = v; RT.pollLast[d.id] = [new Date().toLocaleTimeString(), from, v]; const h = RT.hist[d.id] = RT.hist[d.id] || []; h.push([RT.t, v]); if (h.length > 300) h.shift(); }
+async function pollOnce() {
+  const list = S.devices.filter(d => d.source === "http" || d.source === "ha"); let ok = await pollModbus(S.devices.filter(d => d.source === "modbus"));
+  await Promise.all(list.map(async d => { const t = httpTarget(d); if (!t.url || !/^(https?:|data:)/.test(t.url)) { RT.pollLast[d.id] = [new Date().toLocaleTimeString(), t.err || "no address", null]; return; }
+    try { const r = await fetch(t.url, { method: "GET", headers: t.headers, cache: "no-store" }); if (!r.ok) { let why = ""; if (d.source === "modbus") try { why = ": " + (await r.json()).error; } catch (e) {} throw new Error("HTTP " + r.status + why); } const txt = await r.text(); let v; try { v = jsonPath(JSON.parse(txt), t.path); } catch (e) { v = txt.trim(); }
+      v = readingOf(v); if (v === undefined) throw new Error("path " + t.path + " not found"); setReading(d, v, d.source); ok++; }
+    catch (e) { RT.pollLast[d.id] = [new Date().toLocaleTimeString(), "error: " + e.message, null]; } }));
+  runRules(); if (MEM.page === "link" || MEM.page === "sim") render(); return ok; }
+async function serialOpen() {
+  if (!navigator.serial) { toast("This window has no USB serial (Web Serial) support. Readings can still come from MQTT or HTTP.", 7000); return; }
+  try { const port = await navigator.serial.requestPort(); await port.open({ baudRate: num(S.serial.baud) || 9600 }); RT.ser = { port }; RT.serState = "open"; logEv("link", "USB serial open (read-only)."); render();
+    const dec = new TextDecoderStream(); RT.ser.done = port.readable.pipeTo(dec.writable).catch(() => {}); const rd = dec.readable.getReader(); RT.ser.rd = rd; let buf = "";
+    for (;;) { const { value, done } = await rd.read(); if (done) break; buf += value; let i; while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (line) serialLine(line); } } }
+  catch (e) { RT.serState = "error: " + e.message; render(); } }
+async function serialClose() { try { if (RT.ser && RT.ser.rd) await RT.ser.rd.cancel(); if (RT.ser && RT.ser.done) await RT.ser.done; if (RT.ser) await RT.ser.port.close(); } catch (e) {} RT.ser = null; RT.serState = "closed"; logEv("link", "USB serial closed."); render(); }
+function serialLine(line) { RT.serLines.unshift([new Date().toLocaleTimeString(), line]); if (RT.serLines.length > 60) RT.serLines.pop(); const kv = parseSerialLine(line); let n = 0;
+  for (const d of S.devices) if (d.source === "serial") { const k = String(d.addr || "value").trim(); if (k in kv) { setReading(d, kv[k], "serial"); n++; } }
+  if (n) runRules(); if (MEM.page === "link") render(); return n; }
+function adaptersCard() {
+  const ro = S.devices.filter(d => READ_ONLY_SRC.includes(d.source));
+  return `<div class="card"><h3>Read-only adapters</h3><p class="sub">Set a device's source on the Devices page (HTTP poll, Home Assistant or USB serial) and its address. These only read: commands to them are refused.</p>
+  <div class="row"><div class="card"><h4>HTTP polling</h4>${F("Every (s)", "poll.every", { w: "70px" })}<button data-act="pollStart" class="pri">${RT.poll ? "⏸ Stop polling" : "▶ Start polling"}</button> <button data-act="pollNow">Poll once</button></div>
+  <div class="card"><h4>Home Assistant (REST, read)</h4>${F("Base URL", "ha.base")}<label class="f">Long-lived token (not saved)<input type="password" data-mem2="haToken"></label><div class="sub">Reads /api/states/&lt;entity id&gt;. Uses the HTTP poller.</div></div>
+  <div class="card"><h4>Modbus TCP (read)</h4>${F("Gateway URL", "mb.gw")}<div class="sub">Start the gateway on this PC: <span class="mono">python modbus_gateway.py</span> (in data/_q10_build). It only reads (codes 1-4), only from private-network devices, and listens on 127.0.0.1 only. Uses the HTTP poller.</div></div>
+  <div class="card"><h4>USB serial</h4>${F("Baud", "serial.baud", { w: "90px" })}<button data-act="serialOn">${RT.ser ? "Close port" : "Open a port (read-only)"}</button> <span class="pill">${esc(RT.serState)}</span><div class="sub">Lines like <span class="mono">temp=21.5 hum=40</span>, <span class="mono">{"temp":21.5}</span> or a bare number.</div>
+  ${RT.serLines.slice(0, 6).map(l => `<div class="mono"><span class="sub">${l[0]}</span> ${esc(l[1])}</div>`).join("")}</div></div>
+  ${ro.length ? `<table><tr><th>Device</th><th>Source</th><th>Address</th><th>Last</th></tr>${ro.map(d => { const l = RT.pollLast[d.id]; return `<tr><td>${esc(d.name)}</td><td>${esc(d.source)}</td><td class="mono">${esc(d.addr || "")}</td><td>${l ? `${esc(l[0])} · ${l[2] == null ? `<span class="bad">${esc(l[1])}</span>` : `<b>${esc(fmt(l[2]))}</b> ${esc(d.unit)}`}` : '<span class="sub">-</span>'}</td></tr>`; }).join("")}</table>` : '<p class="sub">No device uses these adapters yet.</p>'}</div>`; }
+
+function recSample(when) { const t = (when || new Date()).toISOString(); for (const d of S.devices) { const v = RT.vals[d.id]; if (v == null) continue; RT.rec.rows.push([t, d.name, d.unit, v, d.source]); } if (RT.rec.rows.length > 500000) RT.rec.rows.splice(0, RT.rec.rows.length - 500000); }
+function recSummary() { const by = {}; for (const [, n, u, v] of RT.rec.rows) { if (typeof v !== "number") continue; const b = by[n] = by[n] || { n, u, c: 0, s: 0, lo: Infinity, hi: -Infinity, pts: [] }; b.c++; b.s += v; b.lo = Math.min(b.lo, v); b.hi = Math.max(b.hi, v); b.pts.push(v); } return Object.values(by); }
+function recCSV() { return toCSV([["time_utc", "device", "unit", "value", "source"], ...RT.rec.rows]); }
+function recLoadText(text) { const R = parseCSV(String(text).replace(/^\ufeff/, "")).filter(r => r.length >= 4 && r.some(c => c !== "")); if (!R.length) throw new Error("empty file");
+  const h = R[0].map(x => x.trim().toLowerCase()); if (h[0] !== "time_utc" || h[1] !== "device") throw new Error("not an IoT Command recording (first column must be time_utc, then device)");
+  const rows = []; let bad = 0; for (const r of R.slice(1)) { const t = Date.parse(r[0]); if (!isFinite(t)) { bad++; continue; } const n = parseFloat(r[3]); rows.push([new Date(t).toISOString(), r[1], r[2] || "", isFinite(n) && String(r[3]).trim() !== "" ? n : r[3], r[4] || "loaded"]); }
+  rows.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0); RT.rec.rows = rows.slice(-500000); RT.rec.since = rows.length ? new Date(rows[0][0]) : null; RT.rec.loaded = true;
+  let matched = 0; const t0 = rows.length ? Date.parse(rows[0][0]) : 0; for (const d of S.devices) { const mine = rows.filter(r => r[1] === d.name && typeof r[3] === "number"); if (!mine.length) continue; matched++;
+    RT.hist[d.id] = mine.slice(-300).map(r => [(Date.parse(r[0]) - t0) / 1000, r[3]]); }
+  return { rows: rows.length, bad, matched }; }
+const REC_DB = { name: "uds-iot-rec", store: "rec" };
+function recDb() { return new Promise((res, rej) => { if (typeof indexedDB === "undefined") return rej(new Error("no IndexedDB in this window")); const q = indexedDB.open(REC_DB.name, 1);
+  q.onupgradeneeded = () => q.result.createObjectStore(REC_DB.store); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error || new Error("IndexedDB blocked")); }); }
+async function recKeepNow() { const db = await recDb(); return new Promise((res, rej) => { const tx = db.transaction(REC_DB.store, "readwrite"); tx.objectStore(REC_DB.store).put({ rows: RT.rec.rows, since: RT.rec.since ? RT.rec.since.toISOString() : null, at: new Date().toISOString() }, "last");
+  tx.oncomplete = () => { db.close(); RT.rec.keptAt = new Date(); res(RT.rec.rows.length); }; tx.onerror = () => { db.close(); rej(tx.error); }; }); }
+async function recRestore() { const db = await recDb(); return new Promise((res, rej) => { const q = db.transaction(REC_DB.store, "readonly").objectStore(REC_DB.store).get("last");
+  q.onsuccess = () => { db.close(); const v = q.result; if (v && v.rows && v.rows.length) { RT.rec.rows = v.rows; RT.rec.since = v.since ? new Date(v.since) : null; } res(v ? v.rows.length : 0); }; q.onerror = () => { db.close(); rej(q.error); }; }); }
+function recCharts() { const sm = recSummary().filter(b => b.c > 1).slice(0, 6); if (!sm.length) return "";
+  const t0 = Date.parse(RT.rec.rows[0][0]); return `<div class="card"><h3>Recorded values</h3><div class="row">${sm.map(b => { const pts = RT.rec.rows.filter(r => r[1] === b.n && typeof r[3] === "number"); const step = Math.max(1, Math.ceil(pts.length / 600));
+    return `<div style="min-width:300px"><b>${esc(b.n)}</b> <span class="sub">${esc(b.u)}</span>${lineChart([{ name: b.n, pts: pts.filter((_, i) => i % step === 0).map(r => [(Date.parse(r[0]) - t0) / 60000, r[3]]) }], { h: 140, w: 300 })}</div>`; }).join("")}</div><p class="sub">x = minutes from the first row.</p></div>`; }
+function pageHist() { const sm = recSummary();
+  return `<h2>History</h2><p class="lead">The live charts keep the last 300 points in memory. The recorder samples every device every few seconds for as long as it runs and saves everything to a CSV file.</p>
+  <div class="card">${F("Sample every (s)", "rec.every", { w: "80px" })}<button data-act="recStart" class="pri">${RT.rec.timer ? "⏹ Stop recording" : "⏺ Start recording"}</button> <button data-act="recNow">Sample now</button> <button data-act="recSave">⬇ Save (.csv)</button> <label class="pill">Load a saved recording <input type="file" data-file="recLoad" accept=".csv,text/csv" style="width:170px"></label> <button data-act="recClear">Clear</button>
+  <div class="row">${F("Keep the recording if this window closes (saved in this window's storage every sample)", "rec.keep", { type: "check", r: 1 })}<button data-act="recRestoreNow">Restore the kept recording</button></div>
+  <p>${fmt(RT.rec.rows.length, 0)} rows${RT.rec.since ? " since " + esc(RT.rec.since.toLocaleString()) : ""}${RT.rec.timer ? ' · <span class="ok">recording</span>' : ""}${RT.rec.loaded ? ' · <span class="pill">loaded from a file</span>' : ""}${RT.rec.keptAt ? ' · kept ' + esc(RT.rec.keptAt.toLocaleTimeString()) : ""}</p></div>
+  ${recCharts()}
+  <div class="card"><table><tr><th>Device</th><th class="num">Samples</th><th class="num">Min</th><th class="num">Average</th><th class="num">Max</th></tr>${sm.length ? sm.map(b => `<tr><td>${esc(b.n)}</td><td class="num">${b.c}</td><td class="num">${fmt(b.lo)}</td><td class="num">${fmt(b.s / b.c)}</td><td class="num">${fmt(b.hi)}</td><td>${esc(b.u)}</td></tr>`).join("") : '<tr><td colspan="5" class="sub">Nothing recorded yet. Run the simulator or an adapter, then start recording.</td></tr>'}</table></div>`; }
+Object.assign(ACT, {
+  pollStart() { if (RT.poll) { clearInterval(RT.poll); RT.poll = null; logEv("link", "HTTP polling stopped."); } else { RT.poll = setInterval(pollOnce, 1000 * Math.max(2, num(S.poll.every) || 10)); pollOnce(); logEv("link", "HTTP polling started (GET only)."); } render(); },
+  pollNow() { pollOnce().then(n => toast(n + " reading(s) updated.")); },
+  serialOn() { if (RT.ser) serialClose(); else serialOpen(); },
+  recStart() { if (RT.rec.timer) { clearInterval(RT.rec.timer); RT.rec.timer = null; } else { RT.rec.since = RT.rec.since || new Date(); recSample(); RT.rec.timer = setInterval(() => { recSample(); if (S.rec.keep) recKeepNow().catch(() => {}); if (MEM.page === "hist") render(); }, 1000 * Math.max(1, num(S.rec.every) || 5)); } render(); },
+  recNow() { RT.rec.since = RT.rec.since || new Date(); recSample(); render(); },
+  recLoad(files) { const r = new FileReader(); r.onload = () => { try { const x = recLoadText(r.result); render(); toast(`${fmt(x.rows, 0)} rows loaded${x.bad ? ", " + x.bad + " bad lines skipped" : ""}; ${x.matched} device(s) matched by name.`); } catch (e) { toast("Couldn't load: " + e.message, 7000); } }; r.readAsText(files[0]); },
+  recRestoreNow() { recRestore().then(n => { render(); toast(n ? fmt(n, 0) + " kept rows restored." : "Nothing kept yet."); }).catch(e => toast("Can't keep recordings here: " + e.message, 7000)); },
+  recSave() { download("iot_recording_" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".csv", recCSV(), "text/csv"); },
+  recClear() { RT.rec.rows = []; RT.rec.since = null; render(); },
+});
+
+function nodeRed() {
+  const flows = [{ id: "tab1", type: "tab", label: "Randis UDS IoT" }, { id: "broker1", type: "mqtt-broker", name: "broker", broker: "localhost", port: "1883", clientid: "", protocolVersion: "4" }]; let y = 40;
+  S.rules.forEach((r, i) => { const d = S.devices.find(x => x.id === r.dev); if (!d) return; const tg = S.devices.find(x => x.id === r.target);
+    flows.push({ id: "in" + i, type: "mqtt in", z: "tab1", name: d.name, topic: d.topic, qos: "0", datatype: "auto", broker: "broker1", x: 140, y, wires: [["fn" + i]] });
+    flows.push({ id: "fn" + i, type: "function", z: "tab1", name: r.name, func: `// ${r.name}: when ${d.name} ${r.op} ${r.val} for ${r.forS}s\nconst v = Number(msg.payload);\nconst hit = v ${r.op === "=" ? "==" : r.op} ${num(r.val)};\nconst t0 = context.get("t0");\nif (!hit) { context.set("t0", null); return null; }\nif (!t0) { context.set("t0", Date.now()); }\nif (Date.now() - (t0 || Date.now()) < ${num(r.forS) * 1000}) return null;\n${r.act === "set" && tg ? `return { topic: "${tg.topic}/set", payload: ${num(r.set)} };` : `node.warn("${r.name}: " + v); return msg;`}`, outputs: 1, x: 360, y, wires: [[r.act === "set" ? "out" + i : "dbg" + i]] });
+    if (r.act === "set" && tg) flows.push({ id: "out" + i, type: "mqtt out", z: "tab1", name: tg.name + " (needs a human to enable)", topic: "", qos: "0", broker: "broker1", d: true, x: 600, y, wires: [] });
+    else flows.push({ id: "dbg" + i, type: "debug", z: "tab1", name: r.name, x: 600, y, wires: [] });
+    y += 60; });
+  return JSON.stringify(flows, null, 1);
+}
+function haYaml() { return "# Home Assistant MQTT entities made by Randis UDS IoT Command\nmqtt:\n  sensor:\n" + S.devices.filter(d => d.kind === "sensor").map(d => `    - name: "${d.name}"\n      state_topic: "${d.topic}"\n      unit_of_measurement: "${d.unit}"\n      unique_id: "uds_${d.id}"`).join("\n") +
+  "\n  switch:\n" + S.devices.filter(d => d.kind === "actuator").map(d => `    - name: "${d.name}"\n      state_topic: "${d.topic}"\n      command_topic: "${d.topic}/set"\n      payload_on: "1"\n      payload_off: "0"\n      unique_id: "uds_${d.id}"`).join("\n") + "\n"; }
+function pageExport() {
+  return `<h2>Export</h2><p class="lead">Take this setup into other systems. Node-RED outputs that command devices are exported <b>disabled</b>, so a person has to switch them on.</p>
+  <div class="card"><button data-act="exNodeRed" class="pri">Node-RED flows (.json)</button> <button data-act="exHA">Home Assistant MQTT (.yaml)</button> <button data-act="exCsv">Devices (.csv)</button> <button data-act="exGeo">Devices map (.geojson)</button> <button data-act="exHist">Readings history (.csv)</button> <button data-act="exLog">Event log (.csv)</button> <button data-act="backup">Backup (.json)</button></div>
+  <div class="card"><h3>Home Assistant preview</h3><pre>${esc(haYaml())}</pre></div>`;
+}
+
+function selftest() {
+  const keep = S, fail = []; S = APP.defaults(); RT.vals = {}; RT.hist = {}; RT.log = []; RT.t = 0; RT.held = {}; RT.armedUntil = 0;
+  try {
+    if (!mqttMatch("home/+/temp", "home/kitchen/temp") || mqttMatch("home/+/temp", "home/a/b/temp") || !mqttMatch("home/#", "home/a/b") || mqttMatch("home/x", "home/x/y")) fail.push("mqttMatch");
+    const c = mqttConnect("abc"); if (c[0] !== 0x10 || c[1] !== c.length - 2 || String.fromCharCode(...c.slice(4, 8)) !== "MQTT" || c[8] !== 4) fail.push("connect packet " + [...c]);
+    const pub = mqttPublish("a/b", "1"); const pp = mqttParse(pub.buffer); if (pp.topic !== "a/b" || pp.msg !== "1") fail.push("publish roundtrip " + JSON.stringify(pp));
+    if (mqLen(321).join() !== "193,2") fail.push("varlen");
+    const co2 = S.devices[2], fan = S.devices[5]; co2.model = "fixed"; RT.vals[co2.id] = 1200; co2.source = "manual";
+    for (let i = 0; i < 8; i++) tick();
+    if (RT.vals[fan.id] !== 1) fail.push("rule did not set fan: " + RT.vals[fan.id] + " log " + JSON.stringify(RT.log.slice(0, 3)));
+    fan.source = "real"; if (command(fan, 0, "test") !== "blocked") fail.push("real actuation not blocked");
+    if (!nodeRed().includes('"d": true')) fail.push("node-red out not disabled");
+    JSON.parse(nodeRed()); if (!haYaml().includes("command_topic")) fail.push("ha yaml");
+    if (jsonPath({ current: { t: [1, { v: 21.5 }] } }, "current.t[1].v") !== 21.5 || jsonPath({ a: 1 }, "b.c") !== undefined) fail.push("jsonPath");
+    const s1 = parseSerialLine("temp=21.5, hum:40 door=on"), s2 = parseSerialLine('{"temp": "22.0", "x": {"state": "3"}}'), s3 = parseSerialLine("17.25");
+    if (s1.temp !== 21.5 || s1.hum !== 40 || s1.door !== 1 || s2.temp !== 22 || s2.x !== 3 || s3.value !== 17.25 || Object.keys(parseSerialLine("garbage")).length) fail.push("serial parse " + JSON.stringify([s1, s2, s3]));
+    const kt = S.devices[0]; kt.source = "serial"; kt.addr = "temp"; if (serialLine("temp=23.75 hum=41") !== 1 || RT.vals[kt.id] !== 23.75) fail.push("serial line to device");
+    const hd = S.devices[1]; hd.source = "ha"; hd.addr = "sensor.kitchen humidity"; S.ha.base = "http://ha.local:8123/"; if (httpTarget(hd).url !== "http://ha.local:8123/api/states/sensor.kitchen%20humidity") fail.push("ha url " + httpTarget(hd).url);
+    hd.source = "http"; hd.addr = "https://x.example/now | a.b"; const ht = httpTarget(hd); if (ht.url !== "https://x.example/now" || ht.path !== "a.b") fail.push("http target");
+    if (readingOf({ state: "19.5" }) !== 19.5 || readingOf("off") !== 0) fail.push("readingOf");
+    RT.armedUntil = Date.now() + 60000; if (command(hd, 1, "test") !== "readonly") fail.push("read-only adapter accepted a command while armed"); RT.armedUntil = 0;
+    RT.rec.rows = []; const nv = S.devices.filter(d => RT.vals[d.id] != null).length; recSample(new Date(0)); RT.vals[kt.id] = 30; recSample(new Date(5000));
+    const sm = recSummary().find(b => b.n === kt.name); if (RT.rec.rows.length !== 2 * nv || !sm || sm.lo !== 23.75 || sm.hi !== 30) fail.push("recorder " + RT.rec.rows.length + " vs " + 2 * nv + " " + JSON.stringify(sm && [sm.lo, sm.hi]));
+    if (!recCSV().startsWith('"time_utc","device"')) fail.push("recorder csv");
+    { const csv = recCSV(), n0 = RT.rec.rows.length, keepRows = RT.rec.rows; RT.rec.rows = []; const x = recLoadText(csv); if (x.rows !== n0 || !x.matched || recSummary().find(b => b.n === kt.name).hi !== 30) fail.push("recorder reload " + JSON.stringify(x));
+      let threw = false; try { recLoadText("a,b,c,d\n1,2,3,4"); } catch (e) { threw = true; } if (!threw) fail.push("wrong csv accepted"); RT.rec.rows = keepRows; RT.rec.loaded = false; }
+    { const a = modbusAddr("192.168.1.50:5020/3/IR7/f32*0.5"), b = modbusAddr("plc.local/1/CO12");
+      if (!a || a.port !== 5020 || a.unit !== 3 || a.fc !== 4 || a.addr !== 7 || a.type !== "f32" || a.scale !== 0.5) fail.push("modbus addr " + JSON.stringify(a));
+      if (!b || b.fc !== 1 || b.type !== "bool" || b.port !== 502) fail.push("modbus coil addr"); if (modbusAddr("1.2.3.4/1/XX3") || modbusAddr("nohost")) fail.push("bad modbus address accepted");
+      const md = { ...S.devices[0], source: "modbus", addr: "10.0.0.9/1/HR100/i16*0.1" }; const tg = httpTarget(md); if (!/\/read\?host=10\.0\.0\.9&port=502&unit=1&fc=3&addr=100&type=i16&scale=0\.1$/.test(tg.url) || tg.path !== "value") fail.push("modbus url " + tg.url);
+      { const sw = modbusAddr("10.0.0.9/1/HR300/f32sw"), be = modbusAddr("10.0.0.9/1/HR300/f32"); if (!sw || !sw.swap || be.swap || modbusAddr("10.0.0.9/1/HR3/u16sw").swap) fail.push("modbus swap parse");
+        const dv = new DataView(new ArrayBuffer(4)); dv.setFloat32(0, 21.5); const H = dv.getUint16(0), L = dv.getUint16(2);
+        if (mbDecode([H, L], 0, "f32", false, 1) !== 21.5 || mbDecode([L, H], 0, "f32", true, 1) !== 21.5 || mbDecode([L, H], 0, "f32", false, 1) === 21.5) fail.push("modbus word order");
+        if (mbDecode([65535], 0, "i16", false, 0.1) !== -0.1 || mbDecode([1, 2], 0, "u32", true, 1) !== 131073 || mbDecode([5], 0, "f32", false, 1) !== undefined) fail.push("modbus decode");
+        { const W = { be: [0x41AC, 0], sw: [0, 0x41AC], bs: [0xAC41, 0], le: [0, 0xAC41] };
+          for (const o in W) { if (mbDecode(W[o], 0, "f32", o, 1) !== 21.5) fail.push("modbus order " + o); if (mbDecode(W[o], 0, "f32", o === "be" ? "le" : "be", 1) === 21.5) fail.push("modbus wrong order " + o + " still 21.5"); }
+          if (["f32bs", "f32le", "u16bs", "u16sw", "f64"].map(t => modbusAddr("10.0.0.9/1/HR1/" + t).order).join() !== "bs,le,bs,be,be") fail.push("modbus order parse");
+          if (mbDecode([0x3412], 0, "u16", "bs", 1) !== 0x1234 || mbDecode([0x3F, 0xF0 << 8, 0, 0].reverse().map(x => x), 0, "f64", "be", 1) === undefined) fail.push("modbus 16/64 order"); }
+        const mk = a => ({ id: a, addr: a }), B = mbBatches(["h/1/HR100", "h/1/HR101/f32", "h/1/HR109", "h/1/HR200", "h/1/IR100", "h:503/1/HR100", "h/1/HR500/f32", "junk"].map(mk));
+        const sig = B.batches.map(b => [b.fc, b.port, b.start, b.end - b.start, b.members.length].join(":")).sort().join(" ");
+        if (sig !== "3:502:100:10:3 3:502:200:1:1 3:502:500:2:1 3:503:100:1:1 4:502:100:1:1" || B.bad.length !== 1) fail.push("modbus batches " + sig);
+        const big = mbBatches(Array.from({ length: 130 }, (_, i) => mk("h/1/HR" + i))).batches; if (big.length !== 2 || big[0].end - big[0].start > 125) fail.push("modbus batch limit"); }
+      RT.armedUntil = Date.now() + 60000; if (command(md, 1, "test") !== "readonly") fail.push("modbus accepted a command while armed"); RT.armedUntil = 0; }
+    RT.rec.rows = [];
+  } catch (e) { fail.push("exception " + e.message); }
+  finally { S = keep; RT.vals = {}; RT.hist = {}; RT.held = {}; }
+  return { fail };
+}
+
+</script>
+<script>
+if (inApp) { tell({ uds: "store-get" }); tell({ uds: "web-hello" }); setTimeout(() => { if (!loaded) { useLocal = true; boot(readLocal()); } }, 1500); }
+else boot(readLocal());
+</script>
+</body>
+</html>

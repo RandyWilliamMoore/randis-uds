@@ -44,6 +44,7 @@ import credmark
 import chatlog
 import cli_setup
 import ide
+import pathcheck
 import llm
 import machine
 import net
@@ -66,6 +67,7 @@ import codelab
 import av
 import vm
 import studio
+import prices
 import media
 
 for _type, _ext in (("text/javascript", ".js"), ("text/javascript", ".mjs"), ("text/css", ".css"), ("text/html", ".html"), ("application/wasm", ".wasm"), ("image/svg+xml", ".svg")):
@@ -105,7 +107,10 @@ POP_ALIVE = "window.__popLost ? 'lost' : (document.getElementById('__pop') ? 'ok
 BLANK_POP = "<html><body style='background:transparent'></body></html>"
 POP_BASE = {} if os.name == "nt" else {"base_uri": "about:blank"}
 WALL_RULES = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src data: blob:; worker-src blob:; base-uri 'none'; form-action 'none'"
-NO_WEBRTC = "for(const n of ['RTCPeerConnection','webkitRTCPeerConnection','RTCSessionDescription','RTCIceCandidate','RTCDataChannel','RTCRtpSender','RTCRtpReceiver','RTCRtpTransceiver']){try{delete window[n]}catch(e){}}"
+LOCAL_NET_TABS = frozenset({"roostchat1", "hearthly01", "iotsuite01"})
+LOCAL_NET = "http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*"
+WALL_RULES_LOCAL = WALL_RULES.replace("connect-src data: blob:", "connect-src data: blob: " + LOCAL_NET)
+NO_WEBRTC ="for(const n of ['RTCPeerConnection','webkitRTCPeerConnection','RTCSessionDescription','RTCIceCandidate','RTCDataChannel','RTCRtpSender','RTCRtpReceiver','RTCRtpTransceiver']){try{delete window[n]}catch(e){}}"
 SERVED_HERE = ("http://127.0.0.1:", "http://localhost:", "file:")
 web_address_ok = webpane.address_ok
 WEATHER_HOSTS = ("api.open-meteo.com", "marine-api.open-meteo.com", "geocoding-api.open-meteo.com", "air-quality-api.open-meteo.com",
@@ -825,11 +830,11 @@ class Api:
         return {"path": path}
 
     def chat_image_data(self, path):
-        folder = os.path.realpath(os.path.join(DATA_DIR, "chat_images"))
-        p = os.path.realpath(str(path or ""))
+        folder = pathcheck.canon(os.path.join(DATA_DIR, "chat_images"))
+        p = pathcheck.real(str(path or ""))
         kinds = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".gif": "gif", ".webp": "webp", ".bmp": "bmp"}
         kind = kinds.get(os.path.splitext(p)[1].lower())
-        if os.path.dirname(p) != folder or not kind or not os.path.isfile(p) or os.path.getsize(p) > 25 * 1024 * 1024:
+        if os.path.normcase(os.path.dirname(p)) != folder or not kind or not os.path.isfile(p) or os.path.getsize(p) > 25 * 1024 * 1024:
             return None
         with open(p, "rb") as f:
             return f"data:image/{kind};base64," + base64.b64encode(f.read()).decode()
@@ -972,7 +977,7 @@ class Api:
             return {"error": str(e)}
         token = os.urandom(8).hex()
         self._folders = getattr(self, "_folders", {})
-        self._folders[token] = os.path.realpath(root)
+        self._folders[token] = pathcheck.real(root)
         return {"token": token, "path": root}
 
     def folder_export_part(self, token, rel, b64, first=False, last=False):
@@ -988,8 +993,8 @@ class Api:
                 parts.append(p)
         if not parts:
             return {"error": "The file has no name."}
-        path = os.path.realpath(os.path.join(root, *parts))
-        if os.path.commonpath([root, path]) != root:
+        path = pathcheck.real(os.path.join(root, *parts))
+        if not pathcheck.within(root, path):
             return {"error": "That file would land outside the chosen folder."}
         try:
             data = base64.b64decode(b64 or "", validate=True)
@@ -1415,7 +1420,10 @@ class Api:
 
     def built_load(self, tab_id, n=None):
         try:
-            return self._tabs().load(tab_id, n)
+            r = self._tabs().load(tab_id, n)
+            if isinstance(r, dict) and "error" not in r:
+                r["localNet"] = tab_id in LOCAL_NET_TABS
+            return r
         except (OSError, ValueError, StopIteration) as e:
             return {"error": f"Couldn't load that tab: {e}"}
 
@@ -1523,6 +1531,96 @@ class Api:
         except (OSError, ValueError, TypeError) as e:
             return {"error": str(e)}
         return {"error": "Unknown request"}
+
+    OS_OPS = {"status", "build", "boot", "job", "stop"}
+    OS_DIR = os.path.join(HERE, "data", "os_suite")
+
+    def os_call(self, tab_id, op, args=None):
+        try:
+            allowed = self._tabs()._meta(tab_id).get("osdesign") is True
+        except (OSError, ValueError):
+            allowed = False
+        if not allowed or op not in self.OS_OPS:
+            return {"error": "This tab can't build or boot an OS."}
+        a = args if isinstance(args, dict) else {}
+        job = getattr(self, "_os_job", None)
+        exports = os.path.join(self.OS_DIR, "exports")
+        if op == "status":
+            isos = sorted(f for f in os.listdir(exports) if f.lower().endswith(".iso")) if os.path.isdir(exports) else []
+            return {"isos": isos, "busy": bool(job and job["proc"].poll() is None)}
+        if op == "job":
+            if not job:
+                return {"none": True}
+            return {"what": job["what"], "running": job["proc"].poll() is None, "rc": job["proc"].poll(),
+                    "log": "".join(job["log"])[-6000:], "took": round(time.time() - job["t"])}
+        if op == "stop":
+            if job and job["proc"].poll() is None:
+                job["proc"].kill()
+                job["log"].append("\n(stopped)\n")
+            return {"ok": True}
+        if job and job["proc"].poll() is None:
+            return {"error": "A build or boot is already running. Wait for it or press Stop."}
+        try:
+            secs = max(30, min(int(a.get("seconds") or 240), 600))
+        except (TypeError, ValueError):
+            secs = 240
+        script = os.path.join(self.OS_DIR, "build_os.py")
+        stdin = ""
+        if op == "build":
+            design = a.get("design")
+            host = str(design.get("hostname") or "") if isinstance(design, dict) else ""
+            if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", host):
+                return {"error": "The design needs a hostname (small letters, digits and -)."}
+            path = os.path.join(self.OS_DIR, host + ".osdesign.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"alpine": design}, f, indent=1)
+            cmd = [script, path, "--pw-stdin", "--no-net"] + (["--boot", str(secs)] if a.get("boot") else [])
+            pw = a.get("passwords") if isinstance(a.get("passwords"), dict) else {}
+            stdin = json.dumps({str(k): str(v) for k, v in pw.items()})
+            what = "build " + host + (" + boot" if a.get("boot") else "")
+        else:
+            name = os.path.basename(str(a.get("iso") or ""))
+            if not name.lower().endswith(".iso") or not os.path.isfile(os.path.join(exports, name)):
+                return {"error": "Pick an ISO from data/os_suite/exports."}
+            cmd = [script, "--iso", os.path.join("exports", name), "--boot", str(secs), "--no-net"]
+            what = "boot " + name
+        exe = sys.executable
+        if exe.lower().endswith("pythonw.exe") and os.path.isfile(exe[:-5] + ".exe"):
+            exe = exe[:-5] + ".exe"
+        proc = subprocess.Popen([exe, "-u", *cmd], cwd=self.OS_DIR, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, creationflags=projects.NO_WINDOW)
+        job = self._os_job = {"what": what, "proc": proc, "log": [], "t": time.time()}
+
+        def pump():
+            try:
+                proc.stdin.write(stdin.encode("utf-8"))
+                proc.stdin.close()
+            except OSError:
+                pass
+            for line in iter(proc.stdout.readline, b""):
+                job["log"].append(line.decode("utf-8", "replace").replace("\r", ""))
+                if len(job["log"]) > 4000:
+                    del job["log"][:1000]
+            proc.wait()
+        threading.Thread(target=pump, daemon=True).start()
+        return {"started": what}
+
+    PRICE_OPS = {"quotes", "wallet"}
+
+    def price_call(self, tab_id, op, args=None):
+        try:
+            allowed = self._tabs()._meta(tab_id).get("prices") is True
+        except (OSError, ValueError):
+            allowed = False
+        if not allowed or op not in self.PRICE_OPS:
+            return {"error": "This tab can't use live prices."}
+        a = args if isinstance(args, dict) else {}
+        if getattr(self, "_prices", None) is None:
+            self._prices = prices.Prices()
+        if op == "quotes":
+            syms = a.get("symbols") if isinstance(a.get("symbols"), list) else []
+            return self._prices.quotes(syms[:40])
+        return self._prices.wallet(a.get("chain"), a.get("address"))
 
     STUDIO_OPS = {"status", "install", "sign_in", "create", "connect_pick", "clone", "settings", "tabs", "put_item", "item_change",
                   "desktop", "discard", "publish", "runs", "run_checks", "pull", "open", "songs_here", "songs_status",

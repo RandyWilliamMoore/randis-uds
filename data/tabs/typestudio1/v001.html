@@ -1,0 +1,1913 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Type Studio</title>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<style>
+:root{--bg:#f9f9f7;--bg2:#fcfcfb;--bg3:#efeee9;--line:#dcdbd5;--tx:#0b0b0b;--mut:#52514e;--acc:#7a3fb0;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--bad:#d03b3b;
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948}
+body[data-theme=dark]{--bg:#0d0d0d;--bg2:#1a1a19;--bg3:#262624;--line:#383835;--tx:#f0efec;--mut:#c3c2b7;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+header b#apptitle{font-size:16px;color:var(--acc);margin-right:6px}
+#nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+#nav button{border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--mut)}
+#nav button.on{background:var(--acc);color:#fff}
+#nav button:hover:not(.on){background:var(--bg3)}
+#saved{font-size:11px;color:var(--mut)}
+main#view{flex:1;overflow:auto;padding:14px 18px}
+h2{margin:0 0 4px;font-size:21px}h3{margin:6px 0 8px;font-size:15px;color:var(--acc)}h4{margin:10px 0 4px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em}
+.lead{color:var(--mut);margin:0 0 12px;max-width:980px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}.row>.card{flex:1;min-width:300px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:2px;margin:0 0 6px}
+input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px}
+textarea{width:100%;min-height:80px;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--tx);border-radius:6px;padding:4px 10px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}button.x{padding:1px 7px;color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}td input,td select{width:100%;padding:2px 4px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+pre,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}pre{background:var(--bg3);padding:10px;border-radius:6px;overflow:auto;white-space:pre-wrap;margin:6px 0;max-height:420px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:var(--bg3);color:var(--mut)}
+.ok{color:var(--good)}.bad{color:var(--bad)}.warnc{color:#b7791f}
+.banner{border-left:4px solid var(--serious);background:var(--bg3);padding:8px 12px;border-radius:6px;margin:0 0 12px}
+.stat{font-size:26px;font-weight:600}.sub{font-size:12px;color:var(--mut)}
+svg text{fill:var(--mut);font-size:11px}svg .ink{fill:var(--tx)}
+.lnk{color:var(--s1);cursor:pointer;text-decoration:underline}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:9;max-width:80%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><b id="apptitle">Type Studio</b><nav id="nav"></nav><span id="saved"></span><button data-act="theme" title="Light / dark">◐</button></header>
+<main id="view"></main>
+<div id="toast"></div>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+"use strict";
+const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const inApp = window.parent !== window;
+const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100, r1 = n => Math.round(n * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (n, d) => (+n || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d });
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(+n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = n => (isFinite(n) ? Math.round(n * 1000) / 10 : 0) + "%";
+const SER = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)"];
+let toastT; function toast(t, ms) { const e = $("#toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => e.style.display = "none", ms || 3200); }
+let WEB_ON = false;
+function openLink(url) {
+  if (!inApp) { window.open(url, "_blank", "noopener"); return; }
+  if (WEB_ON) { tell({ uds: "web-pop", url }); return; }
+  copyText(url, "Link copied: paste it into your browser (or tick 'Web view' above this tab).");
+}
+function copyText(t, msg) { const fb = () => prompt("Copy this:", t); try { const p = navigator.clipboard && navigator.clipboard.writeText(t); if (p && p.then) p.then(() => toast(msg || "Copied.", 4000), fb); else fb(); } catch (e) { fb(); } }
+const L = (label, url) => `<span class="lnk" data-url="${esc(url)}">${esc(label)} ↗</span>`;
+
+let S, MEM = { page: null, sub: {} }, loaded = false, useLocal = true, saveT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const data = { [APP.key]: S };
+    if (inApp && !useLocal) tell({ uds: "store-set", data });
+    try { localStorage.setItem("uds-" + APP.key, JSON.stringify(S)); } catch (e) {}
+    const kb = Math.round(JSON.stringify(data).length / 1024), el = $("#saved");
+    if (el) el.textContent = `Saved · ${kb} KB`;
+    if (kb > 900) toast("Storage is nearly full: export a backup and remove some images.", 6000);
+  }, 400);
+}
+function readLocal() { try { return JSON.parse(localStorage.getItem("uds-" + APP.key) || "null"); } catch (e) { return null; } }
+function getP(path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), S); }
+function setP(path, val) { const p = path.split("."); let o = S; while (p.length > 1) { const k = p.shift(); if (o[k] == null) o[k] = {}; o = o[k]; } o[p[0]] = val; }
+function download(name, data, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: type || "text/plain" });
+  if (window.__dl) { window.__dl.push([name, typeof data === "string" ? data : "blob:" + blob.size]); }
+  if (inApp) { tell({ uds: "export-file", name, data: blob }); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const csvCell = c => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`;
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ""));
+}
+
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >> 8) & 255], u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  for (const [name, d] of files) {
+    const data = typeof d === "string" ? enc.encode(d) : d, nm = enc.encode(name), crc = crc32(data);
+    const head = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)]);
+    parts.push(head, nm, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nm);
+    off += head.length + nm.length + data.length;
+  }
+  const csize = central.reduce((a, b) => a + b.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+const AIQ = {};
+function askAI(prompt, cb) {
+  if (!inApp) { cb({ error: "Open this inside Randis UDS with an AI linked to use the AI helper." }); return; }
+  const id = "q10-" + uid(); AIQ[id] = cb;
+  tell({ uds: "planner-ask", id, history: [{ role: "user", content: String(prompt) }], context: APP.title + " app in Randis UDS." });
+}
+
+const F = (label, path, o) => { o = o || {}; const v = getP(path); const t = o.type || (typeof v === "number" ? "number" : "text");
+  if (o.opts) return `<label class="f">${esc(label)}<select data-p="${path}"${o.r ? " data-r" : ""}>${o.opts.map(x => { const [k, n] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(k)}"${String(v) === String(k) ? " selected" : ""}>${esc(n)}</option>`; }).join("")}</select></label>`;
+  if (t === "area") return `<label class="f">${esc(label)}<textarea data-p="${path}"${o.r ? " data-r" : ""} style="min-height:${o.h || 90}px">${esc(v)}</textarea></label>`;
+  if (t === "check") return `<label><input type="checkbox" data-p="${path}" data-r${v ? " checked" : ""}> ${esc(label)}</label>`;
+  return `<label class="f">${esc(label)}<input type="${t}" data-p="${path}"${t === "number" ? " data-num" : ""}${o.r ? " data-r" : ""} value="${esc(v)}"${o.step ? ` step="${o.step}"` : ""}${o.w ? ` style="width:${o.w}"` : ""}></label>`; };
+function TBL(path, cols, o) {
+  o = o || {}; const rows = getP(path) || [];
+  const head = cols.map(c => `<th>${esc(c[1])}</th>`).join("") + (o.extra ? o.extra.map(x => `<th>${esc(x[0])}</th>`).join("") : "") + "<th></th>";
+  const body = rows.map((r, i) => "<tr>" + cols.map(([k, , t, w]) => {
+    const p = `${path}.${i}.${k}`, v = r[k];
+    if (Array.isArray(t)) return `<td${w ? ` style="width:${w}"` : ""}><select data-p="${p}" data-r>${t.map(x => `<option${String(v) === String(x) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></td>`;
+    return `<td${w ? ` style="width:${w}"` : ""}><input data-p="${p}"${t === "number" ? ' type="number" data-num step="any"' : ""}${o.live ? " data-r" : ""} value="${esc(v)}"></td>`;
+  }).join("") + (o.extra ? o.extra.map(x => `<td class="num">${x[1](r, i)}</td>`).join("") : "") + `<td><button class="x" data-act="rowdel" data-arg="${path}|${i}">✕</button></td></tr>`).join("");
+  return `<table><tr>${head}</tr>${body}</table><button data-act="rowadd" data-arg="${path}">+ Add row</button>`;
+}
+function lineChart(series, o) {
+  o = o || {}; const W = o.w || 640, H = o.h || 220, P = { l: 46, r: 12, t: 10, b: 24 };
+  const all = series.flatMap(s => s.pts); if (!all.length) return `<p class="sub">No data yet.</p>`;
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) || 1, y0 = Math.min(0, ...ys), y1 = Math.max(...ys) * 1.08 || 1;
+  const X = x => P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r), Y = y => H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b);
+  let g = ""; for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P.l - 4}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`; }
+  g += `<text x="${P.l}" y="${H - 6}">${esc(o.xl ? o.xl(x0) : fmt(x0))}</text><text x="${W - P.r}" y="${H - 6}" text-anchor="end">${esc(o.xl ? o.xl(x1) : fmt(x1))}</text>`;
+  const lines = series.map((s, i) => `<polyline fill="none" stroke="${s.color || SER[i % 8]}" stroke-width="2" points="${s.pts.map(p => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join(" ")}"/>` +
+    s.pts.filter((p, j) => s.pts.length < 60 || j % Math.ceil(s.pts.length / 40) === 0).map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="6" fill="transparent"><title>${esc(s.name)}: ${esc(o.xl ? o.xl(p[0]) : fmt(p[0]))} → ${fmt(p[1])}</title></circle>`).join("")).join("");
+  const leg = series.length > 1 ? `<div class="legend">${series.map((s, i) => `<span><i style="background:${s.color || SER[i % 8]}"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  return leg + `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${g}${lines}</svg>`;
+}
+function barChart(items, o) {
+  o = o || {}; const W = o.w || 640, bh = 22, H = items.length * (bh + 6) + 8, lw = o.lw || 150, max = Math.max(...items.map(i => i.v), 1e-9);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">` + items.map((it, i) => { const y = 4 + i * (bh + 6), w = Math.max(1, (W - lw - 90) * it.v / max);
+    return `<text class="ink" x="${lw - 6}" y="${y + 15}" text-anchor="end">${esc(it.name)}</text><rect x="${lw}" y="${y}" width="${w}" height="${bh}" rx="4" fill="${it.color || SER[o.one ? 0 : i % 8]}"><title>${esc(it.name)}: ${esc(o.f ? o.f(it.v) : fmt(it.v))}</title></rect><text x="${lw + w + 6}" y="${y + 15}">${esc(o.f ? o.f(it.v) : fmt(it.v))}</text>`; }).join("") + "</svg>";
+}
+
+function nav() {
+  $("#nav").innerHTML = APP.pages.map(([id, label]) => `<button data-page="${id}" class="${MEM.page === id ? "on" : ""}">${esc(label)}</button>`).join("");
+}
+function go(id) { MEM.page = id; S._page = id; render(); }
+let PRESS = false, HELD = false, IN_CHANGE = false, heldT;
+function flushHeld() { clearTimeout(heldT); if (HELD) { HELD = false; render(); } }
+document.addEventListener("pointerdown", e => { PRESS = !!(e.target.closest && e.target.closest("button,[data-act],[data-page],a,.lnk,label.pill")); }, true);
+document.addEventListener("pointerup", () => { if (!PRESS) return; PRESS = false; if (HELD) setTimeout(flushHeld, 0); }, true);
+function render() {
+  if (IN_CHANGE && PRESS) { HELD = true; clearTimeout(heldT); heldT = setTimeout(() => { PRESS = false; flushHeld(); }, 1000); return; }
+  HELD = false;
+  nav(); const pg = APP.pages.find(p => p[0] === MEM.page) || APP.pages[0]; MEM.page = pg[0];
+  try { $("#view").innerHTML = pg[2](); if (APP.after) APP.after(pg[0]); }
+  catch (e) { $("#view").innerHTML = `<div class="card bad">This page hit an error: ${esc(e && e.stack || e)}</div>`; console.error(e); }
+}
+function boot(data) {
+  if (loaded) return; loaded = true;
+  S = Object.assign(APP.defaults(), data && typeof data === "object" ? data : {});
+  if (S._theme) document.body.dataset.theme = S._theme;
+  MEM.page = S._page || APP.pages[0][0]; render();
+}
+const ACT = {
+  theme() { S._theme = document.body.dataset.theme === "dark" ? "" : "dark"; document.body.dataset.theme = S._theme; save(); },
+  rowadd(path) { const a = getP(path) || []; const t = APP.rowTemplates && APP.rowTemplates[path]; a.push(t ? t() : {}); setP(path, a); save(); render(); },
+  rowdel(arg) { const [path, i] = arg.split("|"); getP(path).splice(+i, 1); save(); render(); },
+};
+function onField(e, final) {
+  const el = e.target, p = el.dataset && el.dataset.p; if (!p) return;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num !== undefined) v = num(v);
+  setP(p, v); save();
+  IN_CHANGE = final;
+  try { if (final && el.dataset.r !== undefined) render(); if (APP.onField) APP.onField(p, v, final); } finally { IN_CHANGE = false; }
+}
+document.addEventListener("input", e => { if (e.target.tagName === "SELECT" || e.target.type === "checkbox") return; onField(e, false); });
+document.addEventListener("change", e => { if (e.target.type === "file") { const a = e.target.dataset.file; if (a && ACT[a]) ACT[a]([...e.target.files], e.target); return; } onField(e, true); });
+document.addEventListener("click", e => {
+  const pg = e.target.closest("[data-page]"); if (pg) { go(pg.dataset.page); return; }
+  const l = e.target.closest(".lnk"); if (l) { openLink(l.dataset.url); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const f = ACT[b.dataset.act]; if (!f) return;
+  try { f(b.dataset.arg, b, e); } catch (err) { toast("That didn't work: " + err.message, 6000); console.error(err); }
+});
+window.addEventListener("message", e => {
+  const d = e.data; if (!d || typeof d.uds !== "string") return;
+  if (d.uds === "store") { if (!loaded) { useLocal = false; boot(d.data && d.data[APP.key] ? d.data[APP.key] : readLocal()); } }
+  else if (d.uds === "store-error") toast("Couldn't save: " + (d.note || ""), 6000);
+  else if (d.uds === "web-state") WEB_ON = !!d.on;
+  else if (d.uds === "exported" || d.uds === "exporting") toast(d.note || (d.ok ? "Saved." : "Not saved."));
+  else if (d.uds === "planner" && AIQ[d.id]) { if (d.done) { const cb = AIQ[d.id]; delete AIQ[d.id]; cb(d.error ? { error: d.error } : { text: d.text || "" }); } }
+});
+</script>
+<script>
+
+
+const PIX = {
+  A: "01110 10001 10001 11111 10001 10001 10001", B: "11110 10001 10001 11110 10001 10001 11110", C: "01110 10001 10000 10000 10000 10001 01110",
+  D: "11110 10001 10001 10001 10001 10001 11110", E: "11111 10000 10000 11110 10000 10000 11111", F: "11111 10000 10000 11110 10000 10000 10000",
+  G: "01110 10001 10000 10111 10001 10001 01111", H: "10001 10001 10001 11111 10001 10001 10001", I: "01110 00100 00100 00100 00100 00100 01110",
+  J: "00111 00010 00010 00010 00010 10010 01100", K: "10001 10010 10100 11000 10100 10010 10001", L: "10000 10000 10000 10000 10000 10000 11111",
+  M: "10001 11011 10101 10101 10001 10001 10001", N: "10001 10001 11001 10101 10011 10001 10001", O: "01110 10001 10001 10001 10001 10001 01110",
+  P: "11110 10001 10001 11110 10000 10000 10000", Q: "01110 10001 10001 10001 10101 10010 01101", R: "11110 10001 10001 11110 10100 10010 10001",
+  S: "01111 10000 10000 01110 00001 00001 11110", T: "11111 00100 00100 00100 00100 00100 00100", U: "10001 10001 10001 10001 10001 10001 01110",
+  V: "10001 10001 10001 10001 10001 01010 00100", W: "10001 10001 10001 10101 10101 10101 01010", X: "10001 10001 01010 00100 01010 10001 10001",
+  Y: "10001 10001 01010 00100 00100 00100 00100", Z: "11111 00001 00010 00100 01000 10000 11111",
+  0: "01110 10001 10011 10101 11001 10001 01110", 1: "00100 01100 00100 00100 00100 00100 01110", 2: "01110 10001 00001 00010 00100 01000 11111",
+  3: "11111 00010 00100 00010 00001 10001 01110", 4: "00010 00110 01010 10010 11111 00010 00010", 5: "11111 10000 11110 00001 00001 10001 01110",
+  6: "00110 01000 10000 11110 10001 10001 01110", 7: "11111 00001 00010 00100 01000 01000 01000", 8: "01110 10001 10001 01110 10001 10001 01110",
+  9: "01110 10001 10001 01111 00001 00010 01100", ".": "00000 00000 00000 00000 00000 01100 01100", ",": "00000 00000 00000 00000 01100 00100 01000",
+  "!": "00100 00100 00100 00100 00100 00000 00100", "?": "01110 10001 00001 00010 00100 00000 00100", "-": "00000 00000 00000 11111 00000 00000 00000",
+  "'": "00100 00100 01000 00000 00000 00000 00000", ":": "00000 01100 01100 00000 01100 01100 00000",
+};
+const COMMON_PAIRS = ["AV", "AW", "AY", "AT", "VA", "WA", "YA", "TA", "LT", "LV", "LW", "LY", "PA", "FA", "TO", "OT", "AO", "OA", "VO", "OV", "YO", "AC", "AG", "AQ", "AU", "KO", "RV", "RY", "RT", "T.", "V.", "Y.", "P.", "F.", "T,", "V,", "Y,", "LO", "XO", "AJ", "TJ"];
+
+function newFace() {
+  const glyphs = [{ ch: " ", adv: 400, pixels: null, contours: [] }];
+  for (const ch of Object.keys(PIX)) glyphs.push({ ch, adv: 600, pixels: PIX[ch].split(" "), contours: [] });
+  return { family: "Randis Pixel", style: "Regular", version: "1.000", designer: "", upm: 1000, asc: 800, desc: -200, cap: 700, xh: 500, lineGap: 100,
+    cell: 100, sb: 50, lowerToUpper: true, glyphs, kern: [{ l: "A", r: "V", v: -60 }, { l: "T", r: "A", v: -50 }, { l: "L", r: "T", v: -80 }] };
+}
+
+function pixelRects(g, F) {
+  const rows = g.pixels || [], n = rows.length, cell = F.cell, base = rows.length > 7 ? (rows.length - 7) * cell : 0, rects = [], open = {};
+  for (let r = 0; r < n; r++) {
+    const runs = []; let s = -1; const row = rows[r] + "0";
+    for (let c = 0; c < row.length; c++) { if (row[c] === "1" && s < 0) s = c; if (row[c] !== "1" && s >= 0) { runs.push(s + "-" + c); s = -1; } }
+    const next = {};
+    for (const k of runs) { if (open[k]) { open[k].r1 = r; next[k] = open[k]; delete open[k]; } else next[k] = { k, r0: r, r1: r }; }
+    for (const k in open) rects.push(open[k]);
+    Object.keys(open).forEach(k => delete open[k]); Object.assign(open, next);
+  }
+  for (const k in open) rects.push(open[k]);
+  return rects.map(o => { const [c0, c1] = o.k.split("-").map(Number); const top = (n - o.r0) * cell - base, bot = (n - o.r1 - 1) * cell - base; return [F.sb + c0 * cell, bot, F.sb + c1 * cell, top]; });
+}
+function glyphContours(g, F) {
+  if (g.comps && typeof compContours === "function") return compContours(g, F);
+  if (g.pixels) return pixelRects(g, F).map(([x0, y0, x1, y1]) => [[x0, y0, 1], [x0, y1, 1], [x1, y1, 1], [x1, y0, 1]]);
+  return (g.contours || []).filter(c => c.length >= 2);
+}
+function bbox(cs) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const c of cs) for (const [x, y] of c) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  return x0 > x1 ? [0, 0, 0, 0] : [x0, y0, x1, y1];
+}
+function contourPath(c) {
+  const n = c.length; if (!n) return "";
+  let start = c.findIndex(p => p[2]); let pts = c;
+  if (start < 0) { const m = [(c[0][0] + c[1 % n][0]) / 2, (c[0][1] + c[1 % n][1]) / 2, 1]; pts = [m, ...c.slice(1), c[0]]; start = 0; }
+  else pts = [...c.slice(start), ...c.slice(0, start)];
+  let d = `M${pts[0][0]} ${pts[0][1]}`, ctrl = null;
+  for (let i = 1; i <= pts.length; i++) {
+    const p = pts[i % pts.length];
+    if (p[2]) { d += ctrl ? `Q${ctrl[0]} ${ctrl[1]} ${p[0]} ${p[1]}` : `L${p[0]} ${p[1]}`; ctrl = null; }
+    else { if (ctrl) { const mx = (ctrl[0] + p[0]) / 2, my = (ctrl[1] + p[1]) / 2; d += `Q${ctrl[0]} ${ctrl[1]} ${mx} ${my}`; } ctrl = p; }
+  }
+  return d + "Z";
+}
+const glyphOf = (F, ch) => F.glyphs.find(g => g.ch === ch) || (F.lowerToUpper && F.glyphs.find(g => g.ch === ch.toUpperCase()));
+function kernOf(F, a, b) { const ga = glyphOf(F, a), gb = glyphOf(F, b); if (!ga || !gb) return 0; const k = F.kern.find(k => (k.l === ga.ch) && (k.r === gb.ch)); if (k) return num(k.v); return typeof classKern === "function" ? classKern(F, ga.ch, gb.ch) : 0; }
+function faceSVG(F, text, size, useKern) {
+  const sc = size / F.upm; let x = 0, paths = "";
+  const chars = [...text];
+  chars.forEach((ch, i) => {
+    const g = glyphOf(F, ch); if (!g) { x += F.upm * 0.5; return; }
+    paths += `<path transform="translate(${x} 0)" d="${glyphContours(g, F).map(contourPath).join("")}"/>`;
+    x += num(g.adv) + (useKern && i < chars.length - 1 ? kernOf(F, ch, chars[i + 1]) : 0);
+  });
+  const H = (F.asc - F.desc);
+  return `<svg viewBox="0 ${-F.asc} ${Math.max(x, 1)} ${H}" width="${Math.max(x, 1) * sc}" height="${H * sc}" style="max-width:100%"><g transform="scale(1,-1)" fill="var(--tx)">${paths}</g></svg>`;
+}
+
+function profile(g, F) {
+  const cs = glyphContours(g, F), bands = [];
+  const rects = g.pixels ? pixelRects(g, F) : null;
+  for (let y = F.desc; y < F.asc; y += 50) {
+    const yc = y + 25; let lo = 1e9, hi = -1e9;
+    if (rects) for (const [x0, y0, x1, y1] of rects) { if (yc >= y0 && yc <= y1) { lo = Math.min(lo, x0); hi = Math.max(hi, x1); } }
+    else for (const c of cs) for (let i = 0; i < c.length; i++) {
+      const p = c[i], q = c[(i + 1) % c.length]; if ((p[1] - yc) * (q[1] - yc) <= 0 && p[1] !== q[1]) { const x = p[0] + (yc - p[1]) / (q[1] - p[1]) * (q[0] - p[0]); lo = Math.min(lo, x); hi = Math.max(hi, x); } }
+    bands.push(lo <= hi ? [lo, hi] : null);
+  }
+  return bands;
+}
+function autoKernPair(F, a, b, strength) {
+  const ga = glyphOf(F, a), gb = glyphOf(F, b); if (!ga || !gb) return null;
+  const pa = profile(ga, F), pb = profile(gb, F), H = glyphOf(F, "H");
+  const target = H ? (num(H.adv) - bbox(glyphContours(H, F))[2]) + bbox(glyphContours(H, F))[0] : 2 * F.sb;
+  const gaps = [];
+  for (let i = 0; i < pa.length; i++) {
+    let best = 1e9;
+    for (let j = Math.max(0, i - 1); j <= Math.min(pb.length - 1, i + 1); j++) if (pa[i] && pb[j]) best = Math.min(best, (num(ga.adv) - pa[i][1]) + pb[j][0]);
+    if (best < 1e9) gaps.push(best);
+  }
+  if (!gaps.length) return { v: 0, why: "no shared height" };
+  const mean = gaps.reduce((s, v) => s + v, 0) / gaps.length, min = Math.min(...gaps);
+  let v = -(mean - target) * (strength == null ? 0.6 : strength);
+  v = Math.max(v, -(min - 0.45 * target)); v = Math.min(v, 0) === v ? v : Math.min(v, target * 0.3);
+  v = Math.round(v / 5) * 5;
+  return { v, why: `mean gap ${Math.round(mean)}, min ${Math.round(min)}, target ${Math.round(target)}` };
+}
+
+function BW() { const a = []; const o = {
+  u8: v => { a.push(v & 255); return o; }, u16: v => { a.push((v >> 8) & 255, v & 255); return o; }, i16: v => o.u16(v < 0 ? v + 65536 : v),
+  u32: v => { a.push((v >>> 24) & 255, (v >> 16) & 255, (v >> 8) & 255, v & 255); return o; }, tag: s => { for (const c of s) a.push(c.charCodeAt(0)); return o; },
+  bytes: b => { for (const x of b) a.push(x); return o; }, pad4: () => { while (a.length % 4) a.push(0); return o; }, get len() { return a.length; }, out: () => Uint8Array.from(a), raw: a };
+  return o; }
+function tsum(b) { let s = 0; const n = Math.ceil(b.length / 4) * 4; for (let i = 0; i < n; i += 4) s = (s + (((b[i] || 0) << 24) | ((b[i + 1] || 0) << 16) | ((b[i + 2] || 0) << 8) | (b[i + 3] || 0))) >>> 0; return s; }
+function buildTTF(F) {
+  const glyphs = [{ ch: null, adv: 600, contours: [[[F.sb, 0, 1], [F.sb, F.cap, 1], [600 - F.sb, F.cap, 1], [600 - F.sb, 0, 1]], [[F.sb + 60, 60, 1], [600 - F.sb - 60, 60, 1], [600 - F.sb - 60, F.cap - 60, 1], [F.sb + 60, F.cap - 60, 1]]] }, ...F.glyphs];
+  const outl = glyphs.map((g, i) => i === 0 ? g.contours : glyphContours(g, F).map(c => c.map(p => [Math.round(num(p[0])), Math.round(num(p[1])), p[2] ? 1 : 0])));
+  const map = new Map();
+  F.glyphs.forEach((g, i) => { const cp = g.ch.codePointAt(0); if (cp < 0xFFFF) map.set(cp, i + 1); });
+  if (F.lowerToUpper) F.glyphs.forEach((g, i) => { const lo = g.ch.toLowerCase(); if (lo !== g.ch && !map.has(lo.codePointAt(0))) map.set(lo.codePointAt(0), i + 1); });
+  const codes = [...map.keys()].sort((a, b) => a - b);
+  const glyf = BW(), loca = [0]; let gx0 = 1e9, gy0 = 1e9, gx1 = -1e9, gy1 = -1e9, maxPts = 0, maxCt = 0; let maxCP = 0, maxCC = 0, maxCE = 0;
+  const hm = [];
+  outl.forEach((cs, i) => {
+    const adv = Math.round(num(glyphs[i].adv));
+    if (!cs.length) { hm.push([adv, 0]); loca.push(glyf.len); return; }
+    const [x0, y0, x1, y1] = bbox(cs); gx0 = Math.min(gx0, x0); gy0 = Math.min(gy0, y0); gx1 = Math.max(gx1, x1); gy1 = Math.max(gy1, y1);
+    hm.push([adv, x0]);
+    const recs = i > 0 && glyphs[i].comps && typeof compRecs === "function" ? compRecs(F, glyphs[i]) : null;
+    if (recs) {
+      glyf.i16(-1).i16(x0).i16(y0).i16(x1).i16(y1);
+      recs.forEach((r, k) => glyf.u16(0x0007 | (k < recs.length - 1 ? 0x0020 : 0)).u16(r.gid).i16(r.dx).i16(r.dy));
+      maxCP = Math.max(maxCP, cs.reduce((s, c) => s + c.length, 0)); maxCC = Math.max(maxCC, cs.length); maxCE = Math.max(maxCE, recs.length);
+      glyf.pad4(); loca.push(glyf.len); return;
+    }
+    glyf.i16(cs.length).i16(x0).i16(y0).i16(x1).i16(y1);
+    let end = -1; cs.forEach(c => { end += c.length; glyf.u16(end); }); glyf.u16(0);
+    const pts = cs.flat(); maxPts = Math.max(maxPts, pts.length); maxCt = Math.max(maxCt, cs.length);
+    pts.forEach(p => glyf.u8(p[2] ? 1 : 0));
+    let px = 0; pts.forEach(p => { glyf.i16(p[0] - px); px = p[0]; });
+    let py = 0; pts.forEach(p => { glyf.i16(p[1] - py); py = p[1]; });
+    glyf.pad4(); loca.push(glyf.len);
+  });
+  if (gx0 > gx1) { gx0 = gy0 = 0; gx1 = gy1 = 0; }
+  const locaW = BW(); loca.forEach(v => locaW.u32(v));
+  const n = glyphs.length, adMax = Math.max(...hm.map(h => h[0]));
+  const head = BW().u32(0x00010000).u32(Math.round(num(F.version) * 65536) || 0x00010000).u32(0).u32(0x5F0F3CF5).u16(0x000B).u16(F.upm);
+  const secs = Math.floor(Date.now() / 1000) + 2082844800;
+  head.u32(Math.floor(secs / 4294967296)).u32(secs >>> 0).u32(Math.floor(secs / 4294967296)).u32(secs >>> 0);
+  head.i16(gx0).i16(gy0).i16(gx1).i16(gy1).u16(0).u16(8).i16(2).i16(1).i16(0);
+  const rsbs = outl.map((cs, i) => cs.length ? hm[i][0] - bbox(cs)[2] : 0), lsbs = outl.map((cs, i) => cs.length ? hm[i][1] : 0);
+  const hhea = BW().u32(0x00010000).i16(F.asc).i16(F.desc).i16(F.lineGap).u16(adMax).i16(Math.min(...lsbs)).i16(Math.min(...rsbs)).i16(gx1).i16(1).i16(0).i16(0).i16(0).i16(0).i16(0).i16(0).i16(0).u16(n);
+  const hmtx = BW(); hm.forEach(([a, l]) => hmtx.u16(a).i16(l));
+  const maxp = BW().u32(0x00010000).u16(n).u16(maxPts).u16(maxCt).u16(maxCP).u16(maxCC).u16(2).u16(0).u16(0).u16(0).u16(0).u16(0).u16(0).u16(maxCE).u16(maxCE ? 1 : 0);
+  const segs = codes.map(c => [c, c, (map.get(c) - c + 65536) % 65536]); segs.push([0xFFFF, 0xFFFF, 1]);
+  const sc = segs.length, er = Math.floor(Math.log2(sc)), sr = 2 * 2 ** er;
+  const sub = BW().u16(4).u16(16 + sc * 8).u16(0).u16(sc * 2).u16(sr).u16(er).u16(sc * 2 - sr);
+  segs.forEach(s => sub.u16(s[1])); sub.u16(0); segs.forEach(s => sub.u16(s[0])); segs.forEach(s => sub.u16(s[2])); segs.forEach(() => sub.u16(0));
+  const cmap = BW().u16(0).u16(2).u16(0).u16(3).u32(20).u16(3).u16(1).u32(20).bytes(sub.raw);
+  const ps = (F.family + "-" + F.style).replace(/[^A-Za-z0-9-]/g, "").slice(0, 63) || "RandisFont-Regular";
+  const names = [[0, "Made with Randis UDS Type Studio" + (F.designer ? " by " + F.designer : "")], [1, F.family], [2, F.style], [3, ps + ";" + F.version], [4, F.family + " " + F.style], [5, "Version " + F.version], [6, ps], ...(F.designer ? [[9, F.designer]] : [])];
+  const strs = names.map(([, s]) => { const b = []; for (const ch of String(s)) { const c = ch.charCodeAt(0); b.push(c >> 8, c & 255); } return b; });
+  const name = BW().u16(0).u16(names.length).u16(6 + names.length * 12); let off = 0;
+  names.forEach(([id], i) => { name.u16(3).u16(1).u16(0x409).u16(id).u16(strs[i].length).u16(off); off += strs[i].length; }); strs.forEach(b => name.bytes(b));
+  const avg = Math.round(hm.filter(h => h[0]).reduce((s, h) => s + h[0], 0) / Math.max(1, hm.filter(h => h[0]).length));
+  const os2 = BW().u16(4).i16(avg).u16(400).u16(5).u16(0).i16(650).i16(600).i16(0).i16(75).i16(650).i16(600).i16(0).i16(350).i16(50).i16(Math.round(F.xh / 2)).i16(0);
+  for (let i = 0; i < 10; i++) os2.u8(0);
+  os2.u32(1).u32(0).u32(0).u32(0).tag("RUDS").u16(0x40).u16(Math.min(codes[0] || 32, 0xFFFF)).u16(Math.min(codes[codes.length - 1] || 32, 0xFFFF))
+    .i16(F.asc).i16(F.desc).i16(F.lineGap).u16(Math.max(F.asc, gy1)).u16(Math.max(-F.desc, -gy0)).u32(1).u32(0).i16(F.xh).i16(F.cap).u16(0).u16(32).u16(2);
+  const post = BW().u32(0x00030000).u32(0).i16(-100).i16(50).u32(0).u32(0).u32(0).u32(0).u32(0);
+  const gid = ch => { const i = F.glyphs.findIndex(g => g.ch === ch); return i < 0 ? -1 : i + 1; };
+  const pairs = F.kern.map(k => [gid(k.l), gid(k.r), Math.round(num(k.v))]).filter(p => p[0] > 0 && p[1] > 0 && p[2]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const tables = { "OS/2": os2, cmap, glyf, head, hhea, hmtx, loca: locaW, maxp, name, post };
+  if (pairs.length) {
+    const np = pairs.length, e = Math.floor(Math.log2(np)), srk = 6 * 2 ** e;
+    const kern = BW().u16(0).u16(1).u16(0).u16(14 + np * 6).u16(0x0001).u16(np).u16(srk).u16(e).u16(np * 6 - srk);
+    pairs.forEach(p => kern.u16(p[0]).u16(p[1]).i16(p[2])); tables.kern = kern;
+  }
+  if (typeof extraTables === "function") extraTables(F, tables, gid);
+  const tags = Object.keys(tables).sort(), nt = tags.length, e2 = Math.floor(Math.log2(nt)), srt = 16 * 2 ** e2;
+  const font = BW().u32(0x00010000).u16(nt).u16(srt).u16(e2).u16(nt * 16 - srt);
+  let offset = 12 + nt * 16; const datas = tags.map(t => tables[t].out());
+  tags.forEach((t, i) => { font.tag(t).u32(tsum(datas[i])).u32(offset).u32(datas[i].length); offset += Math.ceil(datas[i].length / 4) * 4; });
+  datas.forEach(d => { font.bytes(d); font.pad4(); });
+  const out = font.out();
+  const hi = tags.indexOf("head"), hoff = 12 + nt * 16 + datas.slice(0, hi).reduce((s, d) => s + Math.ceil(d.length / 4) * 4, 0);
+  const adj = (0xB1B0AFBA - tsum(out)) >>> 0; out[hoff + 8] = adj >>> 24; out[hoff + 9] = (adj >> 16) & 255; out[hoff + 10] = (adj >> 8) & 255; out[hoff + 11] = adj & 255;
+  return out;
+}
+function readTTF(b) {
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength), nt = dv.getUint16(4), t = {};
+  for (let i = 0; i < nt; i++) { const o = 12 + i * 16; t[String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3])] = { sum: dv.getUint32(o + 4), off: dv.getUint32(o + 8), len: dv.getUint32(o + 12) }; }
+  const bad = Object.entries(t).filter(([k, v]) => k !== "head" && tsum(b.slice(v.off, v.off + v.len)) !== v.sum).map(([k]) => k);
+  return { tables: Object.keys(t), numGlyphs: dv.getUint16(t.maxp.off + 4), upm: dv.getUint16(t.head.off + 18), magic: dv.getUint32(t.head.off + 12).toString(16), whole: tsum(b).toString(16), badSums: bad,
+    kernPairs: t.kern ? dv.getUint16(t.kern.off + 10) : 0 };
+}
+let FONTN = 0;
+async function loadFace(F) {
+  const fam = "UDSType" + (++FONTN), ff = new FontFace(fam, buildTTF(F).buffer);
+  await ff.load(); document.fonts.add(ff); return fam;
+}
+const b64 = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); };
+
+const GE = { sel: "A", ctr: 0, pt: -1, drag: null, mode: "move", kernL: "", kernR: "" };
+function curG() { return S.face.glyphs.find(g => g.ch === GE.sel) || S.face.glyphs[1]; }
+
+function pageFace() {
+  const FC = S.face;
+  return `<h2>Typeface designer</h2><p class="lead">Design your own font from scratch: draw each letter on a pixel grid or as curves, set the spacing and the kerning, then export a real .ttf that installs on Windows, Mac and Linux and loads in any browser. The starter face is a 5 × 7 pixel design so every letter works from the first minute.</p>
+  <div class="row"><div class="card"><h3>Font</h3><div class="grid">${F("Family name", "face.family")}${F("Style", "face.style")}${F("Version", "face.version")}${F("Designer", "face.designer")}</div>
+  <div class="grid">${F("Units per em", "face.upm", { type: "number" })}${F("Ascender", "face.asc", { type: "number" })}${F("Descender", "face.desc", { type: "number" })}${F("Cap height", "face.cap", { type: "number" })}${F("x-height", "face.xh", { type: "number" })}${F("Line gap", "face.lineGap", { type: "number" })}${F("Pixel cell size", "face.cell", { type: "number", r: 1 })}${F("Side bearing", "face.sb", { type: "number", r: 1 })}</div>
+  ${F("Lowercase uses the capital shapes until you draw them", "face.lowerToUpper", { type: "check" })}
+  <p><button data-act="newFace">Start over from the pixel starter</button> <button data-act="blankFace">Blank font (space only)</button></p></div>
+  <div class="card"><h3>Preview (drawn by this app)</h3>${F("Text", "prev", { r: 1 })}<div style="margin:8px 0">${faceSVG(FC, S.prev || "", 48, true)}</div>
+  <div class="sub">Kerning off:</div>${faceSVG(FC, S.prev || "", 48, false)}
+  <h4>Installed preview (the browser loads your .ttf)</h4><div id="livefont" style="font-size:40px;line-height:1.2;min-height:50px">…</div><div class="sub" id="livenote"></div></div></div>
+  <div class="card"><h3>${FC.glyphs.length} glyphs</h3><div style="display:flex;flex-wrap:wrap;gap:4px">${FC.glyphs.map(g => `<button data-act="pick" data-arg="${esc(g.ch)}" style="width:44px;height:52px;padding:2px;${g.ch === GE.sel ? "outline:2px solid var(--acc)" : ""}" title="${esc(g.ch === " " ? "space" : g.ch)}">${faceSVG(FC, g.ch === " " ? "" : g.ch, 30, false)}<div class="sub">${esc(g.ch === " " ? "␣" : g.ch)}</div></button>`).join("")}</div>
+  <p><input id="newch" maxlength="2" style="width:60px" placeholder="é"> <button data-act="addGlyph">+ Add character</button> <span class="sub">Any letter, number, symbol or accented letter.</span></p></div>`;
+}
+function pageGlyph() {
+  const FC = S.face, g = curG(), cs = glyphContours(g, FC);
+  const W = Math.max(num(g.adv), 100), pad = 120;
+  let grid = "";
+  if (g.pixels) g.pixels.forEach((row, r) => [...row].forEach((v, c) => { const x = FC.sb + c * FC.cell, y = (g.pixels.length - r - 1) * FC.cell - (g.pixels.length > 7 ? (g.pixels.length - 7) * FC.cell : 0);
+    grid += `<rect data-cell="${r},${c}" x="${x}" y="${y}" width="${FC.cell}" height="${FC.cell}" fill="${v === "1" ? "var(--acc)" : "transparent"}" stroke="var(--line)" stroke-width="4" style="cursor:pointer"/>`; }));
+  const lines = [[0, "baseline"], [FC.xh, "x-height"], [FC.cap, "cap"], [FC.asc, "ascender"], [FC.desc, "descender"]].map(([y, n]) => `<line x1="${-pad}" x2="${W + 5}" y1="${y}" y2="${y}" stroke="var(--s${n === "baseline" ? 2 : 1})" stroke-width="3" stroke-dasharray="${n === "baseline" ? "" : "12 10"}"/>`).join("");
+  const labels = [[0, "baseline"], [FC.xh, "x-height"], [FC.cap, "cap"], [FC.asc, "asc"], [FC.desc, "desc"]].map(([y, n]) => `<text transform="scale(1,-1)" x="${W + 10}" y="${-y + 10}" style="font-size:34px">${n}</text>`).join("");
+  const pts = g.pixels ? "" : (g.contours || []).map((c, ci) => c.map((p, pi) => `<circle data-pt="${ci},${pi}" cx="${p[0]}" cy="${p[1]}" r="${ci === GE.ctr && pi === GE.pt ? 18 : 13}" fill="${p[2] ? (ci === GE.ctr ? "var(--s2)" : "var(--s1)") : "var(--bg)"}" stroke="${p[2] ? "none" : "var(--s7)"}" stroke-width="5" style="cursor:move"/>`).join("")).join("");
+  return `<h2>Glyph: ${esc(g.ch === " " ? "space" : g.ch)} <span class="pill">U+${g.ch.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}</span></h2>
+  <p class="lead">${g.pixels ? "Pixel mode: click cells to fill or clear them. Turn it into curves when you want smooth shapes." : "Curve mode: TrueType outlines. Filled dots sit on the outline, hollow dots are curve handles. Pick a tool, then click or drag on the glyph."}</p>
+  <div class="row"><div class="card" style="flex:0 0 auto"><svg id="gsvg" viewBox="${-pad} ${-FC.asc - 60} ${W + pad * 2 + 120} ${FC.asc - FC.desc + 120}" width="520" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;touch-action:none">
+   <g transform="scale(1,-1)"><rect x="0" y="${FC.desc}" width="${W}" height="${FC.asc - FC.desc}" fill="var(--bg3)"/>${lines}
+   <path d="${cs.map(contourPath).join("")}" fill="${g.pixels ? "none" : "var(--tx)"}" fill-opacity="0.85"/>${grid}${pts}${labels}</g></svg></div>
+  <div class="card"><h3>Spacing</h3><div class="grid">${F("Advance width", `face.glyphs.${S.face.glyphs.indexOf(g)}.adv`, { type: "number", r: 1 })}</div>
+  <p class="sub">Ink box: ${bbox(cs).map(Math.round).join(", ")} · left side bearing ${Math.round(bbox(cs)[0])}, right ${Math.round(num(g.adv) - bbox(cs)[2])}</p>
+  <p><button data-act="centerG">Centre the ink</button> <button data-act="fitG">Fit advance to ink + side bearings</button></p>
+  ${g.pixels ? `<h3>Pixel grid</h3><p><button data-act="rowAdd" data-arg="top">+ row above</button> <button data-act="rowAdd" data-arg="bottom">+ descender row</button> <button data-act="colAdd">+ column</button> <button data-act="clearG">Clear</button></p>
+   <p><button data-act="toCurves" class="pri">Turn into curves</button> <span class="sub">(keeps the shape, lets you move points)</span></p>` :
+   `<h3>Curve tools</h3><p>${[["move", "Move"], ["add", "Add point"], ["addc", "Add curve handle"]].map(([m, n]) => `<button data-act="tool" data-arg="${m}" class="${GE.mode === m ? "pri" : ""}">${n}</button>`).join(" ")}</p>
+   <p>Contour <select id="ctrsel">${(g.contours || []).map((c, i) => `<option value="${i}"${i === GE.ctr ? " selected" : ""}>${i + 1} (${c.length} pts)</option>`).join("")}</select> <button data-act="newCtr">+ New contour</button> <button data-act="delCtr">Delete contour</button> <button data-act="revCtr" title="Holes run the other way">Reverse direction</button></p>
+   <p><button data-act="togglePt">Point: on-curve / handle</button> <button data-act="delPt">Delete point</button> <button data-act="roundG" title="Turn each corner into a smooth curve">Round the corners</button></p>
+   <p class="sub">Outer shapes go clockwise, holes counter-clockwise (TrueType rule). ${(g.contours || []).map((c, i) => `#${i + 1}: ${area(c) < 0 ? "clockwise" : "counter-clockwise"}`).join(" · ")}</p>`}
+  <h3>Try it</h3>${faceSVG(S.face, "H" + g.ch + "H O" + g.ch + "O", 40, true)}</div></div>`;
+}
+const area = c => c.reduce((s, p, i) => { const q = c[(i + 1) % c.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0) / 2;
+function svgPt(e) { const svg = $("#gsvg"); const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const r = p.matrixTransform(svg.getScreenCTM().inverse()); return [Math.round(r.x / 5) * 5, Math.round(-r.y / 5) * 5]; }
+function wireGlyph() {
+  const svg = $("#gsvg"); if (!svg) return; const sel = $("#ctrsel"); if (sel) sel.onchange = () => { GE.ctr = +sel.value; GE.pt = -1; render(); };
+  svg.onpointerdown = e => {
+    const g = curG(), cell = e.target.dataset && e.target.dataset.cell;
+    if (cell) { const [r, c] = cell.split(",").map(Number); const row = [...g.pixels[r]]; row[c] = row[c] === "1" ? "0" : "1"; g.pixels[r] = row.join(""); save(); render(); return; }
+    const pt = e.target.dataset && e.target.dataset.pt;
+    if (pt) { const [ci, pi] = pt.split(",").map(Number); GE.ctr = ci; GE.pt = pi; GE.drag = [ci, pi]; svg.setPointerCapture(e.pointerId); return; }
+    if (!g.pixels && (GE.mode === "add" || GE.mode === "addc")) {
+      if (!g.contours.length) g.contours.push([]); const c = g.contours[GE.ctr] || g.contours[0];
+      const [x, y] = svgPt(e); c.splice(GE.pt < 0 ? c.length : GE.pt + 1, 0, [x, y, GE.mode === "add" ? 1 : 0]); GE.pt = GE.pt < 0 ? c.length - 1 : GE.pt + 1; save(); render();
+    }
+  };
+  svg.onpointermove = e => { if (!GE.drag) return; const [ci, pi] = GE.drag, p = curG().contours[ci][pi], [x, y] = svgPt(e); p[0] = x; p[1] = y;
+    const dot = svg.querySelector(`[data-pt="${ci},${pi}"]`); if (dot) { dot.setAttribute("cx", x); dot.setAttribute("cy", y); } svg.querySelector("path").setAttribute("d", glyphContours(curG(), S.face).map(contourPath).join("")); };
+  svg.onpointerup = () => { if (GE.drag) { GE.drag = null; save(); render(); } };
+}
+function inkFit(g, F, mode) {
+  const cs = glyphContours(g, F); if (!cs.length) return; const [x0, , x1] = bbox(cs);
+  if (mode === "fit") { const dx = F.sb - x0; shiftG(g, dx); g.adv = Math.round(x1 - x0 + 2 * F.sb); }
+  else { const dx = (num(g.adv) - (x1 - x0)) / 2 - x0; shiftG(g, Math.round(dx)); }
+}
+function shiftG(g, dx) { if (g.pixels) {   const cells = Math.round(dx / S.face.cell); if (cells > 0) g.pixels = g.pixels.map(r => "0".repeat(cells) + r); else if (cells < 0) g.pixels = g.pixels.map(r => r.slice(-cells)); }
+  else g.contours.forEach(c => c.forEach(p => p[0] += dx)); }
+
+function pageKern() {
+  const FC = S.face;
+  const sample = S.kernSample || "AVATAR LTYPO WAVY";
+  return `<h2>Kerning</h2><p class="lead">Kerning moves one pair of letters closer or further apart (in font units; ${FC.upm} = one em). Auto-kern reads each letter's side profile at every height, compares the gap with the gap between two H's, and suggests a value. You stay in charge: edit any number.</p>
+  <div class="row"><div class="card"><h3>Pairs (${FC.kern.length})</h3>${TBL("face.kern", [["l", "Left", "text", "60px"], ["r", "Right", "text", "60px"], ["v", "Value", "number", "90px"]], { live: true, extra: [["Preview", k => faceSVG(FC, k.l + k.r, 28, true)]] })}
+  <p><button data-act="autoKern" class="pri">Auto-kern common pairs</button> <button data-act="autoKernAll">Auto-kern every pair in the sample</button> <button data-act="kernSort">Sort</button> <button data-act="kernClear">Clear all</button></p>
+  <p>Strength ${F("", "kernStrength", { type: "number", step: "0.1", w: "70px" })}</p></div>
+  <div class="card"><h3>Proof</h3>${F("Sample", "kernSample", { r: 1 })}<div>${faceSVG(FC, sample, 44, true)}</div><div class="sub">Without kerning:</div><div>${faceSVG(FC, sample, 44, false)}</div>
+  <h4>Classic test strings</h4><p class="sub">${["HAVANA", "WAVY TOYO", "LYNX TAPE", "AVOW 1974", "T.V. Y.P."].map(s => `<button data-act="kernSet" data-arg="${s}">${s}</button>`).join(" ")}</p></div></div>
+  <div class="card"><h3>Kerning inspector for installed fonts</h3><p class="sub">Measures how much an installed font kerns each pair (width with kerning minus width without), in its own units per em.</p>
+  <div class="row" style="align-items:flex-end">${F("Font", "inspFont", { opts: SYS_FONTS })}${F("Pairs (space separated)", "inspPairs")}<button data-act="inspect" class="pri">Measure</button></div><div id="insp">${S._insp || ""}</div></div>`;
+}
+const SYS_FONTS = ["Segoe UI", "Arial", "Times New Roman", "Georgia", "Calibri", "Cambria", "Garamond", "Verdana", "Tahoma", "Trebuchet MS", "Consolas", "Courier New", "Palatino Linotype", "Book Antiqua", "Century Gothic", "Franklin Gothic Medium", "Impact", "Comic Sans MS", "serif", "sans-serif", "monospace"];
+function measureKern(font, pairs) {
+  const c = document.createElement("canvas").getContext("2d"); const size = 1000; c.font = `${size}px "${font}"`;
+  return pairs.map(p => { const [a, b] = [...p]; if (!b) return [p, null];
+    c.fontKerning = "normal"; const w1 = c.measureText(p).width; c.fontKerning = "none"; const w0 = c.measureText(p).width; const wa = c.measureText(a).width + c.measureText(b).width;
+    return [p, Math.round(w1 - w0), Math.round(w0 - wa)]; });
+}
+
+function pageExportFont() {
+  return `<h2>Export the font</h2><p class="lead">A real TrueType file written by this app (no outside font tool). It carries your outlines, spacing, kerning (kern table), names and line metrics.</p>
+  <div class="card"><button data-act="exTTF" class="pri">⬇ ${esc(S.face.family)}.ttf</button> <button data-act="exCSS">@font-face CSS</button> <button data-act="exFaceJSON">Font project (.json)</button> <label class="pill">Open project <input type="file" data-file="openFace" accept=".json" style="width:150px"></label> <button data-act="checkTTF">Check the file</button></div>
+  <div class="card"><h3>File check</h3><pre id="ttfcheck">${esc(S._ttfcheck || "Press 'Check the file'.")}</pre></div>
+  <div class="card"><h3>Install it</h3><p>Windows: right-click the .ttf → Install. Mac: double-click → Install Font. Linux: copy to ~/.local/share/fonts and run fc-cache. On a web page use the @font-face CSS.</p>
+  <p class="sub">Licence tip: if you share it, the SIL Open Font License (OFL) is the usual open choice for fonts.</p></div>`;
+}
+
+Object.assign(ACT, {
+  newFace() { if (confirm("Replace the whole font with the pixel starter?")) { S.face = newFace(); GE.sel = "A"; save(); render(); } },
+  blankFace() { if (confirm("Start a blank font?")) { const f = newFace(); f.glyphs = f.glyphs.slice(0, 1); f.kern = []; S.face = f; GE.sel = " "; save(); render(); } },
+  pick(ch) { GE.sel = ch; GE.ctr = 0; GE.pt = -1; go("glyph"); },
+  addGlyph() { const ch = ($("#newch").value || "").trim(); if (!ch) return toast("Type a character first.");
+    const c = [...ch][0]; if (S.face.glyphs.some(g => g.ch === c)) { GE.sel = c; return go("glyph"); }
+    S.face.glyphs.push({ ch: c, adv: 600, pixels: Array(7).fill("00000"), contours: [] }); GE.sel = c; save(); go("glyph"); },
+  rowAdd(where) { const g = curG(), w = g.pixels[0].length; if (where === "top") g.pixels.unshift("0".repeat(w)); else g.pixels.push("0".repeat(w)); save(); render(); },
+  colAdd() { const g = curG(); g.pixels = g.pixels.map(r => r + "0"); g.adv = num(g.adv) + S.face.cell; save(); render(); },
+  clearG() { const g = curG(); if (g.pixels) g.pixels = g.pixels.map(r => "0".repeat(r.length)); else g.contours = []; save(); render(); },
+  toCurves() { const g = curG(); g.contours = glyphContours(g, S.face).map(c => c.map(p => [...p])); g.pixels = null; GE.ctr = 0; GE.pt = -1; save(); render(); },
+  tool(m) { GE.mode = m; render(); },
+  newCtr() { const g = curG(); g.contours.push([]); GE.ctr = g.contours.length - 1; GE.pt = -1; GE.mode = "add"; render(); },
+  delCtr() { const g = curG(); g.contours.splice(GE.ctr, 1); GE.ctr = 0; GE.pt = -1; save(); render(); },
+  revCtr() { const c = curG().contours[GE.ctr]; if (c) c.reverse(); save(); render(); },
+  togglePt() { const c = curG().contours[GE.ctr]; if (c && c[GE.pt]) { c[GE.pt][2] = c[GE.pt][2] ? 0 : 1; save(); render(); } else toast("Click a point first."); },
+  delPt() { const c = curG().contours[GE.ctr]; if (c && c[GE.pt]) { c.splice(GE.pt, 1); GE.pt = -1; save(); render(); } else toast("Click a point first."); },
+  roundG() { const g = curG(); g.contours = g.contours.map(c => roundCorners(c, 0.3)); save(); render(); },
+  centerG() { inkFit(curG(), S.face, "center"); save(); render(); },
+  fitG() { inkFit(curG(), S.face, "fit"); save(); render(); },
+  autoKern() { const n = autoKernList(COMMON_PAIRS); toast(n + " pairs kerned."); },
+  autoKernAll() { const s = [...(S.kernSample || "")].filter(c => c !== " "); const ps = new Set(); for (let i = 0; i < s.length - 1; i++) ps.add(s[i] + s[i + 1]); const n = autoKernList([...ps]); toast(n + " pairs kerned."); },
+  kernSort() { S.face.kern.sort((a, b) => (a.l + a.r).localeCompare(b.l + b.r)); save(); render(); },
+  kernClear() { if (confirm("Remove every kerning pair?")) { S.face.kern = []; save(); render(); } },
+  kernSet(s) { S.kernSample = s; save(); render(); },
+  inspect() { const rows = measureKern(S.inspFont, (S.inspPairs || "").split(/\s+/).filter(Boolean));
+    S._insp = `<table><tr><th>Pair</th><th class="num">Kerning (units / 1000 em)</th><th class="num">Pair vs letters alone</th></tr>${rows.map(r => `<tr><td style="font-family:'${esc(S.inspFont)}';font-size:22px">${esc(r[0])}</td><td class="num ${r[1] < 0 ? "ok" : ""}">${r[1] == null ? "—" : r[1]}</td><td class="num">${r[2] == null ? "" : r[2]}</td></tr>`).join("")}</table><p class="sub">0 everywhere = the font has no kerning for these pairs, or the font isn't installed (the browser fell back to another font).</p>`; render(); },
+  exTTF() { download(S.face.family.replace(/\W+/g, "") + ".ttf", new Blob([buildTTF(S.face)], { type: "font/ttf" })); if (window.__dl) window.__dl.push(["ttf-b64", b64(buildTTF(S.face))]); },
+  exCSS() { download(S.face.family.replace(/\W+/g, "") + ".css", `@font-face {\n  font-family: "${S.face.family}";\n  src: url("${S.face.family.replace(/\W+/g, "")}.ttf") format("truetype");\n  font-weight: 400;\n  font-style: normal;\n  font-display: swap;\n}\n.my-text { font-family: "${S.face.family}", system-ui, sans-serif; font-kerning: normal; }\n`); },
+  exFaceJSON() { download(S.face.family.replace(/\W+/g, "") + ".typeface.json", JSON.stringify(S.face, null, 1), "application/json"); },
+  openFace(files) { const f = files[0]; if (!f) return; f.text().then(t => { const o = JSON.parse(t); if (!o.glyphs) throw new Error("not a Type Studio font"); S.face = o; save(); render(); toast("Font opened."); }).catch(e => toast("Couldn't open: " + e.message)); },
+  checkTTF() { const b = buildTTF(S.face), r = readTTF(b); S._ttfcheck = `size ${b.length} bytes\ntables ${r.tables.join(" ")}\nglyphs ${r.numGlyphs} · units/em ${r.upm} · magic ${r.magic} (should be 5f0f3cf5)\nwhole-file checksum ${r.whole} (should be b1b0afba)\ntable checksums wrong: ${r.badSums.length ? r.badSums.join(", ") : "none"}\nkern pairs ${r.kernPairs}`;
+    loadFace(S.face).then(() => { S._ttfcheck += "\nbrowser font loader: accepted ✓"; render(); }).catch(e => { S._ttfcheck += "\nbrowser font loader: REJECTED " + e.message; render(); }); render(); },
+});
+function autoKernList(pairs) {
+  let n = 0; const st = S.kernStrength == null ? 0.6 : num(S.kernStrength);
+  for (const p of pairs) { const [a, b] = [...p]; if (!b) continue; const ga = glyphOf(S.face, a), gb = glyphOf(S.face, b); if (!ga || !gb) continue;
+    const r = autoKernPair(S.face, a, b, st); if (!r || !r.v) continue; const k = S.face.kern.find(k => k.l === ga.ch && k.r === gb.ch);
+    if (k) k.v = r.v; else S.face.kern.push({ l: ga.ch, r: gb.ch, v: r.v }); n++; }
+  save(); render(); return n;
+}
+function roundCorners(c, t) {
+  if (c.length < 3) return c; const out = [];
+  c.forEach((p, i) => { if (!p[2]) { out.push(p); return; } const a = c[(i - 1 + c.length) % c.length], b = c[(i + 1) % c.length];
+    out.push([Math.round(p[0] + (a[0] - p[0]) * t), Math.round(p[1] + (a[1] - p[1]) * t), 1], [p[0], p[1], 0], [Math.round(p[0] + (b[0] - p[0]) * t), Math.round(p[1] + (b[1] - p[1]) * t), 1]); });
+  return out;
+}
+
+</script>
+<script>
+
+
+const STYLES = {
+  apa: { name: "APA 7", field: "Psychology, education, social sciences", font: "Times New Roman 12, Calibri 11, Arial 11, Georgia 11 or Lucida Sans Unicode 10", ff: "Times New Roman", pt: 12, line: 2, margin: 1,
+    indent: 0.5, title: "Title page: title (bold, centred, upper half), author, affiliation, course, instructor, due date; page number top right (student papers have no running head)",
+    heads: "Level 1 centred bold title case; level 2 flush left bold; level 3 flush left bold italic; levels 4-5 indented, inline, ending with a period",
+    inText: "(Author, Year) or (Author, Year, p. 4); two authors: (Smith & Jones, 2020) in brackets, 'Smith and Jones (2020)' in the sentence; 3+ authors: (Smith et al., 2020)",
+    refHead: "References", order: "alpha", hang: true, etal: "List up to 20 authors; 21+ = first 19, …, last",
+    extra: "Abstract 250 words max (professional papers); DOIs as https://doi.org/…; no 'Retrieved from' unless the page changes over time; quotes of 40+ words = block quote" },
+  mla: { name: "MLA 9", field: "Literature, languages, humanities", font: "Any readable font (Times New Roman 12 is usual)", ff: "Times New Roman", pt: 12, line: 2, margin: 1, indent: 0.5,
+    title: "No title page: top-left heading with your name, instructor, course, date (Day Month Year); title centred, plain; header top right: last name + page number",
+    heads: "Optional; keep them consistent", inText: "(Author page), e.g. (Smith 45); two authors (Smith and Jones 45); three or more (Smith et al. 45)",
+    refHead: "Works Cited", order: "alpha", hang: true, etal: "1-2 authors listed; 3+ = first author, et al.", extra: "Prose quotes over four lines = block quote indented 0.5 in; 'pp.' for page ranges in Works Cited" },
+  chinb: { name: "Chicago 18 notes & bibliography", field: "History, arts, humanities", font: "Readable 12 pt (Times New Roman usual)", ff: "Times New Roman", pt: 12, line: 2, margin: 1, indent: 0.5,
+    title: "Title page for class papers: title about a third down, your name, course, date lower", heads: "Your choice, kept consistent", inText: "Footnote or endnote numbers¹; first note full, later notes short (Author, Short Title, page)",
+    refHead: "Bibliography", order: "alpha", hang: true, etal: "Bibliography: up to 6 authors listed; 7+ = first three et al. (18th ed.)", extra: "Notes single-spaced inside, blank line between; quotes of 5+ lines = block quote" },
+  chiad: { name: "Chicago 18 author-date", field: "Sciences and social sciences using Chicago", font: "Readable 12 pt", ff: "Times New Roman", pt: 12, line: 2, margin: 1, indent: 0.5,
+    title: "Same as notes & bibliography", heads: "Your choice, kept consistent", inText: "(Author Year, page), e.g. (Smith 2020, 45), no comma before the year",
+    refHead: "References", order: "alpha", hang: true, etal: "Up to 6 authors listed; 7+ = first three et al.", extra: "Year comes right after the author in the reference" },
+  turabian: { name: "Turabian 9", field: "Student papers, theses (Chicago for students)", font: "Times New Roman 12", ff: "Times New Roman", pt: 12, line: 2, margin: 1, indent: 0.5,
+    title: "Title page: title one third down, then name, course, date; or school's thesis format", heads: "Level 1 centred bold or italic; set levels by school guide",
+    inText: "Notes-bibliography or author-date (as Chicago)", refHead: "Bibliography", order: "alpha", hang: true, etal: "As Chicago", extra: "Theses: follow your school's format guide first" },
+  ieee: { name: "IEEE", field: "Engineering, computing, electronics", font: "Times New Roman 10 in two columns (journal template)", ff: "Times New Roman", pt: 10, line: 1, margin: 0.75, indent: 0.25,
+    title: "Title, authors, affiliations at the top of page 1; abstract + index terms", heads: "I. ROMAN NUMERAL SMALL CAPS; A. lettered subheads in italic",
+    inText: "Numbers in square brackets [1], in the order first cited; [2]–[4] for ranges; reuse the same number for the same source",
+    refHead: "References", order: "cited", hang: false, etal: "Up to 6 authors listed; 7+ = first author et al.", extra: "Initials before surname (A. B. Smith); journal names abbreviated; month abbreviated" },
+  harvard: { name: "Harvard (Cite Them Right)", field: "UK/Australian universities, business", font: "Arial or Times 11-12 (check the school)", ff: "Arial", pt: 12, line: 1.5, margin: 1, indent: 0,
+    title: "As your school asks", heads: "As your school asks", inText: "(Smith, 2020) or (Smith, 2020, p. 45); 'Smith and Jones (2020)'; 4+ authors: Smith et al. (2020)",
+    refHead: "Reference list", order: "alpha", hang: false, etal: "List up to 3; 4+ = first author et al. (many schools list all)", extra: "'Available at: URL (Accessed: date)' for web sources" },
+  ama: { name: "AMA 11", field: "Medicine, health, nursing", font: "Times New Roman 12 (journal decides)", ff: "Times New Roman", pt: 12, line: 2, margin: 1, indent: 0.5,
+    title: "Title page per journal: title, authors with degrees, affiliations, corresponding author, word count", heads: "Structured: Introduction, Methods, Results, Discussion",
+    inText: "Superscript numbers¹ in order of first citation, outside periods and commas", refHead: "References", order: "cited", hang: false, etal: "Up to 6 authors listed; 7+ = first 3 et al.",
+    extra: "No periods in author initials (Smith AB); journal names abbreviated in italics; doi:10.xxxx at the end" },
+  vancouver: { name: "Vancouver (NLM)", field: "Biomedicine, many science journals", font: "Journal decides", ff: "Times New Roman", pt: 12, line: 2, margin: 1, indent: 0.5,
+    title: "Per journal", heads: "Per journal (often IMRaD)", inText: "Numbers in order cited: (1) or [1] or superscript, as the journal asks", refHead: "References", order: "cited", hang: false,
+    etal: "Up to 6 authors listed; 7+ = first 6 et al.", extra: "No italics; journal titles abbreviated (NLM catalog); [Internet] + [cited date] for web" },
+  thesis: { name: "Thesis / dissertation (generic)", field: "Any graduate school", font: "Times New Roman 12 usual", ff: "Times New Roman", pt: 12, line: 2, margin: 1, indent: 0.5,
+    title: "Title page, copyright page, signature/approval page, abstract, dedication, acknowledgements, table of contents, lists of tables/figures, chapters, references, appendices",
+    heads: "Chapter headings start new pages; levels per the citation style chosen", inText: "Whatever style your department sets", refHead: "References", order: "alpha", hang: true,
+    etal: "Per chosen style", extra: "Left margin is often 1.5 in for binding; front matter in roman numerals, body in arabic; your graduate school's format guide overrides everything here" },
+};
+const STYLE_KEYS = Object.keys(STYLES).filter(k => k !== "thesis");
+
+function parseNames(txt) {
+  return String(txt || "").split(/\n|;/).map(s => s.trim()).filter(Boolean).map(s => {
+    if (/^\[.*\]$/.test(s)) return { org: s.slice(1, -1) };
+    if (s.includes(",")) { const [l, f] = s.split(",").map(x => x.trim()); return { last: l, first: f }; }
+    const w = s.split(/\s+/); return { last: w.pop(), first: w.join(" ") };
+  });
+}
+const inits = (first, dot, space) => (first || "").split(/[\s-]+/).filter(Boolean).map(w => w[0].toUpperCase() + (dot ? "." : "")).join(space ? " " : "");
+const MINOR = new Set("a an the and but or nor for so yet as at by in of on per to up via vs from into with over".split(" "));
+function titleCase(s) { const w = String(s).split(/(\s+)/); let first = true;
+  return w.map((x, i) => { if (/^\s+$/.test(x)) return x; const last = i === w.length - 1, after = i > 1 && /[:—?!]$/.test(w[i - 2]);
+    const out = (first || last || after || !MINOR.has(x.toLowerCase())) ? x.replace(/^(\W*)(\w)/, (m, a, b) => a + b.toUpperCase()) : (x === x.toUpperCase() && x.length > 1 ? x : x.toLowerCase()); first = false; return out; }).join(""); }
+function sentenceCase(s) { let start = true;
+  return String(s).split(/(\s+)/).map(x => { if (/^\s+$/.test(x)) return x; let o;
+    if (start) o = x.replace(/^(\W*)(\w)/, (m, a, b) => a + b.toUpperCase()); else if (x.length > 1 && x === x.toUpperCase() && /[A-Z]/.test(x)) o = x; else if (/^[A-Z][a-z]+[A-Z]/.test(x)) o = x; else o = x.toLowerCase();
+    start = /[:?!]$/.test(x); return o; }).join(""); }
+const I = s => s ? `<i>${esc(s)}</i>` : "", E = esc;
+const joinAnd = (a, amp, oxford) => a.length < 2 ? (a[0] || "") : a.length === 2 ? a.join(amp ? " & " : " and ") : a.slice(0, -1).join(", ") + (oxford === false ? " " : ", ") + (amp ? "& " : "and ") + a[a.length - 1];
+const MON = ["Jan.", "Feb.", "Mar.", "Apr.", "May", "June", "July", "Aug.", "Sept.", "Oct.", "Nov.", "Dec."], MONF = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function dparts(d) { const m = /^(\d{4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?/.exec(d || ""); return m ? { y: m[1], m: m[2] ? +m[2] : 0, d: m[3] ? +m[3] : 0 } : { y: "", m: 0, d: 0 }; }
+const doiUrl = d => !d ? "" : /^https?:/.test(d) ? d : "https://doi.org/" + d.replace(/^doi:\s*/i, "");
+const pages = p => String(p || "").replace(/-+/g, "–");
+
+function authorsFor(st, A) {
+  const nm = a => a.org;
+  switch (st) {
+    case "apa": { const L = A.map(a => a.org || `${a.last}, ${inits(a.first, true, true)}`); return L.length > 20 ? L.slice(0, 19).join(", ") + ", . . . " + L[L.length - 1] : L.length === 2 ? L[0] + ", & " + L[1] : joinAnd(L, true); }
+    case "mla": { if (!A.length) return ""; const f = A[0].org || `${A[0].last}, ${A[0].first}`; if (A.length === 1) return f; if (A.length === 2) return `${f}, and ${A[1].org || A[1].first + " " + A[1].last}`; return f + ", et al"; }
+    case "chinb": case "chiad": case "turabian": { const L = A.map((a, i) => a.org || (i === 0 ? `${a.last}, ${a.first}` : `${a.first} ${a.last}`)); return L.length > 6 ? L.slice(0, 3).join(", ") + ", et al" : L.length === 2 ? L[0] + ", and " + L[1] : joinAnd(L, false); }
+    case "ieee": { const L = A.map(a => a.org || `${inits(a.first, true, true)} ${a.last}`); return L.length > 6 ? L[0] + " et al." : joinAnd(L, false); }
+    case "harvard": { const L = A.map(a => a.org || `${a.last}, ${inits(a.first, true, false)}`); return L.length > 3 ? L[0] + " et al." : joinAnd(L, false, false); }
+    case "ama": { const L = A.map(a => a.org || `${a.last} ${inits(a.first, false)}`); return L.length > 6 ? L.slice(0, 3).join(", ") + ", et al" : L.join(", "); }
+    case "vancouver": { const L = A.map(a => a.org || `${a.last} ${inits(a.first, false)}`); return L.length > 6 ? L.slice(0, 6).join(", ") + ", et al" : L.join(", "); }
+  }
+  return A.map(nm).join(", ");
+}
+const dot = s => s && !/[.?!]$/.test(s) ? s + "." : s;
+function cite(st, src) {
+  const A = parseNames(src.authors), au = authorsFor(st, A), dp = dparts(src.date), y = src.year || dp.y || "n.d.";
+  const T = src.title || "Untitled", C = src.container || "", vol = src.volume, iss = src.issue, pg = pages(src.pages), doi = doiUrl(src.doi), url = doi || src.url || "";
+  const ed = src.edition && src.edition !== "1" ? src.edition : "", acc = dparts(src.accessed), t = src.type;
+  const ord = n => n + (["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) ? 0 : n % 10 < 4 ? n % 10 : 0]);
+  switch (st) {
+    case "apa": {
+      const who = au ? dot(au) + " " : "", when = `(${y}${t === "web" && dp.m ? ", " + MONF[dp.m - 1] + (dp.d ? " " + dp.d : "") : ""}). `;
+      if (t === "book") return `${who}${when}${I(sentenceCase(T))}${ed ? ` (${ord(+ed)} ed.)` : ""}. ${E(src.publisher)}.${url ? " " + E(url) : ""}`;
+      if (t === "journal") return `${who}${when}${E(dot(sentenceCase(T)))} ${I(C)}${vol ? `, ${I(vol)}` : ""}${iss ? `(${E(iss)})` : ""}${pg ? `, ${E(pg)}` : ""}.${url ? " " + E(url) : ""}`;
+      if (t === "chapter") return `${who}${when}${E(sentenceCase(T))}. In ${E(src.editors ? src.editors + " (Eds.), " : "")}${I(sentenceCase(C))}${pg ? ` (pp. ${E(pg)})` : ""}. ${E(src.publisher)}.${url ? " " + E(url) : ""}`;
+      return `${who || ""}${when}${I(sentenceCase(T))}. ${src.site && src.site !== au ? E(src.site) + ". " : ""}${E(url)}`;
+    }
+    case "mla": {
+      const who = au ? dot(au) + " " : "", date = dp.d ? `${dp.d} ${MON[dp.m - 1]} ${dp.y}` : dp.m ? `${MON[dp.m - 1]} ${dp.y}` : y;
+      if (t === "book") return `${who}${I(titleCase(T))}.${ed ? ` ${ord(+ed)} ed.,` : ""} ${E(src.publisher)}, ${E(y)}.`;
+      if (t === "journal") return `${who}“${E(dot(titleCase(T)))}” ${I(titleCase(C))}${vol ? `, vol. ${E(vol)}` : ""}${iss ? `, no. ${E(iss)}` : ""}, ${E(y)}${pg ? `, pp. ${E(pg)}` : ""}${doi ? `, ${E(doi)}` : url ? `, ${E(url.replace(/^https?:\/\//, ""))}` : ""}.`;
+      if (t === "chapter") return `${who}“${E(dot(titleCase(T)))}” ${I(titleCase(C))}${src.editors ? `, edited by ${E(src.editors)}` : ""}, ${E(src.publisher)}, ${E(y)}${pg ? `, pp. ${E(pg)}` : ""}.`;
+      return `${who}“${E(dot(titleCase(T)))}” ${I(src.site || "")}, ${E(date)}, ${E(url.replace(/^https?:\/\//, ""))}.${acc.y ? ` Accessed ${acc.d} ${MON[acc.m - 1]} ${acc.y}.` : ""}`;
+    }
+    case "chinb": case "turabian": {
+      const who = au ? dot(au) + " " : "";
+      if (t === "book") return `${who}${I(titleCase(T))}.${ed ? ` ${ord(+ed)} ed.` : ""} ${src.place ? E(src.place) + ": " : ""}${E(src.publisher)}, ${E(y)}.${url ? " " + E(url) + "." : ""}`;
+      if (t === "journal") return `${who}“${E(dot(titleCase(T)))}” ${I(titleCase(C))} ${E(vol || "")}${iss ? `, no. ${E(iss)}` : ""} (${E(y)})${pg ? `: ${E(pg)}` : ""}.${url ? " " + E(url) + "." : ""}`;
+      if (t === "chapter") return `${who}“${E(dot(titleCase(T)))}” In ${I(titleCase(C))}${src.editors ? `, edited by ${E(src.editors)}` : ""}${pg ? `, ${E(pg)}` : ""}. ${src.place ? E(src.place) + ": " : ""}${E(src.publisher)}, ${E(y)}.`;
+      return `${who}“${E(dot(titleCase(T)))}” ${E(src.site || "")}${dp.m ? `, ${MONF[dp.m - 1]} ${dp.d ? dp.d + ", " : ""}${dp.y}` : ""}. ${E(url)}.`;
+    }
+    case "chiad": {
+      const who = au ? dot(au) + " " : "";
+      if (t === "book") return `${who}${E(y)}. ${I(titleCase(T))}. ${src.place ? E(src.place) + ": " : ""}${E(src.publisher)}.`;
+      if (t === "journal") return `${who}${E(y)}. “${E(dot(titleCase(T)))}” ${I(titleCase(C))} ${E(vol || "")}${iss ? ` (${E(iss)})` : ""}${pg ? `: ${E(pg)}` : ""}.${url ? " " + E(url) + "." : ""}`;
+      if (t === "chapter") return `${who}${E(y)}. “${E(dot(titleCase(T)))}” In ${I(titleCase(C))}${src.editors ? `, edited by ${E(src.editors)}` : ""}${pg ? `, ${E(pg)}` : ""}. ${E(src.publisher)}.`;
+      return `${who}${E(y)}. “${E(dot(titleCase(T)))}” ${E(src.site || "")}. ${E(url)}.`;
+    }
+    case "ieee": {
+      const who = au ? au + ", " : "", mon = dp.m ? MON[dp.m - 1] + " " : "";
+      if (t === "book") return `${who}${I(titleCase(T))}${ed ? `, ${ord(+ed)} ed` : ""}. ${src.place ? E(src.place) + ": " : ""}${E(src.publisher)}, ${E(y)}.`;
+      if (t === "journal") return `${who}“${E(titleCase(T))},” ${I(C)}${vol ? `, vol. ${E(vol)}` : ""}${iss ? `, no. ${E(iss)}` : ""}${pg ? `, pp. ${E(pg)}` : ""}, ${mon}${E(y)}${doi ? `, doi: ${E(doi.replace("https://doi.org/", ""))}` : ""}.`;
+      if (t === "chapter") return `${who}“${E(titleCase(T))},” in ${I(titleCase(C))}${src.editors ? `, ${E(src.editors)}, Eds.` : ""} ${src.place ? E(src.place) + ": " : ""}${E(src.publisher)}, ${E(y)}${pg ? `, pp. ${E(pg)}` : ""}.`;
+      return `${au ? au + ". " : ""}“${E(titleCase(T))}.” ${E(src.site || "")}. ${E(url)}${acc.y ? ` (accessed ${MON[acc.m - 1]} ${acc.d}, ${acc.y})` : ""}.`;
+    }
+    case "harvard": {
+      const who = au ? au + " " : "";
+      if (t === "book") return `${who}(${E(y)}) ${I(T)}.${ed ? ` ${ord(+ed)} edn.` : ""} ${src.place ? E(src.place) + ": " : ""}${E(src.publisher)}.`;
+      if (t === "journal") return `${who}(${E(y)}) ‘${E(T)}’, ${I(C)}${vol ? `, ${E(vol)}` : ""}${iss ? `(${E(iss)})` : ""}${pg ? `, pp. ${E(pg)}` : ""}.${doi ? ` Available at: ${E(doi)}.` : url ? ` Available at: ${E(url)}.` : ""}`;
+      if (t === "chapter") return `${who}(${E(y)}) ‘${E(T)}’, in ${src.editors ? E(src.editors) + " (eds) " : ""}${I(C)}. ${src.place ? E(src.place) + ": " : ""}${E(src.publisher)}${pg ? `, pp. ${E(pg)}` : ""}.`;
+      return `${who}(${E(y)}) ${I(T)}. Available at: ${E(url)}${acc.y ? ` (Accessed: ${acc.d} ${MONF[acc.m - 1]} ${acc.y})` : ""}.`;
+    }
+    case "ama": {
+      const who = au ? dot(au) + " " : "";
+      if (t === "book") return `${who}${I(titleCase(T))}.${ed ? ` ${ord(+ed)} ed.` : ""} ${E(src.publisher)}; ${E(y)}.`;
+      if (t === "journal") return `${who}${E(dot(sentenceCase(T)))} ${I(C)}. ${E(y)};${E(vol || "")}${iss ? `(${E(iss)})` : ""}${pg ? `:${E(pg)}` : ""}.${doi ? ` doi:${E(doi.replace("https://doi.org/", ""))}` : ""}`;
+      if (t === "chapter") return `${who}${E(dot(sentenceCase(T)))} In: ${src.editors ? E(src.editors) + ", eds. " : ""}${I(titleCase(C))}. ${E(src.publisher)}; ${E(y)}${pg ? `:${E(pg)}` : ""}.`;
+      return `${who}${E(dot(sentenceCase(T)))} ${E(src.site || "")}.${dp.m ? ` Published ${MONF[dp.m - 1]} ${dp.d ? dp.d + ", " : ""}${dp.y}.` : ""}${acc.y ? ` Accessed ${MONF[acc.m - 1]} ${acc.d}, ${acc.y}.` : ""} ${E(url)}`;
+    }
+    case "vancouver": {
+      const who = au ? dot(au) + " " : "", m3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      if (t === "book") return `${who}${E(dot(sentenceCase(T)))}${ed ? ` ${ord(+ed)} ed.` : ""} ${src.place ? E(src.place) + ": " : ""}${E(src.publisher)}; ${E(y)}.`;
+      if (t === "journal") return `${who}${E(dot(sentenceCase(T)))} ${E(C)}. ${E(y)};${E(vol || "")}${iss ? `(${E(iss)})` : ""}${pg ? `:${E(pg)}` : ""}.${doi ? ` doi:${E(doi.replace("https://doi.org/", ""))}` : ""}`;
+      if (t === "chapter") return `${who}${E(dot(sentenceCase(T)))} In: ${src.editors ? E(src.editors) + ", editors. " : ""}${E(dot(sentenceCase(C)))} ${src.place ? E(src.place) + ": " : ""}${E(src.publisher)}; ${E(y)}${pg ? `. p. ${E(pg)}` : ""}.`;
+      return `${who}${E(sentenceCase(T))} [Internet]. ${E(src.site || "")}; ${E(y)} [cited ${acc.y ? `${acc.y} ${m3[acc.m - 1]} ${acc.d}` : "date"}]. Available from: ${E(url)}`;
+    }
+  }
+  return "";
+}
+function inText(st, src, n, pg) {
+  const A = parseNames(src.authors), y = src.year || dparts(src.date).y || "n.d.", L = A.map(a => a.org || a.last);
+  const who = L.length === 0 ? `“${src.title}”` : L.length === 1 ? L[0] : L.length === 2 ? L.join(st === "apa" ? " & " : " and ") : L[0] + " et al.";
+  switch (st) {
+    case "apa": return `(${who}, ${y}${pg ? ", p. " + pg : ""})`;
+    case "harvard": return `(${who}, ${y}${pg ? ", p. " + pg : ""})`;
+    case "mla": return `(${who}${pg ? " " + pg : ""})`;
+    case "chiad": return `(${who} ${y}${pg ? ", " + pg : ""})`;
+    case "chinb": case "turabian": { const N = A.map(a => a.org || a.first + " " + a.last); return `note ${n}: ${N.length ? (N.length > 3 ? N[0] + " et al." : joinAnd(N, false)) + ", " : ""}“${titleCase(src.title)},” ${pg ? pg : ""}.`; }
+    case "ieee": return `[${n}]`;
+    case "ama": return `superscript ${n}`;
+    case "vancouver": return `(${n})`;
+  }
+}
+const plain = h => h.replace(/<i>(.*?)<\/i>/g, "$1").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+const DEMO_SRC = [
+  { type: "journal", authors: "Smith, Jane A.\nJones, Robert", year: "2020", title: "Learning curves in adult education: a field study", container: "Journal of Adult Learning", volume: "12", issue: "3", pages: "45-67", doi: "10.1234/jal.2020.045" },
+  { type: "book", authors: "Garcia, Maria", year: "2018", title: "the shape of letters", publisher: "Open Type Press", place: "Chicago", edition: "2" },
+  { type: "web", authors: "[World Health Organization]", date: "2023-05-04", title: "Physical activity fact sheet", site: "World Health Organization", url: "https://www.who.int/news-room/fact-sheets/detail/physical-activity", accessed: "2026-11-24" },
+];
+
+function pageHome() {
+  return `<h2>Type Studio</h2><p class="lead">Typefaces, kerning, typography and academic paper formats in one place. Everything runs inside the app; nothing is sent anywhere.</p>
+  <div class="grid">${[["face", "🔤 Typeface designer", "Draw your own font (pixels or curves) and export a real .ttf"], ["kern", "↔ Kerning", "Pairs, auto-kern from letter shapes, inspector for installed fonts"],
+    ["typo", "📐 Typography", "Type scales, line length and leading, OpenType features, pairings, specimens"], ["styles", "🎓 Paper formats", "APA, MLA, Chicago, Turabian, IEEE, Harvard, AMA, Vancouver, thesis"],
+    ["cite", "📚 Citations", "One source, every style at once; bibliography in the right order"], ["paper", "📝 Paper template", "Fill in a form, get a formatted paper (.docx, .html, LaTeX)"],
+    ["check", "✅ Format checker", "Paste a paper: citations, reference list, headings and common slips"], ["exportf", "⬇ Export font", "TTF, CSS, project file, file check"]]
+    .map(([id, n, d]) => `<div class="card" style="cursor:pointer" data-page="${id}"><h3>${n}</h3><div class="sub">${d}</div></div>`).join("")}</div>
+  <div class="banner">Style rules here are summarized from the current manuals (APA 7, MLA 9, Chicago 18, Turabian 9, IEEE, Cite Them Right, AMA 11, NLM) and have <b>not</b> been checked line by line against them. Your school's or journal's guide always wins.</div>`;
+}
+function scale(base, ratio, steps) { const out = []; for (let i = steps; i >= -2; i--) out.push([i, base * ratio ** i]); return out; }
+const RATIOS = [["1.067", "Minor second 1.067"], ["1.125", "Major second 1.125"], ["1.2", "Minor third 1.2"], ["1.25", "Major third 1.25"], ["1.333", "Perfect fourth 1.333"], ["1.414", "Augmented fourth 1.414"], ["1.5", "Perfect fifth 1.5"], ["1.618", "Golden ratio 1.618"]];
+const FEATS = [["kern", "Kerning"], ["liga", "Standard ligatures (fi, fl)"], ["dlig", "Discretionary ligatures"], ["smcp", "Small caps"], ["c2sc", "Capitals to small caps"], ["onum", "Old-style figures"], ["lnum", "Lining figures"], ["tnum", "Tabular figures"], ["pnum", "Proportional figures"], ["frac", "Fractions"], ["zero", "Slashed zero"], ["swsh", "Swashes"], ["salt", "Stylistic alternates"], ["ss01", "Stylistic set 1"], ["case", "Case-sensitive forms"], ["sups", "Superscript"]];
+const PAIRS_FONT = [["Georgia", "Verdana", "Classic serif headings + very readable sans body"], ["Segoe UI", "Georgia", "Clean sans headings + warm serif body"], ["Cambria", "Calibri", "Office pair, made to work together"], ["Palatino Linotype", "Segoe UI", "Old-style elegance + modern UI text"], ["Trebuchet MS", "Georgia", "Friendly headings + bookish body"], ["Franklin Gothic Medium", "Garamond", "Strong news headline + classic book text"]];
+function pageTypo() {
+  const base = num(S.ty.base) || 16, ratio = num(S.ty.ratio) || 1.25, sc = scale(base, ratio, 6);
+  const c = document.createElement("canvas").getContext("2d"); c.font = `${S.ty.size}px "${S.ty.font}"`;
+  const avg = c.measureText("the quick brown fox jumps over the lazy dog and keeps running ").width / 61, cpl = Math.round(num(S.ty.width) / avg);
+  const lh = num(S.ty.lh), feats = FEATS.filter(f => S.ty.feat[f[0]]).map(f => `"${f[0]}" 1`).join(", ") || "normal";
+  return `<h2>Typography</h2><p class="lead">The rules of good type, as tools: a size scale, line length and spacing, OpenType features and font pairings, all live with the fonts on this computer.</p>
+  <div class="row"><div class="card"><h3>Type scale</h3><div class="row">${F("Base size (px)", "ty.base", { type: "number", r: 1 })}${F("Ratio", "ty.ratio", { opts: RATIOS, r: 1 })}${F("Font", "ty.font", { opts: SYS_FONTS, r: 1 })}</div>
+   ${sc.map(([i, px]) => `<div style="font-family:'${esc(S.ty.font)}';font-size:${px}px;line-height:1.2;margin:2px 0;white-space:nowrap;overflow:hidden"><span class="pill">${i >= 0 ? "h" + Math.max(1, 6 - i + 0) : "small"} ${r2(px)}px / ${r2(px / 16)}rem</span> Typeset well</div>`).join("")}
+   <button data-act="exScale">Copy as CSS</button></div>
+  <div class="card"><h3>Line length + leading</h3><div class="row">${F("Font", "ty.font", { opts: SYS_FONTS, r: 1 })}${F("Size (px)", "ty.size", { type: "number", r: 1 })}${F("Column width (px)", "ty.width", { type: "number", r: 1 })}${F("Line height", "ty.lh", { type: "number", step: "0.05", r: 1 })}</div>
+   <p>≈ <b class="${cpl >= 45 && cpl <= 75 ? "ok" : "bad"}">${cpl} characters per line</b> (comfortable: 45-75, ideal ≈ 66) · line height <b class="${lh >= 1.3 && lh <= 1.7 ? "ok" : "warnc"}">${lh}</b> (body text 1.4-1.6)</p>
+   <p class="sub">${cpl > 75 ? "Too long: eyes lose the next line. Narrow the column or raise the size." : cpl < 45 ? "Too short: lots of hyphens and ragged edges. Widen the column." : "Good measure."}</p>
+   <div style="width:${num(S.ty.width)}px;max-width:100%;font-family:'${esc(S.ty.font)}';font-size:${S.ty.size}px;line-height:${lh};border:1px dashed var(--line);padding:6px">${esc(S.ty.text)}</div></div></div>
+  <div class="row"><div class="card"><h3>OpenType features</h3><p class="sub">Each font supports its own set; ticking one the font lacks changes nothing.</p>
+   <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${FEATS.map(([k, n]) => F(`${k}: ${n}`, `ty.feat.${k}`, { type: "check" })).join("")}</div>
+   <div style="font-family:'${esc(S.ty.font)}';font-size:30px;font-feature-settings:${feats};margin-top:8px">Office fluffy 1/2 0123456789 AVATAR Quick Brown</div><pre>font-feature-settings: ${esc(feats)};</pre></div>
+  <div class="card"><h3>Font pairings</h3>${PAIRS_FONT.map(([h, b, why]) => `<div style="border-bottom:1px solid var(--line);padding:6px 0"><div style="font-family:'${h}';font-size:22px">${h}</div><div style="font-family:'${b}';font-size:14px">${b}: ${why}. The body text should be easy to read for a long time.</div></div>`).join("")}</div></div>
+  <div class="card"><h3>Specimen</h3>${F("Font", "ty.font", { opts: SYS_FONTS, r: 1 })}<div style="font-family:'${esc(S.ty.font)}'">${[72, 48, 32, 24, 18, 14, 11].map(s => `<div style="font-size:${s}px;line-height:1.15;white-space:nowrap;overflow:hidden">${s}px Hamburgefonstiv 0123456789</div>`).join("")}
+   <p style="font-size:14px">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz<br>0123456789 !?&amp;@#%()[]{}“”‘’—–…</p></div></div>`;
+}
+function pageStyles() {
+  const k = S.styleView || "apa", s = STYLES[k];
+  return `<h2>Paper formats</h2><p class="lead">The core rules of each academic style. Pick one to see its page setup, headings, citations and reference list; the Paper template and the Checker use the same rules.</p>
+  <div class="banner">Summarized from the manuals, not checked line by line against them. Your teacher's, school's or journal's guide wins.</div>
+  <p>${Object.entries(STYLES).map(([id, x]) => `<button data-act="styleView" data-arg="${id}" class="${id === k ? "pri" : ""}">${esc(x.name)}</button>`).join(" ")}</p>
+  <div class="card"><h3>${esc(s.name)}</h3><table>${[["Used in", s.field], ["Font", s.font], ["Spacing", s.line === 2 ? "Double" : s.line === 1 ? "Single" : s.line + " lines"], ["Margins", s.margin + " in all round"], ["Paragraph indent", s.indent ? s.indent + " in" : "None (block paragraphs)"], ["Title / first page", s.title], ["Headings", s.heads], ["In-text citations", s.inText], ["Source list title", s.refHead], ["Source list order", s.order === "alpha" ? "Alphabetical by first author" : "Numbered in the order first cited"], ["Hanging indent", s.hang ? "Yes, 0.5 in" : "No"], ["Many authors", s.etal], ["Also", s.extra]].map(([a, b]) => `<tr><th style="width:170px">${a}</th><td>${esc(b)}</td></tr>`).join("")}</table></div>
+  <div class="card"><h3>All styles side by side</h3><table><tr><th>Style</th><th>Spacing</th><th>In text</th><th>List</th><th>Order</th></tr>${STYLE_KEYS.map(id => { const x = STYLES[id]; return `<tr><td>${esc(x.name)}</td><td>${x.line}</td><td>${esc(x.inText.split(";")[0])}</td><td>${esc(x.refHead)}</td><td>${x.order === "alpha" ? "A-Z" : "1, 2, 3…"}</td></tr>`; }).join("")}</table></div>`;
+}
+function pageCite() {
+  const src = S.src, flds = { book: ["authors", "year", "title", "edition", "publisher", "place", "doi", "url"], journal: ["authors", "year", "title", "container", "volume", "issue", "pages", "doi", "url"],
+    chapter: ["authors", "year", "title", "editors", "container", "pages", "publisher", "place", "doi"], web: ["authors", "date", "title", "site", "url", "accessed"] }[src.type];
+  const lab = { authors: "Authors (one per line: Last, First · [Organisation])", year: "Year", date: "Date published (YYYY-MM-DD)", title: "Title", container: src.type === "journal" ? "Journal" : "Book title", volume: "Volume", issue: "Issue", pages: "Pages (45-67)", publisher: "Publisher", place: "City (optional)", edition: "Edition (number)", doi: "DOI", url: "URL", editors: "Editors (First Last)", site: "Website name", accessed: "Accessed (YYYY-MM-DD)" };
+  return `<h2>Citations</h2><p class="lead">Enter a source once; see it in every style. Add it to your list and export the reference list in the right order.</p>
+  <div class="row"><div class="card" style="max-width:440px"><h3>Source</h3>${F("Type", "src.type", { opts: [["journal", "Journal article"], ["book", "Book"], ["chapter", "Book chapter"], ["web", "Web page"]], r: 1 })}
+   ${flds.map(f => F(lab[f], "src." + f, f === "authors" ? { type: "area", h: 60, r: 1 } : { r: 1 })).join("")}
+   <p><button data-act="addSrc" class="pri">+ Add to my list</button> <button data-act="demoSrc">Load 3 examples</button></p></div>
+  <div class="card"><h3>In every style</h3><table>${STYLE_KEYS.map(k => `<tr><th style="width:150px">${esc(STYLES[k].name)}</th><td>${cite(k, src)}<div class="sub">In text: ${esc(inText(k, src, 1, "45"))}</div></td></tr>`).join("")}</table></div></div>
+  <div class="card"><h3>My list (${S.list.length})</h3>${F("Style", "listStyle", { opts: STYLE_KEYS.map(k => [k, STYLES[k].name]), r: 1 })}
+   ${refList(S.listStyle, S.list)}<p><button data-act="exRefs">⬇ Reference list (.html)</button> <button data-act="exRefsTxt">Plain text</button> <button data-act="exBib">BibTeX (.bib)</button> <button data-act="clearList">Clear list</button></p></div>`;
+}
+const alphaKey = s => { const a = parseNames(s.authors)[0]; return ((a ? (a.org || a.last) : s.title) || "").toLowerCase() + " " + (s.year || dparts(s.date).y); };
+function refList(st, list) {
+  const sty = STYLES[st]; if (!list.length) return `<p class="sub">Nothing yet.</p>`;
+  const items = sty.order === "alpha" ? [...list].sort((a, b) => alphaKey(a).localeCompare(alphaKey(b))) : list;
+  return `<h4>${esc(sty.refHead)}</h4>` + items.map((s, i) => `<p style="${sty.hang ? "padding-left:2em;text-indent:-2em;" : ""}margin:4px 0">${sty.order === "cited" ? (st === "ieee" ? `[${i + 1}] ` : `${i + 1}. `) : ""}${cite(st, s)} <button class="x" data-act="delSrc" data-arg="${list.indexOf(s)}">✕</button></p>`).join("");
+}
+function bibtex(list) { return list.map((s, i) => { const A = parseNames(s.authors), key = ((A[0] && (A[0].last || A[0].org)) || "src").replace(/\W/g, "") + (s.year || dparts(s.date).y || "") + String.fromCharCode(97 + i % 26);
+  const ty = { journal: "article", book: "book", chapter: "incollection", web: "misc" }[s.type];
+  const f = [["author", A.map(a => a.org ? `{${a.org}}` : `${a.last}, ${a.first}`).join(" and ")], ["title", `{${s.title}}`], [s.type === "journal" ? "journal" : "booktitle", s.container], ["year", s.year || dparts(s.date).y], ["volume", s.volume], ["number", s.issue], ["pages", (s.pages || "").replace(/-+/, "--")], ["publisher", s.publisher], ["address", s.place], ["edition", s.edition], ["doi", s.doi], ["url", s.url], ["urldate", s.accessed]].filter(x => x[1]);
+  return `@${ty}{${key},\n${f.map(([k, v]) => `  ${k} = {${v}}`).join(",\n")}\n}`; }).join("\n\n"); }
+
+function pageTemplate() {
+  const P = S.paper, st = STYLES[P.style];
+  return `<h2>Paper template</h2><p class="lead">Fill in the parts; get a paper already set up in the chosen style (fonts, spacing, margins, title page, headings, page numbers, reference list with hanging indents). Open the .docx in Word, LibreOffice or Google Docs.</p>
+  <div class="row"><div class="card" style="max-width:460px">${F("Style", "paper.style", { opts: Object.keys(STYLES).map(k => [k, STYLES[k].name]), r: 1 })}
+   ${F("Title", "paper.title", { r: 1 })}${F("Your name", "paper.author", { r: 1 })}${F("School / affiliation", "paper.school", { r: 1 })}${F("Course", "paper.course", { r: 1 })}${F("Instructor", "paper.instructor", { r: 1 })}${F("Date", "paper.date", { type: "date", r: 1 })}
+   ${F("Abstract (leave empty for none)", "paper.abstract", { type: "area", h: 70, r: 1 })}${F("Keywords", "paper.keywords", { r: 1 })}
+   ${F("Sections: '# Heading' starts a section, '## Subheading' a level-2 heading; other lines are paragraphs", "paper.body", { type: "area", h: 180, r: 1 })}
+   <p class="sub">References come from your Citations list (${S.list.length}).</p>
+   <p><button data-act="exDocx" class="pri">⬇ Word (.docx)</button> <button data-act="exHtml">HTML</button> <button data-act="exTex">LaTeX (.tex)</button></p></div>
+  <div class="card" style="background:#fff;color:#000"><div id="paperprev" style="font-family:'${esc(st.ff)}';font-size:${st.pt * 1.1}px;line-height:${st.line === 2 ? 2 : st.line}">${paperHTML(P, true)}</div></div></div>`;
+}
+function paperBlocks(P) {
+  const st = STYLES[P.style], k = P.style, B = [], d = P.date ? new Date(P.date + "T12:00") : new Date();
+  const dLong = `${MONF[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`, dMla = `${d.getDate()} ${MONF[d.getMonth()]} ${d.getFullYear()}`;
+  if (k === "mla") { [P.author, P.instructor, P.course, dMla].forEach(t => B.push({ k: "left", t })); B.push({ k: "center", t: P.title }); }
+  else if (k === "ieee") { B.push({ k: "title", t: P.title }, { k: "center", t: P.author }, { k: "center", t: P.school }); }
+  else if (k === "thesis") { B.push({ k: "title", t: P.title.toUpperCase() }, { k: "center", t: "by" }, { k: "center", t: P.author }, { k: "center", t: "A thesis submitted in partial fulfillment of the requirements for the degree of ____" }, { k: "center", t: P.school }, { k: "center", t: String(d.getFullYear()) }, { k: "pb" });
+    ["Copyright page", "Approval page", "Acknowledgements", "Table of contents", "List of tables", "List of figures"].forEach(t => B.push({ k: "h1", t }, { k: "p", t: "[" + t + " goes here]" }, { k: "pb" })); }
+  else { B.push({ k: "title", t: P.title }); if (k !== "harvard") B.push({ k: "center", t: "" }); [P.author, P.school, P.course, P.instructor, dLong].filter(Boolean).forEach(t => B.push({ k: "center", t })); B.push({ k: "pb" }); }
+  if (P.abstract && k !== "mla") { B.push({ k: "h1", t: "Abstract" }, { k: "noind", t: P.abstract }); if (P.keywords) B.push({ k: "p", t: "Keywords: " + P.keywords }); if (k !== "ieee") B.push({ k: "pb" }); }
+  if (k === "apa") B.push({ k: "title", t: P.title });
+  let h1n = 0;
+  String(P.body || "").split(/\n/).forEach(line => { const l = line.trim(); if (!l) return;
+    if (l.startsWith("## ")) B.push({ k: "h2", t: l.slice(3) });
+    else if (l.startsWith("# ")) { h1n++; B.push({ k: "h1", t: k === "ieee" ? ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][h1n - 1] + ". " + l.slice(2).toUpperCase() : k === "thesis" ? "Chapter " + h1n + ": " + l.slice(2) : l.slice(2) }); if (k === "thesis") B.splice(B.length - 1, 0, { k: "pb" }); }
+    else B.push({ k: "p", t: l }); });
+  if (S.list.length) { B.push({ k: "pb" }, { k: "refhead", t: st.refHead });
+    const items = st.order === "alpha" ? [...S.list].sort((a, b) => alphaKey(a).localeCompare(alphaKey(b))) : S.list;
+    const sk = P.style === "thesis" ? "apa" : P.style;
+    items.forEach((s, i) => B.push({ k: "ref", t: (st.order === "cited" ? (sk === "ieee" ? `[${i + 1}] ` : `${i + 1}. `) : "") + cite(sk, s) })); }
+  return B;
+}
+function paperHTML(P, prev) {
+  const st = STYLES[P.style];
+  return paperBlocks(P).map(b => {
+    const h = b.k === "ref" ? b.t : esc(b.t);
+    switch (b.k) {
+      case "title": return `<p style="text-align:center;font-weight:bold;margin:0">${h}</p>`;
+      case "h1": case "refhead": return `<p style="text-align:${P.style === "ieee" ? "center" : P.style === "mla" || P.style === "harvard" ? "left" : "center"};font-weight:bold;margin:0">${h}</p>`;
+      case "h2": return `<p style="font-weight:bold;margin:0${P.style === "ieee" ? ";font-style:italic" : ""}">${h}</p>`;
+      case "center": return `<p style="text-align:center;margin:0">${h || "&nbsp;"}</p>`;
+      case "left": return `<p style="margin:0">${h}</p>`;
+      case "noind": return `<p style="margin:0">${h}</p>`;
+      case "pb": return prev ? `<hr style="border:0;border-top:1px dashed #999;margin:10px 0">` : `<div style="page-break-after:always"></div>`;
+      case "ref": return `<p style="margin:0;${st.hang ? "padding-left:0.5in;text-indent:-0.5in" : ""}">${h}</p>`;
+      default: return `<p style="margin:0;text-indent:${st.indent}in">${h}</p>`;
+    }
+  }).join("");
+}
+const xmlEsc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function runs(html, rPr) {
+  return html.split(/(<i>.*?<\/i>)/).filter(Boolean).map(part => { const it = part.startsWith("<i>"); const t = plain(it ? part.slice(3, -4) : part);
+    return `<w:r><w:rPr>${rPr}${it ? "<w:i/>" : ""}</w:rPr><w:t xml:space="preserve">${xmlEsc(t)}</w:t></w:r>`; }).join(""); }
+function docxOf(P) {
+  const st = STYLES[P.style], line = Math.round(240 * st.line), tw = v => Math.round(v * 1440), font = st.ff, sz = st.pt * 2;
+  const rBase = `<w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:cs="${font}"/><w:sz w:val="${sz}"/>`;
+  const para = (b) => {
+    let pPr = `<w:spacing w:before="0" w:after="0" w:line="${line}" w:lineRule="auto"/>`, rPr = rBase, text = b.k === "ref" ? b.t : esc(b.t);
+    if (["title", "center"].includes(b.k)) pPr += `<w:jc w:val="center"/>`;
+    if (b.k === "title" || b.k === "h1" || b.k === "refhead" || b.k === "h2") rPr += "<w:b/>";
+    if (b.k === "h1" || b.k === "refhead") { if (!(P.style === "mla" || P.style === "harvard")) pPr += `<w:jc w:val="center"/>`; pPr = `<w:keepNext/>` + pPr; }
+    if (b.k === "p") pPr += `<w:ind w:firstLine="${tw(st.indent)}"/>`;
+    if (b.k === "ref" && st.hang) pPr += `<w:ind w:left="720" w:hanging="720"/>`;
+    if (b.k === "pb") return `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+    return `<w:p><w:pPr>${pPr}</w:pPr>${runs(text, rPr)}</w:p>`;
+  };
+  const body = paperBlocks(P).map(para).join("");
+  const hdrText = P.style === "mla" ? (P.author || "").split(/\s+/).pop() + " " : "";
+  const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${body}<w:sectPr><w:headerReference w:type="default" r:id="rIdH1"/><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="${tw(st.margin)}" w:right="${tw(st.margin)}" w:bottom="${tw(st.margin)}" w:left="${tw(P.style === "thesis" ? 1.5 : st.margin)}" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  const hdr = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr>${rBase}</w:rPr><w:t xml:space="preserve">${xmlEsc(hdrText)}</w:t></w:r><w:r><w:rPr>${rBase}</w:rPr><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:rPr>${rBase}</w:rPr><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r><w:r><w:rPr>${rBase}</w:rPr><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr>${rBase}</w:rPr><w:t>1</w:t></w:r><w:r><w:rPr>${rBase}</w:rPr><w:fldChar w:fldCharType="end"/></w:r></w:p></w:hdr>`;
+  const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`;
+  const drels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdH1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/></Relationships>`;
+  const core = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${xmlEsc(P.title)}</dc:title><dc:creator>${xmlEsc(P.author)}</dc:creator></cp:coreProperties>`;
+  return [["[Content_Types].xml", ct], ["_rels/.rels", rels], ["word/document.xml", doc], ["word/_rels/document.xml.rels", drels], ["word/header1.xml", hdr], ["docProps/core.xml", core]];
+}
+function texOf(P) {
+  const st = STYLES[P.style], tx = s => plain(String(s)).replace(/([&%$#_{}])/g, "\\$1"), B = paperBlocks(P);
+  const cls = P.style === "ieee" ? "\\documentclass[conference]{IEEEtran}" : P.style === "apa" ? "\\documentclass[stu,12pt]{apa7} % needs the apa7 package" : "\\documentclass[12pt]{article}";
+  return `${cls}\n\\usepackage[margin=${st.margin}in]{geometry}\n\\usepackage{setspace}\n${st.line === 2 ? "\\doublespacing" : st.line === 1.5 ? "\\onehalfspacing" : ""}\n\\usepackage{mathptmx} % Times\n\\title{${tx(P.title)}}\n\\author{${tx(P.author)}${P.school ? "\\\\" + tx(P.school) : ""}}\n\\date{${tx(P.date || "\\today")}}\n\\begin{document}\n\\maketitle\n` +
+    (P.abstract ? `\\begin{abstract}\n${tx(P.abstract)}\n\\end{abstract}\n` : "") + B.filter(b => ["h1", "h2", "p"].includes(b.k) && b.t !== "Abstract").map(b => b.k === "h1" ? `\\section{${tx(b.t.replace(/^[IVX]+\. /, ""))}}` : b.k === "h2" ? `\\subsection{${tx(b.t)}}` : tx(b.t)).join("\n\n") +
+    (S.list.length ? `\n\n\\begin{thebibliography}{${S.list.length}}\n${S.list.map((s, i) => `\\bibitem{r${i + 1}} ${plain(cite(P.style === "thesis" ? "apa" : P.style, s)).replace(/([&%$#_])/g, "\\$1")}`).join("\n")}\n\\end{thebibliography}` : "") + "\n\\end{document}\n";
+}
+
+function checkPaper(st, text) {
+  const out = [], add = (lvl, msg) => out.push([lvl, msg]), s = STYLES[st];
+  const lines = text.split(/\r?\n/), refI = lines.findIndex(l => /^\s*(references|works cited|bibliography|reference list|literature cited)\s*$/i.test(l));
+  const body = refI < 0 ? text : lines.slice(0, refI).join("\n"), refs = refI < 0 ? [] : lines.slice(refI + 1).map(l => l.trim()).filter(Boolean);
+  if (refI < 0) add("bad", `No source list heading found. ${s.name} uses “${s.refHead}”.`);
+  else { const h = lines[refI].trim(); if (h.toLowerCase() !== s.refHead.toLowerCase()) add("warn", `Source list is titled “${h}”; ${s.name} uses “${s.refHead}”.`); else add("ok", `Source list heading “${h}” is right.`); }
+  const words = body.split(/\s+/).filter(Boolean).length; add("info", `${words} words before the source list, ${refs.length} source list entries.`);
+  const auth = /\(([A-Z][A-Za-z'’\-]+(?: (?:&|and) [A-Z][A-Za-z'’\-]+| et al\.)?),? (\d{4}[a-z]?|n\.d\.)(?:, (?:p|pp)\. ?[\d–-]+)?\)/g, mla = /\(([A-Z][A-Za-z'’\-]+(?: and [A-Z][A-Za-z'’\-]+| et al\.)?) (\d+(?:[–-]\d+)?)\)/g, numc = /\[(\d+)(?:[–-](\d+))?(?:,\s*\d+)*\]/g;
+  const found = { auth: [...body.matchAll(auth)], mla: [...body.matchAll(mla)], num: [...body.matchAll(numc)] };
+  if (["apa", "harvard", "chiad"].includes(st)) {
+    if (!found.auth.length) add("bad", `No author-date citations like ${st === "chiad" ? "(Smith 2020)" : "(Smith, 2020)"} found.`);
+    found.auth.forEach(m => { const t = m[0];
+      if (st === "apa" && / and /.test(t)) add("warn", `${t}: APA uses “&” inside brackets.`);
+      if (st === "harvard" && / & /.test(t)) add("warn", `${t}: Cite Them Right uses “and”, not “&”.`);
+      if (st === "chiad" && /, \d{4}/.test(t)) add("warn", `${t}: Chicago author-date has no comma before the year.`);
+      if (st !== "chiad" && !/, (\d{4}|n\.d\.)/.test(t)) add("warn", `${t}: put a comma before the year.`); });
+    const narr = [...body.matchAll(/\b([A-Z][a-z]+) & ([A-Z][a-z]+) \(\d{4}\)/g)]; if (st === "apa") narr.forEach(m => add("warn", `“${m[0]}”: in the sentence write “and”; “&” is only inside brackets.`));
+    const cited = new Set(found.auth.map(m => m[1].split(/ (?:&|and|et)/)[0])), listed = refs.map(r => (r.match(/^\[?\d*\]?\.?\s*([A-Z][A-Za-z'’\-]+)/) || [])[1]).filter(Boolean);
+    cited.forEach(a => { if (refs.length && !listed.includes(a)) add("bad", `${a} is cited in the text but not in ${s.refHead}.`); });
+    listed.forEach(a => { if (!cited.has(a)) add("warn", `${a} is in ${s.refHead} but never cited in the text.`); });
+  }
+  if (st === "mla") { if (!found.mla.length) add("bad", "No MLA citations like (Smith 45) found."); if (found.auth.length) add("warn", `${found.auth.length} author-year citations found, e.g. ${found.auth[0][0]}; MLA uses (Author page), no year.`);
+    const cited = new Set(found.mla.map(m => m[1].split(/ (?:and|et)/)[0])), listed = refs.map(r => (r.match(/^([A-Z][A-Za-z'’\-]+)/) || [])[1]).filter(Boolean);
+    cited.forEach(a => { if (refs.length && !listed.includes(a)) add("bad", `${a} is cited but not in Works Cited.`); }); listed.forEach(a => { if (!cited.has(a)) add("warn", `${a} is in Works Cited but never cited.`); }); }
+  if (["ieee", "vancouver", "ama"].includes(st)) {
+    const nums = found.num.flatMap(m => { const a = +m[1], b = m[2] ? +m[2] : a; const r = []; for (let i = a; i <= b && r.length < 50; i++) r.push(i); return r; });
+    if (!nums.length) add("bad", "No numbered citations like [1] found."); let next = 1; const seen = new Set();
+    nums.forEach(n => { if (!seen.has(n)) { if (n !== next) add("warn", `[${n}] is cited before [${next}]: number sources in the order they are first cited.`); seen.add(n); next = Math.max(next, n + 1); } });
+    if (refs.length && seen.size && Math.max(...seen) > refs.length) add("bad", `Text cites [${Math.max(...seen)}] but the list has ${refs.length} entries.`);
+    if (refs.length > seen.size && seen.size) add("warn", `${refs.length - seen.size} list entries are never cited.`);
+    if (found.auth.length) add("warn", `Author-year citations found (e.g. ${found.auth[0][0]}); ${s.name} uses numbers.`);
+  }
+  if (["chinb", "turabian"].includes(st)) { if (found.auth.length) add("warn", `Author-year citations found (e.g. ${found.auth[0][0]}); notes-bibliography uses footnote numbers.`); add("info", "Footnotes can't be seen in pasted plain text; check them in your word processor."); }
+  if (s.order === "alpha" && refs.length > 1) { const keys = refs.map(r => r.replace(/^[\W\d]+/, "").toLowerCase()); for (let i = 1; i < keys.length; i++) if (keys[i] < keys[i - 1]) { add("bad", `Source list is not in A-Z order: “${refs[i].slice(0, 40)}…” comes after “${refs[i - 1].slice(0, 40)}…”.`); break; } }
+  if (s.order === "cited" && refs.length) { refs.forEach((r, i) => { const m = r.match(/^\[?(\d+)[\].]/); if (!m || +m[1] !== i + 1) add("warn", `Entry ${i + 1} should start with ${st === "ieee" ? "[" + (i + 1) + "]" : i + 1 + "."}`); }); }
+  if (st === "apa") { refs.forEach(r => { if (/retrieved from/i.test(r)) add("warn", `“Retrieved from” is APA 6; APA 7 gives the URL alone: ${r.slice(0, 50)}…`); if (/\bdoi:\s*10\./i.test(r)) add("warn", `Write DOIs as https://doi.org/10…: ${r.slice(0, 50)}…`); });
+    const ab = text.match(/^\s*abstract\s*$/im); if (ab) { const after = text.slice(ab.index + ab[0].length).trim().split(/\n\s*\n|\n(?=[A-Z][^\n]{0,60}\n)/)[0]; const n = after.split(/\s+/).length; add(n > 250 ? "warn" : "ok", `Abstract ≈ ${n} words (APA limit 250).`); } }
+  if (st === "mla") refs.forEach(r => { if (/\(\d{4}\)/.test(r)) add("warn", `MLA puts the year near the end, not in brackets after the name: ${r.slice(0, 50)}…`); });
+  [...body.matchAll(/[“"]([^”"]{1,2000})[”"]/g)].forEach(m => { const n = m[1].split(/\s+/).length; if ((st === "apa" && n >= 40) || (st === "mla" && n > 50) || (["chinb", "turabian"].includes(st) && n > 100)) add("warn", `A ${n}-word quotation in quote marks: ${s.name} sets long quotes as an indented block without quote marks.`); });
+  if (/\b(can't|don't|won't|isn't|it's|doesn't|didn't)\b/i.test(body)) add("info", "Contractions found; most academic styles prefer the full words.");
+  if (/\s{2,}\./.test(body) || /\.\s{2,}[A-Z]/.test(body)) add("info", "Two spaces after a period: APA 7 asks for two only in drafts if your teacher wants; most styles use one.");
+  return out;
+}
+const DEMO_PAPER = `Learning by Doing
+
+People learn faster when they practice (Smith & Jones, 2020). Garcia (2018) showed that letter shapes guide reading speed (Garcia, 2018, p. 12). Smith & Jones (2020) disagree about the size of the effect, and later work agreed (Brown, 2021).
+
+References
+Smith, J. A., & Jones, R. (2020). Learning curves in adult education. Journal of Adult Learning, 12(3), 45–67. doi:10.1234/jal.2020.045
+Garcia, M. (2018). The shape of letters (2nd ed.). Open Type Press.
+Adams, P. (2019). Retrieved from https://example.org/notes`;
+function pageCheck() {
+  const res = S.checkRes || [];
+  return `<h2>Format checker</h2><p class="lead">Paste your paper as plain text (title to source list). The checker finds citations, matches them with the source list, checks order, headings and the most common slips for the style. It reads text only: margins, fonts and indents need the paper file itself.</p>
+  <div class="row"><div class="card">${F("Style", "checkStyle", { opts: STYLE_KEYS.map(k => [k, STYLES[k].name]) })}${F("Paper text", "checkText", { type: "area", h: 300 })}
+   <p><button data-act="runCheck" class="pri">Check</button> <button data-act="demoCheck">Load an example with mistakes</button></p></div>
+  <div class="card"><h3>Findings (${res.length})</h3>${res.map(([l, m]) => `<p class="${l === "bad" ? "bad" : l === "warn" ? "warnc" : l === "ok" ? "ok" : "sub"}">${l === "bad" ? "✗" : l === "warn" ? "⚠" : l === "ok" ? "✓" : "ℹ"} ${esc(m)}</p>`).join("") || `<p class="sub">Press Check.</p>`}</div></div>`;
+}
+
+Object.assign(ACT, {
+  exScale() { const css = scale(num(S.ty.base) || 16, num(S.ty.ratio) || 1.25, 6).map(([i, px]) => `  --step-${i}: ${r2(px / 16)}rem; /* ${r2(px)}px */`).join("\n"); download("type-scale.css", `:root {\n${css}\n}\n`); },
+  styleView(k) { S.styleView = k; save(); render(); },
+  addSrc() { S.list.push(JSON.parse(JSON.stringify(S.src))); save(); render(); toast("Added."); },
+  demoSrc() { DEMO_SRC.forEach(s => S.list.push(JSON.parse(JSON.stringify(s)))); S.src = JSON.parse(JSON.stringify(DEMO_SRC[0])); save(); render(); },
+  delSrc(i) { S.list.splice(+i, 1); save(); render(); },
+  clearList() { if (confirm("Clear the list?")) { S.list = []; save(); render(); } },
+  exRefs() { download("references.html", `<!doctype html><meta charset="utf-8"><body style="font-family:'Times New Roman';font-size:12pt;line-height:2">${refList(S.listStyle, S.list).replace(/ <button[^>]*>✕<\/button>/g, "")}</body>`, "text/html"); },
+  exRefsTxt() { const st = STYLES[S.listStyle]; const items = st.order === "alpha" ? [...S.list].sort((a, b) => alphaKey(a).localeCompare(alphaKey(b))) : S.list;
+    download("references.txt", st.refHead + "\n\n" + items.map((s, i) => (st.order === "cited" ? (S.listStyle === "ieee" ? `[${i + 1}] ` : `${i + 1}. `) : "") + plain(cite(S.listStyle, s))).join("\n") + "\n"); },
+  exBib() { download("references.bib", bibtex(S.list) + "\n"); },
+  exDocx() { download((S.paper.title || "paper").replace(/\W+/g, "_").slice(0, 40) + ".docx", makeZip(docxOf(S.paper))); },
+  exHtml() { download("paper.html", `<!doctype html><meta charset="utf-8"><title>${esc(S.paper.title)}</title><body style="max-width:6.5in;margin:1in auto;font-family:'${STYLES[S.paper.style].ff}';font-size:${STYLES[S.paper.style].pt}pt;line-height:${STYLES[S.paper.style].line}">${paperHTML(S.paper, false)}</body>`, "text/html"); },
+  exTex() { download("paper.tex", texOf(S.paper)); },
+  runCheck() { S.checkRes = checkPaper(S.checkStyle, S.checkText || ""); save(); render(); },
+  demoCheck() { S.checkText = DEMO_PAPER; S.checkStyle = "apa"; S.checkRes = checkPaper("apa", DEMO_PAPER); save(); render(); },
+});
+
+const APP = {
+  key: "typestudio", title: "Type Studio", testSkip: ["newFace", "blankFace", "kernClear", "clearList", "clearG"],
+  defaults: () => ({ face: newFace(), prev: "HELLO TYPE 2026", kernSample: "AVATAR LTYPO WAVY", kernStrength: 0.6, inspFont: "Georgia", inspPairs: "AV Te To Ty VA Wa Yo LT P. ff",
+    ty: { base: 16, ratio: "1.25", font: "Georgia", size: 17, width: 620, lh: 1.5, feat: { kern: true, liga: true }, text: "Good typography is invisible: the reader sees the words, not the letters. A line of 45 to 75 characters, with about one and a half times the font size between lines, is easy to read for a long time." },
+    styleView: "apa", src: JSON.parse(JSON.stringify(DEMO_SRC[0])), list: [], listStyle: "apa",
+    paper: { style: "apa", title: "Learning by Doing: How Practice Shapes Skill", author: "Randy Moore", school: "Randis Academy", course: "EDU 101: Learning Science", instructor: "Dr. A. Teacher", date: "", abstract: "", keywords: "",
+      body: "# Introduction\nPeople learn faster when they practice on purpose.\n# Method\n## Participants\nThirty adults took part.\n# Results\nPractice beat rereading.\n# Discussion\nPractice works." },
+    checkStyle: "apa", checkText: "", checkRes: [] }),
+  rowTemplates: { "face.kern": () => ({ l: "A", r: "V", v: -40 }) },
+  pages: [["home", "🏠 Home", pageHome], ["face", "🔤 Typeface", pageFace], ["glyph", "✏ Glyph", pageGlyph], ["kern", "↔ Kerning", pageKern], ["exportf", "⬇ Font file", pageExportFont],
+    ["typo", "📐 Typography", pageTypo], ["styles", "🎓 Paper formats", pageStyles], ["cite", "📚 Citations", pageCite], ["paper", "📝 Paper template", pageTemplate], ["check", "✅ Checker", pageCheck]],
+  after: id => { if (id === "glyph") wireGlyph();
+    if (id === "face") loadFace(S.face).then(fam => { const el = $("#livefont"); if (el) { el.style.fontFamily = `"${fam}"`; el.textContent = S.prev || ""; $("#livenote").textContent = "Typed with your exported font, loaded by the browser (kerning on)."; } }).catch(e => { const n = $("#livenote"); if (n) n.textContent = "The browser rejected the font: " + e.message; }); },
+  selftest,
+};
+function selftest() {
+  const keep = S, fail = []; S = APP.defaults();
+  try {
+    const b = buildTTF(S.face), r = readTTF(b);
+    if (r.magic !== "5f0f3cf5") fail.push("head magic " + r.magic);
+    if (r.whole !== "b1b0afba") fail.push("whole checksum " + r.whole);
+    if (r.badSums.length) fail.push("table sums " + r.badSums);
+    if (r.numGlyphs !== S.face.glyphs.length + 1) fail.push("numGlyphs " + r.numGlyphs);
+    if (r.kernPairs !== 3) fail.push("kern pairs " + r.kernPairs);
+    const rects = pixelRects(glyphOf(S.face, "H"), S.face); if (rects.length !== 5) fail.push("H rects " + JSON.stringify(rects));
+    const av = autoKernPair(S.face, "A", "V", 0.6), hh = autoKernPair(S.face, "H", "H", 0.6); if (!(av.v < 0)) fail.push("autokern AV " + JSON.stringify(av)); if (hh.v !== 0) fail.push("autokern HH " + JSON.stringify(hh));
+    if (titleCase("the shape of letters: a guide to type") !== "The Shape of Letters: A Guide to Type") fail.push("titleCase " + titleCase("the shape of letters: a guide to type"));
+    if (sentenceCase("Learning Curves In Adult Education: A Field Study") !== "Learning curves in adult education: A field study") fail.push("sentenceCase " + sentenceCase("Learning Curves In Adult Education: A Field Study"));
+    const apa = plain(cite("apa", DEMO_SRC[0])); if (apa !== "Smith, J. A., & Jones, R. (2020). Learning curves in adult education: A field study. Journal of Adult Learning, 12(3), 45–67. https://doi.org/10.1234/jal.2020.045") fail.push("apa " + apa);
+    const mla = plain(cite("mla", DEMO_SRC[0])); if (mla !== "Smith, Jane A., and Robert Jones. “Learning Curves in Adult Education: A Field Study.” Journal of Adult Learning, vol. 12, no. 3, 2020, pp. 45–67, https://doi.org/10.1234/jal.2020.045.") fail.push("mla " + mla);
+    const ieee = plain(cite("ieee", DEMO_SRC[0])); if (!ieee.startsWith("J. A. Smith and R. Jones, “Learning Curves in Adult Education: A Field Study,” Journal of Adult Learning, vol. 12, no. 3, pp. 45–67")) fail.push("ieee " + ieee);
+    const ama = plain(cite("ama", DEMO_SRC[0])); if (plain(cite("chinb", DEMO_SRC[0])).indexOf("Smith, Jane A., and Robert Jones. “Learning") !== 0) fail.push("chicago 2 authors " + plain(cite("chinb", DEMO_SRC[0])));
+    if (inText("chinb", DEMO_SRC[0], 1, "45").indexOf("Jane A. Smith and Robert Jones") < 0) fail.push("chicago note " + inText("chinb", DEMO_SRC[0], 1, "45"));
+    if (ama !== "Smith JA, Jones R. Learning curves in adult education: A field study. Journal of Adult Learning. 2020;12(3):45–67. doi:10.1234/jal.2020.045") fail.push("ama " + ama);
+    for (const k of STYLE_KEYS) for (const s of DEMO_SRC) { const c = plain(cite(k, s)); if (!c || /undefined|NaN/.test(c)) fail.push(k + " " + s.type + ": " + c); }
+    const many = { type: "book", authors: "A, a\nB, b\nC, c\nD, d\nE, e\nF, f\nG, g", year: "2000", title: "t", publisher: "p" };
+    if (!/et al/.test(plain(cite("ieee", many))) || !/et al/.test(plain(cite("mla", many))) || /et al/.test(plain(cite("apa", many)))) fail.push("et al rules");
+    const chk = checkPaper("apa", DEMO_PAPER).map(x => x[1]).join(" | ");
+    ["Brown is cited", "Adams is in References", "Retrieved from", "https://doi.org", "in the sentence write"].forEach(w => { if (!chk.includes(w)) fail.push("check missing: " + w); });
+    const ieeeChk = checkPaper("ieee", "Text [2] then [1].\nReferences\n[1] a\n[2] b").map(x => x[1]).join("|"); if (!ieeeChk.includes("cited before")) fail.push("ieee order check");
+    S.list = DEMO_SRC.map(x => ({ ...x })); const files = docxOf(S.paper); const docx = files.find(f => f[0] === "word/document.xml")[1];
+    if (!/w:line="480"/.test(docx) || !/w:hanging="720"/.test(docx) || !/<w:i\/>/.test(docx)) fail.push("docx formatting");
+    const parsed = new DOMParser().parseFromString(docx, "application/xml"); if (parsed.getElementsByTagName("parsererror").length) fail.push("docx xml not well formed");
+    if (!/thebibliography/.test(texOf(S.paper))) fail.push("tex");
+  } catch (e) { fail.push("exception " + e.message + " " + (e.stack || "").split("\n")[1]); }
+  finally { S = keep; }
+  return { fail };
+}
+
+</script>
+<script>
+
+
+const DEMO_GROUPS = () => [{ name: "round", members: "O Q C G 0" }, { name: "diag", members: "V W Y" }, { name: "flatL", members: "B D E F H K L N P R" }];
+const DEMO_CKERN = () => [{ l: "@round", r: "@diag", v: -30 }, { l: "@diag", r: "@round", v: -30 }];
+
+function groupMembers(F, name) {
+  const g = (F.groups || []).find(g => "@" + g.name === name || g.name === name);
+  return g ? String(g.members || "").split(/\s+/).filter(Boolean).map(m => [...m][0]) : null;
+}
+function sideChars(F, s) { s = String(s || "").trim(); if (!s) return []; if (s[0] === "@") return groupMembers(F, s) || []; return [[...s][0]]; }
+function allPairs(F) {
+  const m = new Map();
+  for (const k of F.ckern || []) { const v = Math.round(num(k.v)); if (!v) continue;
+    for (const a of sideChars(F, k.l)) for (const b of sideChars(F, k.r)) if (glyphOf(F, a) && glyphOf(F, b)) m.set(a + "\u0000" + b, v); }
+  for (const k of F.kern || []) { const v = Math.round(num(k.v)); if (glyphOf(F, k.l) && glyphOf(F, k.r)) { if (v) m.set(k.l + "\u0000" + k.r, v); else m.delete(k.l + "\u0000" + k.r); } }
+  return m;
+}
+function classKern(F, a, b) {
+  for (let i = (F.ckern || []).length - 1; i >= 0; i--) { const k = F.ckern[i]; if (num(k.v) && sideChars(F, k.l).includes(a) && sideChars(F, k.r).includes(b)) return Math.round(num(k.v)); }
+  return 0;
+}
+
+function buildGPOS(F, gid) {
+  const byFirst = new Map();
+  for (const [key, v] of allPairs(F)) { const [a, b] = key.split("\u0000"), ga = gid(a), gb = gid(b); if (ga < 1 || gb < 1) continue;
+    if (!byFirst.has(ga)) byFirst.set(ga, []); byFirst.get(ga).push([gb, v]); }
+  const firsts = [...byFirst.keys()].sort((x, y) => x - y);
+  if (!firsts.length) return null;
+  const n = firsts.length, sets = firsts.map(f => byFirst.get(f).sort((x, y) => x[0] - y[0]));
+  let off = 10 + 2 * n; const setOffs = sets.map(s => { const o = off; off += 2 + 4 * s.length; return o; }), covOff = off;
+  if (covOff + 4 + 2 * n > 65535) throw new Error("too many kerning pairs for one GPOS subtable (" + covOff + " bytes)");
+  const pp = BW().u16(1).u16(covOff).u16(0x0004).u16(0).u16(n); setOffs.forEach(o => pp.u16(o));
+  sets.forEach(s => { pp.u16(s.length); s.forEach(([g, v]) => pp.u16(g).i16(v)); });
+  pp.u16(1).u16(n); firsts.forEach(f => pp.u16(f));
+  const sl = BW().u16(2).tag("DFLT").u16(14).tag("latn").u16(26);
+  for (let i = 0; i < 2; i++) sl.u16(4).u16(0).u16(0).u16(0xFFFF).u16(1).u16(0);
+  const fl = BW().u16(1).tag("kern").u16(8).u16(0).u16(1).u16(0);
+  const ll = BW().u16(1).u16(4).u16(2).u16(0).u16(1).u16(8).bytes(pp.raw);
+  const g = BW().u16(1).u16(0).u16(10).u16(10 + sl.len).u16(10 + sl.len + fl.len).bytes(sl.raw).bytes(fl.raw).bytes(ll.raw);
+  return { table: g, pairs: sets.reduce((s, x) => s + x.length, 0) };
+}
+function extraTables(F, tables, gid) { const r = buildGPOS(F, gid); if (r) tables.GPOS = r.table; }
+function readGPOS(b) {
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength), nt = dv.getUint16(4); let t = null;
+  for (let i = 0; i < nt; i++) { const o = 12 + i * 16; if (String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]) === "GPOS") t = dv.getUint32(o + 8); }
+  if (t == null) return null;
+  const U = o => dv.getUint16(t + o), I = o => dv.getInt16(t + o);
+  const ll = U(8), lk = ll + U(ll + 2), st = lk + U(lk + 6), out = [];
+  if (U(lk) !== 2 || U(st) !== 1) return { error: "not PairPos format 1", pairs: [] };
+  const cov = st + U(st + 2), nc = U(cov + 2), firsts = []; for (let i = 0; i < nc; i++) firsts.push(U(cov + 4 + 2 * i));
+  for (let i = 0; i < U(st + 8); i++) { const ps = st + U(st + 10 + 2 * i), np = U(ps); for (let j = 0; j < np; j++) out.push([firsts[i], U(ps + 2 + 4 * j), I(ps + 4 + 4 * j)]); }
+  const fo = U(6); return { feature: String.fromCharCode(b[t + fo + 2], b[t + fo + 3], b[t + fo + 4], b[t + fo + 5]), pairs: out };
+}
+
+function autoGroups(F) {
+  const sideKey = (g, side) => profile(g, F).map(p => p ? Math.round((side === "L" ? p[0] : num(g.adv) - p[1]) / 50) : "-").join(",");
+  const out = [];
+  for (const side of ["L", "R"]) {
+    const by = new Map();
+    for (const g of F.glyphs) { if (g.ch === " " || !/[\p{L}\p{N}]/u.test(g.ch)) continue; const k = sideKey(g, side); if (!by.has(k)) by.set(k, []); by.get(k).push(g.ch); }
+    let i = 0; for (const m of by.values()) if (m.length > 1) out.push({ name: (side === "L" ? "left" : "right") + "_" + (++i) + "_" + m[0], members: m.join(" ") });
+  }
+  return out;
+}
+
+function pageGroups() {
+  const FC = S.face; FC.groups = FC.groups || []; FC.ckern = FC.ckern || [];
+  const all = allPairs(FC), single = (FC.kern || []).filter(k => num(k.v)).length;
+  const sample = S.groupSample || "COVE WAGON YOGA";
+  return `<h2>Kerning groups</h2><p class="lead">A group is a set of letters that kern the same way. Kern one group pair (left group, right group) and every member pair gets that value. A single-letter pair on the Kerning page always wins over a group pair. Write a group on either side as <b>@name</b>, or a single letter.</p>
+  <div class="row"><div class="card"><h3>Groups (${FC.groups.length})</h3>${TBL("face.groups", [["name", "Name", "text", "110px"], ["members", "Letters (space separated)", "text", "260px"]], { live: true, extra: [["Found", g => { const m = groupMembers(FC, g.name) || []; const miss = m.filter(c => !glyphOf(FC, c)); return (m.length - miss.length) + "/" + m.length + (miss.length ? ` <span class="sub">no glyph: ${esc(miss.join(" "))}</span>` : ""); }]] })}
+  <p><button data-act="autoGroups">Suggest groups from letter shapes</button> <button data-act="demoGroups">Load example groups</button></p></div>
+  <div class="card"><h3>Group pairs (${FC.ckern.length})</h3>${TBL("face.ckern", [["l", "Left", "text", "90px"], ["r", "Right", "text", "90px"], ["v", "Value", "number", "80px"]], { live: true, extra: [["Pairs", k => sideChars(FC, k.l).length * sideChars(FC, k.r).length], ["Preview", k => faceSVG(FC, (sideChars(FC, k.l)[0] || "") + (sideChars(FC, k.r)[0] || ""), 26, true)]] })}
+  <p class="sub">${single} single pairs + group pairs = <b>${all.size}</b> kerned pairs in the font file (GPOS table).</p></div></div>
+  <div class="card"><h3>Proof</h3>${F("Sample", "groupSample", { r: 1 })}<div>${faceSVG(FC, sample, 44, true)}</div><div class="sub">Without kerning:</div><div>${faceSVG(FC, sample, 44, false)}</div>
+  <h4>What the browser does with the exported file</h4><p><button data-act="gposCheck" class="pri">Load the font and measure</button></p><pre id="gposres">${esc(S._gposres || "")}</pre></div>`;
+}
+Object.assign(ACT, {
+  autoGroups() { const g = autoGroups(S.face); S.face.groups = (S.face.groups || []).filter(x => !/^(left|right)_\d+_/.test(x.name)).concat(g); save(); render(); toast(g.length + " groups suggested. Rename them to taste."); },
+  demoGroups() { S.face.groups = DEMO_GROUPS(); S.face.ckern = DEMO_CKERN(); save(); render(); },
+  gposCheck() {
+    const F0 = S.face, b = buildTTF(F0), r = readGPOS(b);
+    if (!r) { S._gposres = "No GPOS table: the font has no kerning pairs."; render(); return; }
+    const pairs = [...allPairs(F0)].slice(0, 12);
+    loadFace(F0).then(fam => { const c = document.createElement("canvas").getContext("2d"); c.font = `1000px "${fam}"`;
+      const lines = pairs.map(([k, v]) => { const p = k.replace("\u0000", ""); c.fontKerning = "normal"; const w1 = c.measureText(p).width; c.fontKerning = "none"; const w0 = c.measureText(p).width;
+        const got = Math.round((w1 - w0) * F0.upm / 1000); return `${p.padEnd(3)} file ${String(v).padStart(4)}  browser ${String(got).padStart(4)}  ${got === v ? "✓" : "✗"}`; });
+      S._gposres = `GPOS feature '${r.feature}', ${r.pairs.length} pairs in the file.\nFirst ${pairs.length} pairs, measured by the browser's own text engine:\n` + lines.join("\n"); render(); })
+      .catch(e => { S._gposres = "Browser rejected the font: " + e.message; render(); });
+  },
+});
+{
+  const i = APP.pages.findIndex(p => p[0] === "kern"); APP.pages.splice(i + 1, 0, ["groups", "🧩 Kern groups", pageGroups]);
+  const d0 = APP.defaults; APP.defaults = () => { const s = d0(); s.face.groups = DEMO_GROUPS(); s.face.ckern = DEMO_CKERN(); s.groupSample = "COVE WAGON YOGA"; return s; };
+  APP.rowTemplates["face.groups"] = () => ({ name: "group" + ((S.face.groups || []).length + 1), members: "" });
+  APP.rowTemplates["face.ckern"] = () => ({ l: "@", r: "@", v: -30 });
+  const st0 = APP.selftest; APP.selftest = () => {
+    const res = st0() || {}, fail = res.fail || (res.fail = []), keep = S; S = APP.defaults();
+    try {
+      const F0 = S.face, all = allPairs(F0);
+      if (all.get("O\u0000V") !== -30) fail.push("group pair O,V " + all.get("O\u0000V"));
+      if (all.get("A\u0000V") !== -60) fail.push("single pair A,V " + all.get("A\u0000V"));
+      if (kernOf(F0, "Y", "C") !== -30 || kernOf(F0, "A", "V") !== -60 || kernOf(F0, "H", "H") !== 0) fail.push("kernOf with groups");
+      F0.kern.push({ l: "O", r: "V", v: -10 }); if (allPairs(F0).get("O\u0000V") !== -10 || kernOf(F0, "O", "V") !== -10) fail.push("single beats group"); F0.kern.pop();
+      const b = buildTTF(F0), r = readTTF(b), g = readGPOS(b);
+      if (r.whole !== "b1b0afba" || r.badSums.length) fail.push("checksums with GPOS");
+      if (!g || g.feature !== "kern" || g.pairs.length !== all.size) fail.push("GPOS read back " + JSON.stringify(g && { f: g.feature, n: g.pairs.length, want: all.size }));
+      const gi = ch => F0.glyphs.findIndex(x => x.ch === ch) + 1;
+      if (!g || !g.pairs.some(p => p[0] === gi("Q") && p[1] === gi("W") && p[2] === -30)) fail.push("GPOS Q,W");
+      const ag = autoGroups(F0); if (!ag.some(x => x.name.startsWith("left") && x.members.split(" ").includes("B") && x.members.split(" ").includes("E"))) fail.push("autoGroups B/E left " + JSON.stringify(ag).slice(0, 300));
+    } catch (e) { fail.push("gpos selftest threw " + e.message); }
+    S = keep; return res;
+  };
+}
+
+</script>
+<script>
+
+
+const buildGPOS_pairs = buildGPOS;
+
+function kernSplit(F, gid) {
+  const grp = new Map(), ex = new Map();
+  for (const k of F.ckern || []) { const v = Math.round(num(k.v)); if (!v) continue;
+    for (const a of sideChars(F, k.l)) for (const b of sideChars(F, k.r)) { const ga = gid(a), gb = gid(b); if (ga > 0 && gb > 0) grp.set(ga + "," + gb, v); } }
+  for (const k of F.kern || []) { const ga = gid(k.l), gb = gid(k.r); if (ga < 1 || gb < 1) continue; const v = Math.round(num(k.v)), key = ga + "," + gb;
+    if (v) ex.set(key, v); else if (grp.has(key)) ex.set(key, 0); else ex.delete(key); }
+  return { grp, ex };
+}
+function kernClasses(grp) {
+  const rows = new Map(), cols = new Map();
+  for (const [key, v] of grp) { const [a, b] = key.split(",").map(Number); if (!rows.has(a)) rows.set(a, []); rows.get(a).push([b, v]); }
+  const sigL = new Map(), c1 = new Map();
+  for (const a of [...rows.keys()].sort((x, y) => x - y)) { const s = rows.get(a).sort((x, y) => x[0] - y[0]).join(";"); if (!sigL.has(s)) sigL.set(s, sigL.size + 1); c1.set(a, sigL.get(s)); }
+  const n1 = sigL.size + 1, val = new Map();
+  for (const [key, v] of grp) { const [a, b] = key.split(",").map(Number); val.set(c1.get(a) + "," + b, v); }
+  for (const [key] of val) { const b = +key.split(",")[1]; if (!cols.has(b)) cols.set(b, true); }
+  const sigR = new Map(), c2 = new Map();
+  for (const b of [...cols.keys()].sort((x, y) => x - y)) { const vec = []; for (let i = 1; i < n1; i++) vec.push(val.get(i + "," + b) || 0); const s = vec.join(",");
+    if (!sigR.has(s)) sigR.set(s, sigR.size + 1); c2.set(b, sigR.get(s)); }
+  const n2 = sigR.size + 1, grid = Array.from({ length: n1 }, () => new Array(n2).fill(0));
+  for (const [key, v] of val) { const [i, b] = key.split(",").map(Number); grid[i][c2.get(b)] = v; }
+  return { c1, c2, n1, n2, grid };
+}
+function classDefBytes(m) {
+  const ids = [...m.keys()].sort((x, y) => x - y), rng = [];
+  for (const g of ids) { const c = m.get(g), last = rng[rng.length - 1]; if (last && last[1] === g - 1 && last[2] === c) last[1] = g; else rng.push([g, g, c]); }
+  const w = BW().u16(2).u16(rng.length); rng.forEach(r => w.u16(r[0]).u16(r[1]).u16(r[2])); return w;
+}
+function pairPos1(map) {
+  const by = new Map(); for (const [key, v] of map) { const [a, b] = key.split(",").map(Number); if (!by.has(a)) by.set(a, []); by.get(a).push([b, v]); }
+  const firsts = [...by.keys()].sort((x, y) => x - y); if (!firsts.length) return null;
+  const n = firsts.length, sets = firsts.map(f => by.get(f).sort((x, y) => x[0] - y[0]));
+  let off = 10 + 2 * n; const so = sets.map(s => { const o = off; off += 2 + 4 * s.length; return o; }), cov = off;
+  if (cov + 4 + 2 * n > 65535) throw new Error("too many single kerning pairs for one subtable (" + cov + " bytes)");
+  const w = BW().u16(1).u16(cov).u16(0x0004).u16(0).u16(n); so.forEach(o => w.u16(o));
+  sets.forEach(s => { w.u16(s.length); s.forEach(([g, v]) => w.u16(g).i16(v)); }); w.u16(1).u16(n); firsts.forEach(f => w.u16(f));
+  return w;
+}
+function pairPos2(grp) {
+  if (!grp.size) return null;
+  const K = kernClasses(grp), firsts = [...K.c1.keys()].sort((x, y) => x - y);
+  const cd1 = classDefBytes(K.c1), cd2 = classDefBytes(K.c2), recs = K.n1 * K.n2 * 2;
+  const covOff = 16 + recs, cd1Off = covOff + 4 + 2 * firsts.length, cd2Off = cd1Off + cd1.len;
+  if (cd2Off + cd2.len > 65535) throw new Error("class grid too big for one subtable (" + (cd2Off + cd2.len) + " bytes)");
+  const w = BW().u16(2).u16(covOff).u16(0x0004).u16(0).u16(cd1Off).u16(cd2Off).u16(K.n1).u16(K.n2);
+  K.grid.forEach(row => row.forEach(v => w.i16(v)));
+  w.u16(1).u16(firsts.length); firsts.forEach(f => w.u16(f)); w.bytes(cd1.raw).bytes(cd2.raw);
+  return Object.assign(w, { classes: [K.n1 - 1, K.n2 - 1] });
+}
+function gposWrap(subs) {
+  const sl = BW().u16(2).tag("DFLT").u16(14).tag("latn").u16(26);
+  for (let i = 0; i < 2; i++) sl.u16(4).u16(0).u16(0).u16(0xFFFF).u16(1).u16(0);
+  const fl = BW().u16(1).tag("kern").u16(8).u16(0).u16(1).u16(0);
+  const lk = BW().u16(2).u16(0).u16(subs.length); let o = 6 + 2 * subs.length; subs.forEach(s => { lk.u16(o); o += s.len; }); subs.forEach(s => lk.bytes(s.raw));
+  if (6 + lk.len > 65535) throw new Error("kerning lookup over 64 KB");
+  const ll = BW().u16(1).u16(4).bytes(lk.raw);
+  return BW().u16(1).u16(0).u16(10).u16(10 + sl.len).u16(10 + sl.len + fl.len).bytes(sl.raw).bytes(fl.raw).bytes(ll.raw);
+}
+function buildGPOS_classes(F, gid) {
+  const { grp, ex } = kernSplit(F, gid), s1 = pairPos1(ex), s2 = pairPos2(grp), subs = [s1, s2].filter(Boolean);
+  if (!subs.length) return null;
+  return { table: gposWrap(subs), pairs: allPairs(F).size, format: 2, exceptions: ex.size, classes: s2 ? s2.classes : [0, 0] };
+}
+function gposSizes(F) {
+  const gid = ch => { const i = F.glyphs.findIndex(g => g.ch === ch); return i < 0 ? -1 : i + 1; }, out = {};
+  try { const r = buildGPOS_pairs(F, gid); out.pairs = r ? r.table.len : 0; } catch (e) { out.pairs = Infinity; out.pairsErr = e.message; }
+  try { const r = buildGPOS_classes(F, gid); out.classes = r ? r.table.len : 0; out.cls = r && r.classes; out.ex = r && r.exceptions; } catch (e) { out.classes = Infinity; out.classesErr = e.message; }
+  return out;
+}
+buildGPOS = function (F, gid) {
+  const mode = F.gposFormat || "auto";
+  if (mode === "pairs") return buildGPOS_pairs(F, gid);
+  if (mode === "classes" || !(F.ckern || []).some(k => num(k.v))) return mode === "classes" ? buildGPOS_classes(F, gid) : buildGPOS_pairs(F, gid);
+  let a = null, b = null; try { a = buildGPOS_pairs(F, gid); } catch (e) { return buildGPOS_classes(F, gid); }
+  b = buildGPOS_classes(F, gid);
+  return !a ? b : !b ? a : (b.table.len < a.table.len ? b : a);
+};
+
+function readGPOSFull(b) {
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength), nt = dv.getUint16(4); let t = null;
+  for (let i = 0; i < nt; i++) { const o = 12 + i * 16; if (String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]) === "GPOS") t = dv.getUint32(o + 8); }
+  if (t == null) return null;
+  const U = o => dv.getUint16(t + o), I = o => dv.getInt16(t + o);
+  const cov = o => { const f = U(o), out = []; if (f === 1) for (let i = 0; i < U(o + 2); i++) out.push(U(o + 4 + 2 * i)); else for (let i = 0; i < U(o + 2); i++) { const r = o + 4 + 6 * i; for (let g = U(r); g <= U(r + 2); g++) out.push(g); } return out; };
+  const cdef = o => { const m = new Map(), f = U(o); if (f === 1) { const s = U(o + 2); for (let i = 0; i < U(o + 4); i++) m.set(s + i, U(o + 6 + 2 * i)); } else for (let i = 0; i < U(o + 2); i++) { const r = o + 4 + 6 * i; for (let g = U(r); g <= U(r + 2); g++) m.set(g, U(r + 4)); } return m; };
+  const ll = U(8), lk = ll + U(ll + 2); if (U(lk) !== 2) return { error: "lookup is not PairPos", pairs: [] };
+  const subs = [];
+  for (let s = 0; s < U(lk + 4); s++) { const st = lk + U(lk + 6 + 2 * s), f = U(st), first = cov(st + U(st + 2));
+    if (U(st + 4) !== 4 || U(st + 6) !== 0) return { error: "value format not XAdvance-only", pairs: [] };
+    if (f === 1) { const m = new Map(); first.forEach((g, i) => { const ps = st + U(st + 10 + 2 * i); for (let j = 0; j < U(ps); j++) m.set(g + "," + U(ps + 2 + 4 * j), I(ps + 4 + 4 * j)); });
+      subs.push({ format: 1, cov: new Set(first), get: (a, c) => m.get(a + "," + c), cand: [...m.keys()] }); }
+    else if (f === 2) { const c1 = cdef(st + U(st + 8)), c2 = cdef(st + U(st + 10)), n1 = U(st + 12), n2 = U(st + 14);
+      const v = (i, j) => I(st + 16 + 2 * (i * n2 + j));
+      const cand = []; for (const a of first) for (const c of c2.keys()) cand.push(a + "," + c);
+      subs.push({ format: 2, cov: new Set(first), classes: [n1 - 1, n2 - 1], get: (a, c) => { const i = c1.get(a) || 0, j = c2.get(c) || 0; return i < n1 && j < n2 ? v(i, j) : 0; }, cand }); }
+    else return { error: "unknown PairPos format " + f, pairs: [] };
+  }
+  const apply = (a, c) => { for (const s of subs) { if (!s.cov.has(a)) continue; const v = s.get(a, c); if (s.format === 2) return v || 0; if (v !== undefined) return v; } return 0; };
+  const seen = new Set(), pairs = [];
+  for (const s of subs) for (const k of s.cand) { if (seen.has(k)) continue; seen.add(k); const [a, c] = k.split(",").map(Number), v = apply(a, c); if (v) pairs.push([a, c, v]); }
+  const fo = U(6);
+  return { feature: String.fromCharCode(b[t + fo + 2], b[t + fo + 3], b[t + fo + 4], b[t + fo + 5]), formats: subs.map(s => s.format), classes: (subs.find(s => s.format === 2) || {}).classes, pairs, apply };
+}
+readGPOS = readGPOSFull;
+
+function gposFormatCard() {
+  const FC = S.face, z = gposSizes(FC), b = buildTTF(FC), r = readGPOS(b), kb = n => n === Infinity ? "too big" : (n / 1024).toFixed(1) + " KB";
+  const pick = r ? (r.formats.includes(2) ? "class grid (format 2)" + (r.formats[0] === 1 ? " + single-pair exceptions (format 1) first" : "") : "pair list (format 1)") : "none (no kerning)";
+  return `<div class="card"><h3>GPOS file format</h3><p class="sub">Pair list = every kerned pair written out (format 1). Class grid = one value per left class x right class (format 2), single pairs kept as exceptions in front. Big fonts with groups need the class grid: a pair list over 64 KB cannot be stored in one subtable.</p>
+  ${F("Write kerning as", "face.gposFormat", { r: 1, opts: [["auto", "Auto (smaller file)"], ["pairs", "Pair list (format 1)"], ["classes", "Class grid (format 2)"]] })}
+  <table><tr><th>Format</th><th>GPOS size</th><th></th></tr><tr><td>Pair list</td><td class="num">${kb(z.pairs)}</td><td class="sub">${esc(z.pairsErr || "")}</td></tr>
+  <tr><td>Class grid</td><td class="num">${kb(z.classes)}</td><td class="sub">${z.cls ? z.cls[0] + " left x " + z.cls[1] + " right classes, " + z.ex + " exceptions" : esc(z.classesErr || "")}</td></tr></table>
+  <p>In the file now: <b>${esc(pick)}</b>${r ? ", " + r.pairs.length + " kerned pairs as a shaper reads them" : ""}.</p></div>`;
+}
+{
+  const i = APP.pages.findIndex(p => p[0] === "groups"), pg0 = APP.pages[i][2];
+  APP.pages[i][2] = () => pg0() + gposFormatCard();
+  const d0 = APP.defaults; APP.defaults = () => { const s = d0(); s.face.gposFormat = "auto"; return s; };
+  const st0 = APP.selftest; APP.selftest = () => {
+    const res = st0() || {}, fail = res.fail || (res.fail = []), keep = S; S = APP.defaults();
+    try {
+      const F0 = S.face, gi = ch => F0.glyphs.findIndex(x => x.ch === ch) + 1;
+      F0.groups.push({ name: "AV2", members: "A V" }); F0.ckern.push({ l: "@AV2", r: "@round", v: -12 });
+      F0.kern.push({ l: "C", r: "W", v: 0 }, { l: "G", r: "Y", v: -44 });
+      const want = allPairs(F0);
+      for (const mode of ["pairs", "classes", "auto"]) {
+        F0.gposFormat = mode; const b = buildTTF(F0), r = readTTF(b), g = readGPOS(b);
+        if (r.whole !== "b1b0afba" || r.badSums.length) fail.push(mode + ": checksums");
+        if (!g || g.error) { fail.push(mode + ": read " + (g && g.error)); continue; }
+        if (mode === "pairs" && g.formats.join() !== "1") fail.push("pairs mode formats " + g.formats);
+        if (mode === "classes" && g.formats.join() !== "1,2") fail.push("classes mode formats " + g.formats);
+        const got = new Map(g.pairs.map(p => [p[0] + "," + p[1], p[2]]));
+        let bad = 0; for (const [k, v] of want) { const [a, c] = k.split("\u0000"); if (got.get(gi(a) + "," + gi(c)) !== v) bad++; }
+        if (bad || got.size !== want.size) fail.push(mode + ": " + bad + " wrong, " + got.size + " vs " + want.size);
+        if (g.apply(gi("C"), gi("W")) !== 0 || g.apply(gi("G"), gi("Y")) !== -44 || g.apply(gi("O"), gi("V")) !== -30 || g.apply(gi("A"), gi("O")) !== -12) fail.push(mode + ": exceptions/overlap");
+      }
+      const K = kernClasses(kernSplit(F0, ch => gi(ch)).grp); if (K.c1.get(gi("O")) !== K.c1.get(gi("Q"))) fail.push("O and Q in different left classes");
+      F0.gposFormat = "auto"; const z = gposSizes(F0); if (!(z.classes > 0 && z.pairs > 0)) fail.push("sizes " + JSON.stringify(z));
+    } catch (e) { fail.push("class kern selftest threw " + e.message); }
+    S = keep; return res;
+  };
+}
+
+</script>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+
+
+const PEN_K = Math.sqrt(3) / 36;
+function cubicAt(P, t) { const u = 1 - t; return [0, 1].map(k => u * u * u * P[0][k] + 3 * u * u * t * P[1][k] + 3 * u * t * t * P[2][k] + t * t * t * P[3][k]); }
+function quadAt(Q, t) { const u = 1 - t; return [0, 1].map(k => u * u * Q[0][k] + 2 * u * t * Q[1][k] + t * t * Q[2][k]); }
+function cubicPiece(P, t0, t1) {
+  const split = (C, t) => { const L = (a, b) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    const a = L(C[0], C[1]), b = L(C[1], C[2]), c = L(C[2], C[3]), d = L(a, b), e = L(b, c), f = L(d, e); return [[C[0], a, d, f], [f, e, c, C[3]]]; };
+  let C = P; if (t0 > 0) C = split(C, t0)[1];
+  return t1 < 1 ? split(C, (t1 - t0) / (1 - t0))[0] : C;
+}
+const thirdDiff = P => Math.hypot(P[3][0] - 3 * P[2][0] + 3 * P[1][0] - P[0][0], P[3][1] - 3 * P[2][1] + 3 * P[1][1] - P[0][1]);
+function cubicToQuads(P, tol) {
+  tol = Math.max(0.05, tol || 1);
+  const n = Math.max(1, Math.min(64, Math.ceil(Math.cbrt(PEN_K * thirdDiff(P) / tol) - 1e-9)));
+  const out = [];
+  for (let i = 0; i < n; i++) { const C = cubicPiece(P, i / n, (i + 1) / n);
+    out.push([[(3 * (C[1][0] + C[2][0]) - C[0][0] - C[3][0]) / 4, (3 * (C[1][1] + C[2][1]) - C[0][1] - C[3][1]) / 4], C[3]]); }
+  return out;
+}
+function quadsError(P, quads) {
+  let err = 0, start = P[0]; const n = quads.length;
+  quads.forEach(([q, e], i) => { for (let s = 0; s <= 200; s++) { const t = s / 200, a = cubicAt(P, (i + t) / n), b = quadAt([start, q, e], t); err = Math.max(err, Math.hypot(a[0] - b[0], a[1] - b[1])); } start = e; });
+  return err;
+}
+function segsToContour(s, segs, tol, dropImplied) {
+  const c = [[s[0], s[1], 1]]; let cur = s;
+  for (const g of segs) {
+    if (g.t === "L") c.push([g.p[0][0], g.p[0][1], 1]);
+    else if (g.t === "Q") c.push([g.p[0][0], g.p[0][1], 0], [g.p[1][0], g.p[1][1], 1]);
+    else for (const [q, e] of cubicToQuads([cur, g.p[0], g.p[1], g.p[2]], tol)) c.push([q[0], q[1], 0], [e[0], e[1], 1]);
+    cur = g.p[g.p.length - 1];
+  }
+  const last = c[c.length - 1]; if (c.length > 1 && Math.hypot(last[0] - c[0][0], last[1] - c[0][1]) < 0.01) c.pop();
+  let r = c.map(p => [Math.round(p[0]), Math.round(p[1]), p[2]]);
+  r = r.filter((p, i) => i === 0 || !(p[0] === r[i - 1][0] && p[1] === r[i - 1][1] && p[2] && r[i - 1][2]));
+  return dropImplied ? dropImpliedPts(r) : r;
+}
+function dropImpliedPts(c) {
+  const n = c.length; if (n < 4) return c;
+  const keep = c.filter((p, i) => { if (!p[2]) return true; const a = c[(i - 1 + n) % n], b = c[(i + 1) % n];
+    return !(!a[2] && !b[2] && Math.abs((a[0] + b[0]) / 2 - p[0]) <= 0.5 && Math.abs((a[1] + b[1]) / 2 - p[1]) <= 0.5); });
+  return keep.some(p => p[2]) ? keep : c;
+}
+function penSegs(nodes) {
+  const segs = [];
+  for (let i = 0; i < nodes.length; i++) { const a = nodes[i], b = nodes[(i + 1) % nodes.length];
+    if (!a.hout && !b.hin) segs.push({ t: "L", p: [[b.x, b.y]] }); else segs.push({ t: "C", p: [a.hout || [a.x, a.y], b.hin || [b.x, b.y], [b.x, b.y]] }); }
+  return segs;
+}
+function penContour(nodes, tol, dropImplied) { return segsToContour([nodes[0].x, nodes[0].y], penSegs(nodes), tol, dropImplied); }
+function penSVG(nodes, closed) {
+  if (!nodes.length) return ""; let d = `M${nodes[0].x} ${nodes[0].y}`;
+  const n = closed ? nodes.length : nodes.length - 1;
+  for (let i = 0; i < n; i++) { const a = nodes[i], b = nodes[(i + 1) % nodes.length], c1 = a.hout || [a.x, a.y], c2 = b.hin || [b.x, b.y]; d += `C${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${b.x} ${b.y}`; }
+  return d + (closed ? "Z" : "");
+}
+
+function parseSVGPath(d) {
+  const tok = String(d).match(/[A-Za-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g) || [];
+  const paths = []; let i = 0, cmd = "", cur = [0, 0], start = [0, 0], P = null, lastC = null, lastQ = null;
+  const nums = k => { const o = []; for (let j = 0; j < k; j++) { const v = parseFloat(tok[i++]); if (!isFinite(v)) throw new Error("Path ends early or has a bad number near item " + i); o.push(v); } return o; };
+  const close = () => { if (P && P.segs.length) paths.push(P); P = null; };
+  while (i < tok.length) {
+    if (/[A-Za-z]/.test(tok[i])) cmd = tok[i++]; else if (!cmd) throw new Error("Path must start with M");
+    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), o = rel ? cur : [0, 0], pt = (x, y) => [o[0] + x, o[1] + y];
+    if (C === "A") throw new Error("Arcs (A) are not supported yet: convert arcs to curves in your drawing program first (most have 'Object to path' or 'Flatten').");
+    if (C === "Z") { if (P) { if (Math.hypot(cur[0] - start[0], cur[1] - start[1]) > 1e-9) P.segs.push({ t: "L", p: [start] }); } close(); cur = start; lastC = lastQ = null; continue; }
+    if (C === "M") { close(); const [x, y] = nums(2); cur = start = pt(x, y); P = { s: cur, segs: [] }; cmd = rel ? "l" : "L"; lastC = lastQ = null; continue; }
+    if (!P) P = { s: cur, segs: [] };
+    let seg;
+    if (C === "L") { const [x, y] = nums(2); seg = { t: "L", p: [pt(x, y)] }; }
+    else if (C === "H") { const [x] = nums(1); seg = { t: "L", p: [[rel ? cur[0] + x : x, cur[1]]] }; }
+    else if (C === "V") { const [y] = nums(1); seg = { t: "L", p: [[cur[0], rel ? cur[1] + y : y]] }; }
+    else if (C === "C") { const v = nums(6); seg = { t: "C", p: [pt(v[0], v[1]), pt(v[2], v[3]), pt(v[4], v[5])] }; }
+    else if (C === "S") { const v = nums(4), r1 = lastC ? [2 * cur[0] - lastC[0], 2 * cur[1] - lastC[1]] : cur; seg = { t: "C", p: [r1, pt(v[0], v[1]), pt(v[2], v[3])] }; }
+    else if (C === "Q") { const v = nums(4); seg = { t: "Q", p: [pt(v[0], v[1]), pt(v[2], v[3])] }; }
+    else if (C === "T") { const v = nums(2), r1 = lastQ ? [2 * cur[0] - lastQ[0], 2 * cur[1] - lastQ[1]] : cur; seg = { t: "Q", p: [r1, pt(v[0], v[1])] }; }
+    else throw new Error("Unknown path command " + cmd);
+    P.segs.push(seg); lastC = seg.t === "C" ? seg.p[1] : null; lastQ = seg.t === "Q" ? seg.p[0] : null; cur = seg.p[seg.p.length - 1];
+  }
+  close(); return paths;
+}
+function svgToContours(d, F, o) {
+  const paths = parseSVGPath(d); if (!paths.length) throw new Error("No closed shapes found in that path.");
+  const all = paths.flatMap(p => [p.s, ...p.segs.flatMap(g => g.p)]);
+  const x0 = Math.min(...all.map(p => p[0])), y0 = Math.min(...all.map(p => p[1])), y1 = Math.max(...all.map(p => p[1]));
+  const sc = o.fit ? F.cap / ((y1 - y0) || 1) : 1, tx = p => [(p[0] - x0) * sc + F.sb, o.flip ? (y1 - p[1]) * sc : (p[1] - y0) * sc];
+  return paths.map(p => segsToContour(tx(p.s), p.segs.map(g => ({ t: g.t, p: g.p.map(tx) })), o.tol, o.drop));
+}
+
+function inPoly(pt, c) { let ins = false; for (let i = 0, j = c.length - 1; i < c.length; j = i++) { const a = c[i], b = c[j];
+  if ((a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < (b[0] - a[0]) * (pt[1] - a[1]) / (b[1] - a[1]) + a[0]) ins = !ins; } return ins; }
+function fixDirections(cs) {
+  let flipped = 0;
+  const out = cs.map((c, i) => { const p = c.find(q => q[2]) || c[0]; let depth = 0;
+    cs.forEach((d, j) => { if (j !== i && d.length > 2 && Math.abs(area(d)) > Math.abs(area(c)) && inPoly(p, d)) depth++; });
+    const cw = area(c) < 0, want = depth % 2 === 0; if (cw !== want && c.length > 2) { flipped++; return [...c].reverse(); } return c; });
+  return { out, flipped };
+}
+
+GE.pen = []; GE.penDrag = false;
+function penCard() {
+  const g = curG();
+  if (g.pixels) return `<div class="card"><h3>✒ Pen tool</h3><p class="sub">Turn this glyph into curves first (button on the left), then draw with the pen.</p></div>`;
+  return `<div class="card" id="pencard"><h3>✒ Pen tool</h3>
+  <p class="sub">Click = corner point. Click and drag = smooth point (drag pulls out both handles). Click the first point to close the shape: it is turned into TrueType quadratics within the accuracy below and added as a new contour.</p>
+  <p><button data-act="tool" data-arg="pen" class="${GE.mode === "pen" ? "pri" : ""}">✒ Pen</button> <button data-act="penClose">Close shape now</button> <button data-act="penUndo">Undo last point</button> <button data-act="penCancel">Cancel</button>
+  <span class="sub" id="penstat">${GE.pen.length ? GE.pen.length + " points drawn" : "no shape in progress"}</span></p>
+  <div class="grid">${F("Curve accuracy (font units, smaller = more points)", "penTol", { type: "number", step: "0.1" })}</div>
+  ${F("Drop on-curve points TrueType can work out itself (smaller file)", "penDrop", { type: "check" })} ${F("Fix outline directions after each change", "penFixDir", { type: "check" })}
+  <p><button data-act="fixDirs">Fix directions now</button> <span class="sub">outer shapes clockwise, holes counter-clockwise, by how deep each shape sits inside others.</span></p>
+  ${S.penLast ? `<p class="sub" id="penlast">Last shape: ${S.penLast.cubics} cubic${S.penLast.cubics === 1 ? "" : "s"} → ${S.penLast.quads} quadratic${S.penLast.quads === 1 ? "" : "s"}, largest error ${S.penLast.err.toFixed(2)} units (limit ${S.penLast.tol}), ${S.penLast.pts} points${S.penLast.dropped ? ` (${S.penLast.dropped} implied points dropped)` : ""}.</p>` : ""}
+  <h4>Paste an SVG path</h4><p class="sub">From any drawing program: the <code>d="…"</code> of a &lt;path&gt;. Curves (C/S) are converted the same way; straight lines and quadratics are kept exactly.</p>
+  ${F("Path data", "svgIn", { type: "area", h: 60 })}
+  <p>${F("SVG is y-down (flip it)", "svgFlip", { type: "check" })} ${F("Scale to cap height", "svgFit", { type: "check" })} <button data-act="svgImport" class="pri">Add as contours</button> <button data-act="svgDemo">Example (a ring)</button></p></div>`;
+}
+function penStats(nodes, tol) {
+  const segs = penSegs(nodes); let quads = 0, err = 0, cubics = 0;
+  segs.forEach((g, i) => { if (g.t !== "C") return; const a = nodes[i], P = [[a.x, a.y], ...g.p]; const q = cubicToQuads(P, tol); cubics++; quads += q.length; err = Math.max(err, quadsError(P, q)); });
+  return { cubics, quads, err, tol };
+}
+function penCommit() {
+  const g = curG(), nodes = GE.pen; if (nodes.length < 2) { toast("Draw at least two points first."); return; }
+  const tol = Math.max(0.1, num(S.penTol) || 1), full = penContour(nodes, tol, false), c = S.penDrop ? dropImpliedPts(full) : full;
+  g.contours.push(c); if (S.penFixDir) g.contours = fixDirections(g.contours).out;
+  S.penLast = Object.assign(penStats(nodes, tol), { pts: c.length, dropped: full.length - c.length });
+  GE.ctr = g.contours.length - 1; GE.pt = -1; GE.pen = []; GE.mode = "move"; save(); render();
+}
+Object.assign(ACT, {
+  penClose() { penCommit(); },
+  penUndo() { GE.pen.pop(); render(); },
+  penCancel() { GE.pen = []; GE.mode = "move"; render(); },
+  fixDirs() { const g = curG(); if (g.pixels) { toast("Pixel glyphs are always drawn clockwise already."); return; } const r = fixDirections(g.contours || []); g.contours = r.out; save(); render(); toast(r.flipped ? `Turned ${r.flipped} contour${r.flipped === 1 ? "" : "s"} round.` : "All directions were already right."); },
+  svgDemo() { S.svgIn = "M50 0C22.4 0 0 22.4 0 50s22.4 50 50 50 50-22.4 50-50S77.6 0 50 0zM50 25c13.8 0 25 11.2 25 25S63.8 75 50 75 25 63.8 25 50 36.2 25 50 25z"; S.svgFlip = true; S.svgFit = true; save(); render(); },
+  svgImport() { const g = curG(); if (g.pixels) { toast("Turn this glyph into curves first."); return; }
+    const add = svgToContours(S.svgIn || "", S.face, { flip: S.svgFlip, fit: S.svgFit, tol: Math.max(0.1, num(S.penTol) || 1), drop: S.penDrop });
+    g.contours.push(...add); if (S.penFixDir) g.contours = fixDirections(g.contours).out; GE.ctr = g.contours.length - 1; GE.pt = -1; save(); render();
+    toast(`Added ${add.length} contour${add.length === 1 ? "" : "s"} (${add.reduce((s, c) => s + c.length, 0)} points).`); },
+});
+{
+  const i = APP.pages.findIndex(p => p[0] === "glyph"), pg0 = APP.pages[i][2];
+  APP.pages[i][2] = () => { let h = pg0(); const g = curG();
+    if (!g.pixels) { const prev = `<path id="penprev" d="${penSVG(GE.pen, false)}" fill="none" stroke="var(--s3)" stroke-width="6"/><g id="penpts">${penPtsSVG()}</g>`; h = h.replace("</g></svg>", prev + "</g></svg>"); }
+    const k = h.lastIndexOf("</div></div>"); return h.slice(0, k) + "</div>" + penCard() + "</div>"; };
+  const d0 = APP.defaults; APP.defaults = () => Object.assign(d0(), { penTol: 1, penDrop: true, penFixDir: true, svgIn: "", svgFlip: true, svgFit: true, penLast: null });
+  const w0 = wireGlyph;
+  wireGlyph = function () { w0(); const svg = $("#gsvg"); if (!svg) return;
+    const down0 = svg.onpointerdown, move0 = svg.onpointermove, up0 = svg.onpointerup;
+    svg.onpointerdown = e => { if (GE.mode !== "pen" || curG().pixels) return down0(e);
+      const [x, y] = svgPt(e), f = GE.pen[0];
+      if (GE.pen.length >= 2 && Math.hypot(x - f.x, y - f.y) <= 25) { penCommit(); return; }
+      GE.pen.push({ x, y, hin: null, hout: null }); GE.penDrag = true; svg.setPointerCapture(e.pointerId); penRedraw(); };
+    svg.onpointermove = e => { if (GE.mode !== "pen" || !GE.penDrag) return move0(e);
+      const n = GE.pen[GE.pen.length - 1], [x, y] = svgPt(e);
+      if (Math.hypot(x - n.x, y - n.y) < 10) { n.hin = n.hout = null; } else { n.hout = [x, y]; n.hin = [2 * n.x - x, 2 * n.y - y]; } penRedraw(); };
+    svg.onpointerup = e => { if (GE.mode !== "pen") return up0(e); GE.penDrag = false; const st = $("#penstat"); if (st) st.textContent = GE.pen.length + " points drawn"; };
+  };
+}
+function penPtsSVG() { return GE.pen.map((n, i) => (n.hout ? `<line x1="${n.hin[0]}" y1="${n.hin[1]}" x2="${n.hout[0]}" y2="${n.hout[1]}" stroke="var(--s7)" stroke-width="3"/><circle cx="${n.hin[0]}" cy="${n.hin[1]}" r="9" fill="var(--bg)" stroke="var(--s7)" stroke-width="4"/><circle cx="${n.hout[0]}" cy="${n.hout[1]}" r="9" fill="var(--bg)" stroke="var(--s7)" stroke-width="4"/>` : "") +
+  `<rect x="${n.x - 11}" y="${n.y - 11}" width="22" height="22" fill="${i === 0 ? "var(--s2)" : "var(--s3)"}"/>`).join(""); }
+function penRedraw() { const p = $("#penprev"), g = $("#penpts"); if (p) p.setAttribute("d", penSVG(GE.pen, false)); if (g) g.innerHTML = penPtsSVG(); }
+{
+  const st0 = APP.selftest; APP.selftest = () => {
+    const res = st0() || {}, fail = res.fail || (res.fail = []);
+    try {
+      const Q = [[0, 0], [300, 600], [600, 0]], C = [Q[0], [200, 400], [400, 400], Q[2]], q1 = cubicToQuads(C, 1);
+      if (q1.length !== 1 || Math.hypot(q1[0][0][0] - 300, q1[0][0][1] - 600) > 1e-9) fail.push("pen: raised quadratic not exact " + JSON.stringify(q1));
+      const k = 0.5523 * 500, QC = [[500, 0], [500, k], [k, 500], [0, 500]]; let lastN = 0;
+      for (const tol of [5, 1, 0.25, 0.05]) { const q = cubicToQuads(QC, tol), e = quadsError(QC, q); if (e > tol + 1e-9) fail.push(`pen: quarter circle tol ${tol} error ${e}`); if (q.length < lastN) fail.push("pen: pieces fell as tol tightened"); lastN = q.length; }
+      const a = svgToContours("M0 0 C 0 100 100 100 100 0 Z", S.face || { cap: 700, sb: 50 }, { tol: 1 }), b = svgToContours("m0 0c0 100 100 100 100 0z", S.face || { cap: 700, sb: 50 }, { tol: 1 });
+      if (JSON.stringify(a) !== JSON.stringify(b)) fail.push("pen: relative path differs from absolute");
+      let arc = ""; try { parseSVGPath("M0 0 A10 10 0 0 1 20 0Z"); } catch (e) { arc = e.message; } if (!/Arcs/.test(arc)) fail.push("pen: arc not refused");
+      const sq = [[0, 0, 1], [0, 100, 1], [100, 100, 1], [100, 0, 1]], hole = [[25, 25, 1], [25, 75, 1], [75, 75, 1], [75, 25, 1]], fx = fixDirections([sq, hole]);
+      if (fx.flipped !== 1 || area(fx.out[0]) >= 0 || area(fx.out[1]) <= 0) fail.push("pen: direction fix " + JSON.stringify(fx));
+      const ring = svgToContours("M50 0C22.4 0 0 22.4 0 50s22.4 50 50 50 50-22.4 50-50S77.6 0 50 0z", { cap: 1000, sb: 0 }, { flip: true, fit: true, tol: 1, drop: true })[0];
+      const full = svgToContours("M50 0C22.4 0 0 22.4 0 50s22.4 50 50 50 50-22.4 50-50S77.6 0 50 0z", { cap: 1000, sb: 0 }, { flip: true, fit: true, tol: 1, drop: false })[0];
+      if (!(ring.length < full.length)) fail.push(`pen: implied drop ${ring.length} vs ${full.length}`);
+      const r = ring.filter(p => p[2]).map(p => Math.hypot(p[0] - 500, p[1] - 500)); if (r.some(d => Math.abs(d - 500) > 3)) fail.push("pen: ring points off the circle " + r.map(Math.round));
+    } catch (e) { fail.push("pen selftest threw " + e.message); }
+    return res;
+  };
+}
+
+</script>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+
+
+function ttSegs(c) {
+  const n = c.length; if (n < 2) return [];
+  let s = c.findIndex(p => p[2]), pts;
+  if (s < 0) pts = [[(c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2, 1], ...c.slice(1), c[0]];
+  else pts = [...c.slice(s), ...c.slice(0, s)];
+  const out = []; let cur = pts[0], ctrl = null;
+  for (let i = 1; i <= pts.length; i++) {
+    const p = pts[i % pts.length];
+    if (p[2]) { if (ctrl) out.push({ a: [cur[0], cur[1]], c: [ctrl[0], ctrl[1]], b: [p[0], p[1]] }); else if (p[0] !== cur[0] || p[1] !== cur[1]) out.push({ a: [cur[0], cur[1]], c: null, b: [p[0], p[1]] }); cur = p; ctrl = null; }
+    else { if (ctrl) { const m = [(ctrl[0] + p[0]) / 2, (ctrl[1] + p[1]) / 2]; out.push({ a: [cur[0], cur[1]], c: [ctrl[0], ctrl[1]], b: m }); cur = m; } ctrl = p; }
+  }
+  return out;
+}
+const OV_SNAP = 256, ovSnap = v => Math.round(v * OV_SNAP) / OV_SNAP;
+const ovPt = p => [ovSnap(p[0]), ovSnap(p[1])];
+function ovFlatten(cs, tol) {
+  const segs = [], edges = [];
+  const mk = (a, b, seg, t0, t1) => { const A = ovPt(a), B = ovPt(b); if (A[0] !== B[0] || A[1] !== B[1]) edges.push({ a: A, b: B, seg, t0, t1 }); };
+  cs.forEach(c => { if (c.length < 2) return; for (const s of ttSegs(c)) { const k = segs.push(s) - 1;
+    if (!s.c) { mk(s.a, s.b, k, 0, 1); continue; }
+    const d = Math.hypot(s.a[0] - 2 * s.c[0] + s.b[0], s.a[1] - 2 * s.c[1] + s.b[1]);
+    const n = Math.max(1, Math.min(96, Math.ceil(Math.sqrt(d / (4 * tol)))));
+    let prev = s.a; for (let i = 1; i <= n; i++) { const t = i / n, p = i === n ? s.b : quadAt([s.a, s.c, s.b], t); mk(prev, p, k, (i - 1) / n, t); prev = p; } } });
+  return { segs, edges };
+}
+
+const ovCr = (a, b) => a[0] * b[1] - a[1] * b[0];
+function ovSplit(E) {
+  const cuts = E.map(() => []);
+  const param = (e, p) => { const d = [e.b[0] - e.a[0], e.b[1] - e.a[1]]; return ((p[0] - e.a[0]) * d[0] + (p[1] - e.a[1]) * d[1]) / (d[0] * d[0] + d[1] * d[1]); };
+  const add = (i, p) => { const e = E[i]; if ((p[0] === e.a[0] && p[1] === e.a[1]) || (p[0] === e.b[0] && p[1] === e.b[1])) return; const s = param(e, p); if (s > 0 && s < 1) cuts[i].push({ s, p }); };
+  const onLine = (i, p) => { const e = E[i], d = [e.b[0] - e.a[0], e.b[1] - e.a[1]], L = Math.hypot(d[0], d[1]); if (Math.abs(ovCr(d, [p[0] - e.a[0], p[1] - e.a[1]])) / L < 1e-6) add(i, p); };
+  const bb = E.map(e => [Math.min(e.a[0], e.b[0]) - 1e-6, Math.min(e.a[1], e.b[1]) - 1e-6, Math.max(e.a[0], e.b[0]) + 1e-6, Math.max(e.a[1], e.b[1]) + 1e-6]);
+  for (let i = 0; i < E.length; i++) { const A = E[i], d1 = [A.b[0] - A.a[0], A.b[1] - A.a[1]], b1 = bb[i];
+    for (let j = i + 1; j < E.length; j++) { const b2 = bb[j]; if (b2[0] > b1[2] || b2[2] < b1[0] || b2[1] > b1[3] || b2[3] < b1[1]) continue;
+      const B = E[j], d2 = [B.b[0] - B.a[0], B.b[1] - B.a[1]], den = ovCr(d1, d2);
+      if (Math.abs(den) > 1e-12 * Math.hypot(d1[0], d1[1]) * Math.hypot(d2[0], d2[1])) {
+        const w = [B.a[0] - A.a[0], B.a[1] - A.a[1]], s = ovCr(w, d2) / den, u = ovCr(w, d1) / den;
+        if (s > -1e-9 && s < 1 + 1e-9 && u > -1e-9 && u < 1 + 1e-9) { const p = ovPt([A.a[0] + s * d1[0], A.a[1] + s * d1[1]]); add(i, p); add(j, p); }
+      } else { onLine(i, B.a); onLine(i, B.b); onLine(j, A.a); onLine(j, A.b); } } }
+  const out = [];
+  E.forEach((e, i) => { const cs = cuts[i].sort((x, y) => x.s - y.s); let prev = e.a, ps = 0;
+    for (const c of cs) { if (c.p[0] === prev[0] && c.p[1] === prev[1]) continue; out.push({ a: prev, b: c.p, seg: e.seg, t0: e.t0 + ps * (e.t1 - e.t0), t1: e.t0 + c.s * (e.t1 - e.t0) }); prev = c.p; ps = c.s; }
+    if (prev[0] !== e.b[0] || prev[1] !== e.b[1]) out.push({ a: prev, b: e.b, seg: e.seg, t0: e.t0 + ps * (e.t1 - e.t0), t1: e.t1 }); });
+  return out;
+}
+
+function windAt(E, p) {
+  let w = 0;
+  for (const e of E) { const a = e.a, b = e.b, side = (b[0] - a[0]) * (p[1] - a[1]) - (p[0] - a[0]) * (b[1] - a[1]);
+    if (a[1] <= p[1]) { if (b[1] > p[1] && side > 0) w++; } else if (b[1] <= p[1] && side < 0) w--; }
+  return w;
+}
+function ovKeep(E, pieces) {
+  const seen = new Set(), kept = [];
+  for (const e of pieces) {
+    const k1 = e.a + "|" + e.b, k2 = e.b + "|" + e.a; if (seen.has(k1) || seen.has(k2)) continue; seen.add(k1);
+    const d = [e.b[0] - e.a[0], e.b[1] - e.a[1]], L = Math.hypot(d[0], d[1]), m = [(e.a[0] + e.b[0]) / 2, (e.a[1] + e.b[1]) / 2], h = 1e-4 / L;
+    const wl = windAt(E, [m[0] - d[1] * h, m[1] + d[0] * h]) !== 0, wr = windAt(E, [m[0] + d[1] * h, m[1] - d[0] * h]) !== 0;
+    if (wl === wr) continue;
+    kept.push(wl ? { a: e.b, b: e.a, seg: e.seg, t0: e.t1, t1: e.t0 } : e);
+  }
+  return kept;
+}
+
+function ovChain(K) {
+  const key = p => p[0] + "," + p[1], from = new Map();
+  K.forEach((e, i) => { const k = key(e.a); if (!from.has(k)) from.set(k, []); from.get(k).push(i); });
+  const used = new Uint8Array(K.length), loops = []; let open = 0;
+  const turn = (din, e) => { const d = [e.b[0] - e.a[0], e.b[1] - e.a[1]]; return Math.atan2(ovCr(din, d), din[0] * d[0] + din[1] * d[1]); };
+  for (let s = 0; s < K.length; s++) { if (used[s]) continue;
+    const loop = [], start = key(K[s].a); let i = s, closed = false;
+    while (i >= 0 && !used[i]) { used[i] = 1; const e = K[i]; loop.push(e);
+      if (key(e.b) === start) { closed = true; break; }
+      const cand = (from.get(key(e.b)) || []).filter(j => !used[j]); if (!cand.length) break;
+      const din = [e.b[0] - e.a[0], e.b[1] - e.a[1]]; i = cand.reduce((best, j) => turn(din, K[j]) < turn(din, K[best]) ? j : best, cand[0]); }
+    if (closed && loop.length >= 3) loops.push(loop); else open++;
+  }
+  return { loops, open };
+}
+
+function ovBlossom(s, a, b) { return [0, 1].map(k => (1 - a) * (1 - b) * s.a[k] + ((1 - a) * b + a * (1 - b)) * s.c[k] + a * b * s.b[k]); }
+function ovContour(loop, segs) {
+  const same = (p, q) => p.seg === q.seg && segs[p.seg].c && Math.abs(p.t1 - q.t0) < 1e-9 && (p.t1 - p.t0) * (q.t1 - q.t0) > 0;
+  const n = loop.length; let r = loop.findIndex((e, i) => !same(loop[(i - 1 + n) % n], e)); if (r < 0) r = 0;
+  const L = [...loop.slice(r), ...loop.slice(0, r)], pts = [];
+  for (let i = 0; i < L.length;) { let j = i; while (j + 1 < L.length && same(L[j], L[j + 1])) j++;
+    const e0 = L[i], e1 = L[j], s = segs[e0.seg]; pts.push([e0.a[0], e0.a[1], 1]);
+    const span = Math.hypot(e1.b[0] - e0.a[0], e1.b[1] - e0.a[1]);
+    if (s.c && span >= 1.5) { const c = ovBlossom(s, e0.t0, e1.t1); pts.push([c[0], c[1], 0]); }
+    i = j + 1; }
+  let c = pts.map(p => [Math.round(p[0]), Math.round(p[1]), p[2]]);
+  for (let pass = 0; pass < 3; pass++) {
+    c = c.filter((p, i) => { const q = c[(i - 1 + c.length) % c.length]; return !(p[0] === q[0] && p[1] === q[1] && p[2] && q[2]) && c.length > 2; });
+    c = c.filter((p, i) => { const a = c[(i - 1 + c.length) % c.length], b = c[(i + 1) % c.length]; if (!a[2] || !b[2]) return true;
+      const cr = ovCr([p[0] - a[0], p[1] - a[1]], [b[0] - p[0], b[1] - p[1]]), L2 = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      return Math.abs(cr) / L2 > 0.5 || ((p[0] - a[0]) * (b[0] - p[0]) + (p[1] - a[1]) * (b[1] - p[1])) < 0; });
+  }
+  return c.length >= 3 && Math.abs(area(c)) >= 1 ? c : null;
+}
+function removeOverlaps(cs, tol) {
+  const src = cs.filter(c => c.length >= 2);
+  const { segs, edges } = ovFlatten(src, tol || 0.2), pieces = ovSplit(edges), kept = ovKeep(pieces, pieces), ch = ovChain(kept);
+  const out = ch.loops.map(l => ovContour(l, segs)).filter(Boolean);
+  return { out, before: src.length, after: out.length, chords: edges.length, pieces: pieces.length, kept: kept.length, open: ch.open,
+    curves: out.reduce((s, c) => s + c.filter(p => !p[2]).length, 0) };
+}
+function overlapCount(cs) {
+  const { edges } = ovFlatten(cs, 0.5); if (!edges.length) return 0; const b = bbox(cs); let n = 0;
+  for (let x = b[0] + 7.3; x < b[2]; x += 15) for (let y = b[1] + 7.7; y < b[3]; y += 15) if (Math.abs(windAt(edges, [x, y])) > 1) n++;
+  return n;
+}
+
+const MARK_OF = { "̀": "`", "́": "´", "̂": "ˆ", "̃": "˜", "̄": "¯", "̆": "˘", "̇": "˙", "̈": "¨", "̊": "˚", "̋": "˝", "̌": "ˇ", "̧": "¸", "̨": "˛" };
+const MARK_PIX = { "`": "01100 00110", "´": "00110 01100", "ˆ": "00100 01010", "˜": "01101 10110", "¯": "01110", "˘": "01010 00100", "˙": "00100", "¨": "01010",
+  "˚": "00100 01010 00100", "˝": "01001 10010", "ˇ": "01010 00100", "¸": "00100 01100", "˛": "00100 00011" };
+const MARK_BELOW = new Set(["¸", "˛"]);
+const ACCENT_SET = "ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝŸŠŽČŘĚŮŃŚŹŁ";
+function compParts(ch) {
+  const d = [...ch.normalize("NFD")]; if (d.length < 2) return null;
+  const marks = d.slice(1).map(m => MARK_OF[m]); if (marks.some(m => !m)) return null; return { base: d[0], marks };
+}
+function compContours(g, F, depth) {
+  if ((depth || 0) > 3) return [];
+  const out = [];
+  for (const c of g.comps || []) { const cg = glyphOf(F, c.ch); if (!cg || cg === g) continue;
+    const cs = cg.comps ? compContours(cg, F, (depth || 0) + 1) : glyphContours(cg, F);
+    cs.forEach(k => out.push(k.map(p => [num(p[0]) + num(c.dx), num(p[1]) + num(c.dy), p[2]]))); }
+  return out;
+}
+function compRecs(F, g) {
+  const recs = [];
+  for (const c of g.comps || []) { const cg = glyphOf(F, c.ch); if (!cg || cg === g || cg.comps) return null; const id = F.glyphs.indexOf(cg) + 1; if (id < 1) return null;
+    recs.push({ gid: id, dx: Math.round(num(c.dx)), dy: Math.round(num(c.dy)) }); }
+  return recs.length ? recs : null;
+}
+function markGlyph(F, m) {
+  let g = F.glyphs.find(x => x.ch === m); if (g) return g;
+  const rows = MARK_PIX[m].split(" "); g = { ch: m, adv: 600, pixels: rows, contours: [] };
+  const pixelFace = F.glyphs.some(x => x.pixels && x.ch !== " ");
+  if (!pixelFace) { g.contours = removeOverlaps(glyphContours(g, F)).out; g.pixels = null; }
+  F.glyphs.push(g); return g;
+}
+function placeMark(F, inkBox, mg, below) {
+  const bm = bbox(glyphContours(mg, F)), pix = !!mg.pixels, cell = num(F.cell) || 100;
+  let dx = (inkBox[0] + inkBox[2]) / 2 - (bm[0] + bm[2]) / 2; dx = pix ? Math.round(dx / cell) * cell : Math.round(dx);
+  const gap = pix ? cell : Math.round(F.upm * 0.06);
+  const dy = below ? Math.round(inkBox[1] - bm[3]) : Math.round(inkBox[3] + gap - bm[1]);
+  return { dx, dy };
+}
+function buildComposite(F, ch) {
+  const parts = compParts(ch); if (!parts) return { ch, why: "not a letter + accent" };
+  if (F.glyphs.some(g => g.ch === ch)) return { ch, why: "already in the font" };
+  const base = F.glyphs.find(g => g.ch === parts.base) || glyphOf(F, parts.base); if (!base) return { ch, why: "no " + parts.base + " to build on" };
+  const comps = [{ ch: base.ch, dx: 0, dy: 0 }]; let ink = bbox(glyphContours(base, F));
+  for (const m of parts.marks) { const mg = markGlyph(F, m), at = placeMark(F, ink, mg, MARK_BELOW.has(m)); comps.push({ ch: m, dx: at.dx, dy: at.dy });
+    const bm = bbox(glyphContours(mg, F)); ink = [Math.min(ink[0], bm[0] + at.dx), Math.min(ink[1], bm[1] + at.dy), Math.max(ink[2], bm[2] + at.dx), Math.max(ink[3], bm[3] + at.dy)]; }
+  const g = { ch, adv: num(base.adv), pixels: null, contours: [], comps }; F.glyphs.push(g); return { ch, ok: true, g };
+}
+function decompose(g, F) { g.contours = compContours(g, F).map(c => c.map(p => [Math.round(p[0]), Math.round(p[1]), p[2]])); delete g.comps; g.pixels = null; }
+
+function shapeCard() {
+  const g = curG(); if (g.comps) return "";
+  const n = g.pixels ? 0 : overlapCount(glyphContours(g, S.face));
+  return `<div class="card" id="shapecard"><h3>⧉ Overlaps</h3><p class="sub">Shapes that cross or sit on top of each other print fine, but many apps, cutters and variable fonts want one clean outline. This merges every contour of the glyph into one outline (curves stay curves).</p>
+  ${g.pixels ? `<p><button data-act="toCurvesClean" class="pri">Turn into one clean outline</button> <span class="sub">curves mode, pixel squares merged</span></p>` :
+  `<p>${n ? `<span class="pill" style="background:var(--s4);color:#fff">${n} overlap spot${n === 1 ? "" : "s"}</span>` : `<span class="pill">no overlaps</span>`} <button data-act="ovRemove" class="pri">Remove overlaps</button></p>`}
+  ${S.ovLast ? `<p class="sub" id="ovlast">Last merge (${esc(S.ovLast.ch)}): ${S.ovLast.before} contour${S.ovLast.before === 1 ? "" : "s"} → ${S.ovLast.after}, ${S.ovLast.curves} curve handle${S.ovLast.curves === 1 ? "" : "s"} kept${S.ovLast.open ? `, ${S.ovLast.open} open piece${S.ovLast.open === 1 ? "" : "s"} dropped` : ""}.</p>` : ""}</div>`;
+}
+function pageComposite() {
+  const FC = S.face, g = curG(), gi = FC.glyphs.indexOf(g);
+  return `<h2>Glyph: ${esc(g.ch)} <span class="pill">U+${g.ch.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}</span> <span class="pill">built from parts</span></h2>
+  <p class="lead">This letter is a composite: it points at other glyphs and places them. Change the base letter or the accent and every letter built from them follows. The .ttf stores it as a real TrueType composite.</p>
+  <div class="row"><div class="card" style="flex:0 0 auto">${faceSVG(FC, g.ch, 220, false)}<div>${faceSVG(FC, "H" + g.ch + "H O" + g.ch + "O", 40, true)}</div></div>
+  <div class="card"><h3>Parts</h3><table><tr><th>Glyph</th><th class="num">Move right</th><th class="num">Move up</th><th></th></tr>
+  ${g.comps.map((c, k) => `<tr><td><button data-act="pick" data-arg="${esc(c.ch)}">${esc(c.ch)}</button></td><td>${F("", `face.glyphs.${gi}.comps.${k}.dx`, { type: "number", w: "80px", r: 1 })}</td><td>${F("", `face.glyphs.${gi}.comps.${k}.dy`, { type: "number", w: "80px", r: 1 })}</td><td>${k ? `<button data-act="compPlace" data-arg="${k}">Auto place</button>` : "base"}</td></tr>`).join("")}</table>
+  <div class="grid">${F("Advance width", `face.glyphs.${gi}.adv`, { type: "number", r: 1 })}</div>
+  <p><button data-act="compDecompose">Turn into its own outline</button> <span class="sub">(stops following the parts; then you can edit points)</span></p></div></div>`;
+}
+function accentCard() {
+  const FC = S.face, have = FC.glyphs.filter(g => g.comps).length;
+  return `<div class="card" id="accentcard"><h3>Á Accented letters</h3><p class="sub">Builds each letter from its base letter + an accent glyph (made for you in the same style if the font has none). Lowercase follows the capitals until you draw lowercase letters. ${have} built so far.</p>
+  ${F("Letters to build", "accentList", { r: 1 })}
+  <p><button data-act="buildAccents" class="pri">Build these letters</button> <button data-act="ovAll">Remove overlaps in every curve glyph</button></p>${S.accLast ? `<p class="sub" id="acclast">${esc(S.accLast)}</p>` : ""}</div>`;
+}
+Object.assign(ACT, {
+  ovRemove() { const g = curG(); if (g.pixels || g.comps) return toast("Turn this glyph into curves first.");
+    const r = removeOverlaps(g.contours || []); g.contours = r.out; GE.ctr = 0; GE.pt = -1; S.ovLast = { ch: g.ch, before: r.before, after: r.after, curves: r.curves, open: r.open }; save(); render(); },
+  toCurvesClean() { const g = curG(); const r = removeOverlaps(glyphContours(g, S.face)); g.contours = r.out; g.pixels = null; GE.ctr = 0; GE.pt = -1;
+    S.ovLast = { ch: g.ch, before: r.before, after: r.after, curves: r.curves, open: r.open }; save(); render(); },
+  ovAll() { let n = 0, m = 0; for (const g of S.face.glyphs) { if (g.pixels || g.comps || !(g.contours || []).length) continue; if (!overlapCount(g.contours)) continue; g.contours = removeOverlaps(g.contours).out; n++; m++; }
+    save(); render(); toast(n ? `Merged overlaps in ${n} glyph${n === 1 ? "" : "s"}.` : "No curve glyph had overlaps."); },
+  buildAccents() { const res = [...(S.accentList || "")].filter(c => c.trim()).map(c => buildComposite(S.face, c)), ok = res.filter(r => r.ok).map(r => r.ch), bad = res.filter(r => !r.ok);
+    S.accLast = `Built ${ok.length}: ${ok.join(" ") || "none"}.` + (bad.length ? ` Skipped ${bad.length}: ${bad.map(r => r.ch + " (" + r.why + ")").join(", ")}.` : ""); save(); render(); },
+  compPlace(k) { const g = curG(), c = g.comps[+k]; let ink = [1e9, 1e9, -1e9, -1e9];
+    g.comps.slice(0, +k).forEach(p => { const b = bbox(glyphContours(glyphOf(S.face, p.ch), S.face)); ink = [Math.min(ink[0], b[0] + num(p.dx)), Math.min(ink[1], b[1] + num(p.dy)), Math.max(ink[2], b[2] + num(p.dx)), Math.max(ink[3], b[3] + num(p.dy))]; });
+    const at = placeMark(S.face, ink, glyphOf(S.face, c.ch), MARK_BELOW.has(c.ch)); c.dx = at.dx; c.dy = at.dy; save(); render(); },
+  compDecompose() { decompose(curG(), S.face); save(); render(); },
+});
+{
+  const gi = APP.pages.findIndex(p => p[0] === "glyph"), pg0 = APP.pages[gi][2];
+  APP.pages[gi][2] = () => { if (curG().comps) return pageComposite(); const h = pg0(), k = h.lastIndexOf("</div>"); return h.slice(0, k) + shapeCard() + h.slice(k); };
+  const fi = APP.pages.findIndex(p => p[0] === "face"), pf0 = APP.pages[fi][2];
+  APP.pages[fi][2] = () => pf0() + accentCard();
+  const d0 = APP.defaults; APP.defaults = () => Object.assign(d0(), { accentList: ACCENT_SET, ovLast: null, accLast: "" });
+  const c0 = ACT.checkTTF; ACT.checkTTF = function () { c0(); const comp = S.face.glyphs.filter(g => g.comps && compRecs(S.face, g)).length, ov = S.face.glyphs.filter(g => !g.pixels && !g.comps && overlapCount(g.contours || [])).map(g => g.ch);
+    S._ttfcheck += `\ncomposite glyphs ${comp}\nglyphs with overlapping contours: ${ov.length ? ov.join(" ") + " (Remove overlaps on their Glyph page)" : "none"}`; render(); };
+  const st0 = APP.selftest; APP.selftest = () => {
+    const res = st0() || {}, fail = res.fail || (res.fail = []), keep = S;
+    try {
+      S = APP.defaults();
+      const sq = (x, y) => [[x, y, 1], [x, y + 100, 1], [x + 100, y + 100, 1], [x + 100, y, 1]];
+      const u = removeOverlaps([sq(0, 0), sq(50, 50)]);
+      if (u.after !== 1 || Math.round(area(u.out[0])) !== -17500 || u.out[0].length !== 8) fail.push("overlap: two squares " + JSON.stringify(u.out));
+      const hole = [[25, 25, 1], [75, 25, 1], [75, 75, 1], [25, 75, 1]], h1 = removeOverlaps([sq(0, 0), hole]), h2 = removeOverlaps([sq(0, 0), [...hole].reverse()]);
+      if (h1.after !== 2 || Math.round(area(h1.out[0]) + area(h1.out[1])) !== -7500) fail.push("overlap: hole kept " + JSON.stringify(h1.out));
+      if (h2.after !== 1 || Math.round(area(h2.out[0])) !== -10000) fail.push("overlap: same-way hole fills " + JSON.stringify(h2.out));
+      const H = removeOverlaps(glyphContours(glyphOf(S.face, "H"), S.face)), A = removeOverlaps(glyphContours(glyphOf(S.face, "A"), S.face));
+      if (H.after !== 1 || H.out[0].length !== 12) fail.push("overlap: pixel H " + JSON.stringify(H.out));
+      if (A.after !== 2) fail.push("overlap: pixel A contours " + A.after);
+      const circ = cx => { const k = Math.tan(Math.PI / 8), r = 200, c = []; for (let i = 0; i < 8; i++) { const a = -i * Math.PI / 4, b = a - Math.PI / 8; c.push([cx + r * Math.cos(a), r * Math.sin(a), 1], [cx + r / Math.cos(Math.PI / 8) * Math.cos(b), r / Math.cos(Math.PI / 8) * Math.sin(b), 0]); } return c; };
+      const two = [circ(0), circ(200)], cu = removeOverlaps(two), r = 200, d = 200, lens = 2 * r * r * Math.acos(d / (2 * r)) - (d / 2) * Math.sqrt(4 * r * r - d * d);
+      const want = 2 * Math.PI * r * r - lens, got = cu.out.length === 1 ? Math.abs(polyArea(cu.out[0])) : 0;
+      if (cu.after !== 1 || Math.abs(got - want) / want > 0.01 || cu.curves < 8 || overlapCount(cu.out) !== 0 || overlapCount(two) === 0) fail.push(`overlap: circles area ${Math.round(got)} vs ${Math.round(want)}, ${cu.after} contours, ${cu.curves} curves`);
+      S.face = newFace(); const r1 = buildComposite(S.face, "É"), r2 = buildComposite(S.face, "Ň"), r3 = buildComposite(S.face, "Q");
+      if (!r1.ok || !r2.ok || r3.ok) fail.push("composite: build " + JSON.stringify([r1.ok, r2.ok, r3.why]));
+      const gE = S.face.glyphs.find(g => g.ch === "É"); if (gE.comps[1].dy !== 800 || gE.comps[1].ch !== "´") fail.push("composite: acute place " + JSON.stringify(gE.comps));
+      const bin = buildTTF(S.face), rd = readTTF(bin); if (rd.whole !== "b1b0afba" || rd.badSums.length) fail.push("composite: ttf sums");
+      const dv = new DataView(bin.buffer), nt = dv.getUint16(4), tb = {}; for (let i = 0; i < nt; i++) { const o = 12 + i * 16; tb[String.fromCharCode(bin[o], bin[o + 1], bin[o + 2], bin[o + 3])] = dv.getUint32(o + 8); }
+      const gid = S.face.glyphs.indexOf(gE) + 1, go = dv.getUint32(tb.loca + gid * 4), nc = dv.getInt16(tb.glyf + go);
+      if (nc !== -1) fail.push("composite: glyf numberOfContours " + nc);
+      const right0 = bbox(glyphContours(gE, S.face))[2], gEE = S.face.glyphs.find(g => g.ch === "E"); gEE.pixels = gEE.pixels.map(r => r + "1"); if (bbox(glyphContours(gE, S.face))[2] !== right0 + S.face.cell) fail.push("composite: does not follow E");
+    } catch (e) { fail.push("shape selftest threw " + e.message + " " + (e.stack || "").split("\n")[1]); }
+    finally { S = keep; }
+    return res;
+  };
+}
+function polyArea(c) {
+  let a = 0; for (const s of ttSegs(c)) { a += (s.a[0] * s.b[1] - s.b[0] * s.a[1]) / 2; if (s.c) a += (2 / 3) * ((s.c[0] - s.a[0]) * (s.b[1] - s.a[1]) - (s.b[0] - s.a[0]) * (s.c[1] - s.a[1])) / 2; }
+  return a;
+}
+
+</script>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+
+
+const COMB_OF = Object.fromEntries(Object.entries(MARK_OF).map(([c, s]) => [s, c]));
+function combGlyph(F, m) {
+  const c = COMB_OF[m]; if (!c) return null; let g = F.glyphs.find(x => x.ch === c); if (g) return g;
+  markGlyph(F, m); g = { ch: c, adv: 0, pixels: null, contours: [], comps: [{ ch: m, dx: 0, dy: 0 }] }; F.glyphs.push(g); return g;
+}
+const isComb = ch => /^[̀-ͯ]$/.test(ch);
+function markAnchors(F) {
+  const marks = [], bases = [], gap = F.glyphs.some(x => x.pixels && x.ch !== " ") ? num(F.cell) || 100 : Math.round(F.upm * 0.06);
+  F.glyphs.forEach((g, i) => { const cs = glyphContours(g, F); if (!cs.length) return; const b = bbox(cs), cx = Math.round((b[0] + b[2]) / 2);
+    if (isComb(g.ch)) { const sp = (g.comps || [])[0], below = sp && MARK_BELOW.has(sp.ch); marks.push({ gid: i + 1, cls: below ? 1 : 0, x: cx, y: Math.round(below ? b[3] : b[1]) }); return; }
+    if (Object.values(MARK_OF).includes(g.ch)) return;
+    bases.push({ gid: i + 1, top: [cx, Math.round(b[3] + gap)], bottom: [cx, Math.round(b[1])] }); });
+  marks.sort((a, b) => a.gid - b.gid); bases.sort((a, b) => a.gid - b.gid);
+  return { marks, bases };
+}
+function coverage1(gids) { const w = BW().u16(1).u16(gids.length); gids.forEach(g => w.u16(g)); return w; }
+function anchor1(x, y) { return BW().u16(1).i16(x).i16(y); }
+function markBasePos(A) {
+  const { marks, bases } = A; if (!marks.length || !bases.length) return null;
+  const mcov = coverage1(marks.map(m => m.gid)), bcov = coverage1(bases.map(b => b.gid));
+  const ma = BW().u16(marks.length); let o = 2 + 4 * marks.length; marks.forEach(m => { ma.u16(m.cls).u16(o); o += 6; }); marks.forEach(m => ma.bytes(anchor1(m.x, m.y).raw));
+  const ba = BW().u16(bases.length); o = 2 + 4 * bases.length; bases.forEach(() => { ba.u16(o).u16(o + 6); o += 12; }); bases.forEach(b => { ba.bytes(anchor1(b.top[0], b.top[1]).raw).bytes(anchor1(b.bottom[0], b.bottom[1]).raw); });
+  const h = 12, oM = h, oB = oM + mcov.len, oMA = oB + bcov.len, oBA = oMA + ma.len;
+  const st = BW().u16(1).u16(oM).u16(oB).u16(2).u16(oMA).u16(oBA).bytes(mcov.raw).bytes(bcov.raw).bytes(ma.raw).bytes(ba.raw);
+  if (st.len > 65535) throw new Error("mark positioning over 64 KB");
+  return BW().u16(4).u16(0).u16(1).u16(8).bytes(st.raw);
+}
+function gdefTable(A, n) {
+  const cls = new Map(); A.bases.forEach(b => cls.set(b.gid, 1)); A.marks.forEach(m => cls.set(m.gid, 3));
+  const ids = [...cls.keys()].sort((a, b) => a - b), ranges = [];
+  ids.forEach(g => { const r = ranges[ranges.length - 1]; if (r && r[1] === g - 1 && r[2] === cls.get(g)) r[1] = g; else ranges.push([g, g, cls.get(g)]); });
+  const cd = BW().u16(2).u16(ranges.length); ranges.forEach(r => cd.u16(r[0]).u16(r[1]).u16(r[2]));
+  return BW().u16(1).u16(0).u16(12).u16(0).u16(0).u16(0).bytes(cd.raw);
+}
+function lookupOf(gpos) { const a = gpos.raw, U = o => (a[o] << 8) | a[o + 1], ll = U(8), lk = ll + U(ll + 2); const w = BW(); w.bytes(a.slice(lk)); return w; }
+function gposMulti(feats) {
+  const n = feats.length, sl = BW().u16(2).tag("DFLT").u16(14).tag("latn").u16(14 + 10 + 2 * n);
+  for (let s = 0; s < 2; s++) { sl.u16(4).u16(0).u16(0).u16(0xFFFF).u16(n); for (let i = 0; i < n; i++) sl.u16(i); }
+  const fl = BW().u16(n); feats.forEach(([t], i) => fl.tag(t).u16(2 + 6 * n + 6 * i)); feats.forEach((_, i) => fl.u16(0).u16(1).u16(i));
+  const ll = BW().u16(n); let o = 2 + 2 * n; feats.forEach(([, l]) => { ll.u16(o); o += l.len; }); feats.forEach(([, l]) => ll.bytes(l.raw));
+  return BW().u16(1).u16(0).u16(10).u16(10 + sl.len).u16(10 + sl.len + fl.len).bytes(sl.raw).bytes(fl.raw).bytes(ll.raw);
+}
+function buildMarkPos(F) { if (!F.glyphs.some(g => isComb(g.ch))) return null; const A = markAnchors(F), lk = markBasePos(A); return lk ? { lookup: lk, gdef: gdefTable(A, F.glyphs.length + 1), A } : null; }
+{
+  const x0 = extraTables;
+  extraTables = function (F, tables, gid) { x0(F, tables, gid); const mk = buildMarkPos(F); if (!mk) return;
+    tables.GPOS = gposMulti([...(tables.GPOS ? [["kern", lookupOf(tables.GPOS)]] : []), ["mark", mk.lookup]]); tables.GDEF = mk.gdef; };
+  const b0 = buildComposite; buildComposite = function (F, ch) { const r = b0(F, ch); const p = compParts(ch); if (p) p.marks.forEach(m => combGlyph(F, m)); return r; };
+  Object.assign(ACT, { addCombining() { const n0 = S.face.glyphs.length; Object.values(MARK_OF).forEach(m => combGlyph(S.face, m)); save(); render();
+    toast(`${S.face.glyphs.length - n0} combining accents added: type a letter, then the accent, and the font places it.`); } });
+  const c0 = accentCard; accentCard = function () { const n = S.face.glyphs.filter(g => isComb(g.ch)).length;
+    return c0().replace(/<\/div>$/, `<p><button data-act="addCombining">Add combining accents (typed after any letter)</button> <span class="sub">${n} in the font; positioned with mark anchors (GPOS 'mark').</span></p>
+    <p class="sub">Try: ${["H́", "M̈", "Ţ", "W̊"].map(s => esc(s)).join(" ")} (letters with no ready-made accented form).</p></div>`); };
+  const st0 = APP.selftest; APP.selftest = () => { const res = st0() || {}, fail = res.fail || (res.fail = []), keep = S;
+    try { S = APP.defaults(); const F = S.face; buildComposite(F, "É"); buildComposite(F, "Ç");
+      const A = markAnchors(F), ac = A.marks.find(m => F.glyphs[m.gid - 1].ch === "́"), ce = A.marks.find(m => F.glyphs[m.gid - 1].ch === "̧");
+      const H = A.bases.find(b => F.glyphs[b.gid - 1].ch === "H");
+      if (!ac || ac.cls !== 0 || ac.y !== 0 || !ce || ce.cls !== 1 || ce.y !== 200 || !H || H.top[1] !== 800 || H.top[0] !== 300) fail.push("mark: anchors " + JSON.stringify([ac, ce, H]));
+      const gE = F.glyphs.find(g => g.ch === "É"), E = A.bases.find(b => F.glyphs[b.gid - 1].ch === "E");
+      if (E.top[0] - ac.x !== gE.comps[1].dx || E.top[1] - ac.y !== gE.comps[1].dy) fail.push("mark: anchors disagree with the composite");
+      const bin = buildTTF(F), rd = readTTF(bin); if (!rd.tables.includes("GDEF") || rd.badSums.length || rd.whole !== "b1b0afba") fail.push("mark: tables " + rd.tables);
+      const k = readGPOS(bin); if (!k || k.error || !k.pairs.length) fail.push("mark: kern lookup lost " + JSON.stringify(k && k.error));
+    } catch (e) { fail.push("mark selftest threw " + e.message); } finally { S = keep; }
+    return res; };
+}
+
+</script>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+
+
+const STROKED = {
+  "Ł": ["L", "slash", "left"], "ł": ["l", "slash", "mid"], "Ø": ["O", "long"], "ø": ["o", "long"], "Đ": ["D", "bar", "left"], "Ð": ["D", "bar", "left"],
+  "đ": ["d", "bar", "right-high"], "Ħ": ["H", "bar", "across-high"], "ħ": ["h", "bar", "left-high"], "Ŧ": ["T", "bar", "mid"], "ŧ": ["t", "bar", "mid"] };
+const STROKE_SET = "ŁØĐĦŦłøđħŧ";
+
+function skLine(grid, c0, r0, c1, r1) { let dx = Math.abs(c1 - c0), dy = -Math.abs(r1 - r0), sx = c0 < c1 ? 1 : -1, sy = r0 < r1 ? 1 : -1, e = dx + dy;
+  for (;;) { if (grid[r0] && c0 >= 0 && c0 < grid[r0].length) grid[r0][c0] = 1; if (c0 === c1 && r0 === r1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; c0 += sx; } if (e2 <= dx) { e += dx; r0 += sy; } } }
+function strokedPixels(base, kind, where) {
+  let grid = base.pixels.map(r => [...r].map(Number)); const n = grid.length;
+  const colInk = c => grid.reduce((s, r) => s + (r[c] || 0), 0), W0 = grid[0].length;
+  const pad = (left, right) => { grid = grid.map(r => [...Array(left).fill(0), ...r, ...Array(right).fill(0)]); };
+  const inkRows = grid.map((r, i) => r.some(Boolean) ? i : -1).filter(i => i >= 0), top = inkRows[0], bot = inkRows[inkRows.length - 1];
+  let added = 0;
+  if (kind === "long") { skLine(grid, 0, bot, grid[0].length - 1, top); return { rows: grid.map(r => r.join("")), added }; }
+  let stem; if (where === "mid") { let best = -1; for (let c = 0; c < W0; c++) if (colInk(c) > best) { best = colInk(c); stem = c; } }
+  else if (/^right/.test(where)) { for (let c = W0 - 1; c >= 0; c--) if (colInk(c) >= (bot - top + 1) * 0.6) { stem = c; break; } }
+  else { for (let c = 0; c < W0; c++) if (colInk(c) >= (bot - top + 1) * 0.6) { stem = c; break; } }
+  if (stem == null) stem = 0;
+  const high = /high/.test(where), rowAt = high ? top + Math.max(1, Math.round((bot - top) * 0.2)) : top + Math.round((bot - top) * 0.55);
+  if (kind === "slash") { const needL = stem - 1 < 0 ? 1 : 0, needR = stem + 2 >= W0 ? stem + 3 - W0 : 0; pad(needL, needR); added = needL + needR; stem += needL;
+    skLine(grid, stem - 1, Math.min(bot, rowAt + 1), stem + 2, Math.max(top, rowAt - 1)); }
+  else if (where === "across-high") { pad(1, 1); added = 2; for (let c = 0; c < grid[0].length; c++) grid[rowAt][c] = 1; }
+  else { const needL = stem - 1 < 0 ? 1 : 0, needR = stem + 1 >= W0 ? 1 : 0; pad(needL, needR); added = needL + needR; stem += needL;
+    for (let c = stem - 1; c <= stem + 1; c++) grid[rowAt][c] = 1; }
+  return { rows: grid.map(r => r.join("")), added };
+}
+
+function skFlat(c) {
+  const n = c.length, P = [], on = i => c[(i + n) % n][2] !== 0, pt = i => c[(i + n) % n];
+  let s = c.findIndex(p => p[2] !== 0); if (s < 0) { s = 0; }
+  const start = on(s) ? pt(s) : [(pt(s)[0] + pt(s + 1)[0]) / 2, (pt(s)[1] + pt(s + 1)[1]) / 2]; let cur = start; P.push([cur[0], cur[1]]);
+  for (let k = 1; k <= n; k++) { const i = s + k, p = pt(i);
+    if (on(i)) { cur = p; P.push([p[0], p[1]]); continue; }
+    const nx = on(i + 1) ? pt(i + 1) : [(p[0] + pt(i + 1)[0]) / 2, (p[1] + pt(i + 1)[1]) / 2];
+    for (let t = 1; t <= 8; t++) { const u = t / 8, a = (1 - u) * (1 - u), b = 2 * u * (1 - u), d = u * u; P.push([a * cur[0] + b * p[0] + d * nx[0], a * cur[1] + b * p[1] + d * nx[1]]); }
+    cur = nx; if (on(i + 1)) k++; }
+  return P;
+}
+function skWind(polys, x, y) { let w = 0; for (const P of polys) for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length];
+  if (a[1] <= y) { if (b[1] > y && (b[0] - a[0]) * (y - a[1]) - (x - a[0]) * (b[1] - a[1]) > 0) w++; } else if (b[1] <= y && (b[0] - a[0]) * (y - a[1]) - (x - a[0]) * (b[1] - a[1]) < 0) w--; } return w; }
+function skRuns(polys, y, x0, x1) { const runs = []; let s = null; for (let x = x0; x <= x1 + 2; x += 2) { const ins = skWind(polys, x, y) !== 0; if (ins && s == null) s = x; if (!ins && s != null) { runs.push([s, x]); s = null; } } return runs; }
+const skArea = P => P.reduce((s, p, i) => { const q = P[(i + 1) % P.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0) / 2;
+function strokedContours(base, F, kind, where) {
+  const cs = glyphContours(base, F), polys = cs.map(skFlat), b = bbox(cs), H = b[3] - b[1];
+  const high = /high/.test(where), y = high ? b[3] - H * 0.2 : b[1] + H * 0.45;
+  const runs = skRuns(polys, y, b[0] - 2, b[2] + 2), weight = runs.length ? Math.min(...runs.map(r => r[1] - r[0])) : Math.max(40, (b[2] - b[0]) * 0.15);
+  const run = where === "mid" ? runs.reduce((m, r) => (!m || Math.abs((r[0] + r[1]) / 2 - (b[0] + b[2]) / 2) < Math.abs((m[0] + m[1]) / 2 - (b[0] + b[2]) / 2) ? r : m), null)
+    : /^right/.test(where) ? runs[runs.length - 1] : runs[0];
+  const t = weight * 0.8; let band;
+  if (kind === "long") { const e = weight * 0.4, A = [b[0] - e, b[1] - e], B = [b[2] + e, b[3] + e], L = Math.hypot(B[0] - A[0], B[1] - A[1]), nx = -(B[1] - A[1]) / L * t / 2, ny = (B[0] - A[0]) / L * t / 2;
+    band = [[A[0] + nx, A[1] + ny], [B[0] + nx, B[1] + ny], [B[0] - nx, B[1] - ny], [A[0] - nx, A[1] - ny]]; }
+  else if (kind === "slash") { const cx = run ? (run[0] + run[1]) / 2 : b[0] + weight / 2, a = 35 * Math.PI / 180, h = weight * 1.7, dx = Math.cos(a) * h, dy = Math.sin(a) * h, nx = -Math.sin(a) * t / 2, ny = Math.cos(a) * t / 2;
+    band = [[cx - dx + nx, y - dy + ny], [cx + dx + nx, y + dy + ny], [cx + dx - nx, y + dy - ny], [cx - dx - nx, y - dy - ny]]; }
+  else { const across = where === "across-high", ext = weight * 0.9, x0 = across ? b[0] - ext * 0.6 : (run ? run[0] : b[0]) - ext, x1 = across ? b[2] + ext * 0.6 : (run ? run[1] : b[0] + weight) + ext;
+    band = [[x0, y - t / 2], [x1, y - t / 2], [x1, y + t / 2], [x0, y + t / 2]]; }
+  const outer = polys.reduce((m, P) => Math.abs(skArea(P)) > Math.abs(skArea(m)) ? P : m, polys[0]), dir = Math.sign(skArea(outer)) || -1;
+  if (Math.sign(skArea(band)) !== dir) band.reverse();
+  const merged = removeOverlaps([...cs.map(c => c.map(p => [p[0], p[1], p[2]])), band.map(p => [Math.round(p[0]), Math.round(p[1]), 1])]).out;
+  const all = [...merged.flat(), ...cs.flat()], minX = Math.min(...all.map(p => p[0]));
+  return { contours: merged, weight, y, shift: minX < 0 ? -minX : 0 };
+}
+function buildStroked(F, ch) {
+  const def = STROKED[ch]; if (!def) return { ch, why: "not a stroked letter" };
+  if (F.glyphs.some(g => g.ch === ch)) return { ch, why: "already in the font" };
+  const [bch, kind, where] = def, base = F.glyphs.find(g => g.ch === bch); if (!base) return { ch, why: "no " + bch + " drawn" };
+  if (base.comps) return { ch, why: bch + " is built from parts" };
+  let g;
+  if (base.pixels) { const r = strokedPixels(base, kind, where); g = { ch, adv: num(base.adv) + r.added * (num(F.cell) || 100), pixels: r.rows, contours: [] }; }
+  else { const r = strokedContours(base, F, kind, where); g = { ch, adv: num(base.adv) + Math.round(r.shift), pixels: null, contours: r.contours.map(c => c.map(p => [Math.round(p[0] + r.shift), Math.round(p[1]), p[2]])) }; F.glyphs.push(g); return { ch, ok: true, g, shift: r.shift, y: r.y, weight: r.weight }; }
+  F.glyphs.push(g); return { ch, ok: true, g };
+}
+
+function markMarkAnchors(F) {
+  const gap = F.glyphs.some(x => x.pixels && x.ch !== " ") ? num(F.cell) || 100 : Math.round(F.upm * 0.06), out = [];
+  F.glyphs.forEach((g, i) => { if (!isComb(g.ch)) return; const cs = glyphContours(g, F); if (!cs.length) return; const b = bbox(cs), cx = Math.round((b[0] + b[2]) / 2), sp = (g.comps || [])[0], below = !!(sp && MARK_BELOW.has(sp.ch));
+    out.push({ gid: i + 1, cls: below ? 1 : 0, x: cx, y: Math.round(below ? b[3] : b[1]), top: [cx, Math.round(b[3] + gap)], bottom: [cx, Math.round(b[1])] }); });
+  return out.sort((a, b) => a.gid - b.gid);
+}
+function markMarkPos(M) {
+  if (M.length < 2) return null;
+  const cov = coverage1(M.map(m => m.gid));
+  const m1 = BW().u16(M.length); let o = 2 + 4 * M.length; M.forEach(m => { m1.u16(m.cls).u16(o); o += 6; }); M.forEach(m => m1.bytes(anchor1(m.x, m.y).raw));
+  const m2 = BW().u16(M.length); o = 2 + 4 * M.length; M.forEach(() => { m2.u16(o).u16(o + 6); o += 12; }); M.forEach(m => m2.bytes(anchor1(m.top[0], m.top[1]).raw).bytes(anchor1(m.bottom[0], m.bottom[1]).raw));
+  const h = 12, o1 = h, o2 = o1 + cov.len, oA1 = o2 + cov.len, oA2 = oA1 + m1.len;
+  const st = BW().u16(1).u16(o1).u16(o2).u16(2).u16(oA1).u16(oA2).bytes(cov.raw).bytes(cov.raw).bytes(m1.raw).bytes(m2.raw);
+  return BW().u16(6).u16(0).u16(1).u16(8).bytes(st.raw);
+}
+function gposLookups(gpos) {
+  const a = gpos.raw, U = o => (a[o] << 8) | a[o + 1], fl = U(6), ll = U(8), nf = U(fl), nl = U(ll), offs = [];
+  for (let i = 0; i < nl; i++) offs.push(ll + U(ll + 2 + 2 * i)); const ends = offs.slice(1).concat([a.length]);
+  const out = []; for (let i = 0; i < nf; i++) { const tag = String.fromCharCode(...a.slice(fl + 2 + 6 * i, fl + 6 + 6 * i)), ft = fl + U(fl + 6 + 6 * i), li = U(ft + 4); const w = BW(); w.bytes(a.slice(offs[li], ends[li])); out.push([tag, w]); }
+  return out;
+}
+{
+  const x0 = extraTables; extraTables = function (F, tables, gid) { x0(F, tables, gid); if (!tables.GPOS || !tables.GDEF) return; const mm = markMarkPos(markMarkAnchors(F)); if (!mm) return;
+    tables.GPOS = gposMulti([...gposLookups(tables.GPOS).filter(([t]) => t !== "mkmk"), ["mkmk", mm]]); };
+  const b0 = buildComposite; buildComposite = function (F, ch) { return STROKED[ch] ? buildStroked(F, ch) : b0(F, ch); };
+  Object.assign(ACT, { buildStroked() { const res = [...(S.strokeList || "")].filter(c => c.trim()).map(c => buildStroked(S.face, c)), ok = res.filter(r => r.ok).map(r => r.ch), bad = res.filter(r => !r.ok);
+    S.strokeLast = `Built ${ok.length}: ${ok.join(" ") || "none"}.` + (bad.length ? ` Skipped ${bad.length}: ${bad.map(r => r.ch + " (" + r.why + ")").join(", ")}.` : ""); save(); render(); } });
+  const c0 = accentCard; accentCard = function () { const n = S.face.glyphs.filter(g => isComb(g.ch)).length;
+    return c0() + `<div class="card" id="strokecard"><h3>Ł Letters with strokes + slashes</h3><p class="sub">Ł Ø Đ Ħ Ŧ have no accent to add: each is drawn from its base letter plus a stroke in the same style (pixels, or one merged outline). Lowercase ones need their own lowercase letter drawn first.</p>
+    ${F("Letters to draw", "strokeList", { r: 1 })}<p><button data-act="buildStroked" class="pri">Draw these letters</button></p>${S.strokeLast ? `<p class="sub" id="strokelast">${esc(S.strokeLast)}</p>` : ""}
+    <p class="sub">Stacked accents: ${n >= 2 ? `on (GPOS 'mkmk'): a second typed accent sits on the first, e.g. ${esc("Ấ Ỗ")}` : "add the combining accents above to switch it on"}.</p></div>`; };
+  const d0 = APP.defaults; APP.defaults = () => Object.assign(d0(), { strokeList: STROKE_SET, strokeLast: "" });
+  const st0 = APP.selftest; APP.selftest = () => { const res = st0() || {}, fail = res.fail || (res.fail = []), keep = S;
+    try { S = APP.defaults(); const F = S.face;
+      const L = buildStroked(F, "Ł"), D = buildStroked(F, "Đ"), O = buildStroked(F, "Ø"), Hs = buildStroked(F, "Ħ"), T = buildStroked(F, "Ŧ");
+      if (!L.ok || L.g.pixels.join(" ") !== "010000 010000 010100 011000 110000 010000 011111") fail.push("stroke: Ł pixels " + (L.g && L.g.pixels.join(" ")));
+      if (!D.ok || D.g.pixels[3] !== "111001" || D.g.adv !== 700) fail.push("stroke: Đ " + (D.g && D.g.pixels.join(" ")));
+      if (!O.ok || O.g.pixels.join(" ") !== "01111 10011 10011 10101 11001 11001 11110") fail.push("stroke: Ø " + (O.g && O.g.pixels.join(" ")));
+      if (!Hs.ok || Hs.g.pixels[1] !== "1111111" || Hs.g.adv !== 800) fail.push("stroke: Ħ " + (Hs.g && Hs.g.pixels.join(" ")));
+      if (!T.ok || T.g.pixels[3] !== "01110") fail.push("stroke: Ŧ " + (T.g && T.g.pixels.join(" ")));
+      if (buildStroked(F, "ł").ok) fail.push("stroke: ł built with no lowercase l");
+      const S2 = APP.defaults(), F2 = S2.face, gL = F2.glyphs.find(g => g.ch === "L"); gL.contours = removeOverlaps(glyphContours(gL, F2)).out; gL.pixels = null;
+      const C = buildStroked(F2, "Ł"); const pl = glyphContours(C.g, F2).map(skFlat), p0 = glyphContours(gL, F2).map(skFlat);
+      if (!C.ok || C.g.contours.length !== 1 || !skWind(pl, 100 + C.shift + 0.8 * Math.cos(0.6109) * 170, C.y + 0.8 * Math.sin(0.6109) * 170) || skWind(p0, 100 + 0.8 * Math.cos(0.6109) * 170, C.y + 0.8 * Math.sin(0.6109) * 170)) fail.push("stroke: curve Ł " + (C.g && C.g.contours.length));
+      Object.values(MARK_OF).forEach(m => combGlyph(F, m)); const bin = buildTTF(F), rd = readTTF(bin); if (rd.badSums.length) fail.push("stroke: checksums");
+    } catch (e) { fail.push("stroke selftest threw " + e.message + " " + (e.stack || "").split("\n")[1]); } finally { S = keep; }
+    return res; };
+}
+
+</script>
+<script>
+if (inApp) { tell({ uds: "store-get" }); tell({ uds: "web-hello" }); setTimeout(() => { if (!loaded) { useLocal = true; boot(readLocal()); } }, 1500); }
+else boot(readLocal());
+</script>
+</body>
+</html>

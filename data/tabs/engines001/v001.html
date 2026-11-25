@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Randis Engines</title>
+<style>
+:root { --bg:#0c0f1a; --panel:#141a2b; --line:#262f4a; --fg:#e9edf6; --mut:#929cb5; --acc:#ff8a3d; --ok:#3ddc84; --bad:#ff6b6b; }
+* { box-sizing:border-box; } body { margin:0; font:14px/1.45 system-ui,Segoe UI,sans-serif; background:var(--bg); color:var(--fg); }
+.attr { font-size:11px; padding:4px 12px; background:#06080f; color:var(--mut); } .attr b { color:#f2c14e; } .attr a { color:#7fb2ff; }
+header { padding:10px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; } header h1 { margin:0; font-size:18px; } header span { color:var(--mut); font-size:12px; }
+.wrap { display:flex; height:calc(100vh - 78px); } nav { width:190px; border-right:1px solid var(--line); padding:8px; flex:none; overflow:auto; }
+nav button { display:block; width:100%; text-align:left; background:none; border:0; color:var(--fg); padding:7px 10px; border-radius:6px; cursor:pointer; font:inherit; } nav button.on { background:#2a2033; box-shadow:inset 3px 0 0 var(--acc); } nav button:hover { background:#1c2238; }
+main { flex:1; overflow:auto; padding:16px 20px; } h2 { margin:0 0 4px; } .lead { color:var(--mut); margin:0 0 12px; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+button.b { background:#232b45; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 12px; cursor:pointer; font:inherit; margin:2px 4px 2px 0; } button.b:hover { border-color:var(--acc); } button.pri { background:var(--acc); border-color:var(--acc); color:#111; }
+input, textarea, select { background:#0a0d18; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; } textarea { width:100%; font:12px Consolas,monospace; }
+table { border-collapse:collapse; width:100%; } td, th { border-bottom:1px solid var(--line); padding:5px 6px; text-align:left; vertical-align:top; } th { color:var(--mut); font-size:12px; }
+.pill { display:inline-block; font-size:11px; padding:1px 7px; border-radius:10px; border:1px solid var(--line); color:var(--mut); } .pill.ok { border-color:var(--ok); color:var(--ok); }
+canvas { background:#070a12; border:1px solid var(--line); border-radius:8px; display:block; max-width:100%; } .mut { color:var(--mut); } .ok { color:var(--ok); } .bad { color:var(--bad); }
+.res { padding:6px 0; border-bottom:1px solid var(--line); } .res b { color:#ffd08a; } mark { background:#ff8a3d44; color:inherit; }
+</style></head><body>
+<div class="attr"><b>Randis UDS™ by Randy Moore.</b> Original: <a href="https://github.com/RandyWilliamMoore/randis-uds" target="_blank">github.com/RandyWilliamMoore/randis-uds</a> · Support: <a href="https://ko-fi.com/moorescombinatoricsmatrix" target="_blank">ko-fi.com/moorescombinatoricsmatrix</a> · Randis Engines</div>
+<header><h1>⚙️ Randis Engines</h1><span>engines of every kind, our own code, each one measured</span></header>
+<div class="wrap"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+(function (root) {
+  function rng(seed) { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function noise2(seed) { const r = rng(seed), p = new Uint8Array(512), g = []; for (let i = 0; i < 256; i++) p[i] = i; for (let i = 255; i > 0; i--) { const j = r() * (i + 1) | 0; [p[i], p[j]] = [p[j], p[i]]; } for (let i = 0; i < 256; i++) p[i + 256] = p[i];
+    for (let i = 0; i < 8; i++) g.push([Math.cos(i * Math.PI / 4), Math.sin(i * Math.PI / 4)]);
+    const f = t => t * t * t * (t * (t * 6 - 15) + 10), dot = (h, x, y) => { const q = g[h & 7]; return q[0] * x + q[1] * y; };
+    return (x, y) => { const X = Math.floor(x) & 255, Y = Math.floor(y) & 255; x -= Math.floor(x); y -= Math.floor(y); const u = f(x), v = f(y);
+      const a = p[X] + Y, b = p[X + 1] + Y; const l = (t, a1, b1) => a1 + t * (b1 - a1);
+      return l(v, l(u, dot(p[a], x, y), dot(p[b], x - 1, y)), l(u, dot(p[a + 1], x, y - 1), dot(p[b + 1], x - 1, y - 1))); }; }
+  const mat4 = {
+    mul(o, a, b) { for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + j] * b[i * 4 + k]; o[i * 4 + j] = s; } return o; },
+    ident(o) { o.fill(0); o[0] = o[5] = o[10] = o[15] = 1; return o; },
+    invert(o, m) { const [a00, a01, a02, a03, a10, a11, a12, a13, a20, a21, a22, a23, a30, a31, a32, a33] = m;
+      const b00 = a00 * a11 - a01 * a10, b01 = a00 * a12 - a02 * a10, b02 = a00 * a13 - a03 * a10, b03 = a01 * a12 - a02 * a11, b04 = a01 * a13 - a03 * a11, b05 = a02 * a13 - a03 * a12,
+        b06 = a20 * a31 - a21 * a30, b07 = a20 * a32 - a22 * a30, b08 = a20 * a33 - a23 * a30, b09 = a21 * a32 - a22 * a31, b10 = a21 * a33 - a23 * a31, b11 = a22 * a33 - a23 * a32;
+      let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06; if (!det) return null; det = 1 / det;
+      o[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det; o[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det; o[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det; o[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
+      o[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det; o[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det; o[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det; o[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+      o[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det; o[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det; o[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det; o[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
+      o[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det; o[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det; o[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det; o[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det; return o; },
+  };
+  const STOP = new Set("a an and are as at be by for from has have in is it its of on or that the to was were will with this these those not but".split(" "));
+  const tok = s => (String(s).toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").match(/[a-z0-9]+/g) || []).filter(w => !STOP.has(w));
+  const stem = w => w.length > 4 ? w.replace(/(ingly|edly|ing|edly|ies|ied|ed|es|s)$/, m => m === "ies" || m === "ied" ? "y" : "") : w;
+  function lev1(a, b) { if (Math.abs(a.length - b.length) > 1) return false; let i = 0, j = 0, d = 0; while (i < a.length && j < b.length) { if (a[i] === b[j]) { i++; j++; continue; } if (++d > 1) return false; if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; } } return d + (a.length - i) + (b.length - j) <= 1; }
+  class Search {
+    constructor() { this.docs = []; this.post = new Map(); this.len = []; this.total = 0; }
+    add(title, text) { const id = this.docs.length, t = tok(title + " " + title + " " + text).map(stem); this.docs.push({title, text}); this.len.push(t.length); this.total += t.length;
+      const tf = new Map(); for (const w of t) tf.set(w, (tf.get(w) || 0) + 1); for (const [w, c] of tf) { if (!this.post.has(w)) this.post.set(w, []); this.post.get(w).push([id, c]); } return id; }
+    expand(q, fuzzy) { const out = new Map(); if (this.post.has(q)) out.set(q, 1);
+      if (q.length >= 3) for (const w of this.post.keys()) { if (w !== q && w.startsWith(q)) out.set(w, Math.max(out.get(w) || 0, .6)); else if (fuzzy && q.length >= 4 && lev1(q, w)) out.set(w, Math.max(out.get(w) || 0, .5)); }
+      return out; }
+    query(q, k = 10, fuzzy = true) { const N = this.docs.length, avg = this.total / Math.max(1, N), sc = new Map(), k1 = 1.2, b = .75, terms = tok(q).map(stem);
+      for (const t of terms) for (const [w, wt] of this.expand(t, fuzzy)) { const P = this.post.get(w), idf = Math.log(1 + (N - P.length + .5) / (P.length + .5));
+        for (const [id, f] of P) sc.set(id, (sc.get(id) || 0) + wt * idf * f * (k1 + 1) / (f + k1 * (1 - b + b * this.len[id] / avg))); }
+      return [...sc].sort((x, y) => y[1] - x[1]).slice(0, k).map(([id, s]) => ({id, score: +s.toFixed(3), title: this.docs[id].title, snippet: this.snippet(id, terms)})); }
+    snippet(id, terms) { const t = this.docs[id].text, low = t.toLowerCase(); let at = -1; for (const q of terms) { at = low.indexOf(q.slice(0, Math.max(3, q.length - 1))); if (at >= 0) break; } at = Math.max(0, at - 60); return (at ? "…" : "") + t.slice(at, at + 180).replace(/\s+/g, " ") + "…"; }
+  }
+  class World {
+    constructor(w, h, g = 900) { this.w = w; this.h = h; this.g = g; this.b = []; this.walls = []; this.sub = 4; this.cell = 40; }
+    circle(x, y, r, o = {}) { const b = Object.assign({x, y, vx: 0, vy: 0, r, m: r * r, e: .3, mu: .2, sleep: 0}, o); b.im = 1 / b.m; this.b.push(b); return b; }
+    box(x, y, w, h) { this.walls.push({x, y, w, h}); }
+    energy() { let E = 0; for (const b of this.b) E += .5 * b.m * (b.vx * b.vx + b.vy * b.vy) + b.m * this.g * (this.h - b.y); return E; }
+    step(dt) { const h = dt / this.sub; for (let s = 0; s < this.sub; s++) this._step(h); }
+    _step(dt) {
+      for (const b of this.b) { if (b.sleep > 60) continue; b.vy += this.g * dt; b.x += b.vx * dt; b.y += b.vy * dt; }
+      const grid = new Map(), C = this.cell, key = (i, j) => i * 73856093 ^ j * 19349663;
+      this.b.forEach((b, n) => { const i = Math.floor(b.x / C), j = Math.floor(b.y / C), k = key(i, j); (grid.get(k) || grid.set(k, []).get(k)).push(n); });
+      for (let it = 0; it < 3; it++) {
+        this.b.forEach((a, n) => { const i = Math.floor(a.x / C), j = Math.floor(a.y / C);
+          for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) for (const m of grid.get(key(i + di, j + dj)) || []) { if (m <= n) continue; this._pair(a, this.b[m]); } });
+        for (const b of this.b) { this._bounds(b); for (const w of this.walls) this._wall(b, w); }
+      }
+      for (const b of this.b) { if (b.vx * b.vx + b.vy * b.vy < 25) b.sleep++; else b.sleep = 0; if (b.sleep > 60) { b.vx = b.vy = 0; } }
+    }
+    _resolve(b, nx, ny, pen, o) {
+      const ims = b.im + (o ? o.im : 0); if (!ims) return; const c = pen / ims * .8;
+      b.x -= nx * c * b.im; b.y -= ny * c * b.im; if (o) { o.x += nx * c * o.im; o.y += ny * c * o.im; }
+      const rvx = (o ? o.vx : 0) - b.vx, rvy = (o ? o.vy : 0) - b.vy, vn = rvx * nx + rvy * ny; if (vn > 0) return;
+      const e = Math.min(b.e, o ? o.e : b.e), j = -(1 + e) * vn / ims; b.vx -= j * nx * b.im; b.vy -= j * ny * b.im; if (o) { o.vx += j * nx * o.im; o.vy += j * ny * o.im; o.sleep = 0; }
+      const tx = -ny, ty = nx, vt = rvx * tx + rvy * ty, jt = Math.max(-j * b.mu, Math.min(j * b.mu, -vt / ims)); b.vx -= jt * tx * b.im; b.vy -= jt * ty * b.im; if (o) { o.vx += jt * tx * o.im; o.vy += jt * ty * o.im; }
+    }
+    _pair(a, b) { const dx = b.x - a.x, dy = b.y - a.y, r = a.r + b.r, d2 = dx * dx + dy * dy; if (d2 >= r * r || d2 === 0) return; const d = Math.sqrt(d2); if (a.sleep > 60 && b.sleep > 60) return; a.sleep = Math.min(a.sleep, 30); this._resolve(a, dx / d, dy / d, r - d, b); }
+    _bounds(b) { if (b.y + b.r > this.h) this._resolve(b, 0, 1, b.y + b.r - this.h, null); if (b.x - b.r < 0) this._resolve(b, -1, 0, b.r - b.x, null); if (b.x + b.r > this.w) this._resolve(b, 1, 0, b.x + b.r - this.w, null); }
+    _wall(b, w) { const cx = Math.max(w.x, Math.min(b.x, w.x + w.w)), cy = Math.max(w.y, Math.min(b.y, w.y + w.h)), dx = b.x - cx, dy = b.y - cy, d2 = dx * dx + dy * dy;
+      if (d2 >= b.r * b.r) return; if (d2 === 0) { this._resolve(b, 0, 1, b.r, null); return; } const d = Math.sqrt(d2); this._resolve(b, -dx / d, -dy / d, b.r - d, null); }
+  }
+  function astar(grid, w, h, s, g, diag = true) {
+    const N = w * h, gs = new Float64Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), heap = [], H = (i) => { const dx = Math.abs(i % w - g % w), dy = Math.abs((i / w | 0) - (g / w | 0)); return diag ? Math.max(dx, dy) + .4142 * Math.min(dx, dy) : dx + dy; };
+    const push = (i, f) => { heap.push([f, i]); let k = heap.length - 1; while (k) { const p = k - 1 >> 1; if (heap[p][0] <= heap[k][0]) break; [heap[p], heap[k]] = [heap[k], heap[p]]; k = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
+    gs[s] = 0; push(s, H(s)); let seen = 0;
+    const D = diag ? [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.4142], [1, -1, 1.4142], [-1, 1, 1.4142], [-1, -1, 1.4142]] : [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1]];
+    while (heap.length) { const [f, i] = pop(); if (i === g) break; if (f > gs[i] + H(i) + 1e-9) continue; seen++; const x = i % w, y = i / w | 0;
+      for (const [dx, dy, c] of D) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue; const j = ny * w + nx; if (grid[j]) continue; if (dx && dy && (grid[y * w + nx] || grid[ny * w + x])) continue;
+        const ng = gs[i] + c; if (ng < gs[j]) { gs[j] = ng; from[j] = i; push(j, ng + H(j)); } } }
+    if (gs[g] === Infinity) return {path: null, cost: Infinity, seen}; const path = []; for (let i = g; i !== -1; i = from[i]) path.push(i); return {path: path.reverse(), cost: gs[g], seen};
+  }
+  function rules(text, facts) {
+    const R = String(text).split(/\n/).map(l => l.trim()).filter(l => /^if /i.test(l)).map(l => { const m = /^if (.+?) then (.+)$/i.exec(l); return m ? {when: m[1].split(/\s+and\s+/i).map(s => s.trim().toLowerCase()), then: m[2].trim().toLowerCase(), line: l} : null; }).filter(Boolean);
+    const known = new Map(String(facts).split(/[\n,]/).map(s => s.trim().toLowerCase()).filter(Boolean).map(f => [f, "given"])); let changed = true, rounds = 0;
+    while (changed && rounds < 1000) { changed = false; rounds++; for (const r of R) if (!known.has(r.then) && r.when.every(w => w.startsWith("not ") ? !known.has(w.slice(4)) : known.has(w))) { known.set(r.then, "because " + r.line); changed = true; } }
+    return {facts: [...known].map(([f, why]) => ({f, why})), rules: R.length, rounds};
+  }
+  class Game { constructor(dt = 1 / 60) { this.dt = dt; this.acc = 0; this.t = 0; this.ents = []; this.keys = new Set(); this.frames = 0; }
+    add(e) { this.ents.push(e); return e; } tick(elapsed) { this.acc += Math.min(.25, elapsed); let n = 0; while (this.acc >= this.dt) { for (const e of this.ents) e.update && e.update(this.dt, this); this.ents = this.ents.filter(e => !e.dead); this.acc -= this.dt; this.t += this.dt; n++; } this.frames++; return n; } }
+  const api = {rng, noise2, mat4, Search, tok, World, astar, rules, Game};
+  root.ENG = api; if (typeof module !== "undefined") module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+const $ = s => document.querySelector(s), esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+let PAGE = "home", stopAnim = null; const P = {};
+const KINDS = [
+ ["Math core", "vectors, 4x4 matrices, seeded random, Perlin noise", "built", "math"], ["Search", "inverted index, BM25 ranking, prefix + typo matching, snippets", "built", "search"],
+ ["Physics 2D", "circles + walls, impulses, friction, sub-steps, sleeping, spatial hash", "built", "physics"], ["Pathfinding", "A* on grids, 4 or 8 directions, binary heap", "built", "path"],
+ ["Rules / logic", "forward chaining with 'and' / 'not', explains every conclusion", "built", "rules"], ["Game", "fixed time step loop, entities, input, uses physics", "built", "game"],
+ ["Render 3D", "WebGL voxel renderer (grows out of Blockwild: meshing, culling, AO)", "in Blockwild", null], ["Physics 3D", "voxel AABB collision now; rigid bodies next", "in Blockwild", null],
+ ["Audio", "synth + mixer (Bot Farm music, Music Studio)", "in other tabs", null], ["CAD", "solids from blocks, booleans", "plan", null], ["CAM", "toolpaths from CAD", "plan", null],
+ ["Database", "tables + indexes on the same core as Search", "plan", null], ["AI inference", "run small local models (link to the LLM button)", "plan", null], ["Text layout", "line breaking, fonts, PDF", "plan", null],
+ ["Networking", "multiplayer sync, rollback", "plan", null], ["Chess / board games", "move generation + search", "plan", null], ["Video", "encode/decode frames", "plan", null], ["Compression", "the Randis compressor (its own project)", "own project", null]];
+const PAGES = [["home", "🏠 All engines"], ["math", "🧮 Math core"], ["search", "🔎 Search"], ["physics", "🟠 Physics 2D"], ["path", "🧭 Pathfinding"], ["rules", "📜 Rules"], ["game", "🎮 Game"], ["bench", "📊 Benchmarks"]];
+function go(p) { if (stopAnim) { stopAnim(); stopAnim = null; } PAGE = p; $("#nav").innerHTML = PAGES.map(([id, l]) => `<button class="${id === p ? "on" : ""}" onclick="go('${id}')">${l}</button>`).join(""); $("#main").innerHTML = V[p](); (A[p] || (() => {}))(); }
+const time = f => { const s = performance.now(); const r = f(); return [r, performance.now() - s]; };
+const V = {}, A = {};
+V.home = () => `<h2>Engines of every kind</h2><p class="lead">One shared core, many engines. Each built one has its own page, its own tests and its own measured numbers. The plan: <code>drafts/engines/randis_engines_plan.md</code>; comparing against free peers (three.js, Rapier, MiniSearch…) waits on your OK to download them.</p>
+  <div class="card"><table><tr><th>Engine</th><th>What it does</th><th>State</th></tr>${KINDS.map(([k, w, s, p]) => `<tr><td><b>${p ? `<a href="#" onclick="go('${p}');return false" style="color:#ffd08a">${k}</a>` : k}</b></td><td>${w}</td><td><span class="pill ${s === "built" ? "ok" : ""}">${s}</span></td></tr>`).join("")}</table></div>`;
+V.math = () => `<h2>🧮 Math core</h2><p class="lead">Seeded random (same seed, same numbers on every computer), Perlin noise, 4x4 matrices.</p><div class="card"><canvas id="nz" width="512" height="256"></canvas><div class="row"><label>Seed <input id="seed" type="number" value="1" style="width:80px"></label> <label>Scale <input id="scl" type="range" min="2" max="60" value="16"></label></div></div><div class="card" id="mres"><button class="b pri" onclick="mathBench()">Measure</button></div>`;
+A.math = () => { const draw = () => { const c = $("#nz"), g = c.getContext("2d"), im = g.createImageData(c.width, c.height), n = ENG.noise2(+$("#seed").value), s = +$("#scl").value;
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) { let v = 0, a = 1, f = 1 / s; for (let o = 0; o < 4; o++) { v += a * n(x * f, y * f); a *= .5; f *= 2; } v = (v + 1) / 2; const i = (y * c.width + x) * 4; im.data[i] = v < .45 ? 30 : v < .5 ? 220 : v < .7 ? 60 + v * 80 | 0 : 130; im.data[i + 1] = v < .45 ? 80 + v * 200 | 0 : v < .5 ? 200 : v < .7 ? 140 + v * 60 | 0 : 130; im.data[i + 2] = v < .45 ? 200 : v < .5 ? 140 : v < .7 ? 60 : 140; im.data[i + 3] = 255; }
+  g.putImageData(im, 0, 0); }; $("#seed").oninput = draw; $("#scl").oninput = draw; draw(); };
+function mathBench() { const a = new Float32Array(16), b = new Float32Array(16), o = new Float32Array(16), r = ENG.rng(3); for (let i = 0; i < 16; i++) a[i] = r() * 4 - 2; ENG.mat4.invert(b, a);
+  const [, m1] = time(() => { for (let i = 0; i < 1e6; i++) ENG.mat4.mul(o, a, b); }); const n = ENG.noise2(1); const [, m2] = time(() => { let s = 0; for (let i = 0; i < 1e6; i++) s += n(i * .01, i * .007); return s; });
+  P.math = {mat4: Math.round(1e6 / m1 * 1000), noise: Math.round(1e6 / m2 * 1000)}; $("#mres").innerHTML = `4x4 matrix multiplies: <b>${P.math.mat4.toLocaleString()}/s</b> · noise samples: <b>${P.math.noise.toLocaleString()}/s</b> <button class="b" onclick="mathBench()">Again</button>`; }
+let SE = null, SEdocs = 0;
+V.search = () => `<h2>🔎 Search engine</h2><p class="lead">Load text or Markdown files (or paste), then search. Ranking: BM25; finds word starts ("superconduct") and one-letter typos ("graphne").</p>
+  <div class="card"><button class="b pri" onclick="pickDocs()">📂 Load .txt / .md files</button> <button class="b" onclick="pasteDoc()">📋 Paste text</button> <span class="mut" id="sinfo">${SE ? SEdocs + " passages indexed" : "Nothing indexed yet. Big files are split into paragraphs."}</span>
+  <div style="margin-top:8px"><input id="q" placeholder="Search…" style="width:60%" onkeydown="if(event.key==='Enter')doSearch()"> <button class="b" onclick="doSearch()">Search</button></div></div><div class="card" id="sres"></div>`;
+function indexText(name, t) { SE = SE || new ENG.Search(); const parts = t.split(/\n\s*\n/).map(p => p.replace(/\s+/g, " ").trim()).filter(p => p.length > 40); const [, ms] = time(() => parts.forEach((p, i) => SE.add(name + " §" + (i + 1), p))); SEdocs += parts.length; $("#sinfo").textContent = `${SEdocs} passages indexed (last file: ${parts.length} in ${ms.toFixed(0)} ms)`; P.searchIndex = {docs: SEdocs, ms: Math.round(ms)}; }
+function pickDocs() { const i = document.createElement("input"); i.type = "file"; i.multiple = true; i.accept = ".txt,.md,.csv,.json,.html"; i.onchange = async () => { for (const f of i.files) indexText(f.name, await f.text()); }; i.click(); }
+function pasteDoc() { const t = prompt("Paste text to index:"); if (t) indexText("pasted", t); }
+function doSearch() { if (!SE) return; const q = $("#q").value, [r, ms] = time(() => SE.query(q, 15)); P.searchQuery = +ms.toFixed(2); const words = ENG.tok(q);
+  $("#sres").innerHTML = `<div class="mut">${r.length} results in ${ms.toFixed(2)} ms</div>` + r.map(x => `<div class="res"><b>${esc(x.title)}</b> <span class="mut">${x.score}</span><br>${esc(x.snippet).replace(new RegExp("(" + words.map(w => w.replace(/[^a-z0-9]/g, "")).filter(Boolean).join("|") + ")", "gi"), "<mark>$1</mark>")}</div>`).join(""); }
+V.physics = () => `<h2>🟠 Physics 2D</h2><p class="lead">Click to drop balls. Walls are static boxes. Sub-steps stop fast balls passing through thin walls.</p><div class="card"><canvas id="pc" width="640" height="400"></canvas><div><button class="b" onclick="PW.rain(60)">Drop 60</button><button class="b" onclick="go('physics')">Reset</button> <span id="pst" class="mut"></span></div></div>`;
+let PW = null;
+A.physics = () => { const c = $("#pc"), g = c.getContext("2d"), W = new ENG.World(c.width, c.height, 900); W.box(140, 250, 160, 10); W.box(360, 170, 160, 10); W.box(300, 330, 40, 70);
+  const r = ENG.rng(5); PW = W; W.rain = n => { for (let i = 0; i < n; i++) W.circle(40 + r() * 560, 10 + r() * 60, 6 + r() * 8, {e: .35}); }; W.rain(80);
+  c.onclick = e => { const b = c.getBoundingClientRect(); W.circle((e.clientX - b.left) * c.width / b.width, (e.clientY - b.top) * c.height / b.height, 14, {e: .4}); };
+  let run = true, last = performance.now(), stepMs = 0; const loop = now => { if (!run) return; const [, ms] = time(() => W.step(1 / 60)); stepMs = stepMs * .9 + ms * .1;
+    g.clearRect(0, 0, c.width, c.height); g.fillStyle = "#3a4466"; for (const w of W.walls) g.fillRect(w.x, w.y, w.w, w.h);
+    for (const b of W.b) { g.fillStyle = b.sleep > 60 ? "#7a5a3a" : "#ff8a3d"; g.beginPath(); g.arc(b.x, b.y, b.r, 0, 7); g.fill(); }
+    $("#pst").textContent = `${W.b.length} bodies · ${stepMs.toFixed(2)} ms per step (${W.sub} sub-steps) · ${W.b.filter(b => b.sleep > 60).length} asleep`; P.physics = {bodies: W.b.length, ms: +stepMs.toFixed(2)}; requestAnimationFrame(loop); };
+  requestAnimationFrame(loop); stopAnim = () => { run = false; }; };
+V.path = () => `<h2>🧭 Pathfinding</h2><p class="lead">Draw walls with the mouse; the shortest path from the green square to the red one updates as you draw.</p><div class="card"><canvas id="gc" width="640" height="400"></canvas><div><label><input type="checkbox" id="diag" checked> diagonal moves</label> <button class="b" onclick="mazeRandom()">Random walls</button><button class="b" onclick="mazeClear()">Clear</button> <span id="gst" class="mut"></span></div></div>`;
+let GR = null; const GW = 64, GH = 40;
+A.path = () => { GR = GR || new Uint8Array(GW * GH); const c = $("#gc"), g = c.getContext("2d"), cs = 10, S0 = 2 * GW + 2, G0 = (GH - 3) * GW + GW - 3;
+  const draw = () => { const [res, ms] = time(() => ENG.astar(GR, GW, GH, S0, G0, $("#diag").checked)); g.fillStyle = "#070a12"; g.fillRect(0, 0, c.width, c.height);
+    for (let i = 0; i < GW * GH; i++) if (GR[i]) { g.fillStyle = "#3a4466"; g.fillRect(i % GW * cs, (i / GW | 0) * cs, cs, cs); }
+    if (res.path) { g.strokeStyle = "#ff8a3d"; g.lineWidth = 3; g.beginPath(); res.path.forEach((i, k) => g[k ? "lineTo" : "moveTo"](i % GW * cs + 5, (i / GW | 0) * cs + 5)); g.stroke(); }
+    g.fillStyle = "#3ddc84"; g.fillRect(S0 % GW * cs, (S0 / GW | 0) * cs, cs, cs); g.fillStyle = "#ff6b6b"; g.fillRect(G0 % GW * cs, (G0 / GW | 0) * cs, cs, cs);
+    $("#gst").textContent = res.path ? `path ${res.cost.toFixed(1)} long · ${res.seen} cells looked at · ${ms.toFixed(2)} ms` : `no way through · ${ms.toFixed(2)} ms`; P.path = {ms: +ms.toFixed(2)}; };
+  let down = 0; const paint = e => { const b = c.getBoundingClientRect(), x = (e.clientX - b.left) * c.width / b.width / cs | 0, y = (e.clientY - b.top) * c.height / b.height / cs | 0, i = y * GW + x; if (i !== S0 && i !== G0 && x < GW && y < GH) { GR[i] = down; draw(); } };
+  c.onmousedown = e => { const b = c.getBoundingClientRect(), i = ((e.clientY - b.top) * c.height / b.height / cs | 0) * GW + ((e.clientX - b.left) * c.width / b.width / cs | 0); down = GR[i] ? 0 : 1; c.onmousemove = paint; paint(e); };
+  onmouseup = () => c.onmousemove = null; $("#diag").onchange = draw; window.mazeRandom = () => { const r = ENG.rng(Date.now() & 0xffff); for (let i = 0; i < GW * GH; i++) GR[i] = r() < .3 ? 1 : 0; GR[S0] = GR[G0] = 0; draw(); }; window.mazeClear = () => { GR.fill(0); draw(); }; draw(); };
+V.rules = () => `<h2>📜 Rules engine</h2><p class="lead">Write rules as "if … and … then …" (use "not"), list what you know, and it works out everything that follows, saying why.</p>
+  <div class="card"><textarea id="rr" rows="7">if rain then wet ground
+if wet ground and cold then ice
+if ice then slippery
+if slippery and not salted then close the road
+if close the road then send a detour sign</textarea><input id="rf" value="rain, cold" style="width:100%;margin-top:6px"><button class="b pri" onclick="runRules()">Work it out</button></div><div class="card" id="rout"></div>`;
+function runRules() { const [r, ms] = time(() => ENG.rules($("#rr").value, $("#rf").value)); $("#rout").innerHTML = `<div class="mut">${r.rules} rules, ${r.rounds} rounds, ${ms.toFixed(2)} ms</div><table>${r.facts.map(f => `<tr><td><b>${esc(f.f)}</b></td><td class="mut">${esc(f.why)}</td></tr>`).join("")}</table>`; }
+A.rules = runRules;
+V.game = () => `<h2>🎮 Game engine</h2><p class="lead">A small original game built on the engines here: fixed-step game loop + the physics engine. Move the catcher with ← → (or the mouse). Catch the orange orbs, dodge the grey rocks.</p><div class="card"><canvas id="gm" width="640" height="420" tabindex="0"></canvas><div class="mut" id="gs"></div></div>`;
+A.game = () => { const c = $("#gm"), g = c.getContext("2d"), G = new ENG.Game(1 / 60), W = new ENG.World(c.width, c.height + 400, 500), r = ENG.rng(9);
+  let px = 320, score = 0, lives = 3, spawn = 0, over = false; c.focus(); c.onkeydown = e => G.keys.add(e.key); c.onkeyup = e => G.keys.delete(e.key); c.onmousemove = e => { const b = c.getBoundingClientRect(); px = (e.clientX - b.left) * c.width / b.width; };
+  G.add({update(dt) { if (over) return; if (G.keys.has("ArrowLeft")) px -= 420 * dt; if (G.keys.has("ArrowRight")) px += 420 * dt; px = Math.max(50, Math.min(590, px));
+    if ((spawn -= dt) < 0) { spawn = .55; const rock = r() < .25; W.circle(30 + r() * 580, -10, rock ? 13 : 9, {e: .5, rock, vx: (r() - .5) * 120}); }
+    W.step(dt); for (const b of W.b) { if (b.dead) continue; if (b.y > 380 && b.y < 400 && Math.abs(b.x - px) < 55) { b.dead = true; if (b.rock) { lives--; if (!lives) over = true; } else score++; } if (b.y > c.height + 40) b.dead = true; }
+    W.b = W.b.filter(b => !b.dead); }});
+  let run = true, last = performance.now(); const loop = now => { if (!run) return; G.tick((now - last) / 1000); last = now; g.fillStyle = "#070a12"; g.fillRect(0, 0, c.width, c.height);
+    for (const b of W.b) { g.fillStyle = b.rock ? "#8a93a8" : "#ff8a3d"; g.beginPath(); g.arc(b.x, b.y, b.r, 0, 7); g.fill(); }
+    g.fillStyle = "#3ddc84"; g.fillRect(px - 55, 390, 110, 12); g.fillStyle = "#e9edf6"; g.font = "16px system-ui"; g.fillText(`Score ${score}   Lives ${"♥".repeat(lives)}`, 12, 24);
+    if (over) { g.font = "28px system-ui"; g.fillText("Game over — click to play again", 120, 210); c.onclick = () => go("game"); }
+    $("#gs").textContent = `fixed step 60/s · ${W.b.length} bodies · frames ${G.frames}`; requestAnimationFrame(loop); };
+  requestAnimationFrame(loop); stopAnim = () => { run = false; }; };
+V.bench = () => `<h2>📊 Benchmarks</h2><p class="lead">Our numbers, measured on this computer in this tab. Peers (glMatrix, MiniSearch, Rapier, cannon-es) were downloaded and measured against ours on the same inputs; nothing here is guessed.</p><div class="card"><button class="b pri" onclick="runBench()">Run all</button><div id="bout" style="margin-top:8px"></div></div>
+  <div class="card"><h3>Ours vs free peers (measured 2026-11-25 in node) Core(TM) i7-9750H CPU @ 2.60GHz)</h3><p class="mut">Same node process, same inputs, best of 5 (physics best of 3). Search corpus: 22,047 paragraphs of 20 public-domain Project Gutenberg books; "relevant" = paragraphs holding every query word as a word start (brute force). Render (three.js, Babylon.js) is downloaded but waits on plan step 1 (our render engine split out of Blockwild).</p><table><tr><th>Test</th><th>Ours</th><th>Peer</th><th></th><th>Notes</th></tr><tr><td>Math: mat4 multiply</td><td><b>6,094,152</b> ops/s</td><td>glMatrix 3.4.4: 17,701,684 ops/s</td><td>behind x0.34</td><td class="mut">same result (max diff 0.0e+0)</td></tr><tr><td>Math: mat4 invert</td><td><b>7,324,966</b> ops/s</td><td>glMatrix 3.4.4: 17,699,037 ops/s</td><td>behind x0.41</td><td class="mut">same result (max diff 0.0e+0)</td></tr><tr><td>Search: index 22,047 paragraphs</td><td><b>1,082</b> ms</td><td>MiniSearch 7.2.0: 2,680 ms</td><td>ahead x2.48</td><td class="mut"></td></tr><tr><td>Search: query (avg of 20)</td><td><b>3.028</b> ms</td><td>MiniSearch 7.2.0 (AND, prefix): 0.619 ms</td><td>behind x0.2</td><td class="mut"></td></tr><tr><td>Search: relevant in top 10</td><td><b>173</b> of 195</td><td>MiniSearch 7.2.0 (AND, prefix): 195 of 195</td><td>behind x0.89</td><td class="mut">MiniSearch default (OR): 193/195</td></tr><tr><td>Physics: 120 balls, 600 steps</td><td><b>1,358</b> steps/s</td><td>Rapier2D 0.21 (wasm): 7,434 steps/s</td><td>behind x0.18</td><td class="mut">ours max overlap 0.61 px, all inside: true; Rapier max overlap 0.50 px, all inside: true</td></tr><tr><td>Physics: 120 balls, 600 steps</td><td><b>1,358</b> steps/s</td><td>cannon-es 0.20 (3D, thin slab): 471 steps/s</td><td>ahead x2.88</td><td class="mut">cannon-es max overlap 0.00 px, all inside: true</td></tr><tr><td>Physics: fast ball (3000 px/s) vs 4 px wall: stopped?</td><td><b>yes</b></td><td>Rapier2D 0.21: yes (CCD on), yes (CCD off)</td><td>tie</td><td class="mut"></td></tr></table></div>
+  <div class="card mut">Measured with node (engine tests 15/15): 4x4 matrix multiplies ~5.1 M/s · noise ~33 M samples/s · search: 1,233 passages of a long book indexed in 85 ms, ~1 ms per query, 96 of 99 relevant ideas in the top 10 · physics: 120 balls ~1,190 steps/s, settled overlap 0.6 px · A*: optimal on 30/30 random 120x120 mazes, ~2.3 ms each.</div>`;
+function runBench() { const out = []; mathBench && (() => { const a = new Float32Array(16), b = new Float32Array(16), o = new Float32Array(16), r = ENG.rng(3); for (let i = 0; i < 16; i++) a[i] = r() * 4 - 2; ENG.mat4.invert(b, a); const [, m] = time(() => { for (let i = 0; i < 1e6; i++) ENG.mat4.mul(o, a, b); }); out.push(["Math: mat4 multiply", Math.round(1e6 / m * 1000).toLocaleString() + "/s"]); })();
+  const W = new ENG.World(400, 400, 900); for (let i = 0; i < 120; i++) W.circle(30 + (i % 12) * 28, 20 + Math.floor(i / 12) * 26, 10, {e: .2}); const [, pm] = time(() => { for (let s = 0; s < 300; s++) W.step(1 / 60); }); out.push(["Physics: 120 balls", Math.round(300 / pm * 1000).toLocaleString() + " steps/s"]);
+  const g = new Uint8Array(120 * 120), r = ENG.rng(7); for (let i = 0; i < g.length; i++) g[i] = r() < .28; g[0] = g[g.length - 1] = 0; const [, am] = time(() => ENG.astar(g, 120, 120, 0, g.length - 1, false)); out.push(["Pathfinding: A* 120x120", am.toFixed(2) + " ms"]);
+  const S = new ENG.Search(); const words = "graphene capacitor quantum sensor solar battery neural interface robot farm water ocean satellite engine metal alloy fiber light sound heat".split(" "); const [, im] = time(() => { for (let i = 0; i < 2000; i++) S.add("d" + i, Array.from({length: 60}, () => words[r() * words.length | 0]).join(" ")); }); const [, qm] = time(() => { for (let i = 0; i < 100; i++) S.query("quantum battery", 10); });
+  out.push(["Search: index 2,000 docs", im.toFixed(0) + " ms"], ["Search: query", (qm / 100).toFixed(2) + " ms"]);
+  $("#bout").innerHTML = `<table><tr><th>Test</th><th>Ours (this tab, now)</th><th>Best free peer</th></tr>${out.map(([k, v]) => `<tr><td>${k}</td><td><b>${v}</b></td><td class="mut">${({"Math: mat4 multiply": "glMatrix 17,701,684/s", "Physics: 120 balls": "Rapier2D 7,434 steps/s"})[k] || "see the peer table above"}</td></tr>`).join("")}</table>`; }
+go("home");
+</script></body></html>

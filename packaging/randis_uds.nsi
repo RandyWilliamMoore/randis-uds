@@ -15,12 +15,14 @@ RequestExecutionLevel user
   !define APP_NAME "Randis UDS Marketplace Edition"
   !define APP_ID "RandisUDSMarketplace"
   !define SETUP_NAME "RandisUDS-Marketplace-Setup"
+  !define ICON_FILE "uds-marketplace.ico"
 !else
   !define APP_NAME "Randis UDS"
   !define APP_ID "RandisUDS"
   !define SETUP_NAME "RandisUDS-Setup"
+  !define ICON_FILE "uds-base.ico"
 !endif
-!define ICON "${Stage}\app\ui\logo\uds-base.ico"
+!define ICON "${Stage}\app\ui\logo\${ICON_FILE}"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
 
 Name "${APP_NAME}"
@@ -105,7 +107,7 @@ Section "${APP_NAME}" SecMain
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${Version}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "${APP_NAME}"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\app\ui\logo\uds-base.ico"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\app\ui\logo\${ICON_FILE}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKCU "${UNINSTALL_KEY}" "QuietUninstallString" '"$INSTDIR\Uninstall.exe" /S'
@@ -113,7 +115,7 @@ Section "${APP_NAME}" SecMain
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoRepair" 1
 
   SetOutPath "$INSTDIR\app"
-  CreateShortCut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\python\pythonw.exe" '"$INSTDIR\app\launch.py"' "$INSTDIR\app\ui\logo\uds-base.ico"
+  CreateShortCut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\python\pythonw.exe" '"$INSTDIR\app\launch.py"' "$INSTDIR\app\ui\logo\${ICON_FILE}"
 SectionEnd
 
 Section "Create a desktop shortcut" SecDesktop
@@ -125,7 +127,7 @@ Section "Create a desktop shortcut" SecDesktop
       StrCpy $1 "${APP_NAME} (installed)"
     ${EndIf}
   ${EndIf}
-  CreateShortCut "$DESKTOP\$1.lnk" "$INSTDIR\python\pythonw.exe" '"$INSTDIR\app\launch.py"' "$INSTDIR\app\ui\logo\uds-base.ico"
+  CreateShortCut "$DESKTOP\$1.lnk" "$INSTDIR\python\pythonw.exe" '"$INSTDIR\app\launch.py"' "$INSTDIR\app\ui\logo\${ICON_FILE}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DesktopShortcut" "$1"
 SectionEnd
 

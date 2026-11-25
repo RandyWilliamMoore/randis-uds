@@ -1,0 +1,409 @@
+<!doctype html>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<html lang="en"><head><meta charset="utf-8"><title>Trading Card Studio</title>
+<style>
+:root{--bg:#15171d;--pan:#1e2129;--pan2:#262a34;--ink:#e9e6df;--dim:#9aa0ad;--acc:#d9a441;--bad:#e06464;--ok:#5fbf7f;--line:#333845}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,Segoe UI,sans-serif}
+header{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--pan);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:16px;margin:0 8px 0 0}header input{background:var(--pan2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-weight:600}
+nav{display:flex;gap:4px;flex-wrap:wrap}nav button{background:none;border:1px solid transparent;color:var(--dim);padding:5px 11px;border-radius:7px;cursor:pointer;font:inherit}
+nav button.on{background:var(--pan2);color:var(--ink);border-color:var(--line)}nav button:hover{color:var(--ink)}
+main{padding:14px;max-width:1300px}.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}.col{flex:1;min-width:300px}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+h2{font-size:15px;margin:0 0 8px}h3{font-size:13px;margin:10px 0 6px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.btn{background:var(--pan2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font:inherit;font-size:13px}
+.btn:hover{border-color:var(--acc)}.btn.pri{background:var(--acc);color:#1b1407;border-color:var(--acc);font-weight:600}.btn.sm{padding:2px 8px;font-size:12px}.btn.bad{color:var(--bad)}
+textarea,input,select{background:var(--pan2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit;font-size:13px}
+textarea{width:100%;resize:vertical}label{font-size:12px;color:var(--dim);display:block;margin:6px 0 2px}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600;position:sticky;top:0;background:var(--pan)}td[contenteditable]{outline:none;min-width:40px}td[contenteditable]:focus{background:var(--pan2)}
+.tbl{max-height:62vh;overflow:auto}.dim{color:var(--dim)}.bad{color:var(--bad)}.ok{color:var(--ok)}.pill{display:inline-block;padding:0 7px;border-radius:99px;background:var(--pan2);font-size:11px;margin-left:4px}
+.grid{display:flex;flex-wrap:wrap;gap:10px}.grid .c{width:190px;cursor:pointer}.grid .c svg{width:100%;height:auto;border-radius:6px}.grid .c.sel svg{outline:2px solid var(--acc)}
+.prev svg{width:260px;height:auto}.note{font-size:12px;color:var(--dim)}#toast{position:fixed;bottom:14px;right:14px;background:var(--pan2);border:1px solid var(--acc);padding:8px 12px;border-radius:8px;display:none;max-width:420px}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:4px 8px;align-items:center}
+</style></head><body>
+<header><h1>🃏 Trading Card Studio</h1><input id="gname" title="Game name" size="22"><nav id="nav"></nav></header>
+<main id="main"></main><div id="toast"></div>
+<input type="file" id="csvfile" accept=".csv,text/csv" hidden><input type="file" id="jsonfile" accept=".json" hidden>
+<script>
+
+const TCS = (() => {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const uid = () => Math.random().toString(36).slice(2, 10);
+
+  function parseCSV(text) {
+    const rows = []; let row = [], f = "", q = false, i = 0;
+    text = String(text).replace(/^﻿/, "");
+    for (; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; continue; }
+      if (c === '"') q = true;
+      else if (c === ",") { row.push(f); f = ""; }
+      else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(f); f = ""; if (row.some(x => x !== "")) rows.push(row); row = []; }
+      else f += c;
+    }
+    row.push(f); if (row.some(x => x !== "")) rows.push(row);
+    return rows;
+  }
+  const csvCell = v => /[",\n\r]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+  const BASE = ["name", "type", "subtype", "cost", "rarity", "set", "rules_text", "lore_text"];
+
+  function importCSV(text, db) {
+    const rows = parseCSV(text); if (rows.length < 2) return { added: 0, errors: ["The file needs a header row and at least one card row."] };
+    const head = rows[0].map(h => h.trim().toLowerCase().replace(/[\s-]+/g, "_"));
+    const alias = { text: "rules_text", rules: "rules_text", lore: "lore_text", set_code: "set" };
+    const cols = head.map(h => alias[h] || h);
+    if (!cols.includes("name")) return { added: 0, errors: ["No 'name' column."] };
+    let added = 0; const errors = [];
+    rows.slice(1).forEach((r, n) => {
+      const o = {}; cols.forEach((c, k) => o[c] = (r[k] || "").trim());
+      if (!o.name) { errors.push("Row " + (n + 2) + ": no name, skipped."); return; }
+      const stats = {}; cols.forEach(c => { if (!BASE.includes(c) && c !== "id" && o[c] !== "") stats[c] = isFinite(+o[c]) ? +o[c] : o[c]; });
+      addCard(db, { name: o.name, type: o.type || "Creature", subtype: o.subtype || "", cost: o.cost || "", rarity: o.rarity || "Common",
+        set: o.set || (db.sets[0] && db.sets[0].code) || "", rules_text: o.rules_text || "", lore_text: o.lore_text || "", stats });
+      added++;
+    });
+    return { added, errors };
+  }
+  function exportCSV(db) {
+    const statKeys = [...new Set(db.cards.flatMap(c => Object.keys(c.stats || {})))];
+    const head = ["id", ...BASE, ...statKeys];
+    return [head, ...db.cards.map(c => [c.id, c.name, c.type, c.subtype, c.cost, c.rarity, c.set, c.rules_text, c.lore_text, ...statKeys.map(k => (c.stats || {})[k] ?? "")])]
+      .map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  }
+
+  function newDB(name) {
+    const db = { v: 1, game: name || "My Card Game", rules: "", keywords: [], cards: [], sets: [{ id: uid(), code: "S1", name: "Set One" }], layouts: [], defaultLayout: null, playtests: [] };
+    const L = newLayout(db, "Standard frame"); db.defaultLayout = L.name; return db;
+  }
+  function addCard(db, c) {
+    const card = Object.assign({ id: uid(), type: "Creature", subtype: "", cost: "", rarity: "Common", set: "", rules_text: "", lore_text: "", stats: {}, layout: null, version: 1 }, c);
+    db.cards.push(card); return card;
+  }
+  function editCard(db, id, field, value) {
+    const c = db.cards.find(x => x.id === id); if (!c) return null;
+    if (field.startsWith("stats.")) { const k = field.slice(6); if (c.stats[k] === value) return c; c.stats[k] = value; }
+    else { if (c[field] === value) return c; c[field] = value; }
+    c.version++; return c;
+  }
+
+  const DEFAULT_LAYOUT = { w_mm: 63, h_mm: 88, bleed_mm: 3, radius_mm: 3, frame: "#2b2f3a", ink: "#f4f1ea", accent: "#d9a441", font: "Georgia, serif", text_pt: 7.5, art_pct: 45 };
+  function newLayout(db, name, over) {
+    const L = Object.assign({ name, version: 1, id: uid(), ...DEFAULT_LAYOUT }, over || {}); db.layouts.push(L); return L;
+  }
+  function layoutVersions(db, name) { return db.layouts.filter(l => l.name === name).sort((a, b) => a.version - b.version); }
+  function editLayout(db, name, changes) {
+    const vs = layoutVersions(db, name); const last = vs[vs.length - 1]; if (!last) return null;
+    const L = Object.assign({}, last, changes, { id: uid(), version: last.version + 1 }); db.layouts.push(L); return L;
+  }
+  function layoutFor(db, card) {
+    const ref = card.layout || db.defaultLayout; const [name, ver] = String(ref).split("@");
+    const vs = layoutVersions(db, name); if (!vs.length) return layoutVersions(db, db.layouts[0].name).slice(-1)[0];
+    return ver ? (vs.find(l => l.version === +ver) || vs[vs.length - 1]) : vs[vs.length - 1];
+  }
+
+  function lintCard(db, card) {
+    const known = new Set(db.keywords.map(k => k.name.toLowerCase()));
+    const text = card.rules_text || ""; const issues = [];
+    const used = new Set();
+    (text.match(/\[([^\]]+)\]/g) || []).forEach(m => used.add(m.slice(1, -1).trim()));
+    text.split(/\n/).forEach(line => { const m = line.match(/^\s*([A-Z][A-Za-z\- ]{1,30}?)(?:\s+\d+)?\.\s*$/); if (m) used.add(m[1].trim()); });
+    used.forEach(k => { if (!known.has(k.toLowerCase())) issues.push({ card: card.name, keyword: k, msg: "'" + k + "' is not in the keyword glossary." }); });
+    return issues;
+  }
+  const lintAll = db => db.cards.flatMap(c => lintCard(db, c));
+
+  function wrap(text, maxChars) {
+    const out = []; String(text || "").split(/\n/).forEach(p => { let line = ""; p.split(/\s+/).forEach(w => { if ((line + " " + w).trim().length > maxChars) { if (line) out.push(line); line = w; } else line = (line + " " + w).trim(); }); out.push(line); });
+    return out.filter((l, i, a) => l || i < a.length - 1);
+  }
+  function cardSVG(db, card, opts) {
+    const L = layoutFor(db, card), b = (opts && opts.bleed === false) ? 0 : L.bleed_mm, W = L.w_mm + 2 * b, H = L.h_mm + 2 * b;
+    const pad = 3, x0 = b + pad, iw = L.w_mm - 2 * pad, artH = L.h_mm * L.art_pct / 100;
+    const chars = Math.max(10, Math.floor(iw / (L.text_pt * 0.19)));
+    const stats = Object.entries(card.stats || {}).map(([k, v]) => k + " " + v).join(" · ");
+    const lines = wrap(card.rules_text, chars), flav = wrap(card.lore_text, chars);
+    const ty = b + 13 + artH + 6; const lh = L.text_pt * 0.42;
+    let t = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}" data-card="${esc(card.id)}" data-version="${card.version}" data-layout="${esc(L.name)}@${L.version}">`;
+    t += `<rect x="0" y="0" width="${W}" height="${H}" fill="${esc(L.frame)}"/>`;
+    t += `<rect x="${b + 1.2}" y="${b + 1.2}" width="${L.w_mm - 2.4}" height="${L.h_mm - 2.4}" rx="${L.radius_mm}" fill="none" stroke="${esc(L.accent)}" stroke-width="0.6"/>`;
+    t += `<text x="${x0}" y="${b + 8}" font-family="${esc(L.font)}" font-size="4.2" font-weight="bold" fill="${esc(L.ink)}">${esc(card.name)}</text>`;
+    t += `<text x="${b + L.w_mm - pad}" y="${b + 8}" text-anchor="end" font-family="${esc(L.font)}" font-size="4" font-weight="bold" fill="${esc(L.accent)}">${esc(card.cost)}</text>`;
+    t += `<rect x="${x0}" y="${b + 11}" width="${iw}" height="${artH}" fill="#00000055" stroke="${esc(L.accent)}" stroke-width="0.3"/>`;
+    if (opts && opts.art) t += `<image href="${esc(opts.art)}" x="${x0}" y="${b + 11}" width="${iw}" height="${artH}" preserveAspectRatio="xMidYMid slice"/>`;
+    t += `<text x="${x0}" y="${b + 11 + artH + 3.6}" font-family="${esc(L.font)}" font-size="2.8" fill="${esc(L.accent)}">${esc(card.type)}${card.subtype ? " — " + esc(card.subtype) : ""} · ${esc(card.rarity)}</text>`;
+    lines.forEach((l, i) => t += `<text x="${x0}" y="${ty + i * lh}" font-family="${esc(L.font)}" font-size="${L.text_pt * 0.38}" fill="${esc(L.ink)}">${esc(l)}</text>`);
+    flav.forEach((l, i) => t += `<text x="${x0}" y="${ty + (lines.length + 0.6 + i) * lh}" font-family="${esc(L.font)}" font-size="${L.text_pt * 0.34}" font-style="italic" fill="${esc(L.ink)}" opacity=".75">${esc(l)}</text>`);
+    if (stats) t += `<text x="${b + L.w_mm - pad}" y="${b + L.h_mm - 4}" text-anchor="end" font-family="${esc(L.font)}" font-size="3.4" font-weight="bold" fill="${esc(L.ink)}">${esc(stats)}</text>`;
+    t += `<text x="${x0}" y="${b + L.h_mm - 4}" font-family="${esc(L.font)}" font-size="2.2" fill="${esc(L.ink)}" opacity=".6">${esc(card.set)}</text>`;
+    return t + "</svg>";
+  }
+
+  function renderAll(db, cache, opts) {
+    const drawn = [];
+    db.cards.forEach(c => { const L = layoutFor(db, c), key = c.version + "|" + L.id; if (!cache[c.id] || cache[c.id].key !== key) { cache[c.id] = { key, svg: cardSVG(db, c, opts) }; drawn.push(c.id); } });
+    Object.keys(cache).forEach(id => { if (!db.cards.some(c => c.id === id)) delete cache[id]; });
+    return drawn;
+  }
+
+  const PAPER = { letter: [215.9, 279.4], a4: [210, 297] };
+  const pt = mm => +(mm * 72 / 25.4).toFixed(2);
+  const pdfStr = s => "(" + String(s).replace(/[^\x20-\x7E]/g, "?").replace(/([\\()])/g, "\\$1") + ")";
+  function hexRGB(h) { const m = /^#?([0-9a-f]{6})/i.exec(h || ""); const n = m ? parseInt(m[1], 16) : 0; return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255].map(x => x.toFixed(3)).join(" "); }
+  function sheetLayout(L, paper, margin, bleed) {
+    const bl = bleed === false ? 0 : L.bleed_mm;
+    const [PW, PH] = PAPER[paper] || PAPER.letter, cw = L.w_mm + 2 * bl, ch = L.h_mm + 2 * bl;
+    const cols = Math.max(1, Math.floor((PW - 2 * margin) / cw)), rows = Math.max(1, Math.floor((PH - 2 * margin) / ch));
+    return { PW, PH, cw, ch, cols, rows, per: cols * rows, ox: (PW - cols * cw) / 2, oy: (PH - rows * ch) / 2 };
+  }
+  function printPDF(db, o) {
+    o = Object.assign({ paper: "letter", margin: 6.35, copies: 1, ids: null, bleed: true }, o || {});
+    const list = []; (o.ids ? db.cards.filter(c => o.ids.includes(c.id)) : db.cards).forEach(c => { for (let k = 0; k < o.copies; k++) list.push(c); });
+    const L0 = layoutFor(db, list[0] || { layout: null }), S = sheetLayout(L0, o.paper, o.margin, o.bleed);
+    const pages = []; for (let i = 0; i < list.length; i += S.per) pages.push(list.slice(i, i + S.per));
+    if (!pages.length) pages.push([]);
+    const objs = []; const add = s => (objs.push(s), objs.length);
+    const font = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"), fontB = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+    const pagesId = add(null), kids = [];
+    pages.forEach(cards => {
+      let s = "";
+      cards.forEach((c, i) => {
+        const L = layoutFor(db, c), col = i % S.cols, row = Math.floor(i / S.cols);
+        const X = S.ox + col * S.cw, Ytop = S.oy + row * S.ch, b = o.bleed === false ? 0 : L.bleed_mm;
+        const y = mm => pt(S.PH - mm);
+        s += `${hexRGB(L.frame)} rg ${pt(X)} ${y(Ytop + S.ch)} ${pt(S.cw)} ${pt(S.ch)} re f\n`;
+        s += `${hexRGB(L.accent)} RG 0.6 w ${pt(X + b + 1.2)} ${y(Ytop + b + L.h_mm - 1.2)} ${pt(L.w_mm - 2.4)} ${pt(L.h_mm - 2.4)} re S\n`;
+        s += `0.08 0.09 0.11 rg ${hexRGB(L.accent)} RG 0.3 w ${pt(X + b + 3)} ${y(Ytop + b + 11 + L.h_mm * L.art_pct / 100)} ${pt(L.w_mm - 6)} ${pt(L.h_mm * L.art_pct / 100)} re B\n`;
+        const txt = (str, xmm, ymm, size, bold, rgb) => s += `BT /${bold ? "F2" : "F1"} ${size} Tf ${hexRGB(rgb)} rg ${pt(xmm)} ${y(ymm)} Td ${pdfStr(str)} Tj ET\n`;
+        txt(c.name, X + b + 3, Ytop + b + 8, 9, 1, L.ink);
+        if (c.cost) txt(c.cost, X + b + L.w_mm - 3 - String(c.cost).length * 2.2, Ytop + b + 8, 9, 1, L.accent);
+        const ty = Ytop + b + 11 + L.h_mm * L.art_pct / 100;
+        txt(c.type + (c.subtype ? " - " + c.subtype : "") + " / " + c.rarity, X + b + 3, ty + 3.6, 6, 0, L.accent);
+        const rl = wrap(c.rules_text, Math.floor((L.w_mm - 6) / 1.55)); rl.forEach((l, k) => txt(l, X + b + 3, ty + 8 + k * 3.2, 6.5, 0, L.ink));
+        wrap(c.lore_text, Math.floor((L.w_mm - 6) / 1.45)).forEach((l, k) => txt(l, X + b + 3, ty + 8 + (rl.length + 0.6 + k) * 3.0, 5.8, 0, L.accent));
+        const st = Object.entries(c.stats || {}).map(([k, v]) => k + " " + v).join("  ");
+        if (st) txt(st, X + b + L.w_mm - 3 - st.length * 1.6, Ytop + b + L.h_mm - 4, 7.5, 1, L.ink);
+        const tx = [X + b, X + b + L.w_mm], tyy = [Ytop + b, Ytop + b + L.h_mm], m = 2.5;
+        s += "0 0 0 RG 0.25 w\n";
+        tx.forEach(xx => { s += `${pt(xx)} ${y(Ytop)} m ${pt(xx)} ${y(Ytop - m)} l S ${pt(xx)} ${y(Ytop + S.ch)} m ${pt(xx)} ${y(Ytop + S.ch + m)} l S\n`; });
+        tyy.forEach(yy => { s += `${pt(X)} ${y(yy)} m ${pt(X - m)} ${y(yy)} l S ${pt(X + S.cw)} ${y(yy)} m ${pt(X + S.cw + m)} ${y(yy)} l S\n`; });
+      });
+      const cs = add(`<< /Length ${s.length} >>\nstream\n${s}endstream`);
+      kids.push(add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pt(S.PW)} ${pt(S.PH)}] /Resources << /Font << /F1 ${font} 0 R /F2 ${fontB} 0 R >> >> /Contents ${cs} 0 R >>`));
+    });
+    objs[pagesId - 1] = `<< /Type /Pages /Kids [${kids.map(k => k + " 0 R").join(" ")}] /Count ${kids.length} >>`;
+    const cat = add(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+    let out = "%PDF-1.4\n"; const offs = [];
+    objs.forEach((o2, i) => { offs.push(out.length); out += `${i + 1} 0 obj\n${o2}\nendobj\n`; });
+    const xref = out.length;
+    out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + offs.map(n => String(n).padStart(10, "0") + " 00000 n \n").join("");
+    out += `trailer\n<< /Size ${objs.length + 1} /Root ${cat} 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    return { pdf: out, pages: pages.length, perPage: S.per, cardsPlaced: list.length, card_mm: [L0.w_mm, L0.h_mm], bleed_mm: o.bleed === false ? 0 : L0.bleed_mm };
+  }
+
+  const ROLES = {
+    rules: { name: "Rules designer", does: "Draft or improve the core rules, turn structure and keyword glossary. Flag contradictions. Show every change as a before/after diff; never change rules silently." },
+    writer: { name: "Card writer", does: "Write card names, rules text and lore text. Use ONLY keywords in the glossary below; if a new keyword seems needed, propose it separately instead of using it." },
+    duck: { name: "Rubber Ducky", does: "Listen while the designer talks through a mechanic. Ask short questions that expose gaps; do not design for them." }
+  };
+  function rolePrompt(db, role, ask) {
+    const R = ROLES[role] || ROLES.duck;
+    const kw = db.keywords.map(k => "- " + k.name + ": " + k.reminder_text).join("\n") || "(none yet)";
+    const sample = db.cards.slice(0, 12).map(c => "- " + c.name + " [" + c.type + ", " + c.cost + "] " + c.rules_text).join("\n") || "(no cards yet)";
+    return `You are the ${R.name} for the trading card game "${db.game}". ${R.does}\n\nRULES:\n${db.rules || "(not written yet)"}\n\nKEYWORD GLOSSARY:\n${kw}\n\nSOME CARDS:\n${sample}\n\nREQUEST:\n${ask || ""}`;
+  }
+
+  return { esc, parseCSV, importCSV, exportCSV, newDB, addCard, editCard, newLayout, editLayout, layoutVersions, layoutFor, lintCard, lintAll, cardSVG, renderAll, printPDF, sheetLayout, PAPER, ROLES, rolePrompt, DEFAULT_LAYOUT };
+})();
+if (typeof module !== "undefined") module.exports = TCS;
+
+const $ = s => document.querySelector(s), H = TCS.esc;
+const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+const IN_UDS = window.parent !== window;
+let DB = null, TAB = "cards", SEL = null, CACHE = {}, saveT = 0;
+const TABS = [["rules", "📜 Rules"], ["cards", "🗂️ Card Database"], ["designer", "🎨 Card Designer"], ["print", "🖨️ Print and Export"], ["duck", "🦆 Rubber Ducky"]];
+
+function toast(t, bad) { const e = $("#toast"); e.textContent = t; e.style.borderColor = bad ? "var(--bad)" : "var(--acc)"; e.style.display = "block"; clearTimeout(e._t); e._t = setTimeout(() => e.style.display = "none", 3800); }
+function save() {
+  clearTimeout(saveT); saveT = setTimeout(() => {
+    const data = { cardset: DB };
+    if (JSON.stringify(data).length > 1e6) return toast("Too big to save in the tab (1 MB). Export a backup and remove some cards.", true);
+    if (IN_UDS) tell({ uds: "store-set", data }); else try { localStorage.setItem("tcg_design", JSON.stringify(data)); } catch (e) {}
+  }, 400);
+}
+function load(data) { DB = (data && data.cardset && data.cardset.cards) ? data.cardset : seed(); $("#gname").value = DB.game; render(); }
+window.addEventListener("message", e => {
+  const d = e.data || {};
+  if (d.uds === "store") load(d.data);
+  if (d.uds === "store-error") toast("Not saved: " + d.note, true);
+  if (d.uds === "exported") toast(d.ok ? "Saved." : (d.note || "Not saved."), !d.ok);
+});
+function download(name, blob) {
+  if (IN_UDS) return tell({ uds: "export-file", name, data: blob });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function seed() {
+  const db = TCS.newDB("My First Set");
+  db.rules = "OVERVIEW\nTwo players. Each starts with 20 life and a 40-card deck. Reduce your opponent to 0 life to win.\n\nTURN\n1. Ready: untap your cards, gain 1 energy (max 10).\n2. Draw a card.\n3. Main: play cards by paying their cost in energy.\n4. Battle: your creatures may attack; the defender may block.\n5. End: damage on creatures wears off.\n";
+  db.keywords = [{ name: "Swift", reminder_text: "Can attack the turn it is played." }, { name: "Guard", reminder_text: "Enemies must attack this first if able." }, { name: "Drain", reminder_text: "Damage it deals also heals you." }];
+  TCS.importCSV("name,type,cost,rarity,rules_text,lore_text,power,defence\n" +
+    "Ember Pup,Creature,1,Common,Swift.,It chases sparks it will never catch.,2,1\n" +
+    "Stone Warden,Creature,3,Common,Guard.,The gate stands because it does.,1,5\n" +
+    "Night Leech,Creature,2,Uncommon,Drain.,,2,2\n" +
+    "Spark Volley,Spell,2,Common,Deal 3 damage to a creature.,,,\n" +
+    "Old Lantern,Relic,1,Rare,\"At the start of your turn, gain 1 life.\",Lit once. Never out.,,\n", db);
+  return db;
+}
+
+const nav = () => $("#nav").innerHTML = TABS.map(([k, n]) => `<button class="${k === TAB ? "on" : ""}" onclick="go('${k}')">${n}</button>`).join("");
+function go(t) { TAB = t; render(); }
+function render() { nav(); ({ rules: vRules, cards: vCards, designer: vDesigner, print: vPrint, duck: vDuck })[TAB](); }
+$("#gname").oninput = e => { DB.game = e.target.value; save(); };
+
+function vRules() {
+  $("#main").innerHTML = `<div class="row"><div class="col card"><h2>Core rules</h2><textarea id="rules" rows="22">${H(DB.rules)}</textarea>
+  <p class="note">Turn structure, win condition, zones. The Rules designer prompt on the 🦆 tab reads this.</p></div>
+  <div class="col card"><h2>Keyword glossary <span class="pill">${DB.keywords.length}</span></h2>
+  <p class="note">Card text may only use keywords defined here. Write them as a line like <b>Swift.</b> or <b>Shield 2.</b>, or in brackets: <b>[Swift]</b>. The linter on the Card Database checks every card.</p>
+  <table><tr><th>Keyword</th><th>Reminder text</th><th></th></tr>${DB.keywords.map((k, i) => `<tr><td contenteditable data-k="${i}" data-f="name">${H(k.name)}</td><td contenteditable data-k="${i}" data-f="reminder_text">${H(k.reminder_text)}</td><td><button class="btn sm bad" onclick="DB.keywords.splice(${i},1);save();render()">✕</button></td></tr>`).join("")}</table>
+  <p><button class="btn" onclick="DB.keywords.push({name:'New keyword',reminder_text:''});save();render()">+ Keyword</button></p></div></div>`;
+  $("#rules").oninput = e => { DB.rules = e.target.value; save(); };
+  document.querySelectorAll("td[data-k]").forEach(td => td.onblur = () => { DB.keywords[+td.dataset.k][td.dataset.f] = td.textContent.trim(); save(); });
+}
+
+const COLS = [["name", "Name"], ["type", "Type"], ["subtype", "Subtype"], ["cost", "Cost"], ["rarity", "Rarity"], ["set", "Set"], ["rules_text", "Rules text"], ["lore_text", "Lore"]];
+function vCards() {
+  const statKeys = [...new Set(DB.cards.flatMap(c => Object.keys(c.stats || {})))];
+  const lint = TCS.lintAll(DB), bad = new Set(lint.map(i => i.card));
+  $("#main").innerHTML = `<div class="card"><h2>Card Database <span class="pill">${DB.cards.length} cards</span>${lint.length ? `<span class="pill bad">${lint.length} keyword problem(s)</span>` : `<span class="pill ok">keywords OK</span>`}</h2>
+  <p><button class="btn pri" onclick="addRow()">+ Card</button> <button class="btn" onclick="$('#csvfile').click()">⬆ Import CSV</button> <button class="btn" onclick="download((DB.game||'cards')+'.csv',new Blob([TCS.exportCSV(DB)],{type:'text/csv'}))">⬇ Export CSV</button>
+  <button class="btn" onclick="addStat()">+ Stat column</button> <span class="note">Click a cell to edit. Columns other than the named ones become stats (power, defence…).</span></p>
+  ${lint.length ? `<p class="bad">${lint.map(i => H(i.card) + ": " + H(i.msg)).join("<br>")}</p>` : ""}
+  <div class="tbl"><table><tr><th></th>${COLS.map(c => `<th>${c[1]}</th>`).join("")}${statKeys.map(k => `<th>${H(k)}</th>`).join("")}<th>Layout</th><th></th></tr>
+  ${DB.cards.map(c => `<tr${bad.has(c.name) ? ' style="background:#e0646418"' : ""}><td class="dim">v${c.version}</td>${COLS.map(([f]) => `<td contenteditable data-id="${c.id}" data-f="${f}">${H(c[f])}</td>`).join("")}
+   ${statKeys.map(k => `<td contenteditable data-id="${c.id}" data-f="stats.${H(k)}">${H((c.stats || {})[k] ?? "")}</td>`).join("")}
+   <td><select data-lay="${c.id}">${layOpts(c.layout)}</select></td><td><button class="btn sm bad" onclick="delCard('${c.id}')">✕</button></td></tr>`).join("")}</table></div></div>`;
+  document.querySelectorAll("td[data-id]").forEach(td => td.onblur = () => {
+    let v = td.textContent.trim(); const f = td.dataset.f; if (f.startsWith("stats.") && v !== "" && isFinite(+v)) v = +v;
+    const c = DB.cards.find(x => x.id === td.dataset.id), before = c.version; TCS.editCard(DB, td.dataset.id, f, v);
+    if (c.version !== before) { save(); if (f === "rules_text" || f === "name") vCards(); }
+  });
+  document.querySelectorAll("select[data-lay]").forEach(s => s.onchange = () => { const c = DB.cards.find(x => x.id === s.dataset.lay); c.layout = s.value || null; c.version++; save(); });
+}
+function layOpts(cur) {
+  const names = [...new Set(DB.layouts.map(l => l.name))];
+  return `<option value="">default</option>` + names.map(n => `<option ${cur === n ? "selected" : ""}>${H(n)}</option>` + TCS.layoutVersions(DB, n).map(l => `<option value="${H(n)}@${l.version}" ${cur === n + "@" + l.version ? "selected" : ""}>${H(n)} (pinned v${l.version})</option>`).join("")).join("");
+}
+function addRow() { TCS.addCard(DB, { name: "New card", set: (DB.sets[0] || {}).code || "" }); save(); vCards(); }
+function delCard(id) { if (!confirm("Delete this card?")) return; DB.cards = DB.cards.filter(c => c.id !== id); save(); vCards(); }
+function addStat() { const k = (prompt("Stat name (e.g. power, defence, hp):") || "").trim().toLowerCase(); if (!k) return; DB.cards.forEach(c => { if (!(k in c.stats)) c.stats[k] = ""; }); save(); vCards(); }
+$("#csvfile").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; const r = TCS.importCSV(await f.text(), DB); e.target.value = "";
+  toast("Imported " + r.added + " card(s)." + (r.errors.length ? " " + r.errors.join(" ") : ""), !!r.errors.length && !r.added); save(); render();
+};
+
+function vDesigner() {
+  const names = [...new Set(DB.layouts.map(l => l.name))]; const cur = TCS.layoutVersions(DB, DB.defaultLayout).slice(-1)[0];
+  const drawn = TCS.renderAll(DB, CACHE);
+  const F = [["w_mm", "Width (mm)", "number"], ["h_mm", "Height (mm)", "number"], ["bleed_mm", "Bleed (mm)", "number"], ["radius_mm", "Corner (mm)", "number"], ["art_pct", "Art height %", "number"], ["text_pt", "Text size", "number"], ["frame", "Frame colour", "color"], ["ink", "Text colour", "color"], ["accent", "Accent colour", "color"], ["font", "Font", "text"]];
+  $("#main").innerHTML = `<div class="row"><div class="card" style="width:330px"><h2>Layout</h2>
+  <label>Default layout for new and unpinned cards</label><select id="deflay">${names.map(n => `<option ${n === DB.defaultLayout ? "selected" : ""}>${H(n)}</option>`).join("")}</select>
+  <button class="btn sm" onclick="newLay()">+ New layout</button>
+  <h3>${H(cur.name)} · v${cur.version} <span class="pill">${TCS.layoutVersions(DB, cur.name).length} version(s)</span></h3>
+  <div class="kv">${F.map(([k, n, t]) => `<label>${n}</label><input type="${t}" data-lf="${k}" value="${H(cur[k])}" ${t === "number" ? 'step="0.5"' : ""}>`).join("")}</div>
+  <p><button class="btn pri" onclick="saveLay()">Save as v${cur.version + 1}</button></p>
+  <p class="note">Saving never changes an old version. Cards pinned to an old version (Card Database → Layout) keep drawing with it. Standard poker-size cards are 63 × 88 mm.</p></div>
+  <div class="col card"><h2>Cards <span class="pill">${DB.cards.length}</span> <span class="note">redrawn this time: ${drawn.length}</span></h2>
+  <p><button class="btn" onclick="pngOne()" ${SEL ? "" : "disabled"}>⬇ PNG of selected</button> <button class="btn" onclick="pngAll()">⬇ All cards as PNG (.zip)</button></p>
+  <div class="grid">${DB.cards.map(c => `<div class="c ${SEL === c.id ? "sel" : ""}" onclick="SEL='${c.id}';vDesigner()" title="${H(c.name)}">${CACHE[c.id].svg}</div>`).join("")}</div></div></div>`;
+  $("#deflay").onchange = e => { DB.defaultLayout = e.target.value; save(); vDesigner(); };
+}
+function newLay() { const n = (prompt("Layout name:") || "").trim(); if (!n) return; if (DB.layouts.some(l => l.name === n)) return toast("That name is taken.", true); TCS.newLayout(DB, n); DB.defaultLayout = n; save(); vDesigner(); }
+function saveLay() {
+  const ch = {}; document.querySelectorAll("[data-lf]").forEach(i => ch[i.dataset.lf] = i.type === "number" ? +i.value : i.value);
+  if (!(ch.w_mm >= 20 && ch.h_mm >= 20 && ch.bleed_mm >= 0)) return toast("Width and height must be at least 20 mm; bleed 0 or more.", true);
+  const L = TCS.editLayout(DB, DB.defaultLayout, ch); save(); toast("Saved " + L.name + " v" + L.version + "."); vDesigner();
+}
+function svgToPNG(svg, wmm, hmm) {
+  return new Promise((ok, no) => {
+    const px = mm => Math.round(mm / 25.4 * 300), img = new Image(), url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    img.onload = () => { const c = document.createElement("canvas"); c.width = px(wmm); c.height = px(hmm); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); c.toBlob(b => b ? ok(b) : no(new Error("PNG failed")), "image/png"); };
+    img.onerror = () => no(new Error("Could not draw the card")); img.src = url;
+  });
+}
+const cardPNG = c => { const L = TCS.layoutFor(DB, c); return svgToPNG(TCS.cardSVG(DB, c), L.w_mm + 2 * L.bleed_mm, L.h_mm + 2 * L.bleed_mm); };
+const safeName = s => String(s).replace(/[^\w\- ]+/g, "").trim().slice(0, 60) || "card";
+async function pngOne() { const c = DB.cards.find(x => x.id === SEL); if (c) download(safeName(c.name) + ".png", await cardPNG(c)); }
+async function pngAll() {
+  if (!DB.cards.length) return; toast("Drawing " + DB.cards.length + " cards…"); const files = [];
+  for (let i = 0; i < DB.cards.length; i++) { const c = DB.cards[i]; files.push([String(i + 1).padStart(3, "0") + " " + safeName(c.name) + ".png", new Uint8Array(await (await cardPNG(c)).arrayBuffer())]); }
+  download(safeName(DB.game) + " cards.zip", zipStore(files));
+}
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStore(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const u16 = n => [n & 255, n >>> 8 & 255], u32 = n => [n & 255, n >>> 8 & 255, n >>> 16 & 255, n >>> 24 & 255];
+  files.forEach(([name, data]) => {
+    const nm = enc.encode(name), crc = crc32(data);
+    const local = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)]);
+    parts.push(local, nm, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nm);
+    off += local.length + nm.length + data.length;
+  });
+  const csize = central.reduce((s, p) => s + p.length, 0);
+  return new Blob([...parts, ...central, new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)])], { type: "application/zip" });
+}
+
+function vPrint() {
+  const lint = TCS.lintAll(DB);
+  const P = o => TCS.printPDF(DB, o), a = P({ paper: "letter" }), b = P({ paper: "letter", bleed: false });
+  $("#main").innerHTML = `<div class="row"><div class="card" style="width:380px"><h2>Print sheets (PDF)</h2>
+  <div class="kv"><label>Paper</label><select id="pp"><option value="letter">US Letter</option><option value="a4">A4</option></select>
+  <label>Sheet type</label><select id="pb"><option value="1">Print shop (each card with bleed)</option><option value="0">Proxies (cards butted, cut on the lines)</option></select>
+  <label>Copies of each</label><input id="pc" type="number" min="1" max="20" value="1">
+  <label>Page margin (mm)</label><input id="pm" type="number" min="0" max="30" step="0.5" value="6.35"></div>
+  <p id="pinfo" class="note"></p>
+  <p><button class="btn pri" onclick="pdfGo()">⬇ Make PDF</button></p>
+  ${lint.length ? `<p class="bad">⚠ ${lint.length} card(s) use keywords not in the glossary. Fix them first so you don't print a broken card.</p>` : `<p class="ok">✓ Every keyword on every card is defined.</p>`}
+  <p class="note">Letter, 63 × 88 mm cards: print shop sheet ${a.perPage} per page, proxy sheet ${b.perPage} per page. Cut marks sit on the trim lines. Card size and bleed come from the layout (🎨 tab). Before a real print run, check your printer's own published template; this sheet uses the layout's numbers.</p></div>
+  <div class="col card"><h2>Other exports</h2>
+  <p><button class="btn" onclick="download((DB.game||'cards')+'.csv',new Blob([TCS.exportCSV(DB)],{type:'text/csv'}))">⬇ Card list (CSV)</button>
+  <button class="btn" onclick="download(safeName(DB.game)+' rules.txt',new Blob([rulesText()],{type:'text/plain'}))">⬇ Rules (text)</button>
+  <button class="btn" onclick="pngAll()">⬇ Card PNGs (.zip)</button></p>
+  <h3>Backup</h3><p><button class="btn" onclick="download(safeName(DB.game)+'.cards.json',new Blob([JSON.stringify(DB)],{type:'application/json'}))">⬇ Whole game (.json)</button>
+  <button class="btn" onclick="$('#jsonfile').click()">⬆ Open a game (.json)</button> <button class="btn bad" onclick="if(confirm('Start a new empty game? Export a backup first if you want this one.')){DB=TCS.newDB('New game');$('#gname').value=DB.game;save();render()}">New empty game</button></p></div></div>`;
+  const info = () => { const r = TCS.printPDF(DB, opts()); $("#pinfo").textContent = r.cardsPlaced + " cards → " + r.pages + " page(s), " + r.perPage + " per page, card " + r.card_mm.join(" × ") + " mm, bleed " + r.bleed_mm + " mm."; };
+  ["#pp", "#pb", "#pc", "#pm"].forEach(s => $(s).oninput = info); info();
+}
+const opts = () => ({ paper: $("#pp").value, bleed: $("#pb").value === "1", copies: Math.max(1, +$("#pc").value || 1), margin: Math.max(0, +$("#pm").value || 0) });
+function pdfGo() { const r = TCS.printPDF(DB, opts()); download(safeName(DB.game) + (r.bleed_mm ? " print" : " proxies") + ".pdf", new Blob([r.pdf], { type: "application/pdf" })); }
+const rulesText = () => DB.game + "\n\n" + DB.rules + "\n\nKEYWORDS\n" + DB.keywords.map(k => k.name + " — " + k.reminder_text).join("\n") + "\n";
+$("#jsonfile").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = "";
+  try { const d = JSON.parse(await f.text()); if (!d.cards || !d.layouts) throw 0; DB = d; CACHE = {}; $("#gname").value = DB.game; save(); render(); toast("Opened " + DB.game + "."); } catch (_) { toast("That is not a Trading Card Studio game file.", true); }
+};
+
+function vDuck() {
+  $("#main").innerHTML = `<div class="row"><div class="col card"><h2>🦆 Talk it through</h2>
+  <label>Role</label><select id="role">${Object.entries(TCS.ROLES).map(([k, r]) => `<option value="${k}">${r.name}</option>`).join("")}</select>
+  <label>What do you want to think through or get written?</label><textarea id="ask" rows="5" placeholder="e.g. Is Guard too strong on 1-cost creatures? / Write 5 commons for a fire theme."></textarea>
+  <p><button class="btn pri" onclick="mk()">Make the prompt</button> <button class="btn" onclick="cp()">Copy</button></p>
+  <textarea id="out" rows="14" readonly placeholder="The prompt appears here with your rules, keywords and some cards included."></textarea>
+  <p class="note">Paste it into any AI you use. A direct link to the app's own AI needs a small app change first, so this tab doesn't send anything anywhere by itself.</p></div>
+  <div class="col card"><h2>Check a reply</h2><p class="note">Paste card text an AI wrote (one card per paragraph). The linter flags any keyword that isn't in your glossary.</p>
+  <textarea id="reply" rows="14"></textarea><p><button class="btn" onclick="chk()">Check keywords</button></p><div id="chk"></div></div></div>`;
+}
+function mk() { $("#out").value = TCS.rolePrompt(DB, $("#role").value, $("#ask").value); }
+function cp() { if (!$("#out").value) mk(); $("#out").select(); try { navigator.clipboard.writeText($("#out").value); toast("Copied."); } catch (e) { document.execCommand("copy"); toast("Copied."); } }
+function chk() {
+  const iss = $("#reply").value.split(/\n\s*\n/).flatMap((p, i) => TCS.lintCard(DB, { name: "Paragraph " + (i + 1), rules_text: p }));
+  $("#chk").innerHTML = iss.length ? `<p class="bad">${iss.map(i => H(i.card) + ": " + H(i.msg)).join("<br>")}</p>` : `<p class="ok">✓ No undefined keywords.</p>`;
+}
+
+if (IN_UDS) { tell({ uds: "store-get" }); setTimeout(() => { if (!DB) load(null); }, 1500); }
+else { let d = null; try { d = JSON.parse(localStorage.getItem("tcg_design")); } catch (e) {} load(d); }
+
+</script>
+</body></html>

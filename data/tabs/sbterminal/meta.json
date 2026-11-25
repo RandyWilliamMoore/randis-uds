@@ -1,0 +1,18 @@
+{
+ "id": "sbterminal",
+ "name": "Email Terminal",
+ "created": 1794340000,
+ "icon": "tab-terminal",
+ "section": "Tools",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1794340000,
+   "uds": "0.1.13"
+  }
+ ],
+ "current": 1
+}

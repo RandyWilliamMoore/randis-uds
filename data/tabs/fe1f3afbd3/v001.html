@@ -1,0 +1,287 @@
+<!doctype html>
+<!-- Made with Randis UDS by Randy Moore - https://github.com/RandyWilliamMoore/randis-uds - https://ko-fi.com/moorescombinatoricsmatrix -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>System Resource Monitor</title>
+<style>
+:root{--ac:#0f766e;--ac2:#14b8a6;--hot:#f97316;--vio:#7c3aed;--sky:#0284c7;--sun:#eab308;--ink:#123;--mut:#64748b;--card:#fff;--bg:#ecfdf8}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:linear-gradient(160deg,#ecfdf8,#e0f2fe 55%,#fef9c3);font-family:"Segoe UI",system-ui,Arial,sans-serif;color:var(--ink)}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 20px 8px}
+.logo{width:46px;height:46px;border-radius:12px;background:var(--ac);color:#fff;display:grid;place-items:center;font-weight:800;font-size:20px;box-shadow:0 4px 12px rgba(15,118,110,.35)}
+h1{font-size:22px;margin:0}
+.sub{color:var(--mut);font-size:13px}
+.tools{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button,select{font:inherit;font-size:14px;border:0;border-radius:10px;padding:8px 13px;cursor:pointer;background:#fff;color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+button.main{background:var(--ac);color:#fff}
+button:hover{filter:brightness(1.06);transform:translateY(-1px)}
+button:disabled{opacity:.55;cursor:default;transform:none}
+.note{margin:4px 20px 10px;padding:9px 14px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;font-size:13.5px}
+.note b{color:#c2410c}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;padding:4px 20px 20px}
+.card{background:var(--card);border-radius:16px;padding:14px 16px;box-shadow:0 4px 16px rgba(15,118,110,.1);position:relative;overflow:hidden}
+.card:before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:var(--c,var(--ac))}
+.card h2{font-size:14px;margin:0 0 8px;display:flex;align-items:center;gap:6px;color:#334155}
+.big{font-size:30px;font-weight:800;color:var(--c,var(--ac));line-height:1.1}
+.big small{font-size:14px;font-weight:600;color:var(--mut)}
+.row{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:3px 0;border-bottom:1px dashed #e2e8f0}
+.row:last-child{border:0}
+.row span:last-child{font-weight:600;text-align:right}
+.na{color:#94a3b8!important;font-style:italic;font-weight:400!important}
+canvas{width:100%;height:70px;display:block;margin-top:8px;border-radius:8px;background:#f8fafc}
+.top{display:flex;align-items:center;gap:14px}
+.ring{--p:0;width:78px;height:78px;border-radius:50%;flex:none;display:grid;place-items:center;background:conic-gradient(var(--c,var(--ac)) calc(var(--p)*1%),#e2e8f0 0)}
+.ring i{width:60px;height:60px;border-radius:50%;background:#fff;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:15px}
+.bar{height:10px;border-radius:6px;background:#e2e8f0;overflow:hidden;margin-top:6px}
+.bar b{display:block;height:100%;width:0;background:var(--c,var(--ac));transition:width .4s}
+.tiny{font-size:12px;color:var(--mut);margin-top:6px}
+.wide{grid-column:span 2}
+@media(max-width:620px){.wide{grid-column:auto}}
+#status{font-size:13px;color:var(--mut)}
+.paused #status{color:var(--hot);font-weight:700}
+</style></head><body>
+<header>
+<div class="logo">SR</div>
+<div><h1>System Resource Monitor</h1><div class="sub">Live readings your browser can honestly measure, right here, right now.</div></div>
+<div class="tools">
+<span id="status">Measuring…</span>
+<select id="rate" title="How often to take a reading"><option value="500">Every 0.5 s</option><option value="1000" selected>Every 1 s</option><option value="2000">Every 2 s</option></select>
+<button id="pause" class="main">⏸ Pause</button>
+<button id="busy" title="Keeps this page busy for 3 seconds so you can watch the graphs react">⚡ Busy test (3 s)</button>
+<button id="csv">⬇ Export CSV</button>
+<button id="clear">↺ Clear history</button>
+</div>
+</header>
+<div class="note">💡 This page only sees what the browser shows it. <b>Whole-computer CPU, RAM, disk and temperature are not shown in this page.</b> Anything a browser keeps private says “not shown by this browser”.</div>
+<div id="grid">
+<section class="card wide" style="--c:#0f766e"><h2>🎞️ Frame rate</h2>
+<div class="top"><div class="ring" id="fpsRing"><i id="fpsRingT">…</i></div>
+<div><div class="big" id="fps">…<small> fps</small></div><div class="tiny">Frames the page drew per second. Most screens top out at 60 or more.</div></div></div>
+<canvas id="cFps"></canvas></section>
+<section class="card wide" style="--c:#f97316"><h2>📉 Frame times and jank</h2>
+<div class="row"><span>Worst frame this reading</span><span id="worst">…</span></div>
+<div class="row"><span>Long frames (over 50 ms) in the last minute</span><span id="longs">…</span></div>
+<canvas id="cJank"></canvas><div class="tiny">Each bar is one frame. Tall orange bars are hiccups you might see as stutter.</div></section>
+<section class="card" style="--c:#7c3aed"><h2>⚙️ Page busy (estimate)</h2>
+<div class="top"><div class="ring" id="busyRing"><i id="busyRingT">…</i></div>
+<div><div class="row"><span>Timer delay</span><span id="lag">…</span></div><div class="tiny">An <b>estimate</b> from how late short timers fire. It shows how busy this page's thread is, not the whole computer.</div></div></div>
+<canvas id="cBusy"></canvas></section>
+<section class="card" style="--c:#0284c7"><h2>🧠 JavaScript memory</h2>
+<div class="big" id="heap">…</div>
+<div class="bar"><b id="heapBar"></b></div>
+<div class="row"><span>Allocated</span><span id="heapTot">…</span></div>
+<div class="row"><span>Limit</span><span id="heapLim">…</span></div>
+<canvas id="cHeap"></canvas><div class="tiny">This page's own memory. Browsers round it on purpose.</div></section>
+<section class="card" style="--c:#0f766e"><h2>💻 Device</h2>
+<div class="row"><span>Logical CPU cores</span><span id="cores">…</span></div>
+<div class="row"><span>Device memory</span><span id="devmem">…</span></div>
+<div class="row"><span>Browser language</span><span id="lang">…</span></div>
+<div class="row"><span>Platform hint</span><span id="plat">…</span></div>
+<div class="tiny">Browsers round device memory and cap it, to protect your privacy.</div></section>
+<section class="card" style="--c:#eab308"><h2>💾 Storage for this page</h2>
+<div class="big" id="stUse">…</div>
+<div class="bar"><b id="stBar"></b></div>
+<div class="row"><span>Allowed quota</span><span id="stQuota">…</span></div>
+<div class="tiny">Space this page may use, not your whole disk.</div></section>
+<section class="card" style="--c:#db2777"><h2>🖥️ Screen</h2>
+<div class="row"><span>Screen size</span><span id="scr">…</span></div>
+<div class="row"><span>Window inside</span><span id="win">…</span></div>
+<div class="row"><span>Pixel ratio</span><span id="dpr">…</span></div>
+<div class="row"><span>Colour depth</span><span id="depth">…</span></div>
+<div class="row"><span>Orientation</span><span id="ori">…</span></div></section>
+<section class="card" style="--c:#0284c7"><h2>📶 Network</h2>
+<div class="row"><span>Online</span><span id="online">…</span></div>
+<div class="row"><span>Connection type</span><span id="ntype">…</span></div>
+<div class="row"><span>Speed estimate</span><span id="ndown">…</span></div>
+<div class="row"><span>Round trip estimate</span><span id="nrtt">…</span></div>
+<div class="row"><span>Data saver</span><span id="nsave">…</span></div></section>
+<section class="card" style="--c:#16a34a"><h2>🔋 Battery</h2>
+<div class="big" id="batLvl">…</div>
+<div class="bar"><b id="batBar"></b></div>
+<div class="row"><span>Charging</span><span id="batChg">…</span></div>
+<div class="row"><span>Time left</span><span id="batTime">…</span></div></section>
+</div>
+<script>
+(() => {
+const NA = "not shown by this browser";
+const $ = id => document.getElementById(id);
+const store = (() => { const mem = {}; return {
+  get(k, d) { try { const v = localStorage.getItem("srm-" + k); return v == null ? (k in mem ? mem[k] : d) : JSON.parse(v); } catch (e) { return k in mem ? mem[k] : d; } },
+  set(k, v) { mem[k] = v; try { localStorage.setItem("srm-" + k, JSON.stringify(v)); } catch (e) {} } }; })();
+const put = (id, v) => { const e = $(id); if (!e) return; if (v == null || v === "") { e.textContent = NA; e.classList.add("na"); } else { e.textContent = v; e.classList.remove("na"); } };
+const mb = b => (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + " MB";
+const size = b => b >= 1073741824 ? (b / 1073741824).toFixed(1) + " GB" : mb(b);
+const bar = (id, pct) => { const e = $(id); if (e) e.style.width = Math.max(0, Math.min(100, pct)) + "%"; };
+
+let paused = false, rate = +store.get("rate", 1000) || 1000, hidden = document.hidden;
+const MAX = 120, samples = [], frames = [], longTimes = [];
+let lagSum = 0, lagN = 0, lagMax = 0;
+$("rate").value = String(rate);
+
+let last = performance.now();
+function frame(t) {
+  const d = t - last; last = t;
+  if (!paused && !hidden && d > 0 && d < 5000) { frames.push(d); if (frames.length > 240) frames.shift(); if (d > 50) longTimes.push(Date.now()); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+const STEP = 50; let expect = performance.now() + STEP;
+function tick() {
+  const now = performance.now(), lag = Math.max(0, now - expect);
+  if (!paused && !hidden) { lagSum += lag; lagN++; if (lag > lagMax) lagMax = lag; }
+  expect = now + STEP; setTimeout(tick, STEP);
+}
+setTimeout(tick, STEP);
+
+let sinceFrames = 0;
+function sample() {
+  if (paused || hidden) return;
+  const now = performance.now(), win = frames.slice(sinceFrames);
+  sinceFrames = frames.length;
+  const totalMs = win.reduce((a, b) => a + b, 0);
+  const fps = win.length && totalMs > 0 ? win.length * 1000 / totalMs : null;
+  const worst = win.length ? Math.max(...win) : null;
+  const cut = Date.now() - 60000; while (longTimes.length && longTimes[0] < cut) longTimes.shift();
+  const lag = lagN ? lagSum / lagN : null;
+  const busy = lag == null ? null : Math.min(100, Math.round(Math.max(lag, lagMax / 3) / STEP * 100));
+  lagSum = 0; lagN = 0; lagMax = 0;
+  const pm = performance.memory;
+  const s = { t: new Date().toISOString(), fps: fps == null ? null : Math.round(fps * 10) / 10, worst: worst == null ? null : Math.round(worst),
+    longs: longTimes.length, lag: lag == null ? null : Math.round(lag * 10) / 10, busy,
+    heapUsed: pm && pm.usedJSHeapSize ? pm.usedJSHeapSize : null, heapTotal: pm && pm.totalJSHeapSize ? pm.totalJSHeapSize : null,
+    online: navigator.onLine };
+  samples.push(s); if (samples.length > MAX) samples.shift();
+  if (frames.length > 200) { frames.splice(0, frames.length - 200); sinceFrames = frames.length; }
+  show(s, pm);
+}
+
+function show(s, pm) {
+  if (s.fps != null) { $("fps").innerHTML = s.fps.toFixed(0) + "<small> fps</small>"; ring("fpsRing", Math.min(100, s.fps / 60 * 100), s.fps.toFixed(0)); }
+  else { $("fps").innerHTML = '<span class="na" style="font-size:15px">no frames drawn yet</span>'; ring("fpsRing", 0, "…"); }
+  put("worst", s.worst == null ? "…" : s.worst + " ms");
+  put("longs", String(s.longs));
+  if (s.busy != null) { ring("busyRing", s.busy, s.busy + "%"); put("lag", s.lag.toFixed(1) + " ms late"); }
+  if (pm && s.heapUsed) {
+    $("heap").textContent = mb(s.heapUsed) + " used"; $("heap").classList.remove("na");
+    put("heapTot", mb(s.heapTotal)); put("heapLim", pm.jsHeapSizeLimit ? size(pm.jsHeapSizeLimit) : null);
+    bar("heapBar", pm.jsHeapSizeLimit ? s.heapUsed / pm.jsHeapSizeLimit * 100 : 0);
+  }
+  line("cFps", samples.map(x => x.fps), "#0f766e", 0);
+  line("cBusy", samples.map(x => x.busy), "#7c3aed", 100);
+  line("cHeap", samples.map(x => x.heapUsed == null ? null : x.heapUsed / 1048576), "#0284c7", 0);
+  jank();
+  put("online", navigator.onLine ? "Yes ✅" : "No (offline)");
+  screenInfo();
+}
+
+function ring(id, pct, label) { const r = $(id); r.style.setProperty("--p", Math.max(0, Math.min(100, pct))); $(id + "T").textContent = label; }
+
+function prep(id) {
+  const c = $(id), r = window.devicePixelRatio || 1, w = c.clientWidth || 300, h = c.clientHeight || 70;
+  if (c.width !== Math.round(w * r) || c.height !== Math.round(h * r)) { c.width = Math.round(w * r); c.height = Math.round(h * r); }
+  const g = c.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h); return [g, w, h];
+}
+function line(id, vals, col, fixedMax) {
+  const [g, w, h] = prep(id), ok = vals.filter(v => v != null);
+  if (!ok.length) { g.fillStyle = "#94a3b8"; g.font = "italic 12px Segoe UI,Arial"; g.fillText(id === "cHeap" ? NA : "waiting for readings…", 10, h / 2 + 4); return; }
+  const max = fixedMax || Math.max(...ok) * 1.15 || 1, min = fixedMax ? 0 : Math.min(0, Math.min(...ok)), n = MAX;
+  const X = i => w - (vals.length - 1 - i) * (w / (n - 1)), Y = v => h - 4 - (v - min) / (max - min || 1) * (h - 10);
+  const grad = g.createLinearGradient(0, 0, 0, h); grad.addColorStop(0, col + "66"); grad.addColorStop(1, col + "08");
+  g.beginPath(); let started = false, firstX = 0, lastX = 0;
+  vals.forEach((v, i) => { if (v == null) return; const x = X(i), y = Y(v); if (!started) { g.moveTo(x, h); g.lineTo(x, y); firstX = x; started = true; } else g.lineTo(x, y); lastX = x; });
+  g.lineTo(lastX, h); g.closePath(); g.fillStyle = grad; g.fill();
+  g.beginPath(); started = false;
+  vals.forEach((v, i) => { if (v == null) return; const x = X(i), y = Y(v); started ? g.lineTo(x, y) : (g.moveTo(x, y), started = true); });
+  g.strokeStyle = col; g.lineWidth = 2; g.stroke();
+  const lv = ok[ok.length - 1]; g.fillStyle = col; g.beginPath(); g.arc(lastX - 2, Y(lv), 3.5, 0, 7); g.fill();
+}
+function jank() {
+  const [g, w, h] = prep("cJank"), f = frames.slice(-120);
+  if (!f.length) return;
+  const bw = w / 120, top = 100;
+  g.strokeStyle = "#fdba74"; g.setLineDash([4, 4]); g.beginPath(); const yLine = h - 50 / top * (h - 4); g.moveTo(0, yLine); g.lineTo(w, yLine); g.stroke(); g.setLineDash([]);
+  f.forEach((d, i) => { const bh = Math.max(2, Math.min(d, top) / top * (h - 4)); g.fillStyle = d > 50 ? "#f97316" : d > 25 ? "#facc15" : "#2dd4bf"; g.fillRect(w - (f.length - i) * bw + 1, h - bh, Math.max(1, bw - 1.5), bh); });
+}
+
+function screenInfo() {
+  const s = window.screen || {};
+  put("scr", s.width ? s.width + " × " + s.height : null);
+  put("win", innerWidth + " × " + innerHeight);
+  put("dpr", window.devicePixelRatio ? String(Math.round(devicePixelRatio * 100) / 100) + "×" : null);
+  put("depth", s.colorDepth ? s.colorDepth + "-bit" : null);
+  put("ori", s.orientation && s.orientation.type ? s.orientation.type.replace("-", " ") : null);
+}
+
+function staticInfo() {
+  put("cores", navigator.hardwareConcurrency ? String(navigator.hardwareConcurrency) : null);
+  put("devmem", navigator.deviceMemory ? "about " + navigator.deviceMemory + " GB" : null);
+  put("lang", navigator.language || null);
+  const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform;
+  put("plat", p || null);
+  if (!(performance.memory && performance.memory.usedJSHeapSize)) { put("heap", null); put("heapTot", null); put("heapLim", null); }
+  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const net = () => {
+    put("ntype", c && (c.effectiveType || c.type) ? [c.type, c.effectiveType].filter(Boolean).join(" · ") : null);
+    put("ndown", c && c.downlink ? "about " + c.downlink + " Mbit/s" : null);
+    put("nrtt", c && c.rtt > 0 ? "about " + c.rtt + " ms" : null);
+    put("nsave", c && typeof c.saveData === "boolean" ? (c.saveData ? "On" : "Off") : null);
+  };
+  net(); if (c && c.addEventListener) c.addEventListener("change", net);
+  addEventListener("online", () => put("online", "Yes ✅")); addEventListener("offline", () => put("online", "No (offline)"));
+  storage(); battery(); screenInfo();
+}
+
+async function storage() {
+  try {
+    if (!navigator.storage || !navigator.storage.estimate) throw 0;
+    const e = await navigator.storage.estimate();
+    if (!e || !e.quota) throw 0;
+    $("stUse").textContent = size(e.usage || 0) + " used"; put("stQuota", size(e.quota)); bar("stBar", (e.usage || 0) / e.quota * 100);
+  } catch (x) { put("stUse", null); put("stQuota", null); }
+}
+async function battery() {
+  try {
+    if (!navigator.getBattery) throw 0;
+    const b = await navigator.getBattery();
+    const upd = () => {
+      $("batLvl").textContent = Math.round(b.level * 100) + "%"; bar("batBar", b.level * 100);
+      put("batChg", b.charging ? "Yes ⚡" : "No");
+      const t = b.charging ? b.chargingTime : b.dischargingTime;
+      put("batTime", isFinite(t) && t > 0 ? (b.charging ? "full in " : "") + Math.floor(t / 3600) + " h " + Math.round(t % 3600 / 60) + " min" : (b.charging && b.level === 1 ? "full" : null));
+    };
+    upd(); ["levelchange", "chargingchange", "chargingtimechange", "dischargingtimechange"].forEach(k => b.addEventListener(k, upd));
+  } catch (x) { put("batLvl", null); put("batChg", null); put("batTime", null); }
+}
+
+function status() {
+  document.body.classList.toggle("paused", paused);
+  $("status").textContent = paused ? "Paused" : hidden ? "Waiting while this page is hidden" : "Live · " + samples.length + " reading" + (samples.length === 1 ? "" : "s");
+  $("pause").textContent = paused ? "▶ Resume" : "⏸ Pause";
+}
+let timer = null;
+function restart() { clearInterval(timer); timer = setInterval(() => { sample(); status(); }, rate); }
+
+$("pause").onclick = () => { paused = !paused; if (!paused) { last = performance.now(); expect = performance.now() + STEP; sinceFrames = frames.length; lagSum = lagN = lagMax = 0; } status(); };
+$("rate").onchange = () => { rate = +$("rate").value; store.set("rate", rate); restart(); };
+$("clear").onclick = () => { samples.length = 0; frames.length = 0; longTimes.length = 0; sinceFrames = 0; status(); show({ fps: null, worst: null, longs: 0, lag: null, busy: null }, null); };
+$("busy").onclick = () => {
+  const b = $("busy"); if (b.disabled) return; b.disabled = true; const end = performance.now() + 3000; let n = 0;
+  const work = () => { const t = performance.now(); while (performance.now() - t < 90) n += Math.sqrt(Math.random() * n + 1); if (performance.now() < end) setTimeout(work, 0); else { b.disabled = false; b.textContent = "⚡ Busy test (3 s)"; } };
+  b.textContent = "⚡ Working…"; setTimeout(work, 0);
+};
+$("csv").onclick = () => {
+  const head = ["time", "fps", "worst_frame_ms", "long_frames_last_minute", "timer_delay_ms", "page_busy_estimate_pct", "js_heap_used_mb", "js_heap_allocated_mb", "online"];
+  const v = x => x == null ? "" : x;
+  const rows = samples.map(s => [s.t, v(s.fps), v(s.worst), v(s.longs), v(s.lag), v(s.busy), s.heapUsed == null ? "" : (s.heapUsed / 1048576).toFixed(2), s.heapTotal == null ? "" : (s.heapTotal / 1048576).toFixed(2), s.online ? "yes" : "no"].join(","));
+  const blob = new Blob([head.join(",") + "\n" + rows.join("\n") + "\n"], { type: "text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "resource-readings.csv"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  $("status").textContent = samples.length ? "Saved " + samples.length + " readings" : "No readings yet, saved an empty sheet";
+};
+document.addEventListener("visibilitychange", () => { hidden = document.hidden; if (!hidden) { last = performance.now(); expect = performance.now() + STEP; sinceFrames = frames.length; lagSum = lagN = lagMax = 0; } status(); });
+addEventListener("resize", () => { screenInfo(); });
+
+staticInfo(); status(); restart();
+})();
+</script>
+</body></html>

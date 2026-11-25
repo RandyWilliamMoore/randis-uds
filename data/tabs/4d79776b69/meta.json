@@ -1,0 +1,18 @@
+{
+ "id": "4d79776b69",
+ "name": "My Wiki",
+ "created": 1794263068.9355469,
+ "icon": "tab-wiki",
+ "section": "Create",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1794263068.9355469,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

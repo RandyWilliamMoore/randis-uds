@@ -1,0 +1,18 @@
+{
+ "id": "tallyglass1",
+ "name": "Tallyglass Analytics",
+ "created": 1795508513.2782009,
+ "section": "Tools",
+ "icon": "tab-built",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795570305.0911286,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

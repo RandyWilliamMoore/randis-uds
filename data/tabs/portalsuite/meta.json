@@ -1,0 +1,18 @@
+{
+ "id": "portalsuite",
+ "name": "Portal Suite",
+ "created": 1794874725.075745,
+ "icon": "tab-portal",
+ "section": "Learn",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1794874809.1624835,
+   "uds": "0.1.13"
+  }
+ ],
+ "current": 1
+}

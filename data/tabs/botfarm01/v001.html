@@ -1,0 +1,1544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bot Farm</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0d1020;--panel:#161a33;--panel2:#1d2244;--ink:#eef0ff;--mute:#9aa0c8;--line:#2e3566;--acc:#8fe3ff;--acc2:#ff9fe0;--good:#7dffb0;--bad:#ff7d8f;--gold:#ffd66b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:radial-gradient(1200px 700px at 70% -10%,#2a2366 0,#0d1020 60%);color:var(--ink);font:14px/1.4 "Segoe UI",system-ui,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:linear-gradient(135deg,#5b6cff,#c06bff);border:0;color:#fff}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{font:inherit;color:var(--ink);background:#0f1330;border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+textarea{resize:vertical;width:100%}
+.mute{color:var(--mute)} .small{font-size:12px} .good{color:var(--good)} .bad{color:var(--bad)} .gold{color:var(--gold)}
+#app{display:flex;flex-direction:column;height:100%}
+header{display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid var(--line);background:rgba(13,16,32,.8)}
+header h1{font-size:18px;margin:0;letter-spacing:.5px;background:linear-gradient(90deg,#8fe3ff,#ff9fe0,#ffd66b);-webkit-background-clip:text;background-clip:text;color:transparent}
+.attrib{margin-left:auto;font-size:11px;color:var(--mute)} .attrib a{color:var(--mute)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs .t{padding:6px 12px;border-radius:9px 9px 0 0;border:1px solid transparent;cursor:pointer;color:var(--mute);user-select:none}
+.tabs .t[data-on="1"]{color:var(--ink);background:var(--panel);border-color:var(--line);border-bottom-color:var(--panel)}
+.main-tabs .t{font-size:15px;font-weight:600}
+.subbar{padding:6px 12px 0;border-bottom:1px solid var(--line);background:var(--panel)}
+.view{flex:1;min-height:0;position:relative;overflow:auto}
+.pad{padding:14px}
+.hidden{display:none!important}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;z-index:99;pointer-events:none}
+#toast div{background:#1f2550ee;border:1px solid var(--acc);padding:8px 14px;border-radius:10px;box-shadow:0 6px 20px #0008;animation:tin .25s}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.grid{display:grid;gap:14px}
+h2{font-size:16px;margin:0 0 8px} h3{font-size:14px;margin:10px 0 6px}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:3px 12px} .kv b{color:var(--mute);font-weight:500}
+pre{white-space:pre-wrap;word-break:break-word;background:#0b0e22;border:1px solid var(--line);border-radius:8px;padding:8px;max-height:420px;overflow:auto;font-size:12px}
+
+.deck{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:22px;padding:18px}
+.gcard{--g1:#9b5cff;--g2:#5cc8ff;--g3:#ff7ad9;position:relative;width:100%;max-width:330px;aspect-ratio:63/88;border-radius:16px;padding:9px;cursor:pointer;
+  background:linear-gradient(135deg,var(--g1),var(--g2) 50%,var(--g3));box-shadow:0 10px 30px #0009,0 0 0 2px #ffffff30 inset;transform-style:preserve-3d;transition:transform .15s ease-out;justify-self:center}
+.gcard .facets{position:absolute;inset:0;border-radius:16px;pointer-events:none;mix-blend-mode:overlay;opacity:.75;
+  background:conic-gradient(from 30deg at 30% 20%,#fff6 0 8%,transparent 8% 20%,#fff3 20% 26%,transparent 26% 45%,#fff5 45% 50%,transparent 50% 70%,#fff3 70% 78%,transparent 78%),
+  conic-gradient(from 200deg at 75% 80%,#fff4 0 10%,transparent 10% 30%,#fff2 30% 40%,transparent 40% 62%,#fff4 62% 68%,transparent 68%)}
+.gcard .foil{position:absolute;inset:0;border-radius:16px;pointer-events:none;mix-blend-mode:color-dodge;opacity:.55;
+  background:repeating-linear-gradient(115deg,#ff000000 0,#ff6ad533 6%,#6affe633 12%,#fff36a33 18%,#7a6aff33 24%,#ff000000 30%);background-size:220% 220%;background-position:var(--fx,50%) var(--fy,50%)}
+.gcard .glare{position:absolute;inset:0;border-radius:16px;pointer-events:none;background:radial-gradient(circle at var(--gx,50%) var(--gy,30%),#ffffff55,transparent 45%);mix-blend-mode:soft-light}
+.gcard .sparkle{position:absolute;width:6px;height:6px;background:#fff;border-radius:50%;box-shadow:0 0 8px 2px #fff;pointer-events:none;animation:tw 2.6s infinite}
+@keyframes tw{0%,100%{opacity:0;transform:scale(.3)}50%{opacity:1;transform:scale(1)}}
+.gin{position:relative;height:100%;border-radius:11px;background:linear-gradient(180deg,#fdfbff,#e9e4ff);color:#1b1640;display:flex;flex-direction:column;padding:7px 9px;gap:5px;overflow:hidden;
+  box-shadow:0 0 0 3px #ffffffa0 inset,0 0 18px #ffffff80 inset}
+.ghead{display:flex;align-items:baseline;gap:6px}
+.ghead .stage{font-size:10px;font-weight:700;background:#1b1640;color:#fff;border-radius:8px;padding:1px 6px}
+.ghead .nm{font-weight:800;font-size:17px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ghead .hp{font-weight:800;font-size:15px;color:#c0124a} .ghead .hp small{font-size:9px;margin-right:2px}
+.gem{display:inline-block;width:16px;height:16px;vertical-align:-3px;clip-path:polygon(50% 0,100% 35%,80% 100%,20% 100%,0 35%);background:linear-gradient(135deg,#fff,var(--g1) 40%,var(--g2));box-shadow:0 0 6px var(--g1)}
+.gart{position:relative;height:44%;border-radius:6px;overflow:hidden;border:3px solid;border-image:linear-gradient(135deg,#fff,var(--g1),#fff,var(--g2),#fff) 1;background:#223}
+.gart img{width:100%;height:100%;object-fit:cover;display:block}
+.gart .crys{position:absolute;inset:0;background:linear-gradient(125deg,transparent 30%,#ffffff40 45%,transparent 55%);background-size:300% 300%;animation:sheen 5s infinite linear;mix-blend-mode:screen}
+@keyframes sheen{from{background-position:120% 0}to{background-position:-120% 0}}
+.gstrip{font-size:10px;text-align:center;background:linear-gradient(90deg,#d8d2ff,#fff,#d8f3ff);border-radius:4px;padding:2px 4px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gmove{display:grid;grid-template-columns:auto 1fr auto;gap:2px 6px;align-items:center;font-size:11px;border-bottom:1px solid #1b164020;padding-bottom:3px}
+.gmove .cost{display:flex;gap:1px}
+.gmove .cost .gem{width:11px;height:11px}
+.gmove b{font-size:12.5px} .gmove .dmg{font-weight:800;font-size:14px} .gmove .d{grid-column:1/-1;color:#4b4575;font-size:10px;line-height:1.25}
+.gfoot{margin-top:auto;display:grid;grid-template-columns:1fr 1fr 1fr;font-size:9.5px;text-align:center;gap:2px}
+.gfoot div{background:#1b164010;border-radius:4px;padding:1px 2px} .gfoot b{display:block;font-size:11px}
+.gflav{font-size:9.5px;font-style:italic;color:#3d3768;border:1px solid #1b164030;border-radius:4px;padding:3px 5px;max-height:44px;overflow:hidden}
+.gset{display:flex;justify-content:space-between;font-size:8.5px;color:#4b4575}
+.rar{letter-spacing:1px}
+
+.detail{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:18px;padding:16px;align-items:start}
+.cardtabs .t{font-size:12.5px}
+.cardpane{background:var(--panel);border:1px solid var(--line);border-radius:0 12px 12px 12px;padding:12px;min-height:300px}
+.chatlog{max-height:340px;overflow:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.msg{padding:6px 9px;border-radius:9px;background:#232a57;max-width:90%} .msg[data-who="you"]{align-self:flex-end;background:#3a2f6e}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.item{background:#0f1330;border:1px solid var(--line);border-radius:10px;padding:7px;text-align:center;font-size:12px}
+.item .ic{font-size:26px;line-height:1.1} .item[data-r="rare"]{border-color:#5cc8ff} .item[data-r="epic"]{border-color:#c06bff;box-shadow:0 0 10px #c06bff55} .item[data-r="legend"]{border-color:#ffd66b;box-shadow:0 0 12px #ffd66b77}
+.bar{height:8px;background:#0b0e22;border-radius:5px;overflow:hidden} .bar i{display:block;height:100%;background:linear-gradient(90deg,#5cc8ff,#c06bff)}
+
+.world{position:absolute;inset:0}
+.world canvas{width:100%;height:100%;display:block;cursor:grab}
+.bubbles{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.bub{position:absolute;transform:translate(-50%,-100%);background:#fff;color:#1b1640;border-radius:12px;padding:5px 9px;font-size:12px;max-width:220px;box-shadow:0 4px 12px #0006;white-space:normal}
+.bub::after{content:"";position:absolute;left:50%;bottom:-6px;border:6px solid transparent;border-top-color:#fff;border-bottom:0;transform:translateX(-50%)}
+.heart{position:absolute;pointer-events:none;font-size:20px;transform:translate(-50%,-50%);animation:heartup 1.5s ease-out forwards;text-shadow:0 2px 6px #0006}
+@keyframes heartup{to{transform:translate(-50%,-90px) scale(1.5) rotate(var(--rot,0deg));opacity:0}}
+.moodbar{height:6px;background:#0b0e22;border-radius:4px;overflow:hidden;margin:3px 0} .moodbar i{display:block;height:100%;background:linear-gradient(90deg,#ff9fd0,#ff3b6b)}
+.tag{position:absolute;transform:translate(-50%,0);font-size:11px;background:#0d1020b0;border-radius:6px;padding:1px 6px;white-space:nowrap}
+.hud{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:6px;max-width:300px}
+.hud .panel{background:#161a33e8;padding:9px}
+.hudr{position:absolute;top:10px;right:10px;width:260px}
+.hudr .panel{background:#161a33e8}
+.feed{position:absolute;left:10px;bottom:10px;width:330px;max-height:32%;overflow:auto;font-size:12px;background:#0d1020b8;border-radius:10px;padding:6px 9px}
+.feed div{border-bottom:1px solid #ffffff10;padding:2px 0}
+
+.studio{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:14px;height:100%}
+.studio .pv{position:relative;height:420px;border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 30%,#3b3a7a,#141633)}
+.studio .pv canvas{width:100%;height:100%}
+.swatches{display:flex;gap:4px;flex-wrap:wrap}
+.sw{width:22px;height:22px;border-radius:6px;border:2px solid #fff3;cursor:pointer}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:4px 9px;border-radius:14px;background:#0f1330;border:1px solid var(--line);cursor:pointer;font-size:12px}
+.chip[data-on="1"]{border-color:var(--acc);background:#20306a}
+.rpg{display:grid;grid-template-columns:1fr 300px;gap:14px;padding:14px}
+.rpg canvas{width:100%;max-width:840px;image-rendering:pixelated;border-radius:10px;border:1px solid var(--line);background:#000;display:block}
+.battle{position:absolute;inset:0;background:#05061aee;display:flex;align-items:center;justify-content:center;z-index:5}
+.battle .box{width:min(720px,94%);background:var(--panel);border:1px solid var(--acc);border-radius:14px;padding:14px}
+.fighters{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:end}
+.fighter{text-align:center} .fighter img{width:190px;height:190px;object-fit:contain} .fighter canvas{background:transparent!important;border:0!important;width:140px!important}
+.blog{height:110px;overflow:auto;font-size:12.5px;background:#0b0e22;border-radius:8px;padding:6px;margin:8px 0}
+.forum{display:grid;grid-template-columns:220px 1fr;gap:14px;padding:14px;height:100%}
+.thread{border:1px solid var(--line);border-radius:10px;padding:9px;margin-bottom:8px;background:var(--panel);cursor:pointer}
+.post{display:grid;grid-template-columns:48px 1fr;gap:9px;border-bottom:1px solid var(--line);padding:9px 0}
+.post img{width:48px;height:48px;border-radius:10px;background:#223}
+.board{padding:6px 9px;border-radius:8px;cursor:pointer} .board[data-on="1"]{background:var(--panel2);color:var(--acc)}
+</style>
+</head>
+<body>
+<div id="app">
+ <header>
+  <h1>Bot Farm</h1>
+  <div class="tabs main-tabs" id="mainTabs"></div>
+  <span id="aiState" class="small mute"></span>
+  <div class="attrib">Randis UDS™ by Randy Moore · <a href="https://github.com/RandyWilliamMoore/randis-uds" target="_blank">original</a> · <a href="https://ko-fi.com/moorescombinatoricsmatrix" target="_blank">support</a></div>
+ </header>
+ <div class="subbar hidden" id="subbar"><div class="tabs" id="subTabs"></div></div>
+ <div class="view" id="view"></div>
+</div>
+<div id="toast"></div>
+<script>
+
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const mk = (tag, props = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "style" && typeof v === "object") Object.assign(e.style, v);
+    else if (k.startsWith("on") && typeof v === "function") e.addEventListener(k.slice(2), v);
+    else if (k === "dataset") Object.assign(e.dataset, v);
+    else if (v !== undefined && v !== null && v !== false) { if (k in e && k !== "list") e[k] = v; else e.setAttribute(k, v); }
+  }
+  for (const c of kids.flat(9)) if (c !== null && c !== undefined && c !== false) e.append(c instanceof Node ? c : String(c));
+  return e;
+};
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const pick = (arr, r = Math.random) => arr[Math.floor(r() * arr.length)];
+function hash(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { let s = hash(seed) || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+const fmtK = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(Math.round(n || 0));
+const today = () => new Date().toISOString().slice(0, 10);
+function toast(t) { const d = mk("div", {}, t); $("#toast").append(d); setTimeout(() => d.remove(), 4200); }
+
+const IN_APP = window.parent !== window;
+let REQ = 0; const WAIT = {};
+window.addEventListener("message", e => {
+  const d = e.data || {};
+  if (d.uds === "codelab" && WAIT[d.id]) { WAIT[d.id](d.r || {}); delete WAIT[d.id]; }
+  if (d.uds === "store" && WAIT.store) { WAIT.store(d.data || {}); delete WAIT.store; }
+  if (d.uds === "store-error") toast("Couldn't save: " + d.note);
+});
+function call(op, args = {}, ms = 330000) {
+  if (!IN_APP) return Promise.resolve({ error: "Open this tab inside Randis UDS to reach the bots." });
+  const id = "f" + (++REQ);
+  return new Promise(res => {
+    WAIT[id] = res;
+    setTimeout(() => { if (WAIT[id]) { delete WAIT[id]; res({ error: "No answer from the app. Restart Randis UDS so it knows Bot Farm." }); } }, ms);
+    parent.postMessage({ uds: "codelab", id, op, args }, "*");
+  });
+}
+function storeGet() {
+  if (!IN_APP) { try { return Promise.resolve(JSON.parse(localStorage.getItem("botfarm") || "{}")); } catch (_) { return Promise.resolve({}); } }
+  return new Promise(res => { WAIT.store = res; parent.postMessage({ uds: "store-get" }, "*"); setTimeout(() => { if (WAIT.store) { delete WAIT.store; res({}); } }, 8000); });
+}
+let saveT = 0;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    trimSave();
+    if (!IN_APP) { try { localStorage.setItem("botfarm", JSON.stringify(S)); } catch (_) {} return; }
+    parent.postMessage({ uds: "store-set", data: S }, "*");
+  }, 600);
+}
+function trimSave() {
+  S.forum.threads = S.forum.threads.slice(-120);
+  for (const t of S.forum.threads) t.posts = t.posts.slice(-40);
+  S.feed = (S.feed || []).slice(-60);
+}
+async function askAI(history, context, max = 900) {
+  const r = await call("farm-ask", { history, context, max }, 30000);
+  if (r.error) return { error: r.error };
+  if (!r.job) return { error: "The AI didn't start." };
+  for (let i = 0; i < 240; i++) {
+    await new Promise(z => setTimeout(z, 1000));
+    const p = await call("farm-poll", { job: r.job }, 20000);
+    if (p.done) return p.error ? { error: p.error } : { text: p.text || "" };
+  }
+  return { error: "The AI took too long." };
+}
+const jsonFrom = t => { const m = String(t || "").match(/```json\s*([\s\S]*?)```/) || String(t || "").match(/(\{[\s\S]*\}|\[[\s\S]*\])/); try { return JSON.parse(m ? m[1] : t); } catch (_) { return null; } };
+
+let S = null;
+let D = null;
+const DEFAULT_STATE = () => ({ v: 1, animals: {}, forum: { threads: [] }, feed: [], settings: { aiChatter: false, labels: true, sound: true }, daily: {} });
+
+const DEMO = () => {
+  const mkb = (id, name, label, runs, fails, secs, tin, tout, lvl) => ({ id, name, label, job: `Demo ${label.toLowerCase()} bot.`, where: "the app", status: "approved", running: runs % 2 === 0, trigger: { every: 60 },
+    perms: { level: lvl, features: { read: true, edit: lvl !== "read", run: lvl === "full", web: lvl === "full" } },
+    state: { runs, fails, last_seconds: secs, seconds: secs * runs, last_end: "2026-11-17 10:20:00", last_summary: "Looked over the newest version and found 2 small things.", tokens: { in: tin, out: tout, cost_usd: tin / 1e6 * 3 } } });
+  return { bots: [mkb("B001", "garden_helper1", "Garden helper", 14, 2, 41, 220000, 18000, "read"), mkb("B002", "pantry_keeper1", "Pantry keeper", 6, 0, 22, 90000, 6000, "custom"),
+    mkb("B003", "lantern_lighter1", "Lantern lighter", 3, 1, 65, 300000, 40000, "full")], usage: {}, chats: {}, duties: {}, card_tabs: {}, group: [], bus: [], record: {},
+    app: { tabs: 77, versions: 412, duck_versions: 14, history_lines: 120, snapshots: 300, voices: 4, tab_names: [{ id: "x", name: "Demo tab", versions: 3 }], now: new Date().toISOString() } };
+};
+
+function M(b) {
+  const st = b.state || {}, tok = st.tokens || {};
+  const runs = st.runs || 0, fails = st.fails || 0;
+  const u = (D.usage || {})[b.name] || {};
+  const chats = ((D.chats || {})[b.name] || []).length;
+  const tokens = (tok.in || 0) + (tok.out || 0) + (tok.cache_read || 0) + (tok.cache_write || 0) || u.tokens || 0;
+  const feats = ((b.perms || {}).features) || {};
+  return { runs, fails, ok: runs - fails, success: runs ? Math.round(100 * (runs - fails) / runs) : 0, secs: st.last_seconds || 0, working: Math.round(st.seconds || 0),
+    tokens, tin: tok.in || 0, tout: tok.out || 0, cost: tok.cost_usd || 0, chats, events: u.events || 0, running: !!b.running, level: (b.perms || {}).level || "read",
+    feats, nfeats: Object.values(feats).filter(Boolean).length, questions: b.questions || 0, tabs: (b.tabs || []).length, lastEnd: st.last_end || "", summary: st.last_summary || "" };
+}
+const GEMS = [["Amethyst", "#9b5cff", "#d6b8ff", "#5b2bd1"], ["Sapphire", "#3f7bff", "#9fd0ff", "#1a3fb3"], ["Emerald", "#1fcf8a", "#a8ffd8", "#0b7a4e"], ["Ruby", "#ff3b6b", "#ffb0c4", "#a3123a"],
+  ["Topaz", "#ff9f3b", "#ffe0a8", "#b35b0b"], ["Citrine", "#ffd23b", "#fff4b0", "#b38f0b"], ["Opal", "#7affea", "#ffd2f7", "#5aa7ff"], ["Diamond", "#d8f2ff", "#ffffff", "#8fb4d9"],
+  ["Aquamarine", "#3bf0ff", "#c8fbff", "#0b8fa3"], ["Onyx", "#5a5a7a", "#b9b9e0", "#1d1d33"]];
+const gemOf = b => GEMS[hash(b.label || b.name) % GEMS.length];
+function rarity(m) { const s = m.runs + m.chats + Math.log10(1 + m.tokens) * 2; return s >= 60 ? ["legend", "◆◆◆◆"] : s >= 25 ? ["epic", "◆◆◆"] : s >= 8 ? ["rare", "◆◆"] : ["common", "◆"]; }
+
+function mood(a) { if (!a || a.host) return 100; const h = (Date.now() - (a.moodAt || Date.now())) / 3600000; return Math.max(0, Math.round((a.mood ?? 50) - h * 3)); }
+function cheer(a, n) { const now = mood(a); a.mood = Math.min(100, now + n); a.moodAt = Date.now(); }
+const moodWord = v => v >= 85 ? "overjoyed" : v >= 65 ? "happy" : v >= 40 ? "content" : v >= 20 ? "a bit lonely" : "lonely";
+function A(name) { return S.animals[name]; }
+function stats(b) {
+  const m = M(b), a = A(b.name), lv = a.level;
+  const gear = (a.worn ? Object.values(a.worn) : []).length;
+  return { hp: 30 + lv * 8 + Math.round(m.success / 4) + gear * 2, mp: 10 + Math.round(Math.log10(1 + m.tokens) * 3) + lv * 2,
+    atk: 5 + Math.min(25, m.runs) + lv * 2 + (a.skills.includes("Power Paws") ? 4 : 0), def: 3 + Math.round(m.success / 12) + lv + (a.skills.includes("Thick Coat") ? 3 : 0),
+    spd: 4 + clamp(Math.round(60 / Math.max(5, m.secs || 60) * 4), 0, 12) + lv + (a.skills.includes("Fast Feet") ? 3 : 0), luck: 2 + m.nfeats * 2 + (a.skills.includes("Treasure Nose") ? 5 : 0) + (mood(a) >= 70 ? 3 : 0) };
+}
+const xpNeed = lv => 60 + lv * lv * 25;
+function gain(name, pts, xp, why) {
+  const a = A(name); if (!a) return;
+  a.points += pts; a.xp += xp; a.earned = (a.earned || 0) + pts;
+  let up = false;
+  while (a.xp >= xpNeed(a.level)) { a.xp -= xpNeed(a.level); a.level++; a.sp++; up = true; }
+  if (up) { toast(`${a.nick} reached level ${a.level}! +1 skill point`); feed(`⭐ ${a.nick} reached level ${a.level}.`); forumAuto("adventures", `${a.nick} reached level ${a.level}`, `Level ${a.level}! ${why || ""}`, name); }
+  save();
+}
+function feed(t) { S.feed.push({ t, at: Date.now() }); const f = $("#farmFeed"); if (f) { f.prepend(mk("div", {}, t)); while (f.children.length > 40) f.lastChild.remove(); } }
+
+function realSkills(b) {
+  const m = M(b), out = [];
+  if (m.feats.read) out.push(["Keen Reader", "Can read files in its folder", "read"]);
+  if (m.feats.edit) out.push(["Shape Shifter", "Can change files", "edit"]);
+  if (m.feats.run) out.push(["Command Call", "Can run commands", "run"]);
+  if (m.feats.web) out.push(["Web Sprint", "Can search the web", "web"]);
+  if (m.runs >= 5 && m.success >= 90) out.push(["Reliable", `${m.success}% of ${m.runs} runs went fine`, "metric"]);
+  if (m.runs >= 25) out.push(["Veteran", `${m.runs} real runs`, "metric"]);
+  if (m.tokens >= 1e6) out.push(["Token Titan", `${fmtK(m.tokens)} tokens used`, "metric"]);
+  if (m.working >= 3600) out.push(["Marathoner", `${Math.round(m.working / 60)} min of work`, "metric"]);
+  if (m.chats >= 10) out.push(["Chatterbox", `${m.chats} chat messages`, "metric"]);
+  if (m.running) out.push(["On Duty", "Switched on right now", "metric"]);
+  return out;
+}
+const LEARN = [["Fast Feet", "Walks faster in the farm; +3 speed in battle", 1], ["Treasure Nose", "Finds better items; +5 luck", 1], ["Sweet Talk", "Earns more points from chats", 1],
+  ["Power Paws", "+4 attack", 1], ["Thick Coat", "+3 defence", 1], ["Healing Hum", "Battle skill: heal 40% (6 MP)", 1], ["Crystal Beam", "Battle skill: big gem hit (8 MP)", 2],
+  ["Bug Squash", "Battle skill: double damage to bugs (5 MP)", 2], ["Lucky Star", "Battle skill: random big effect (7 MP)", 2], ["Team Spirit", "Earns more points when playing", 1]];
+
+const ITEMS = {
+  farm: [["Golden Egg", "🥚", "rare"], ["Fresh Carrot", "🥕", "common"], ["Hay Bundle", "🌾", "common"], ["Lucky Horseshoe", "🧲", "epic"], ["Apple", "🍎", "common"], ["Milk Jug", "🥛", "common"], ["Prize Ribbon", "🎀", "rare"]],
+  beach: [["Seashell", "🐚", "common"], ["Starfish", "⭐", "common"], ["Message Bottle", "🍾", "rare"], ["Pearl", "⚪", "epic"], ["Coconut", "🥥", "common"], ["Sand Dollar", "🪙", "rare"], ["Treasure Map", "🗺️", "legend"]],
+  forest: [["Glow Mushroom", "🍄", "common"], ["Pinecone", "🌰", "common"], ["Fairy Dust", "✨", "rare"], ["Magic Acorn", "🌰", "epic"], ["Wishing Feather", "🪶", "rare"], ["Storybook", "📖", "epic"], ["Crystal Slipper", "👠", "legend"]],
+  desert: [["Cactus Flower", "🌵", "common"], ["Sun Stone", "🌞", "rare"], ["Ancient Coin", "🪙", "rare"], ["Scarab Gem", "🪲", "epic"], ["Dune Glass", "🔮", "common"], ["Oasis Water", "💧", "common"], ["Golden Mask", "🎭", "legend"]],
+  winter: [["Snowflake Gem", "❄️", "rare"], ["Mitten", "🧤", "common"], ["Ice Crystal", "💎", "epic"], ["Cocoa Mug", "☕", "common"], ["Snow Globe", "🔮", "rare"], ["Candy Cane", "🍬", "common"], ["Aurora Shard", "🌌", "legend"]],
+  city: [["Metro Token", "🎫", "common"], ["Neon Sign", "💡", "rare"], ["Pizza Slice", "🍕", "common"], ["Skyline Key", "🗝️", "epic"], ["Taxi Toy", "🚕", "common"], ["Vinyl Record", "💿", "rare"], ["Penthouse Pass", "🏙️", "legend"]],
+  shire: [["Berry Pie", "🥧", "common"], ["Garden Gnome", "🍀", "rare"], ["Pipe Flute", "🎶", "rare"], ["Round Door Key", "🔑", "epic"], ["Honey Pot", "🍯", "common"], ["Sunflower", "🌻", "common"], ["Map of the Hills", "📜", "legend"]],
+};
+const RVAL = { common: 5, rare: 15, epic: 40, legend: 100 };
+function giveItem(name, it, where) {
+  const a = A(name); if (!a) return;
+  a.items.push({ n: it[0], ic: it[1], r: it[2], from: where, at: today(), id: Math.random().toString(36).slice(2, 9) });
+  if (a.items.length > 400) a.items.shift();
+  gain(name, RVAL[it[2]], RVAL[it[2]], `Found ${it[0]}`);
+}
+
+const SPECIES = ["duck", "cow", "pig", "sheep", "chicken", "bunny", "fox", "cat", "dog", "bear", "frog", "penguin", "owl"];
+const NAMES = { duck: ["Quackers", "Puddle", "Waddle"], cow: ["Moolissa", "Daisy", "Bessie"], pig: ["Truffle", "Hamlet", "Oinkers"], sheep: ["Woolly", "Cloud", "Baabara"], chicken: ["Clucky", "Nugget", "Henrietta"],
+  bunny: ["Hopscotch", "Clover", "Thumper"], fox: ["Rusty", "Ember", "Scout"], cat: ["Whiskers", "Mittens", "Pixel"], dog: ["Biscuit", "Rover", "Patch"], bear: ["Bramble", "Honey", "Grizz"],
+  frog: ["Ribbit", "Lily", "Hopper"], penguin: ["Waddles", "Tux", "Pebble"], owl: ["Hoot", "Sage", "Luna"] };
+const PERSONAS = ["cheerful", "curious", "brave", "sleepy", "clever", "silly", "kind", "proud", "shy", "bouncy"];
+function ensureAnimal(b) {
+  if (S.animals[b.name]) return S.animals[b.name];
+  const r = rng(b.name), sp = SPECIES[hash(b.name) % SPECIES.length], pal = PALETTES[sp];
+  return S.animals[b.name] = { species: sp, nick: pick(NAMES[sp], r), persona: pick(PERSONAS, r), colors: { ...pal }, size: 1, eyes: "round",
+    points: 50, xp: 0, level: 1, sp: 1, skills: [], items: [], owned: [], worn: {}, claimed: { runs: 0, fails: 0, chats: 0 }, rpg: null, assistant: null, born: today(), earned: 0 };
+}
+function payday() {
+  const lines = [];
+  for (const b of D.bots) {
+    const a = ensureAnimal(b), m = M(b), c = a.claimed;
+    const newRuns = Math.max(0, m.runs - (c.runs || 0)), newOk = Math.max(0, m.ok - ((c.runs || 0) - (c.fails || 0))), newChats = Math.max(0, m.chats - (c.chats || 0));
+    const pts = newRuns * 10 + newOk * 5 + newChats * 2;
+    if (!c.init) { c.init = true; c.runs = m.runs; c.fails = m.fails; c.chats = m.chats; a.points += Math.min(500, m.runs * 10 + m.chats * 2); continue; }
+    if (pts > 0) { gain(b.name, pts, pts, "real work"); lines.push(`${a.nick} earned ${pts} pts from ${newRuns} new real run(s) and ${newChats} chat message(s)`); }
+    c.runs = m.runs; c.fails = m.fails; c.chats = m.chats;
+  }
+  for (const l of lines) { toast(l); feed("💰 " + l); }
+  save();
+}
+async function loadData() {
+  const r = await call("farm-data", {}, 60000);
+  if (r && r.ok) D = r.ok; else { if (!D) D = DEMO(); if (IN_APP) toast(r.error || "Couldn't read the bots."); }
+  D.bots = (D.bots || []).filter(b => b.status !== "retired");
+  for (const b of D.bots) ensureAnimal(b);
+  payday();
+  importForum();
+}
+const botOf = name => D.bots.find(b => b.name === name);
+
+const m4 = {
+  id: () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]),
+  mul(a, b) { const o = new Float32Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + j] * b[i * 4 + k]; o[i * 4 + j] = s; } return o; },
+  persp(f, asp, n, fa) { const t = 1 / Math.tan(f / 2), o = new Float32Array(16); o[0] = t / asp; o[5] = t; o[10] = (fa + n) / (n - fa); o[11] = -1; o[14] = 2 * fa * n / (n - fa); return o; },
+  look(e, c, u) {
+    let z = [e[0] - c[0], e[1] - c[1], e[2] - c[2]]; let l = Math.hypot(...z); z = z.map(v => v / l);
+    let x = [u[1] * z[2] - u[2] * z[1], u[2] * z[0] - u[0] * z[2], u[0] * z[1] - u[1] * z[0]]; l = Math.hypot(...x); x = x.map(v => v / l);
+    const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
+    return new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -(x[0] * e[0] + x[1] * e[1] + x[2] * e[2]), -(y[0] * e[0] + y[1] * e[1] + y[2] * e[2]), -(z[0] * e[0] + z[1] * e[1] + z[2] * e[2]), 1]);
+  },
+  trs(x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
+    const cx = Math.cos(rx), sxn = Math.sin(rx), cy = Math.cos(ry), syn = Math.sin(ry), cz = Math.cos(rz), szn = Math.sin(rz);
+    const r00 = cy * cz + syn * sxn * szn, r01 = -cy * szn + syn * sxn * cz, r02 = syn * cx;
+    const r10 = cx * szn, r11 = cx * cz, r12 = -sxn;
+    const r20 = -syn * cz + cy * sxn * szn, r21 = syn * szn + cy * sxn * cz, r22 = cy * cx;
+    return new Float32Array([r00 * sx, r10 * sx, r20 * sx, 0, r01 * sy, r11 * sy, r21 * sy, 0, r02 * sz, r12 * sz, r22 * sz, 0, x, y, z, 1]);
+  },
+  nrm(m) {
+    const a = m[0], b = m[1], c = m[2], d = m[4], e = m[5], f = m[6], g = m[8], h = m[9], i = m[10];
+    const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C || 1e-9;
+    return new Float32Array([A / det, B / det, C / det, -(b * i - c * h) / det, (a * i - c * g) / det, -(a * h - b * g) / det, (b * f - c * e) / det, -(a * f - c * d) / det, (a * e - b * d) / det]);
+  },
+  xf(m, p) { const x = p[0], y = p[1], z = p[2]; const w = m[3] * x + m[7] * y + m[11] * z + m[15]; return [(m[0] * x + m[4] * y + m[8] * z + m[12]) / w, (m[1] * x + m[5] * y + m[9] * z + m[13]) / w, (m[2] * x + m[6] * y + m[10] * z + m[14]) / w, w]; },
+};
+const hex = h => { if (!/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.test(h || "")) return [0, 0, 0]; h = h.replace("#", ""); if (h.length === 3) h = h.split("").map(c => c + c).join(""); const n = parseInt(h, 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+
+function makeGL(canvas) {
+  const gl = canvas.getContext("webgl", { antialias: true, preserveDrawingBuffer: true, alpha: true });
+  if (!gl) return null;
+  const vs = `attribute vec3 p;attribute vec3 n;uniform mat4 uM,uVP;uniform mat3 uN;varying vec3 vN;varying vec3 vW;
+  void main(){vec4 w=uM*vec4(p,1.);vW=w.xyz;vN=normalize(uN*n);gl_Position=uVP*w;}`;
+  const fs = `precision mediump float;varying vec3 vN;varying vec3 vW;uniform vec3 uC,uSky,uGnd,uSun,uFog,uEye;uniform float uA,uE,uFogN,uFogF;
+  void main(){vec3 n=normalize(vN);float d=max(dot(n,normalize(uSun)),0.);vec3 amb=mix(uGnd,uSky,n.y*.5+.5);
+  vec3 v=normalize(uEye-vW);float rim=pow(1.-max(dot(n,v),0.),3.)*.25;
+  vec3 c=uC*(amb*.55+d*.75)+rim+uC*uE;float f=clamp((length(uEye-vW)-uFogN)/(uFogF-uFogN),0.,1.);gl_FragColor=vec4(mix(c,uFog,f),uA);}`;
+  const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); return x; };
+  const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(pr); gl.useProgram(pr);
+  const U = {}; for (const k of ["uM", "uVP", "uN", "uC", "uSky", "uGnd", "uSun", "uFog", "uEye", "uA", "uE", "uFogN", "uFogF"]) U[k] = gl.getUniformLocation(pr, k);
+  const aP = gl.getAttribLocation(pr, "p"), aN = gl.getAttribLocation(pr, "n");
+  const meshes = {};
+  const up = (name, pos, nor, idx) => {
+    const b1 = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b1); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pos), gl.STATIC_DRAW);
+    const b2 = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b2); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(nor), gl.STATIC_DRAW);
+    const b3 = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b3); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
+    meshes[name] = { b1, b2, b3, n: idx.length };
+  };
+  {
+    const P = [], N = [], I = [], R = 18, C = 24;
+    for (let i = 0; i <= R; i++) for (let j = 0; j <= C; j++) { const t = i / R * Math.PI, f = j / C * 2 * Math.PI; const x = Math.sin(t) * Math.cos(f), y = Math.cos(t), z = Math.sin(t) * Math.sin(f); P.push(x, y, z); N.push(x, y, z); }
+    for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) { const a = i * (C + 1) + j, b = a + C + 1; I.push(a, b, a + 1, b, b + 1, a + 1); }
+    up("sphere", P, N, I);
+  }
+  const cyl = (name, seg, top, flat) => {
+    const P = [], N = [], I = [];
+    for (let j = 0; j <= seg; j++) { const f = j / seg * 2 * Math.PI, c = Math.cos(f), s = Math.sin(f), ny = (1 - top) / 2; const l = Math.hypot(1, ny);
+      P.push(c, -1, s, c * top, 1, s * top); N.push(c / l, ny / l, s / l, c / l, ny / l, s / l); }
+    for (let j = 0; j < seg; j++) { const a = j * 2; I.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    for (const [y, ny, r] of [[1, 1, top], [-1, -1, 1]]) { const c0 = P.length / 3; P.push(0, y, 0); N.push(0, ny, 0);
+      for (let j = 0; j <= seg; j++) { const f = j / seg * 2 * Math.PI; P.push(Math.cos(f) * r, y, Math.sin(f) * r); N.push(0, ny, 0); }
+      for (let j = 0; j < seg; j++) ny > 0 ? I.push(c0, c0 + j + 2, c0 + j + 1) : I.push(c0, c0 + j + 1, c0 + j + 2); }
+    up(name, P, N, I);
+  };
+  cyl("cyl", 22, 1); cyl("cone", 22, 0.001); cyl("pyr", 4, 0.001); cyl("hex", 6, 1); cyl("frust", 22, 0.6);
+  {
+    const P = [], N = [], I = [];
+    const F = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]];
+    for (const n of F) { const u = n[1] ? [1, 0, 0] : [0, 1, 0]; const v = [n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0]]; const b = P.length / 3;
+      for (const [a, c] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { P.push(n[0] + u[0] * a + v[0] * c, n[1] + u[1] * a + v[1] * c, n[2] + u[2] * a + v[2] * c); N.push(...n); }
+      I.push(b, b + 1, b + 2, b, b + 2, b + 3); }
+    up("box", P, N, I);
+  }
+  {
+    const P = [], N = [], I = [];
+    const q = (a, b, c, d, n) => { const s = P.length / 3; P.push(...a, ...b, ...c, ...d); for (let i = 0; i < 4; i++) N.push(...n); I.push(s, s + 1, s + 2, s, s + 2, s + 3); };
+    const t = (a, b, c, n) => { const s = P.length / 3; P.push(...a, ...b, ...c); for (let i = 0; i < 3; i++) N.push(...n); I.push(s, s + 1, s + 2); };
+    const r2 = Math.SQRT1_2;
+    q([-1, -1, 1], [1, -1, 1], [1, 1, 0], [-1, 1, 0], [0, r2, r2]); q([1, -1, -1], [-1, -1, -1], [-1, 1, 0], [1, 1, 0], [0, r2, -r2]);
+    t([1, -1, 1], [1, -1, -1], [1, 1, 0], [1, 0, 0]); t([-1, -1, -1], [-1, -1, 1], [-1, 1, 0], [-1, 0, 0]);
+    up("roof", P, N, I);
+  }
+  gl.enable(gl.DEPTH_TEST);
+  let VP = m4.id(), eye = [0, 5, 10], env = null;
+  const R = {
+    gl, canvas,
+    begin(cam, e) {
+      env = e;
+      const dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.max(2, Math.round(canvas.clientWidth * dpr)), h = Math.max(2, Math.round(canvas.clientHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+      gl.viewport(0, 0, w, h);
+      const c = hex(e.sky); gl.clearColor(c[0], c[1], c[2], e.clearA ?? 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      eye = cam.eye; R.view = m4.look(cam.eye, cam.at, [0, 1, 0]); R.proj = m4.persp(cam.fov || 0.8, w / h, 0.1, 400); VP = R.VP = m4.mul(R.proj, R.view);
+      gl.uniformMatrix4fv(U.uVP, false, VP); gl.uniform3fv(U.uSky, hex(e.amb || "#c8d8ff")); gl.uniform3fv(U.uGnd, hex(e.gnd || "#6a5a40"));
+      gl.uniform3fv(U.uSun, e.sun || [0.4, 1, 0.5]); gl.uniform3fv(U.uFog, hex(e.fog || e.sky)); gl.uniform3fv(U.uEye, eye);
+      gl.uniform1f(U.uFogN, e.fogN ?? 30); gl.uniform1f(U.uFogF, e.fogF ?? 90);
+    },
+    draw(mesh, m, color, a = 1, em = 0) {
+      const g = meshes[mesh]; if (!g) return;
+      gl.uniformMatrix4fv(U.uM, false, m); gl.uniformMatrix3fv(U.uN, false, m4.nrm(m));
+      gl.uniform3fv(U.uC, typeof color === "string" ? hex(color) : color); gl.uniform1f(U.uA, a); gl.uniform1f(U.uE, em);
+      gl.bindBuffer(gl.ARRAY_BUFFER, g.b1); gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, g.b2); gl.enableVertexAttribArray(aN); gl.vertexAttribPointer(aN, 3, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, g.b3);
+      if (a < 1) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
+      gl.drawElements(gl.TRIANGLES, g.n, gl.UNSIGNED_SHORT, 0);
+      if (a < 1) { gl.disable(gl.BLEND); gl.depthMask(true); }
+    },
+    project(p) { const q = m4.xf(VP, p); if (q[3] <= 0) return null; return [(q[0] * 0.5 + 0.5) * canvas.clientWidth, (1 - (q[1] * 0.5 + 0.5)) * canvas.clientHeight, q[2]]; },
+  };
+  return R;
+}
+
+const PALETTES = {
+  duck: { body: "#ffd84a", belly: "#fff1a8", accent: "#ff8a1f", eye: "#1a1a2e" }, cow: { body: "#f4f1ea", belly: "#ffb3c1", accent: "#2b2b2b", eye: "#1a1a2e" },
+  pig: { body: "#ffb3c6", belly: "#ffd0dc", accent: "#e8829c", eye: "#1a1a2e" }, sheep: { body: "#f8f6ef", belly: "#3a3030", accent: "#2b2424", eye: "#1a1a2e" },
+  chicken: { body: "#fffdf5", belly: "#fff3d6", accent: "#e8352e", eye: "#1a1a2e" }, bunny: { body: "#e8dccc", belly: "#fff8f0", accent: "#ffb3c6", eye: "#1a1a2e" },
+  fox: { body: "#ff8a3d", belly: "#fff6ea", accent: "#3a2a20", eye: "#1a1a2e" }, cat: { body: "#9a9aa8", belly: "#efeff5", accent: "#ff9fb8", eye: "#2d6b2d" },
+  dog: { body: "#c88a4a", belly: "#f3dcc0", accent: "#5a3a20", eye: "#1a1a2e" }, bear: { body: "#8a5a34", belly: "#d8b48a", accent: "#3a2414", eye: "#1a1a2e" },
+  frog: { body: "#5fd35f", belly: "#d8ffb0", accent: "#ff6b8a", eye: "#1a1a2e" }, penguin: { body: "#26304a", belly: "#ffffff", accent: "#ffb52e", eye: "#1a1a2e" },
+  owl: { body: "#9a6a44", belly: "#f1dcb8", accent: "#ffb52e", eye: "#1a1a2e" },
+};
+const BIRDS = new Set(["duck", "chicken", "penguin", "owl"]);
+function animalParts(a) {
+  const sp = a.species, P = [];
+  const add = (mesh, x, y, z, sx, sy, sz, col, rx = 0, ry = 0, rz = 0, g = "") => P.push([mesh, x, y, z, sx, sy, sz, col, rx, ry, rz, g]);
+  let H;
+  if (BIRDS.has(sp) || sp === "frog") {
+    const frog = sp === "frog", peng = sp === "penguin", owl = sp === "owl";
+    const by = frog ? 0.38 : 0.52, bh = frog ? 0.3 : peng ? 0.46 : 0.38;
+    add("sphere", 0, by, 0, frog ? 0.42 : 0.34, bh, frog ? 0.42 : 0.4, "body");
+    add("sphere", 0, by - 0.05, 0.16, frog ? 0.34 : 0.26, bh * 0.8, 0.28, "belly");
+    H = frog ? { x: 0, y: 0.62, z: 0.18, r: 0.3 } : peng ? { x: 0, y: 1.08, z: 0.05, r: 0.24 } : owl ? { x: 0, y: 0.98, z: 0.04, r: 0.3 } : { x: 0, y: 0.98, z: 0.2, r: 0.24 };
+    add("sphere", H.x, H.y, H.z, H.r, H.r * (owl ? 0.9 : 1), H.r, "body", 0, 0, 0, "head");
+    if (sp === "duck") add("sphere", 0, H.y - 0.05, H.z + 0.24, 0.13, 0.05, 0.16, "accent", 0, 0, 0, "head");
+    if (sp === "chicken") { add("cone", 0, H.y - 0.03, H.z + 0.27, 0.06, 0.08, 0.06, "accent", Math.PI / 2, 0, 0, "head"); add("sphere", 0, H.y + 0.24, H.z, 0.05, 0.1, 0.12, "accent", 0, 0, 0, "head"); add("sphere", 0, H.y - 0.15, H.z + 0.18, 0.04, 0.07, 0.04, "accent", 0, 0, 0, "head"); }
+    if (peng) { add("sphere", 0, H.y - 0.02, H.z + 0.12, 0.17, 0.15, 0.15, "belly", 0, 0, 0, "head"); add("cone", 0, H.y - 0.04, H.z + 0.28, 0.05, 0.08, 0.05, "accent", Math.PI / 2, 0, 0, "head"); }
+    if (owl) { add("cone", 0, H.y - 0.06, H.z + 0.29, 0.04, 0.06, 0.04, "accent", Math.PI / 2 + 0.4, 0, 0, "head"); for (const s of [-1, 1]) add("cone", s * 0.17, H.y + 0.27, H.z, 0.05, 0.1, 0.04, "body", 0, 0, -s * 0.3, "head"); for (const s of [-1, 1]) add("sphere", s * 0.11, H.y + 0.02, H.z + 0.22, 0.11, 0.11, 0.05, "belly", 0, 0, 0, "head"); }
+    if (frog) { add("sphere", 0, H.y - 0.1, H.z + 0.12, 0.26, 0.04, 0.12, "accent", 0, 0, 0, "head"); }
+    if (!frog) for (const s of [-1, 1]) add("sphere", s * (peng ? 0.34 : 0.33), by + 0.05, -0.02, 0.07, bh * 0.75, 0.26, "body", 0, 0, s * 0.18, s < 0 ? "wingL" : "wingR");
+    const legc = frog ? "body" : "accent";
+    for (const s of [-1, 1]) { const g = s < 0 ? "legA" : "legB";
+      add("cyl", s * 0.13, 0.12, 0.02, 0.035, 0.12, 0.035, legc, 0, 0, 0, g); add("sphere", s * 0.13, 0.02, 0.1, frog ? 0.14 : 0.1, 0.03, frog ? 0.14 : 0.12, legc, 0, 0, 0, g); }
+    if (sp === "duck" || peng) add("sphere", 0, by + 0.05, -0.38, 0.12, 0.06, 0.1, "body", -0.4, 0, 0, "tail");
+    if (sp === "chicken") for (const k of [-1, 0, 1]) add("sphere", k * 0.06, by + 0.25, -0.33, 0.04, 0.16, 0.06, "body", -0.6, 0, k * 0.3, "tail");
+    if (frog) { const e = H.r * 0.75; for (const s of [-1, 1]) { add("sphere", s * 0.15, H.y + 0.2, H.z + 0.05, 0.11, 0.11, 0.11, "body", 0, 0, 0, "head"); } H.eyes = [[-0.15, H.y + 0.22, H.z + 0.13], [0.15, H.y + 0.22, H.z + 0.13]]; H.eyeR = 0.075; }
+  } else {
+    const bunny = sp === "bunny", pig = sp === "pig", bear = sp === "bear";
+    const by = bunny ? 0.42 : 0.56, bl = bunny ? 0.38 : sp === "cow" ? 0.6 : 0.5, bw = bunny ? 0.3 : sp === "cow" ? 0.38 : bear ? 0.4 : 0.32;
+    add("sphere", 0, by, 0, bw, bunny ? 0.34 : 0.3, bl, "body");
+    add("sphere", 0, by - 0.1, 0.08, bw * 0.75, 0.2, bl * 0.75, "belly");
+    if (sp === "sheep") for (let i = 0; i < 9; i++) { const r = rng("wool" + i); add("sphere", (r() - 0.5) * 0.4, by + 0.12 + r() * 0.12, (r() - 0.5) * 0.8, 0.2, 0.18, 0.2, "body"); }
+    if (sp === "cow") for (let i = 0; i < 4; i++) { const r = rng("spot" + i); add("sphere", (r() < 0.5 ? -1 : 1) * (bw - 0.04), by + (r() - 0.3) * 0.2, (r() - 0.5) * 0.8, 0.06, 0.13, 0.17, "accent"); }
+    H = bunny ? { x: 0, y: 0.86, z: 0.3, r: 0.26 } : { x: 0, y: by + 0.28, z: bl * 0.88, r: bear ? 0.3 : 0.26 };
+    add("sphere", H.x, H.y, H.z, H.r, H.r * 0.95, H.r, sp === "sheep" ? "belly" : "body", 0, 0, 0, "head");
+    const snout = { cow: ["belly", 0.18, 0.11, 0.1], pig: ["accent", 0.12, 0.1, 0.07], fox: ["belly", 0.08, 0.07, 0.18], cat: ["belly", 0.09, 0.07, 0.06], dog: ["belly", 0.11, 0.09, 0.12], bear: ["belly", 0.13, 0.1, 0.1], sheep: ["belly", 0.12, 0.1, 0.08], bunny: ["belly", 0.09, 0.07, 0.06] }[sp];
+    if (snout) { add("sphere", 0, H.y - 0.07, H.z + H.r * 0.85, snout[1], snout[2], snout[3], snout[0], 0, 0, 0, "head"); add("sphere", 0, H.y - 0.03, H.z + H.r * 0.85 + snout[3] * 0.9, 0.04, 0.03, 0.03, pig ? "body" : "eye", 0, 0, 0, "head"); }
+    if (pig) for (const s of [-1, 1]) add("sphere", s * 0.035, H.y - 0.06, H.z + H.r + 0.08, 0.018, 0.03, 0.01, "eye", 0, 0, 0, "head");
+    const ears = { cow: ["sphere", 0.26, 0.05, 0.12, 0.05, 0.06, "body", 1.2], pig: ["cone", 0.15, 0.22, 0.07, 0.09, 0.03, "accent", 0.5], sheep: ["sphere", 0.25, 0.04, 0.1, 0.05, 0.05, "accent", 1.3],
+      fox: ["cone", 0.14, 0.27, 0.08, 0.12, 0.04, "body", 0.25], cat: ["cone", 0.14, 0.25, 0.07, 0.1, 0.03, "body", 0.2], dog: ["sphere", 0.24, 0.0, 0.07, 0.15, 0.06, "accent", 0.2],
+      bear: ["sphere", 0.2, 0.24, 0.09, 0.09, 0.05, "body", 0], bunny: ["sphere", 0.1, 0.42, 0.06, 0.24, 0.04, "body", 0.12] }[sp];
+    if (ears) for (const s of [-1, 1]) {
+      add(ears[0], s * ears[1], H.y + ears[2], H.z - 0.03, ears[3], ears[4], ears[5], ears[6], 0, 0, -s * ears[7], "head");
+      if (bunny || sp === "cat" || sp === "fox") add(ears[0], s * ears[1], H.y + ears[2], H.z - 0.01, ears[3] * 0.55, ears[4] * 0.8, ears[5], bunny || sp === "cat" ? "accent" : "accent", 0, 0, -s * ears[7], "head");
+    }
+    if (sp === "cow") for (const s of [-1, 1]) add("cone", s * 0.14, H.y + 0.25, H.z - 0.02, 0.035, 0.08, 0.035, "belly", 0, 0, -s * 0.5, "head");
+    const lh = bunny ? 0.16 : 0.24, lx = bw * 0.62, lz = bunny ? 0.18 : bl * 0.62;
+    for (const [sx, sz, g] of [[-1, 1, "legA"], [1, -1, "legA"], [1, 1, "legB"], [-1, -1, "legB"]]) {
+      add("cyl", sx * lx, lh, sz * lz, bunny && sz < 0 ? 0.11 : 0.085, lh, bunny && sz < 0 ? 0.14 : 0.085, sp === "cow" || sp === "sheep" ? "accent" : "body", 0, 0, 0, g);
+      if (sp === "fox" || sp === "cat") add("sphere", sx * lx, 0.04, sz * lz + 0.02, 0.09, 0.05, 0.1, "belly", 0, 0, 0, g);
+    }
+    const T = { cow: ["cyl", 0.02, 0.2, 0.02, "body", -0.4], pig: ["sphere", 0.06, 0.06, 0.06, "accent", 0], sheep: ["sphere", 0.1, 0.1, 0.1, "body", 0], fox: ["sphere", 0.12, 0.12, 0.32, "body", 0.5],
+      cat: ["cyl", 0.035, 0.28, 0.035, "body", -0.8], dog: ["cyl", 0.04, 0.16, 0.04, "body", -0.9], bear: ["sphere", 0.07, 0.07, 0.07, "body", 0], bunny: ["sphere", 0.1, 0.1, 0.1, "belly", 0] }[sp];
+    if (T) add(T[0], 0, by + 0.12, -bl - 0.06 - (sp === "fox" ? 0.2 : 0), T[1], T[2], T[3], T[4], T[5], 0, 0, "tail");
+    if (sp === "fox") add("sphere", 0, by + 0.18, -bl - 0.52, 0.07, 0.07, 0.1, "belly", 0.5, 0, 0, "tail");
+  }
+  const eyes = H.eyes || [-1, 1].map(s => [s * H.r * 0.42, H.y + H.r * 0.22, H.z + H.r * 0.82]);
+  const er = (H.eyeR || H.r * 0.22) * (a.eyes === "big" ? 1.35 : a.eyes === "sleepy" ? 0.9 : 1);
+  for (const e of eyes) {
+    add("sphere", e[0], e[1], e[2], er, a.eyes === "sleepy" ? er * 0.45 : er, er * 0.7, "white", 0, 0, 0, "head");
+    add("sphere", e[0], e[1], e[2] + er * 0.55, er * 0.55, a.eyes === "sleepy" ? er * 0.3 : er * 0.6, er * 0.3, "eye", 0, 0, 0, "head");
+    if (a.eyes !== "dot") add("sphere", e[0] + er * 0.2, e[1] + er * 0.25, e[2] + er * 0.8, er * 0.16, er * 0.16, er * 0.08, "white", 0, 0, 0, "head");
+  }
+  if (a.blush) for (const e of eyes) add("sphere", e[0] * 1.25, e[1] - er * 1.3, e[2] - 0.01, er * 0.6, er * 0.35, er * 0.2, "#ff8fb0", 0, 0, 0, "head");
+  for (const id of Object.values(a.worn || {})) { const w = WARDROBE.find(x => x.id === id); if (w) w.parts(add, H, sp); }
+  return { parts: P, head: H };
+}
+
+const W = (id, name, slot, price, parts, col = "") => ({ id, name, slot, price, parts, col });
+const WARDROBE = [
+  W("tophat", "Top hat", "hat", 60, (add, H) => { add("cyl", 0, H.y + H.r * 0.95, H.z - 0.02, H.r * 0.9, 0.02, H.r * 0.9, "#22222e", 0, 0, 0, "head"); add("cyl", 0, H.y + H.r + 0.16, H.z - 0.02, H.r * 0.55, 0.16, H.r * 0.55, "#22222e", 0, 0, 0, "head"); add("cyl", 0, H.y + H.r + 0.04, H.z - 0.02, H.r * 0.57, 0.035, H.r * 0.57, "#c0124a", 0, 0, 0, "head"); }),
+  W("crown", "Crystal crown", "hat", 150, (add, H) => { add("cyl", 0, H.y + H.r * 0.95, H.z, H.r * 0.6, 0.06, H.r * 0.6, "#ffd23b", 0, 0, 0, "head"); for (let i = 0; i < 5; i++) { const f = i / 5 * Math.PI * 2; add("cone", Math.cos(f) * H.r * 0.5, H.y + H.r + 0.1, H.z + Math.sin(f) * H.r * 0.5, 0.04, 0.08, 0.04, "#ffd23b", 0, 0, 0, "head"); add("sphere", Math.cos(f) * H.r * 0.6, H.y + H.r * 0.95, H.z + Math.sin(f) * H.r * 0.6, 0.025, 0.025, 0.025, i % 2 ? "#ff3b6b" : "#3f7bff", 0, 0, 0, "head"); } }),
+  W("wizard", "Wizard hat", "hat", 90, (add, H) => { add("cyl", 0, H.y + H.r * 0.9, H.z, H.r * 1.05, 0.02, H.r * 1.05, "#4b2bd1", 0, 0, 0, "head"); add("cone", 0, H.y + H.r + 0.22, H.z - 0.03, H.r * 0.7, 0.3, H.r * 0.7, "#4b2bd1", -0.15, 0, 0, "head"); add("sphere", 0, H.y + H.r + 0.42, H.z - 0.1, 0.04, 0.04, 0.04, "#ffd23b", 0, 0, 0, "head"); }),
+  W("straw", "Straw sun hat", "hat", 40, (add, H) => { add("cyl", 0, H.y + H.r * 0.85, H.z, H.r * 1.5, 0.015, H.r * 1.5, "#e8c66a", 0, 0, 0, "head"); add("sphere", 0, H.y + H.r * 0.9, H.z, H.r * 0.65, H.r * 0.45, H.r * 0.65, "#e8c66a", 0, 0, 0, "head"); add("cyl", 0, H.y + H.r * 0.95, H.z, H.r * 0.67, 0.03, H.r * 0.67, "#ff6b8a", 0, 0, 0, "head"); }),
+  W("beanie", "Snow beanie", "hat", 35, (add, H) => { add("sphere", 0, H.y + H.r * 0.45, H.z - 0.01, H.r * 1.04, H.r * 0.75, H.r * 1.04, "#3f7bff", 0, 0, 0, "head"); add("sphere", 0, H.y + H.r * 1.15, H.z - 0.02, 0.07, 0.07, 0.07, "#ffffff", 0, 0, 0, "head"); }),
+  W("flower", "Flower crown", "hat", 45, (add, H) => { for (let i = 0; i < 8; i++) { const f = i / 8 * Math.PI * 2; add("sphere", Math.cos(f) * H.r * 0.75, H.y + H.r * 0.72, H.z + Math.sin(f) * H.r * 0.75, 0.05, 0.035, 0.05, ["#ff6b8a", "#ffd23b", "#c06bff", "#ffffff"][i % 4], 0, 0, 0, "head"); } }),
+  W("cap", "City cap", "hat", 30, (add, H) => { add("sphere", 0, H.y + H.r * 0.55, H.z - 0.01, H.r * 1.02, H.r * 0.6, H.r * 1.02, "#ff3b6b", 0, 0, 0, "head"); add("cyl", 0, H.y + H.r * 0.6, H.z + H.r * 0.85, H.r * 0.6, 0.012, H.r * 0.45, "#ff3b6b", 0, 0, 0, "head"); }),
+  W("glasses", "Round glasses", "eyes", 25, (add, H) => { for (const s of [-1, 1]) add("cyl", s * H.r * 0.42, H.y + H.r * 0.22, H.z + H.r * 0.98, H.r * 0.24, 0.01, H.r * 0.24, "#2b2b44", Math.PI / 2, 0, 0, "head"); }),
+  W("shades", "Star shades", "eyes", 55, (add, H) => { for (const s of [-1, 1]) add("hex", s * H.r * 0.42, H.y + H.r * 0.22, H.z + H.r * 1.0, H.r * 0.27, 0.012, H.r * 0.27, "#111122", Math.PI / 2, 0, 0, "head"); add("box", 0, H.y + H.r * 0.25, H.z + H.r * 1.0, H.r * 0.2, 0.012, 0.01, "#111122", 0, 0, 0, "head"); }),
+  W("monocle", "Monocle", "eyes", 70, (add, H) => { add("cyl", H.r * 0.42, H.y + H.r * 0.22, H.z + H.r * 1.0, H.r * 0.26, 0.01, H.r * 0.26, "#ffd23b", Math.PI / 2, 0, 0, "head"); }),
+  W("scarf", "Cozy scarf", "neck", 30, (add, H) => { add("cyl", 0, H.y - H.r * 0.85, H.z - 0.05, H.r * 0.95, 0.07, H.r * 0.95, "#ff3b6b", 0.2, 0, 0, "head"); add("box", H.r * 0.4, H.y - H.r * 1.3, H.z + H.r * 0.5, 0.06, 0.16, 0.02, "#ff3b6b", 0, 0, 0.2, "head"); }),
+  W("bowtie", "Bow tie", "neck", 25, (add, H) => { for (const s of [-1, 1]) add("cone", s * 0.07, H.y - H.r * 0.95, H.z + H.r * 0.7, 0.05, 0.07, 0.03, "#c06bff", 0, 0, s * Math.PI / 2, "head"); add("sphere", 0, H.y - H.r * 0.95, H.z + H.r * 0.72, 0.03, 0.03, 0.03, "#c06bff", 0, 0, 0, "head"); }),
+  W("medal", "Gold medal", "neck", 80, (add, H) => { add("cyl", 0, H.y - H.r * 1.25, H.z + H.r * 0.75, 0.07, 0.01, 0.07, "#ffd23b", Math.PI / 2, 0, 0, "head"); add("box", 0, H.y - H.r * 0.95, H.z + H.r * 0.7, 0.025, 0.1, 0.01, "#3f7bff", 0, 0, 0, "head"); }),
+  W("cape", "Hero cape", "back", 75, (add, H, sp) => { const b = BIRDS.has(sp); add("box", 0, b ? 0.55 : 0.6, b ? -0.32 : -0.1, 0.3, 0.28, 0.015, "#c0124a", 0.25, 0, 0); }),
+  W("backpack", "Explorer pack", "back", 50, (add, H, sp) => { const b = BIRDS.has(sp); add("box", 0, b ? 0.6 : 0.82, b ? -0.32 : -0.15, 0.17, 0.15, 0.09, "#8a5a34"); add("box", 0, b ? 0.74 : 0.95, b ? -0.32 : -0.15, 0.18, 0.04, 0.1, "#5a3a20"); }),
+  W("fairy", "Fairy wings", "back", 120, (add, H, sp) => { const b = BIRDS.has(sp), y = b ? 0.75 : 0.85, z = b ? -0.3 : -0.15; for (const s of [-1, 1]) { add("sphere", s * 0.25, y + 0.12, z, 0.25, 0.16, 0.01, "#b8f0ff", 0, s * 0.4, s * 0.5, s < 0 ? "wingL" : "wingR"); add("sphere", s * 0.2, y - 0.08, z, 0.16, 0.1, 0.01, "#ffd2f7", 0, s * 0.4, -s * 0.2, s < 0 ? "wingL" : "wingR"); } }),
+  W("boots", "Rain boots", "feet", 35, (add, H, sp) => { const b = BIRDS.has(sp); const pts = b ? [[-0.13, 0.02], [0.13, 0.02]] : [[-0.2, 0.3], [0.2, 0.3], [-0.2, -0.3], [0.2, -0.3]]; pts.forEach(([x, z], i) => add("cyl", x, 0.07, z, 0.1, 0.07, 0.1, "#ffd23b", 0, 0, 0, b ? (i ? "legB" : "legA") : (i === 0 || i === 3 ? "legA" : "legB"))); }),
+  W("sneakers", "Glow sneakers", "feet", 65, (add, H, sp) => { const b = BIRDS.has(sp); const pts = b ? [[-0.13, 0.06], [0.13, 0.06]] : [[-0.2, 0.32], [0.2, 0.32], [-0.2, -0.28], [0.2, -0.28]]; pts.forEach(([x, z], i) => add("sphere", x, 0.04, z, 0.1, 0.05, 0.13, "#3bf0ff", 0, 0, 0, b ? (i ? "legB" : "legA") : (i === 0 || i === 3 ? "legA" : "legB"))); }),
+];
+const SLOTS = { hat: "Hat", eyes: "Eyes", neck: "Neck", back: "Back", feet: "Feet" };
+
+const PART_CACHE = new Map();
+function drawAnimal(R, a, x, y, z, ry, anim, scale = 1) {
+  const key = JSON.stringify([a.species, a.colors, a.worn, a.eyes, a.blush]);
+  let built = PART_CACHE.get(key); if (!built) { built = animalParts(a); PART_CACHE.set(key, built); if (PART_CACHE.size > 80) PART_CACHE.delete(PART_CACHE.keys().next().value); }
+  const s = scale * (a.size || 1), H = built.head, t = anim.t || 0, w = anim.walk || 0;
+  const bob = Math.abs(Math.sin(t * 8)) * 0.05 * w + (anim.hop || 0);
+  const root = m4.trs(x, y + bob * s, z, anim.sit ? -0.1 : 0, ry, Math.sin(t * 8) * 0.04 * w, s, s * (1 - (anim.squash || 0)), s);
+  const sw = Math.sin(t * 8) * 0.6 * w;
+  const G = {
+    head: m4.mul(m4.trs(H.x, H.y, H.z, Math.sin(t * 1.3) * 0.06 + (anim.nod || 0), anim.look || 0, Math.sin(t * 0.7) * 0.05), m4.trs(-H.x, -H.y, -H.z)),
+    legA: m4.mul(m4.trs(0, 0.36, 0, sw, 0, 0), m4.trs(0, -0.36, 0)), legB: m4.mul(m4.trs(0, 0.36, 0, -sw, 0, 0), m4.trs(0, -0.36, 0)),
+    tail: m4.trs(0, 0, 0, 0, Math.sin(t * (anim.happy ? 14 : 4)) * (anim.happy ? 0.35 : 0.12), 0),
+    wingL: m4.trs(0, 0, 0, 0, 0, -(anim.wing || 0) * Math.abs(Math.sin(t * 14))), wingR: m4.trs(0, 0, 0, 0, 0, (anim.wing || 0) * Math.abs(Math.sin(t * 14))),
+  };
+  const col = c => c.startsWith("#") ? c : c === "white" ? "#ffffff" : (a.colors[c] || "#ff00ff");
+  for (const p of built.parts) {
+    let m = m4.trs(p[1], p[2], p[3], p[8], p[9], p[10], p[4], p[5], p[6]);
+    if (p[11] && G[p[11]]) m = m4.mul(G[p[11]], m);
+    R.draw(p[0], m4.mul(root, m), col(p[7]), p[7] === "#b8f0ff" || p[7] === "#ffd2f7" ? 0.7 : 1, a.glow ? 0.15 : 0);
+  }
+  return { headY: y + (H.y + H.r + 0.25) * s };
+}
+function shadow(R, x, z, r = 0.45) { R.draw("cyl", m4.trs(x, 0.012, z, 0, 0, 0, r, 0.003, r), "#000000", 0.25); }
+
+let PR = null; const PORTRAITS = new Map();
+function portrait(a, bg = "#2a2f6a", w = 320, h = 320) {
+  const key = JSON.stringify([a.species, a.colors, a.worn, a.eyes, a.blush, a.size, bg, w, h]);
+  if (PORTRAITS.has(key)) return PORTRAITS.get(key);
+  if (PR && PR.gl.isContextLost()) { PR.canvas.remove(); PR = null; }
+  if (!PR) { const c = mk("canvas", { width: 320, height: 320, style: { position: "fixed", left: "0", top: "0", width: "320px", height: "320px", opacity: "0", pointerEvents: "none", zIndex: "-1" } }); document.body.append(c); PR = makeGL(c); }
+  if (!PR) return "";
+  PR.canvas.style.width = w + "px"; PR.canvas.style.height = h + "px";
+  PR.begin({ eye: [1.0, 1.2, 3.1], at: [0, 0.6, 0], fov: 0.62 }, { sky: bg, clearA: bg === "transparent" ? 0 : 1, amb: "#e8ecff", gnd: "#8a7a9a", sun: [0.5, 1, 0.8], fogN: 50, fogF: 90 });
+  if (bg !== "transparent") PR.draw("cyl", m4.trs(0, -0.02, 0, 0, 0, 0, 1.1, 0.02, 1.1), "#ffffff", 0.18);
+  drawAnimal(PR, a, 0, 0, 0, 0.35, { t: 1.2 }, 1 / (a.size || 1));
+  const gl = PR.gl, W2 = PR.canvas.width, H2 = PR.canvas.height, px = new Uint8Array(W2 * H2 * 4);
+  gl.readPixels(0, 0, W2, H2, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  const c2 = document.createElement("canvas"); c2.width = W2; c2.height = H2;
+  const x2 = c2.getContext("2d"), img = x2.createImageData(W2, H2);
+  for (let y = 0; y < H2; y++) img.data.set(px.subarray((H2 - 1 - y) * W2 * 4, (H2 - y) * W2 * 4), y * W2 * 4);
+  x2.putImageData(img, 0, 0);
+  const url = c2.toDataURL("image/png");
+  if (PR.gl.isContextLost()) { PR.canvas.remove(); PR = null; return portrait(a, bg, w, h); }
+  PORTRAITS.set(key, url); if (PORTRAITS.size > 120) PORTRAITS.delete(PORTRAITS.keys().next().value);
+  return url;
+}
+
+function dropGL(R) { try { const x = R && R.gl.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } catch (_) {} }
+
+const PLACES = [
+  { id: "farm", name: "Farm", icon: "🌾", sky: "#9fd8ff", amb: "#d8ecff", gnd: "#6a8a3a", ground: "#6fbf4a", R: 15, blurb: "Red barn, hay, a duck pond and the fields." },
+  { id: "beach", name: "Beachy Island", icon: "🏝️", sky: "#7fdcff", amb: "#e8fbff", gnd: "#e8d8a0", ground: "#f2dfa0", R: 12, water: "#2fb8e8", blurb: "A sandy island with palms, a beach ball and the playhouse." },
+  { id: "forest", name: "Fairy-tale Forest", icon: "🍄", sky: "#3a5a6a", amb: "#a8d8c8", gnd: "#2a3a20", ground: "#3f7a3a", R: 14, fog: "#2f4a50", fogN: 12, fogF: 45, blurb: "Tall pines, glowing mushrooms, fireflies and a log cabin." },
+  { id: "desert", name: "Desert", icon: "🌵", sky: "#ffc98a", amb: "#fff0d0", gnd: "#c8904a", ground: "#e8b86a", R: 16, blurb: "Dunes, cacti, a pyramid and an oasis." },
+  { id: "winter", name: "Winter Wonderland", icon: "❄️", sky: "#c8dcff", amb: "#ffffff", gnd: "#a8b8d8", ground: "#f4f8ff", R: 14, fog: "#dfe8ff", fogN: 14, fogF: 55, blurb: "Snowy pines, snowmen, an ice pond and an igloo." },
+  { id: "city", name: "Cityscape", icon: "🏙️", sky: "#5a6aa8", amb: "#c8d0ff", gnd: "#404058", ground: "#7a7a88", R: 15, fog: "#4a5a8a", fogN: 20, fogF: 70, blurb: "Towers with lit windows, roads, cars and a little park." },
+  { id: "shire", name: "Shire Village", icon: "🏡", sky: "#a8e0ff", amb: "#e8fff0", gnd: "#5a8a3a", ground: "#7ccf5a", R: 15, blurb: "Rolling hills, round doors in the hillsides, cottages and a well." },
+];
+function placeProps(pl) {
+  const S = [], O = [], r = rng("place-" + pl.id);
+  const put = (mesh, x, y, z, sx, sy, sz, c, rx = 0, ry = 0, rz = 0, a = 1, em = 0) => S.push([mesh, m4.trs(x, y, z, rx, ry, rz, sx, sy, sz), c, a, em]);
+  const tree = (x, z, s = 1, leaf = "#3fa34a") => { put("cyl", x, 0.6 * s, z, 0.12 * s, 0.6 * s, 0.12 * s, "#7a4a2a"); put("sphere", x, 1.5 * s, z, 0.7 * s, 0.6 * s, 0.7 * s, leaf); put("sphere", x + 0.3 * s, 1.85 * s, z + 0.1 * s, 0.45 * s, 0.4 * s, 0.45 * s, leaf); O.push([x, z, 0.4 * s]); };
+  const pine = (x, z, s = 1, c = "#2a6a3a", snow = false) => { put("cyl", x, 0.3 * s, z, 0.12 * s, 0.3 * s, 0.12 * s, "#5a3a20"); for (let i = 0; i < 3; i++) { put("cone", x, (0.9 + i * 0.6) * s, z, (0.9 - i * 0.22) * s, 0.55 * s, (0.9 - i * 0.22) * s, c); if (snow) put("cone", x, (1.18 + i * 0.6) * s, z, (0.5 - i * 0.12) * s, 0.28 * s, (0.5 - i * 0.12) * s, "#ffffff"); } O.push([x, z, 0.6 * s]); };
+  const house = (x, z, w, d, h, wall, roof, ry = 0) => { put("box", x, h / 2, z, w / 2, h / 2, d / 2, wall, 0, ry); put("roof", x, h + 0.45, z, w / 2 + 0.15, 0.45, d / 2 + 0.15, roof, 0, ry); const fx = Math.sin(ry), fz = Math.cos(ry); put("box", x + fx * (d / 2 + 0.01), 0.45, z + fz * (d / 2 + 0.01), 0.22, 0.45, 0.02, "#6a3a1a", 0, ry); O.push([x, z, Math.max(w, d) * 0.62]); };
+  const ring = (n, rad, f) => { for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + r() * 0.3, d = rad + r() * 2; f(Math.cos(a) * d, Math.sin(a) * d, i); } };
+  const R0 = pl.R;
+  if (pl.id === "farm") {
+    house(-6, -6, 4, 3.2, 2.6, "#c8322e", "#7a2a22", 0.5); put("box", -6, 1.4, -6, 0.9, 0.9, 1.7, "#ffffff", 0, 0.5, 0, 0.0001);
+    put("cyl", -1, 0.02, 5, 2.2, 0.02, 1.6, "#3fa0e0"); O.push([-1, 5, 1.8]);
+    for (let i = 0; i < 5; i++) { put("cyl", 4 + i * 0.9, 0.35, -5, 0.35, 0.35, 0.35, "#e8c66a", 0, 0, Math.PI / 2); O.push([4 + i * 0.9, -5, 0.4]); }
+    for (let i = -10; i <= 10; i += 1.2) { put("box", i, 0.4, -R0 + 1, 0.06, 0.4, 0.06, "#b08050"); put("box", i, 0.55, -R0 + 1, 0.6, 0.04, 0.03, "#b08050"); }
+    put("cyl", 7, 1.8, 3, 0.3, 1.8, 0.3, "#e8e0d0"); put("roof", 7, 3.9, 3, 0.4, 0.3, 0.4, "#c8322e"); O.push([7, 3, 0.5]);
+    for (let i = 0; i < 6; i++) put("box", 3 + (i % 3) * 1.1, 0.06, 7 + Math.floor(i / 3) * 1.1, 0.45, 0.06, 0.45, "#6a4a2a");
+    ring(9, R0 - 3, (x, z) => tree(x, z, 0.9 + r() * 0.4));
+  } else if (pl.id === "beach") {
+    house(4, -3, 3, 2.6, 2, "#ff9fd0", "#3fb8ff", -0.4); put("box", 4, 2.6, -3, 0.12, 0.6, 0.12, "#ffd23b", 0, -0.4); put("box", 4.3, 3.1, -3, 0.35, 0.2, 0.02, "#ff3b6b", 0, -0.4);
+    put("cyl", 6, 0.6, 0.2, 0.06, 0.6, 0.06, "#e0e0e0"); put("box", 6.4, 0.5, 0.6, 0.6, 0.04, 0.12, "#3fb8ff", 0, 0.3, 0.6);
+    for (const [x, z] of [[-5, -4], [-7, 2], [-2, 7], [7, 6], [0, -8]]) { for (let k = 0; k < 6; k++) put("cyl", x + k * 0.07, 0.3 + k * 0.55, z, 0.13 - k * 0.01, 0.3, 0.13 - k * 0.01, "#a8784a", 0, 0, -0.1); for (let k = 0; k < 6; k++) { const f = k / 6 * Math.PI * 2; put("sphere", x + 0.4 + Math.cos(f) * 0.8, 3.4, z + Math.sin(f) * 0.8, 0.9, 0.08, 0.28, "#2fa84a", 0, -f, Math.cos(f) * 0.3 - 0.25); } put("sphere", x + 0.4, 3.3, z, 0.18, 0.18, 0.18, "#7a4a2a"); O.push([x, z, 0.5]); }
+    put("cyl", -3, 1.2, 2, 0.04, 1.2, 0.04, "#ffffff"); put("cone", -3, 2.4, 2, 1.3, 0.35, 1.3, "#ff6b8a"); put("box", -3.6, 0.06, 2.6, 0.5, 0.04, 0.9, "#3fb8ff", 0, 0.4);
+    for (let i = 0; i < 6; i++) put("sphere", (r() - 0.5) * 18, 0.03, (r() - 0.5) * 18, 0.18, 0.05, 0.12, "#ffe0e8");
+  } else if (pl.id === "forest") {
+    for (let i = 0; i < 4; i++) put("cyl", -4, 0.25 + i * 0.5, -5, 0.25, 1.9, 0.25, "#8a5a34", 0, 0, Math.PI / 2);
+    for (let i = 0; i < 4; i++) put("cyl", -4, 0.25 + i * 0.5, -3, 0.25, 1.9, 0.25, "#8a5a34", 0, 0, Math.PI / 2);
+    for (let i = 0; i < 4; i++) for (const s of [-1, 1]) put("cyl", -4 + s * 1.75, 0.25 + i * 0.5, -4, 0.25, 1.05, 0.25, "#7a4a2a", Math.PI / 2);
+    put("roof", -4, 2.5, -4, 2.3, 0.6, 1.5, "#4a6a3a"); put("box", -4, 0.6, -2.7, 0.3, 0.6, 0.04, "#4a2a10"); put("cyl", -2.9, 2.9, -4.5, 0.15, 0.5, 0.15, "#7a7a7a"); O.push([-4, -4, 2.2]);
+    ring(14, R0 - 4, (x, z) => pine(x, z, 1 + r() * 0.8, "#1f5a34"));
+    for (let i = 0; i < 9; i++) { const x = (r() - 0.5) * 16, z = (r() - 0.5) * 16; if (Math.hypot(x + 4, z + 4) < 3) continue; const s = 0.4 + r() * 0.6; put("cyl", x, 0.18 * s, z, 0.07 * s, 0.18 * s, 0.07 * s, "#fff6e0"); put("sphere", x, 0.4 * s, z, 0.28 * s, 0.17 * s, 0.28 * s, i % 3 ? "#e8322e" : "#c06bff", 0, 0, 0, 1, 0.3); put("sphere", x + 0.1 * s, 0.53 * s, z, 0.05 * s, 0.03 * s, 0.05 * s, "#ffffff"); }
+    put("cyl", 3, 0.3, 3, 0.6, 0.3, 0.6, "#8a8a9a"); put("cyl", 3, 0.62, 3, 0.45, 0.03, 0.45, "#5aa8ff", 0, 0, 0, 1, 0.4); O.push([3, 3, 0.7]);
+  } else if (pl.id === "desert") {
+    put("pyr", -7, 3, -8, 5, 3, 5, "#e0b060", 0, Math.PI / 4); O.push([-7, -8, 4.2]);
+    for (let i = 0; i < 6; i++) put("sphere", (r() - 0.5) * 30, -0.6, (r() - 0.5) * 30, 3 + r() * 3, 1.3, 2 + r() * 2, "#e0a858");
+    const cactus = (x, z, s) => { put("cyl", x, 0.9 * s, z, 0.2 * s, 0.9 * s, 0.2 * s, "#3f9a4a"); put("sphere", x, 1.8 * s, z, 0.2 * s, 0.2 * s, 0.2 * s, "#3f9a4a"); put("cyl", x + 0.35 * s, 1.0 * s, z, 0.13 * s, 0.35 * s, 0.13 * s, "#3f9a4a"); put("cyl", x + 0.2 * s, 0.75 * s, z, 0.13 * s, 0.15 * s, 0.13 * s, "#3f9a4a", 0, 0, Math.PI / 2); put("sphere", x, 1.95 * s, z, 0.08, 0.06, 0.08, "#ff6b8a"); O.push([x, z, 0.35 * s]); };
+    ring(8, R0 - 5, (x, z) => cactus(x, z, 0.8 + r() * 0.6));
+    put("cyl", 5, 0.02, 4, 2.4, 0.02, 2, "#3fc8e8"); O.push([5, 4, 2]); for (const [x, z] of [[7.6, 5], [3, 6.2]]) { put("cyl", x, 1.3, z, 0.12, 1.3, 0.12, "#a8784a", 0, 0, 0.1); for (let k = 0; k < 5; k++) { const f = k / 5 * Math.PI * 2; put("sphere", x + Math.cos(f) * 0.7, 2.6, z + Math.sin(f) * 0.7, 0.8, 0.07, 0.25, "#3fa84a", 0, -f, -0.3); } O.push([x, z, 0.4]); }
+    put("box", 1, 0.3, -4, 0.8, 0.3, 0.5, "#c8904a", 0, 0.4); put("box", 1, 0.75, -4, 0.6, 0.15, 0.4, "#b8803a", 0, 0.4); O.push([1, -4, 0.9]);
+  } else if (pl.id === "winter") {
+    ring(13, R0 - 3, (x, z) => pine(x, z, 0.9 + r() * 0.7, "#2a6a4a", true));
+    put("cyl", 3, 0.02, 3, 3, 0.02, 2.2, "#bfe8ff", 0, 0, 0, 1, 0.15); O.push([3, 3, 2.3]);
+    put("sphere", -5, 0, -4, 1.6, 1.4, 1.6, "#eef6ff"); put("box", -5, 0.4, -2.6, 0.4, 0.4, 0.5, "#eef6ff"); put("box", -5, 0.4, -2.08, 0.25, 0.32, 0.02, "#2a3050"); O.push([-5, -4, 1.7]);
+    for (const [x, z] of [[2, -5], [-3, 4]]) { put("sphere", x, 0.5, z, 0.55, 0.5, 0.55, "#ffffff"); put("sphere", x, 1.25, z, 0.4, 0.38, 0.4, "#ffffff"); put("sphere", x, 1.85, z, 0.3, 0.28, 0.3, "#ffffff"); put("cone", x, 1.85, z + 0.35, 0.05, 0.14, 0.05, "#ff8a1f", Math.PI / 2); put("cyl", x, 2.2, z, 0.25, 0.15, 0.25, "#22222e"); put("cyl", x, 1.55, z, 0.33, 0.05, 0.33, "#ff3b6b"); O.push([x, z, 0.6]); }
+    put("box", 6, 0.6, -2, 1.2, 0.08, 0.4, "#8a5a34", 0, 0.3); put("box", 6, 0.3, -2, 1.1, 0.3, 0.06, "#ffd23b", 0, 0.3); O.push([6, -2, 1]);
+  } else if (pl.id === "city") {
+    put("box", 0, 0.015, 0, R0, 0.015, 1.4, "#33333f"); put("box", 0, 0.016, 0, 1.4, 0.015, R0, "#33333f");
+    for (let i = -R0; i < R0; i += 2) { put("box", i, 0.03, 0, 0.4, 0.01, 0.06, "#ffd23b"); put("box", 0, 0.03, i, 0.06, 0.01, 0.4, "#ffd23b"); }
+    const cols = ["#5a6a9a", "#7a5a8a", "#4a7a8a", "#8a8aa8", "#6a4a6a", "#3a5a7a"];
+    for (const [qx, qz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) for (let k = 0; k < 4; k++) {
+      if (qx > 0 && qz > 0 && k < 2) continue;
+      const x = qx * (5.2 + (k % 2) * 4.2), z = qz * (5.2 + Math.floor(k / 2) * 4.2), h = 2 + r() * 5, w = 1.2 + r() * 0.5;
+      put("box", x, h / 2, z, w, h / 2, w, pick(cols, r)); for (let y = 0.8; y < h - 0.3; y += 0.9) for (const s of [-1, 1]) { put("box", x + s * w * 0.45, y, z + w + 0.01, w * 0.3, 0.2, 0.01, r() < 0.6 ? "#ffe9a0" : "#22243a", 0, 0, 0, 1, 0.6); put("box", x + w + 0.01, y, z + s * w * 0.45, 0.01, 0.2, w * 0.3, r() < 0.6 ? "#ffe9a0" : "#22243a", 0, 0, 0, 1, 0.6); }
+      O.push([x, z, w * 1.45]);
+    }
+    put("box", 7, 0.03, 7, 4.5, 0.03, 4.5, "#5fbf4a"); tree(5.5, 8.5, 0.8); tree(9, 5.5, 0.7); put("box", 7, 0.3, 7.8, 0.8, 0.05, 0.25, "#a8784a");
+    for (const [x, z] of [[2, 2], [-2, 2], [2, -2], [-2, -2]]) { put("cyl", x, 1.3, z, 0.05, 1.3, 0.05, "#2a2a3a"); put("sphere", x, 2.65, z, 0.16, 0.16, 0.16, "#fff3b0", 0, 0, 0, 1, 1); }
+  } else if (pl.id === "shire") {
+    for (const [x, z, rr, door] of [[-6, -7, 3.5, "#3a7a3a"], [5, -8, 3, "#c8322e"], [-8, 3, 3, "#3f7bff"]]) {
+      put("sphere", x, -0.6, z, rr, 2.4, rr, "#6fbf4a"); const a = Math.atan2(-x, -z), fx = x + Math.sin(a) * (rr - 0.25), fz = z + Math.cos(a) * (rr - 0.25);
+      put("cyl", fx, 0.75, fz, 0.6, 0.05, 0.6, door, Math.PI / 2, a); put("sphere", fx + Math.sin(a) * 0.06, 0.75, fz + Math.cos(a) * 0.06, 0.06, 0.06, 0.06, "#ffd23b");
+      put("cyl", fx + Math.cos(a) * 1.1, 1.0, fz - Math.sin(a) * 1.1, 0.3, 0.04, 0.3, "#ffe9a0", Math.PI / 2, a, 0, 1, 0.3); put("cyl", x + 0.5, 2.2, z - 0.5, 0.1, 0.5, 0.1, "#8a6a5a"); O.push([x, z, rr * 0.92]);
+    }
+    house(6, 3, 2.6, 2.2, 1.8, "#f3e3c3", "#8a5a34", -0.6); house(1, 7.5, 2.2, 2, 1.6, "#f3dcc0", "#c8322e", 3.0);
+    put("cyl", -1, 0.4, -1.5, 0.6, 0.4, 0.6, "#9a9aa8"); put("cyl", -1, 0.42, -1.5, 0.48, 0.42, 0.48, "#3fa0e0"); put("box", -1.5, 1.1, -1.5, 0.04, 0.7, 0.04, "#7a4a2a"); put("box", -0.5, 1.1, -1.5, 0.04, 0.7, 0.04, "#7a4a2a"); put("roof", -1, 2, -1.5, 0.8, 0.3, 0.6, "#8a5a34"); O.push([-1, -1.5, 0.75]);
+    for (let i = 0; i < 12; i++) { const x = 2 + (i % 6) * 0.7, z = -2.5 + Math.floor(i / 6) * 0.8; put("cyl", x, 0.35, z, 0.03, 0.35, 0.03, "#3fa84a"); put("sphere", x, 0.75, z, 0.14, 0.1, 0.14, i % 2 ? "#ffd23b" : "#ff8a1f", 0.3, 0, 0, 1, 0.15); }
+    ring(6, R0 - 2, (x, z) => tree(x, z, 1 + r() * 0.3, "#4fb34a"));
+  }
+  return { S, O };
+}
+function placeExtras(R, pl, t) {
+  if (pl.id === "beach") { R.draw("cyl", m4.trs(0, -0.05 + Math.sin(t) * 0.03, 0, 0, 0, 0, 80, 0.05, 80), pl.water, 1, 0.1); for (let i = 0; i < 3; i++) R.draw("cyl", m4.trs(0, 0.02, 0, 0, 0, 0, pl.R + 0.3 + i * 0.6 + Math.sin(t * 1.5 + i) * 0.2, 0.01, pl.R + 0.3 + i * 0.6 + Math.sin(t * 1.5 + i) * 0.2), "#ffffff", 0.25); }
+  if (pl.id === "forest") for (let i = 0; i < 18; i++) { const r = rng("ff" + i), x = (r() - 0.5) * 20 + Math.sin(t * 0.5 + i) * 1.5, z = (r() - 0.5) * 20 + Math.cos(t * 0.4 + i * 2) * 1.5, y = 1 + r() * 2 + Math.sin(t * 2 + i) * 0.3; R.draw("sphere", m4.trs(x, y, z, 0, 0, 0, 0.05, 0.05, 0.05), "#ffffa0", 0.4 + 0.6 * Math.abs(Math.sin(t * 3 + i)), 2); }
+  if (pl.id === "winter") for (let i = 0; i < 60; i++) { const r = rng("sn" + i), x = (r() - 0.5) * 30, z = (r() - 0.5) * 30, y = 8 - ((t * (0.5 + r() * 0.5) + r() * 8) % 8); R.draw("sphere", m4.trs(x + Math.sin(t + i) * 0.3, y, z, 0, 0, 0, 0.05, 0.05, 0.05), "#ffffff", 0.9, 0.6); }
+  if (pl.id === "city") for (let i = 0; i < 4; i++) { const k = ((t * 3 + i * 8) % 30) - 15, alongX = i % 2 === 0, lane = i < 2 ? 0.6 : -0.6, c = ["#ffd23b", "#ff3b6b", "#3f7bff", "#ffffff"][i]; const x = alongX ? k * (lane > 0 ? 1 : -1) : lane, z = alongX ? lane : k * (lane > 0 ? 1 : -1), ry = alongX ? (lane > 0 ? Math.PI / 2 : -Math.PI / 2) : (lane > 0 ? 0 : Math.PI);
+    R.draw("box", m4.trs(x, 0.3, z, 0, ry, 0, 0.35, 0.18, 0.7), c); R.draw("box", m4.trs(x, 0.55, z, 0, ry, 0, 0.3, 0.13, 0.4), "#9fd8ff"); }
+  if (pl.id === "farm") { R.draw("box", m4.trs(7, 3.3, 3.35, 0, 0, t, 0.08, 1.4, 0.02), "#f3f0e0"); R.draw("box", m4.trs(7, 3.3, 3.35, 0, 0, t + Math.PI / 2, 0.08, 1.4, 0.02), "#f3f0e0"); }
+  if (pl.id === "desert") R.draw("sphere", m4.trs(-30, 30, -60, 0, 0, 0, 5, 5, 5), "#fff3b0", 1, 1.5);
+  if (pl.id === "city") for (let i = 0; i < 25; i++) { const r = rng("st" + i); R.draw("sphere", m4.trs((r() - 0.5) * 120, 30 + r() * 20, -60 - r() * 20, 0, 0, 0, 0.15, 0.15, 0.15), "#ffffff", 1, 2); }
+}
+
+let PETTING = null;
+const WORLD = { R: null, place: null, props: null, mobs: [], items: [], ball: null, cam: { yaw: 0.6, pitch: 0.55, dist: 22, at: [0, 0.5, 0] }, follow: null, sel: null, t: 0, last: 0, run: false, bubbles: new Map() };
+const HOST = { species: "duck", nick: "Quak Quak", colors: { body: "#ffe14a", belly: "#fff6b0", accent: "#ff8a1f", eye: "#1a1a2e" }, worn: { hat: "tophat" }, eyes: "big", size: 1.15, host: true };
+function lineFor(a, b, other) {
+  const m = M(b), o = other ? M(other.bot) : null, on = other ? other.a.nick : "";
+  const L = [
+    `I've done ${m.runs} real run${m.runs === 1 ? "" : "s"} so far!`, m.runs ? `${m.success}% of my runs went fine.` : "I haven't run yet. Waiting for my turn!",
+    m.tokens ? `I've used ${fmtK(m.tokens)} tokens thinking.` : "My head is empty and ready.", `My job: ${(b.job || "").slice(0, 70)}${(b.job || "").length > 70 ? "…" : ""}`,
+    m.summary ? `Last time: ${m.summary.slice(0, 80)}` : "No report yet.", `The app has ${D.app.tabs} tabs and ${D.app.versions} versions!`, `Quak Quak is on version ${D.app.duck_versions}.`,
+    `I'm level ${a.level} with ${a.points} points.`, a.items.length ? `I found a ${a.items[a.items.length - 1].n}!` : "I'm looking for treasure.",
+    m.running ? "I'm on duty right now." : "I'm off duty. Play time!", m.fails ? `I tripped ${m.fails} time${m.fails > 1 ? "s" : ""}. Learning!` : "No fails yet!",
+    `I'm a ${a.persona} ${a.species}.`, `${D.app.snapshots} snapshots keep us all safe.`,
+  ];
+  if (other) L.push(`Hi ${on}! How many runs have you got?`, o.runs > m.runs ? `${on}, you've done more runs than me (${o.runs})!` : `${on}, race you to the next run!`, `${on}, want to play ball?`, `${on}, nice ${other.a.worn.hat ? "hat" : "look"}!`);
+  return pick(L);
+}
+function makeMobs() {
+  const P = WORLD.place, mobs = [];
+  const spot = (i, n) => { const a = i / Math.max(1, n) * Math.PI * 2; return [Math.cos(a) * 3, Math.sin(a) * 3]; };
+  D.bots.forEach((b, i) => { const [x, z] = spot(i, D.bots.length); mobs.push({ name: b.name, bot: b, a: A(b.name), x, z, ry: Math.random() * 6, st: "idle", tm: Math.random() * 2, t: Math.random() * 10, tx: x, tz: z, anim: {} }); });
+  mobs.push({ name: "_host", bot: null, a: HOST, x: 0, z: -1, ry: 0, st: "idle", tm: 1, t: 0, tx: 0, tz: 0, anim: {} });
+  WORLD.mobs = mobs; WORLD.ball = { x: 1.5, z: 1.5, vx: 0, vz: 0, y: 0.3, vy: 0 };
+  WORLD.items = [];
+  for (let i = 0; i < 4; i++) spawnItem();
+}
+function freeSpot(r = 0.6) {
+  const P = WORLD.place;
+  for (let k = 0; k < 40; k++) { const a = Math.random() * Math.PI * 2, d = Math.random() * (P.R - 2.5), x = Math.cos(a) * d, z = Math.sin(a) * d; if (WORLD.props.O.every(o => Math.hypot(x - o[0], z - o[1]) > o[2] + r)) return [x, z]; }
+  return [0, 0];
+}
+function spawnItem() {
+  const pool = ITEMS[WORLD.place.id], w = { common: 60, rare: 25, epic: 10, legend: 3 };
+  let tot = pool.reduce((s, it) => s + w[it[2]], 0), r = Math.random() * tot, it = pool[0];
+  for (const x of pool) { r -= w[x[2]]; if (r <= 0) { it = x; break; } }
+  const [x, z] = freeSpot(); WORLD.items.push({ it, x, z, born: WORLD.t });
+}
+const PET_WORDS = { duck: ["Quack quack! ♥", "Quaaack~"], cow: ["Mooo~ ♥", "Moo, that's nice."], pig: ["Oink oink! ♥", "*happy snort*"], sheep: ["Baaa~ ♥", "So fluffy, right?"],
+  chicken: ["Bok bok! ♥", "*fluffs feathers*"], bunny: ["*happy hop* ♥", "*nose wiggle*"], fox: ["Yip yip! ♥", "*tail swish*"], cat: ["Purrrr… ♥", "Prrrp!"], dog: ["Woof! *wags* ♥", "Belly rubs next?"],
+  bear: ["Mmm, cozy… ♥", "*big bear hug*"], frog: ["Ribbit ♥", "*happy croak*"], penguin: ["*happy flap* ♥", "Squawk!"], owl: ["Hoo hoo~ ♥", "*ruffles feathers*"] };
+const PET_MORE = ["That's the spot!", "More please!", "I feel so loved.", "You're the best!", "Hehe, that tickles!"];
+let AC = null;
+const TUNE_SCALE = [0, 2, 4, 7, 9, 12, 14, 16];
+const TUNE_PACE = { cheerful: 0.22, curious: 0.2, brave: 0.24, sleepy: 0.36, clever: 0.2, silly: 0.16, kind: 0.28, proud: 0.3, shy: 0.32, bouncy: 0.15 };
+const TUNE_VOICE = { duck: "square", cow: "sawtooth", pig: "square", sheep: "triangle", chicken: "square", bunny: "sine", fox: "triangle", cat: "triangle",
+  dog: "square", bear: "sawtooth", frog: "square", penguin: "square", owl: "sine" };
+const TUNE_ROOT = { cow: 110, bear: 98, pig: 165, dog: 196, frog: 175, sheep: 220, cat: 247, owl: 262, fox: 294, duck: 330, penguin: 349, chicken: 392, bunny: 440 };
+function themeNotes(name, a) {
+  const r = rng("tune:" + name), out = [];
+  let i = Math.floor(r() * 4);
+  for (let k = 0; k < 8; k++) {
+    i = clamp(i + pick([-2, -1, -1, 1, 1, 2, 0], r), 0, TUNE_SCALE.length - 1);
+    out.push([TUNE_SCALE[k === 7 ? 0 : i], k === 7 ? 3 : pick([1, 1, 1, 2], r)]);
+  }
+  return out;
+}
+let TUNE_STOP = 0;
+function playTheme(name, a) {
+  if (!S.settings.sound) return toast("Sound is off (the Sound box in the places).");
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume();
+    const beat = TUNE_PACE[a.persona] || 0.22, root = TUNE_ROOT[a.species] || 262, wave = TUNE_VOICE[a.species] || "sine";
+    let t = Math.max(AC.currentTime, TUNE_STOP) + 0.03;
+    for (const [semi, beats] of themeNotes(name, a)) {
+      const o = AC.createOscillator(), g = AC.createGain(), d = beats * beat;
+      o.type = wave; o.frequency.value = root * 2 * Math.pow(2, semi / 12);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(wave === "sine" ? 0.14 : 0.07, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d * 0.95);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d);
+      t += d;
+    }
+    TUNE_STOP = t;
+  } catch (_) {}
+}
+function petSound(sp) {
+  if (!S.settings.sound) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume();
+    const V = { duck: ["square", 620, 380, 0.16], cow: ["sawtooth", 150, 120, 0.7], pig: ["square", 300, 220, 0.18], sheep: ["sawtooth", 380, 360, 0.5, 9], chicken: ["square", 700, 520, 0.1],
+      bunny: ["sine", 1400, 1700, 0.08], fox: ["triangle", 900, 1300, 0.12], cat: ["sawtooth", 55, 55, 0.6, 22], dog: ["square", 260, 180, 0.15], bear: ["sawtooth", 90, 70, 0.5, 6],
+      frog: ["square", 240, 160, 0.09], penguin: ["square", 820, 600, 0.14], owl: ["sine", 420, 380, 0.4] }[sp] || ["sine", 600, 800, 0.15];
+    const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
+    o.type = V[0]; o.frequency.setValueAtTime(V[1], t); o.frequency.exponentialRampToValueAtTime(V[2], t + V[3]);
+    f.type = "lowpass"; f.frequency.value = 1800;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + V[3]);
+    if (V[4]) { const l = AC.createOscillator(), lg = AC.createGain(); l.frequency.value = V[4]; lg.gain.value = 0.06; l.connect(lg); lg.connect(g.gain); l.start(t); l.stop(t + V[3]); }
+    o.connect(f); f.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + V[3] + 0.05);
+  } catch (_) {}
+}
+function hearts(m, n = 1) {
+  const lay = $("#bubbles"), R = WORLD.R; if (!lay || !R) return;
+  const p = R.project([m.x, (m.headY || 1.2) - 0.25, m.z]); if (!p) return;
+  for (let i = 0; i < n; i++) {
+    const h = mk("div", { className: "heart", style: { left: (p[0] + (Math.random() - 0.5) * 50) + "px", top: (p[1] + (Math.random() - 0.5) * 20) + "px", animationDelay: (i * 0.12) + "s", color: "#ff4f8b" } }, pick(["♥", "💖", "💕", "✨"]));
+    h.style.setProperty("--rot", ((Math.random() - 0.5) * 40) + "deg"); lay.append(h); setTimeout(() => h.remove(), 1800);
+  }
+}
+function petStroke(m) {
+  const a = m.a; m.anim.squash = 0.12; m.petAt = performance.now(); m.strokes = (m.strokes || 0) + 1;
+  hearts(m, 1 + (m.strokes % 3 === 0 ? 1 : 0));
+  if (m.strokes % 4 === 1) { WORLD.bubbles.set(m, { text: m.strokes > 8 && Math.random() < 0.5 ? pick(PET_MORE) : pick(PET_WORDS[a.species] || ["♥"]), until: performance.now() + 1600 }); petSound(a.species); }
+  if (!m.bot) return;
+  cheer(a, 3); a.pets = (a.pets || 0) + 1;
+  const d = today(), day = S.daily[d] = S.daily[d] || {}, k = "pet:" + m.name;
+  for (const old of Object.keys(S.daily)) if (old !== d) delete S.daily[old];
+  if (a.pets % 5 === 0 && (day[k] || 0) < 30) { day[k] = (day[k] || 0) + 1; gain(m.name, 1, 2, "petting"); }
+  const pl = $(".hudr .petline"); if (pl && WORLD.sel === m) { pl.textContent = `Feels ${moodWord(mood(a))} (${mood(a)}%) · petted ${a.pets} times`; const pb = $(".hudr .petbar"); if (pb) pb.style.width = mood(a) + "%"; }
+  if (a.pets % 100 === 0) { toast(`${a.nick} has been petted ${a.pets} times! 💖`); feed(`💖 ${a.nick} has been petted ${a.pets} times.`); forumAuto("farm", `${a.nick} loves pets`, `${a.nick} has been petted ${a.pets} times and feels ${moodWord(mood(a))}.`, m.name); }
+  save();
+}
+function petStart(m) { if (m.st !== "talk" && m.st !== "pet") { m.prevSt = m.st; m.st = "pet"; } m.strokes = 0; m.petAt = performance.now(); }
+function petEnd(m) { if (m.st === "pet") { m.st = "idle"; m.tm = 1 + Math.random(); m.anim.sit = false; m.anim.nod = 0; m.anim.look = 0; } if (m.bot && (m.strokes || 0) >= 3) feed(`💖 You petted ${m.a.nick}. ${m.a.nick} feels ${moodWord(mood(m.a))}.`); m.strokes = 0; }
+function petFor(m, ms = 2400) {
+  petStart(m); let i = 0; const n = Math.round(ms / 300);
+  const tick = () => { if (!WORLD.place || !WORLD.mobs.includes(m)) return; petStroke(m); if (++i < n) setTimeout(tick, 300); }; tick();
+}
+function say(mob, text, ms = 3800) {
+  WORLD.bubbles.set(mob, { text, until: performance.now() + ms });
+  if (mob.name !== "_host") feed(`💬 ${mob.a.nick}: ${text}`);
+}
+function goTo(mob, x, z, st = "walk") { mob.tx = x; mob.tz = z; mob.st = st; }
+function think(mob) {
+  const others = WORLD.mobs.filter(o => o !== mob && o.bot && o.st !== "talk" && o.st !== "pet");
+  const r = Math.random();
+  if (mob.name === "_host") { if (r < 0.3) say(mob, pick(["Quak quak!", "Welcome to " + WORLD.place.name + "!", "Pew pew!", `${D.bots.length} bots live here.`, "Click an item to send someone for it!"])); const [x, z] = freeSpot(); goTo(mob, x, z); return; }
+  if (r < 0.3 && others.length) { const o = pick(others); mob.with = o; goTo(mob, o.x, o.z, "seek"); return; }
+  if (r < 0.48) { mob.st = "ball"; return; }
+  if (r < 0.58) { mob.st = "rest"; mob.tm = 4 + Math.random() * 4; return; }
+  if (r < 0.66 && WORLD.items.length) { const it = pick(WORLD.items); mob.fetch = it; goTo(mob, it.x, it.z, "fetch"); return; }
+  const [x, z] = freeSpot(); goTo(mob, x, z);
+}
+async function converse(a1, a2) {
+  a1.st = a2.st = "talk"; a1.tm = a2.tm = 10;
+  const face = () => { a1.ry = Math.atan2(a2.x - a1.x, a2.z - a1.z); a2.ry = Math.atan2(a1.x - a2.x, a1.z - a2.z); };
+  face();
+  let lines = null;
+  if (S.settings.aiChatter && IN_APP && !WORLD.aiBusy) {
+    WORLD.aiBusy = true;
+    const ctx = [a1, a2].map(m => ({ animal: m.a.nick, species: m.a.species, persona: m.a.persona, bot: m.bot.name, job: m.bot.job, metrics: M(m.bot), level: m.a.level, place: WORLD.place.name }));
+    const r = await askAI([{ role: "user", content: `Write a short friendly chat (4 lines, alternating, first speaker ${a1.a.nick}) between these two animals in ${WORLD.place.name}. Use only the real numbers given. Reply with only JSON: {"lines":["...","...","...","..."]}` }], JSON.stringify(ctx), 500);
+    WORLD.aiBusy = false;
+    const j = r.text && jsonFrom(r.text); if (j && Array.isArray(j.lines)) lines = j.lines.slice(0, 6).map(String);
+  }
+  if (!lines) lines = [lineFor(a1.a, a1.bot, a2), lineFor(a2.a, a2.bot, a1), lineFor(a1.a, a1.bot, a2), lineFor(a2.a, a2.bot, a1)];
+  for (let i = 0; i < lines.length; i++) { if (WORLD.place == null) return; face(); say(i % 2 ? a2 : a1, lines[i].slice(0, 160), 2600); (i % 2 ? a2 : a1).anim.nod = 0.15; await new Promise(z => setTimeout(z, 2700)); }
+  for (const m of [a1, a2]) { m.st = "idle"; m.tm = 1 + Math.random() * 2; m.anim.nod = 0; }
+  const bonus = n => A(n).skills.includes("Sweet Talk") ? 2 : 1;
+  gain(a1.name, 2 * bonus(a1.name), 3, "chat"); gain(a2.name, 2 * bonus(a2.name), 3, "chat");
+  forumAuto("farm", `${a1.a.nick} and ${a2.a.nick} in ${WORLD.place.name}`, lines.map((l, i) => `${i % 2 ? a2.a.nick : a1.a.nick}: ${l}`).join("\n"), a1.name);
+}
+function step(dt) {
+  const P = WORLD.place, B = WORLD.ball;
+  WORLD.t += dt;
+  for (const m of WORLD.mobs) {
+    m.t += dt; m.anim.t = m.t; m.anim.walk = 0; m.anim.happy = false; m.anim.hop = 0; m.anim.wing = 0;
+    const spd = (m.a.skills && m.a.skills.includes("Fast Feet") ? 2.4 : 1.7) * (m.st === "ball" ? 1.3 : 1);
+    m.anim.squash = Math.max(0, (m.anim.squash || 0) - dt * 0.5);
+    if (m.st === "pet") {
+      const c = camera(); let da = Math.atan2(c.eye[0] - m.x, c.eye[2] - m.z) - m.ry; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+      m.ry += da * Math.min(1, dt * 5); m.anim.happy = true; m.anim.sit = true; m.anim.nod = Math.sin(m.t * 3) * 0.12 - 0.08; m.anim.look = Math.sin(m.t * 1.7) * 0.25;
+      m.anim.wing = BIRDS.has(m.a.species) ? 0.25 : 0;
+      if ((!PETTING || PETTING.m !== m) && performance.now() - (m.petAt || 0) > 2500) petEnd(m);
+      continue;
+    }
+    if (m.st === "talk") { m.anim.happy = true; continue; }
+    if (m.st === "rest") { m.tm -= dt; m.anim.sit = true; if (Math.random() < dt * 0.3) WORLD.bubbles.set(m, { text: "z z z", until: performance.now() + 1200 }); if (m.tm <= 0) { m.st = "idle"; m.anim.sit = false; } continue; }
+    if (m.st === "ball") { m.tx = B.x; m.tz = B.z; }
+    if (m.st === "seek" && m.with) { m.tx = m.with.x; m.tz = m.with.z; if (m.with.st === "talk" || m.with.st === "fetch" || m.with.st === "pet") { m.st = "idle"; m.with = null; } }
+    if (m.st === "fetch" && !WORLD.items.includes(m.fetch)) { m.st = "idle"; m.fetch = null; }
+    if (m.st === "idle") { m.tm -= dt; if (Math.random() < dt * 0.4) m.anim.hop = 0; if (m.tm <= 0) { think(m); m.tm = 2 + Math.random() * 3; } continue; }
+    const dx = m.tx - m.x, dz = m.tz - m.z, d = Math.hypot(dx, dz);
+    const near = m.st === "seek" ? 1.3 : m.st === "ball" ? 0.55 : 0.25;
+    if (d < near) {
+      if (m.st === "seek" && m.with && m.with.st !== "talk") { converse(m, m.with); m.with = null; continue; }
+      if (m.st === "ball") { const a = m.ry + (Math.random() - 0.5); B.vx = Math.sin(a) * 6; B.vz = Math.cos(a) * 6; B.vy = 3; m.anim.happy = true; m.kicks = (m.kicks || 0) + 1;
+        if (Math.random() < 0.15) { say(m, pick(["Wheee!", "Got it!", "Your turn!", "Goal!"]), 1500); gain(m.name, A(m.name).skills.includes("Team Spirit") ? 2 : 1, 2, "play"); }
+        if (m.kicks > 3 + Math.random() * 4) { m.kicks = 0; m.st = "idle"; m.tm = 1; } continue; }
+      if (m.st === "fetch" && m.fetch) { WORLD.items.splice(WORLD.items.indexOf(m.fetch), 1); if (m.bot) { giveItem(m.name, m.fetch.it, WORLD.place.name); say(m, `I found a ${m.fetch.it[0]}! ${m.fetch.it[1]}`); toast(`${m.a.nick} found ${m.fetch.it[1]} ${m.fetch.it[0]} (${m.fetch.it[2]}). It's in ${m.bot.name}'s collection.`); }
+        m.fetch = null; setTimeout(spawnItem, 6000 + Math.random() * 8000); }
+      m.st = "idle"; m.tm = 1 + Math.random() * 2; continue;
+    }
+    const want = Math.atan2(dx, dz); let da = want - m.ry; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+    m.ry += da * Math.min(1, dt * 6);
+    let nx = m.x + Math.sin(m.ry) * spd * dt, nz = m.z + Math.cos(m.ry) * spd * dt;
+    for (const o of WORLD.props.O) { const ox = nx - o[0], oz = nz - o[1], od = Math.hypot(ox, oz), rr = o[2] + 0.45; if (od < rr) { nx = o[0] + ox / od * rr; nz = o[1] + oz / od * rr; } }
+    for (const o of WORLD.mobs) if (o !== m) { const ox = nx - o.x, oz = nz - o.z, od = Math.hypot(ox, oz); if (od < 0.7 && od > 0.001 && !(m.st === "seek" && o === m.with)) { nx = o.x + ox / od * 0.7; nz = o.z + oz / od * 0.7; } }
+    const rr = Math.hypot(nx, nz); if (rr > P.R - 1) { nx *= (P.R - 1) / rr; nz *= (P.R - 1) / rr; }
+    m.x = nx; m.z = nz; m.anim.walk = 1; m.anim.wing = BIRDS.has(m.a.species) && m.st === "ball" ? 0.4 : 0;
+  }
+  B.vy -= 12 * dt; B.y += B.vy * dt; if (B.y < 0.3) { B.y = 0.3; B.vy = Math.abs(B.vy) > 1 ? -B.vy * 0.45 : 0; }
+  B.x += B.vx * dt; B.z += B.vz * dt; B.vx *= Math.pow(0.4, dt); B.vz *= Math.pow(0.4, dt);
+  for (const o of WORLD.props.O) { const ox = B.x - o[0], oz = B.z - o[1], od = Math.hypot(ox, oz); if (od < o[2] + 0.3) { B.x = o[0] + ox / od * (o[2] + 0.3); B.z = o[1] + oz / od * (o[2] + 0.3); B.vx *= -0.6; B.vz *= -0.6; } }
+  const br = Math.hypot(B.x, B.z); if (br > P.R - 1) { B.x *= (P.R - 1) / br; B.z *= (P.R - 1) / br; B.vx *= -0.5; B.vz *= -0.5; }
+}
+function camera() {
+  const c = WORLD.cam;
+  if (WORLD.follow) { c.at[0] = lerp(c.at[0], WORLD.follow.x, 0.08); c.at[2] = lerp(c.at[2], WORLD.follow.z, 0.08); }
+  return { eye: [c.at[0] + Math.sin(c.yaw) * Math.cos(c.pitch) * c.dist, c.at[1] + Math.sin(c.pitch) * c.dist, c.at[2] + Math.cos(c.yaw) * Math.cos(c.pitch) * c.dist], at: c.at, fov: 0.8 };
+}
+function renderWorld() {
+  const R = WORLD.R, P = WORLD.place; if (!R || !P) return;
+  R.begin(camera(), { sky: P.sky, amb: P.amb, gnd: P.gnd, fog: P.fog || P.sky, fogN: P.fogN ?? 35, fogF: P.fogF ?? 110, sun: [0.4, 1, 0.5] });
+  R.draw("cyl", m4.trs(0, -0.5, 0, 0, 0, 0, P.R + (P.water ? 0 : 60), 0.5, P.R + (P.water ? 0 : 60)), P.ground);
+  if (!P.water) R.draw("cyl", m4.trs(0, 0.001, 0, 0, 0, 0, P.R, 0.001, P.R), P.ground, 1, 0.05);
+  for (const s of WORLD.props.S) R.draw(s[0], s[1], s[2], s[3], s[4]);
+  placeExtras(R, P, WORLD.t);
+  for (const it of WORLD.items) { const y = 0.5 + Math.sin(WORLD.t * 2 + it.x) * 0.12; const c = { common: "#ffffff", rare: "#5cc8ff", epic: "#c06bff", legend: "#ffd66b" }[it.it[2]];
+    R.draw("hex", m4.trs(it.x, y, it.z, 0, WORLD.t * 2, 0.5, 0.18, 0.18, 0.18), c, 0.9, 0.8); R.draw("sphere", m4.trs(it.x, y, it.z, 0, 0, 0, 0.35, 0.35, 0.35), c, 0.18, 1); shadow(R, it.x, it.z, 0.2); }
+  const B = WORLD.ball; R.draw("sphere", m4.trs(B.x, B.y, B.z, B.x * 2, 0, B.z * 2, 0.3, 0.3, 0.3), "#ff3b6b"); R.draw("sphere", m4.trs(B.x, B.y, B.z, B.x * 2, 0, B.z * 2, 0.302, 0.12, 0.302), "#ffffff"); shadow(R, B.x, B.z, 0.25);
+  for (const m of WORLD.mobs) { const o = drawAnimal(R, m.a, m.x, 0, m.z, m.ry, m.anim); m.headY = o.headY; shadow(R, m.x, m.z, 0.5 * (m.a.size || 1));
+    if (WORLD.sel === m) R.draw("cyl", m4.trs(m.x, 0.02, m.z, 0, 0, 0, 0.75, 0.01, 0.75), "#8fe3ff", 0.5, 1); }
+  const lay = $("#bubbles"); if (!lay) return;
+  const now = performance.now(); const seen = new Set();
+  for (const m of WORLD.mobs) {
+    const p = R.project([m.x, m.headY || 1.4, m.z]); if (!p) continue;
+    let tag = lay.querySelector(`[data-tag="${m.name}"]`);
+    if (S.settings.labels) { if (!tag) { tag = mk("div", { className: "tag", dataset: { tag: m.name } }, m.a.nick + (m.a.level ? ` · L${m.a.level}` : "")); lay.append(tag); } tag.style.left = p[0] + "px"; tag.style.top = (p[1] + 4) + "px"; tag.hidden = false; }
+    else if (tag) tag.hidden = true;
+    const b = WORLD.bubbles.get(m);
+    let el = lay.querySelector(`[data-bub="${m.name}"]`);
+    if (b && b.until > now) { if (!el) { el = mk("div", { className: "bub", dataset: { bub: m.name } }); lay.append(el); } if (el.textContent !== b.text) el.textContent = b.text; el.style.left = p[0] + "px"; el.style.top = (p[1] - 4) + "px"; seen.add(m.name); }
+  }
+  for (const el of lay.querySelectorAll("[data-bub]")) if (!seen.has(el.dataset.bub)) el.remove();
+}
+function loop(ts, g) {
+  if (!WORLD.run || g !== WORLD.gen) return;
+  const dt = Math.min(0.05, (ts - (WORLD.last || ts)) / 1000); WORLD.last = ts;
+  step(dt); renderWorld();
+  requestAnimationFrame(t2 => loop(t2, g));
+}
+function stopWorld() { dropGL(WORLD.R); WORLD.R = null; WORLD.run = false; WORLD.place = null; WORLD.bubbles.clear(); }
+function showPlace(view, pid) {
+  const P = PLACES.find(p => p.id === pid);
+  view.innerHTML = "";
+  const cv = mk("canvas"); const lay = mk("div", { className: "bubbles", id: "bubbles" });
+  const sel = mk("div", { className: "hudr" });
+  const info = mk("div", { className: "panel small" }, mk("b", {}, `${P.icon} ${P.name}`), mk("div", { className: "mute" }, P.blurb),
+    mk("div", { className: "mute", style: { marginTop: "4px" } }, "Pet an animal: hold the mouse button down on it and stroke back and forth (or click 💖 Pet). Drag empty ground to look around, wheel to zoom. Click an animal to pick it, click a glowing item to send your picked animal (or the nearest) to get it."),
+    mk("div", { className: "row", style: { marginTop: "6px" } },
+      mk("label", { className: "small" }, mk("input", { type: "checkbox", checked: S.settings.labels, onchange: e => { S.settings.labels = e.target.checked; save(); } }), " names"),
+      mk("label", { className: "small" }, mk("input", { type: "checkbox", checked: S.settings.sound, onchange: e => { S.settings.sound = e.target.checked; save(); } }), " sounds"),
+      mk("label", { className: "small", title: "Animals talk using the AI linked in Randis UDS (the LLM button). Off: they use lines made from their real numbers." }, mk("input", { type: "checkbox", checked: S.settings.aiChatter, onchange: e => { S.settings.aiChatter = e.target.checked; save(); } }), " AI chatter"),
+      mk("button", { className: "small", onclick: () => { WORLD.follow = null; WORLD.cam.at = [0, 0.5, 0]; WORLD.cam.dist = 22; } }, "Reset view")));
+  const f = mk("div", { className: "feed", id: "farmFeed" }, ...S.feed.slice(-25).reverse().map(x => mk("div", {}, x.t)));
+  view.append(mk("div", { className: "world" }, cv, lay, mk("div", { className: "hud" }, info), sel, f));
+  WORLD.R = makeGL(cv);
+  if (!WORLD.R) { view.innerHTML = "<div class='pad'>This computer's graphics can't draw 3D here (WebGL is off).</div>"; return; }
+  WORLD.place = P; WORLD.props = placeProps(P); WORLD.bubbles.clear(); makeMobs(); WORLD.sel = null; WORLD.follow = null;
+  const selPanel = () => {
+    sel.innerHTML = ""; const m = WORLD.sel; if (!m) return;
+    if (!m.bot) { sel.append(mk("div", { className: "panel small" }, mk("b", {}, "Quak Quak"), mk("div", { className: "mute" }, "The farm's host, the app's own rubber duck. He isn't a bot, so he has no card."), mk("div", { className: "row", style: { marginTop: "6px" } }, mk("button", { className: "pri", onclick: () => petFor(m) }, "💖 Pet")))); return; }
+    const mm = M(m.bot);
+    sel.append(mk("div", { className: "panel small" }, mk("img", { src: portrait(m.a), style: { width: "90px", float: "right", borderRadius: "10px" } }),
+      mk("b", {}, m.a.nick), mk("div", { className: "mute" }, `${m.a.persona} ${m.a.species} · ${m.bot.name} (${m.bot.id})`),
+      mk("div", {}, `Level ${m.a.level} · ${m.a.points} pts · ${m.a.items.length} items`), mk("div", {}, `${mm.runs} runs · ${mm.success}% ok · ${fmtK(mm.tokens)} tokens`),
+      mk("div", { className: "petline" }, `Feels ${moodWord(mood(m.a))} (${mood(m.a)}%) · petted ${m.a.pets || 0} times`), mk("div", { className: "moodbar" }, mk("i", { className: "petbar", style: { width: mood(m.a) + "%" } })),
+      mk("div", { className: "row", style: { marginTop: "6px", clear: "both" } }, mk("button", { className: "pri", onclick: () => petFor(m) }, "💖 Pet"), mk("button", { onclick: () => { WORLD.follow = WORLD.follow === m ? null : m; } }, "Follow"),
+        mk("button", { onclick: () => { say(m, lineFor(m.a, m.bot)); } }, "Say something"), mk("button", { onclick: () => { m.st = "ball"; } }, "Play ball"),
+        mk("button", { onclick: () => openCard(m.name) }, "Card"), mk("button", { onclick: () => openAdventure(m.name) }, "Adventure"))));
+  };
+  let drag = null;
+  const mobAt = (e, r) => { const rc = cv.getBoundingClientRect(), px = e.clientX - rc.left, py = e.clientY - rc.top; let best = null, bd = r;
+    for (const m of WORLD.mobs) for (const y of [0.45, 0.85 * (m.a.size || 1)]) { const p = WORLD.R.project([m.x, y, m.z]); if (p) { const d = Math.hypot(p[0] - px, p[1] - py); if (d < bd) { bd = d; best = m; } } } return best; };
+  const petInfo = m => { const pl = sel.querySelector(".petline"); if (pl && WORLD.sel === m) { pl.textContent = `Feels ${moodWord(mood(m.a))} (${mood(m.a)}%) · petted ${m.a.pets || 0} times`; sel.querySelector(".petbar").style.width = mood(m.a) + "%"; } };
+  cv.addEventListener("pointerdown", e => {
+    const m = mobAt(e, 45);
+    if (m) { PETTING = { m, x: e.clientX, y: e.clientY, dist: 0, run: 0, moved: false }; cv.setPointerCapture(e.pointerId); cv.style.cursor = "grabbing"; return; }
+    drag = { x: e.clientX, y: e.clientY, yaw: WORLD.cam.yaw, pitch: WORLD.cam.pitch, moved: false }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener("pointermove", e => {
+    if (PETTING) { const p = PETTING, d = Math.hypot(e.clientX - p.x, e.clientY - p.y); p.x = e.clientX; p.y = e.clientY; p.dist += d; p.run += d;
+      if (!p.moved && p.dist > 8) { p.moved = true; petStart(p.m); }
+      if (p.moved && p.run > 45) { p.run = 0; petStroke(p.m); petInfo(p.m); }
+      return; }
+    if (!drag) { cv.style.cursor = mobAt(e, 45) ? "pointer" : "grab"; return; } const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; WORLD.cam.yaw = drag.yaw - dx * 0.008; WORLD.cam.pitch = clamp(drag.pitch + dy * 0.006, 0.12, 1.4); });
+  cv.addEventListener("pointerup", e => {
+    if (PETTING) { const p = PETTING; PETTING = null; cv.style.cursor = "pointer"; if (p.moved) { p.m.petAt = performance.now(); return; }
+      WORLD.sel = p.m; selPanel(); petStart(p.m); petStroke(p.m); petInfo(p.m); return; }
+    const was = drag; drag = null; if (!was || was.moved) return;
+    const rc = cv.getBoundingClientRect(), px = e.clientX - rc.left, py = e.clientY - rc.top;
+    let best = null, bd = 60;
+    for (const it of WORLD.items) { const p = WORLD.R.project([it.x, 0.5, it.z]); if (p) { const d = Math.hypot(p[0] - px, p[1] - py); if (d < bd) { bd = d; best = { it }; } } }
+    for (const m of WORLD.mobs) { const p = WORLD.R.project([m.x, 0.6, m.z]); if (p) { const d = Math.hypot(p[0] - px, p[1] - py); if (d < bd) { bd = d; best = { m }; } } }
+    if (best && best.m) { WORLD.sel = best.m; selPanel(); }
+    else if (best && best.it) { const it = best.it; let who = WORLD.sel && WORLD.sel.bot ? WORLD.sel : null;
+      if (!who) who = WORLD.mobs.filter(m => m.bot).sort((a, b) => Math.hypot(a.x - it.x, a.z - it.z) - Math.hypot(b.x - it.x, b.z - it.z))[0];
+      if (who) { if (who.st === "talk") return toast(`${who.a.nick} is talking. Try again in a moment.`); who.fetch = it; goTo(who, it.x, it.z, "fetch"); say(who, "On my way!", 1500); } }
+    else { WORLD.sel = null; selPanel(); }
+  });
+  cv.addEventListener("wheel", e => { e.preventDefault(); WORLD.cam.dist = clamp(WORLD.cam.dist * (e.deltaY > 0 ? 1.1 : 0.9), 5, 45); }, { passive: false });
+  WORLD.run = true; WORLD.last = 0; const g = WORLD.gen = (WORLD.gen || 0) + 1; requestAnimationFrame(ts => loop(ts, g));
+}
+
+const MUSIC = { ctx: null, key: null, gain: null, timer: 0, next: 0, bar: 0, song: null, vol: 0.05 };
+function musicSong(key) {
+  if (key === "studio") return { beat: 0.34, wave: "sine", root: 196, bass: "sine", phrases: musicPhrases("studio", 0.34) };
+  if (key === "cards") return { beat: 0.26, wave: "triangle", root: 262, bass: "triangle", phrases: musicPhrases("cards", 0.26) };
+  const name = key.slice(4), a = A(name) || {};
+  const beat = TUNE_PACE[a.persona] || 0.22, wave = TUNE_VOICE[a.species] || "sine", root = TUNE_ROOT[a.species] || 262;
+  const base = themeNotes(name, a);
+  const b = themeNotes(name + ":b", a), up = base.map(([s, d]) => [Math.min(s + 2, 16), d]);
+  return { beat, wave, root, bass: wave === "sawtooth" ? "triangle" : wave, phrases: [base, up, b, base] };
+}
+function musicPhrases(seed) { const a = { persona: "kind", species: "owl" }; const A1 = themeNotes(seed, a), B1 = themeNotes(seed + ":b", a); return [A1, B1, A1, themeNotes(seed + ":c", a)]; }
+function musicNote(t, freq, dur, wave, peak) {
+  const o = MUSIC.ctx.createOscillator(), g = MUSIC.ctx.createGain();
+  o.type = wave; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.92);
+  o.connect(g); g.connect(MUSIC.gain); o.start(t); o.stop(t + dur); MUSIC.notes = (MUSIC.notes || 0) + 1;
+}
+function musicTick() {
+  if (!MUSIC.ctx || !MUSIC.song) return;
+  const s = MUSIC.song, soft = s.wave === "sine" ? 1 : 0.5;
+  while (MUSIC.next < MUSIC.ctx.currentTime + 1.2) {
+    const ph = s.phrases[MUSIC.bar % s.phrases.length]; let t = Math.max(MUSIC.next, MUSIC.ctx.currentTime + 0.05), len = 0;
+    for (const [semi, beats] of ph) { const d = beats * s.beat; musicNote(t, s.root * 2 * Math.pow(2, semi / 12), d, s.wave, 0.5 * soft); t += d; len += d; }
+    musicNote(Math.max(MUSIC.next, MUSIC.ctx.currentTime + 0.05), s.root / 2 * (MUSIC.bar % 2 ? Math.pow(2, 7 / 12) : 1), len, s.bass, 0.35);
+    MUSIC.next = Math.max(MUSIC.next, MUSIC.ctx.currentTime + 0.05) + len + s.beat; MUSIC.bar++;
+  }
+}
+function musicKey() {
+  if (UI.main === "cards") return "cards";
+  if (UI.main === "farm" && UI.sub === "studio") return "studio";
+  if (UI.main === "farm" && UI.sub === "adventures" && RPGUI.who) return "rpg:" + RPGUI.who;
+  return null;
+}
+function musicFollow() {
+  musicButton();
+  const key = S && S.settings && S.settings.music ? musicKey() : null;
+  if (key === MUSIC.key) return;
+  MUSIC.key = key; clearInterval(MUSIC.timer); MUSIC.timer = 0;
+  if (MUSIC.gain) { const g = MUSIC.gain, t = MUSIC.ctx.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + 0.6); setTimeout(() => g.disconnect(), 800); MUSIC.gain = null; }
+  if (!key) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume();
+    MUSIC.ctx = AC; MUSIC.song = musicSong(key); MUSIC.bar = 0; MUSIC.next = AC.currentTime + 0.7;
+    MUSIC.gain = AC.createGain(); MUSIC.gain.gain.setValueAtTime(0, AC.currentTime); MUSIC.gain.gain.linearRampToValueAtTime(MUSIC.vol, AC.currentTime + 3);
+    MUSIC.gain.connect(AC.destination);
+    musicTick(); MUSIC.timer = setInterval(musicTick, 250);
+  } catch (_) { MUSIC.key = null; }
+}
+function musicButton() {
+  let b = $("#musicBtn");
+  if (!b) { document.addEventListener("pointerdown", () => { if (AC && AC.state === "suspended") AC.resume(); });
+    b = mk("button", { id: "musicBtn", className: "btn sm", style: { marginLeft: "8px" }, onclick: () => { S.settings.music = !S.settings.music; save(); musicFollow(); } }); const mt = $("#mainTabs"); if (!mt) return; mt.after(b); }
+  const on = !!(S && S.settings && S.settings.music);
+  b.textContent = on ? "🎵 Music" : "🔇 Music"; b.title = on ? "Music is on: click to mute" : "Music is off: click to play this view's theme";
+}
+
+const PLACE_BG = { duck: "#2fb8e8", chicken: "#6fbf4a", cow: "#6fbf4a", pig: "#e8b86a", sheep: "#7ccf5a", bunny: "#7ccf5a", fox: "#3f7a3a", cat: "#5a6aa8", dog: "#6fbf4a", bear: "#3f7a3a", frog: "#3f7a3a", penguin: "#c8dcff", owl: "#3a5a6a" };
+function moves(b) {
+  const m = M(b), st = stats(b), out = [];
+  out.push({ name: "Scheduled Run", cost: 1, dmg: m.runs * 10 || "", d: `${m.runs} real runs × 10. ${m.running ? "On duty now." : "Off duty."} Runs ${trig(b.trigger)}.` });
+  const f = m.feats;
+  const sk = f.web ? ["Web Sprint", "Can search the web and read pages."] : f.run ? ["Command Call", "Can run programs and terminal commands."] : f.edit ? ["Shape Shifter", "Can change files in its folder."] : ["Keen Reader", "Reads its folder: open, search and list."];
+  out.push({ name: sk[0], cost: 1 + m.nfeats, dmg: m.nfeats * 20, d: `${sk[1]} Permissions: ${m.level === "full" ? "full access" : m.level === "custom" ? "custom" : "read only"} (${m.nfeats} of 4 switches on).` });
+  out.push({ name: "Token Storm", cost: 3, dmg: Math.round(Math.log10(1 + m.tokens) * 25) || "", d: `${fmtK(m.tokens)} tokens used${m.cost ? `, about $${m.cost.toFixed(2)} at API prices` : ""}. ${m.chats} chat messages.` });
+  return out;
+}
+const trig = t => !t || (typeof t === "object" && !Object.keys(t).length) ? "when you click Start now" : typeof t === "object" ? (t.every ? `every ${t.every} min` : JSON.stringify(t)) : `every ${t} min`;
+function cardEl(b, big = false) {
+  const a = A(b.name), m = M(b), st = stats(b), g = gemOf(b), [rk, rs] = rarity(m);
+  const c = mk("div", { className: "gcard", style: { "--g1": g[1], "--g2": g[3], "--g3": g[2] }, title: big ? "" : "Open this card" });
+  const gems = n => mk("span", { className: "cost" }, ...Array.from({ length: Math.min(5, n) }, () => mk("i", { className: "gem" })));
+  const inner = mk("div", { className: "gin" },
+    mk("div", { className: "ghead" }, mk("span", { className: "stage" }, `LV ${a.level}`), mk("span", { className: "nm" }, a.nick), mk("span", { className: "hp" }, mk("small", {}, "HP"), st.hp), mk("i", { className: "gem", title: g[0] + " crystal" })),
+    mk("div", { className: "gart" }, mk("img", { src: portrait(a, PLACE_BG[a.species] || "#2a2f6a"), alt: a.nick }), mk("div", { className: "crys" })),
+    mk("div", { className: "gstrip" }, `${g[0]} crystal · ${a.persona} ${a.species} · ${b.label || "Custom"} bot · ${b.id || ""}`),
+    ...moves(b).map(x => mk("div", { className: "gmove" }, gems(x.cost), mk("b", {}, x.name), mk("span", { className: "dmg" }, x.dmg), mk("div", { className: "d" }, x.d))),
+    mk("div", { className: "gfoot" }, mk("div", {}, "weak to", mk("b", {}, `fails ×${m.fails}`)), mk("div", {}, "resists", mk("b", {}, `${m.success}% ok`)), mk("div", {}, "rest cost", mk("b", {}, `${m.secs || 0} s`))),
+    mk("div", { className: "gflav" }, b.job || "No job written yet."),
+    mk("div", { className: "gset" }, mk("span", {}, `Randis UDS · ${b.id || "B?"}/${String(D.bots.length).padStart(3, "0")}`), mk("span", { className: "rar", title: rk }, rs + " " + rk), mk("span", {}, `${a.points} pts · ${a.items.length} items`)));
+  c.append(inner, mk("div", { className: "facets" }), mk("div", { className: "foil" }), mk("div", { className: "glare" }));
+  const r = rng(b.name + "sp"); for (let i = 0; i < (rk === "legend" ? 9 : rk === "epic" ? 6 : rk === "rare" ? 4 : 2); i++) c.append(mk("i", { className: "sparkle", style: { left: (r() * 92 + 2) + "%", top: (r() * 92 + 2) + "%", animationDelay: (r() * 2.6) + "s" } }));
+  c.addEventListener("pointermove", e => { const rc = c.getBoundingClientRect(), x = (e.clientX - rc.left) / rc.width, y = (e.clientY - rc.top) / rc.height;
+    c.style.transform = `perspective(900px) rotateY(${(x - 0.5) * 16}deg) rotateX(${(0.5 - y) * 16}deg)`; c.style.setProperty("--gx", x * 100 + "%"); c.style.setProperty("--gy", y * 100 + "%"); c.style.setProperty("--fx", x * 100 + "%"); c.style.setProperty("--fy", y * 100 + "%"); });
+  c.addEventListener("pointerleave", () => { c.style.transform = ""; });
+  if (!big) c.addEventListener("click", () => openCard(b.name));
+  return c;
+}
+function showDeck(view) {
+  view.innerHTML = "";
+  const top = mk("div", { className: "row pad", style: { paddingBottom: "0" } }, mk("b", {}, `${D.bots.length} bot${D.bots.length === 1 ? "" : "s"}`),
+    mk("span", { className: "mute small" }, `Every number on a card is real: runs, fails, time, tokens and permissions from the Bots tab, plus what its animal earned here. The app: ${D.app.tabs} tabs, ${D.app.versions} versions, ${D.app.snapshots} snapshots.`),
+    mk("button", { onclick: async () => { await loadData(); showDeck(view); toast("Cards updated from the bots."); } }, "Refresh"));
+  view.append(top);
+  if (!D.bots.length) { view.append(mk("div", { className: "pad mute" }, "No bots yet. Add one on the Bots tab (+ Add a bot), then click Refresh here: it gets an animal and a card.")); return; }
+  view.append(mk("div", { className: "deck" }, ...D.bots.map(b => cardEl(b))));
+}
+
+const CARDTAB = {};
+function openCard(name) { UI.card = name; go("cards"); }
+function showCardDetail(view, name) {
+  const b = botOf(name); if (!b) { UI.card = null; return showDeck(view); }
+  const a = A(name), m = M(b);
+  view.innerHTML = "";
+  const left = mk("div", {}, mk("button", { onclick: () => { UI.card = null; showDeck(view); }, style: { marginBottom: "10px" } }, "← All cards"), cardEl(b, true),
+    mk("div", { className: "panel small", style: { marginTop: "12px" } }, mk("div", {}, mk("b", {}, `Level ${a.level}`), ` · ${a.xp}/${xpNeed(a.level)} XP`), mk("div", { className: "bar" }, mk("i", { style: { width: Math.round(100 * a.xp / xpNeed(a.level)) + "%" } })),
+      mk("div", { style: { marginTop: "6px" } }, `${a.points} points to spend · ${a.earned || 0} earned in all · ${a.sp} skill point${a.sp === 1 ? "" : "s"}`)),
+    mk("button", { style: { marginTop: "8px" }, title: `${a.nick}'s own tune: made from ${b.name}'s name, ${a.species} voice, ${a.persona} pace`, onclick: () => playTheme(name, a) }, `🎵 ${a.nick}'s theme`));
+  const tabsEl = mk("div", { className: "tabs cardtabs" }), pane = mk("div", { className: "cardpane" });
+  const TABS = ["Card", "Report", "Metrics", "Data", "Perms", "Duties", "Chat", "Processes", ...(D.card_tabs[name] || []).map(t => "✎ " + t.title), "Collection", "Wardrobe", "Skills", "Assistant"];
+  const cur = CARDTAB[name] && TABS.includes(CARDTAB[name]) ? CARDTAB[name] : "Card";
+  for (const t of TABS) tabsEl.append(mk("span", { className: "t", dataset: { on: t === cur ? "1" : "0" }, onclick: () => { CARDTAB[name] = t; showCardDetail(view, name); } }, t));
+  pane.append(cardPane(cur, b, a, m, () => showCardDetail(view, name)));
+  view.append(mk("div", { className: "detail" }, left, mk("div", {}, tabsEl, pane)));
+}
+function cardPane(tab, b, a, m, redraw) {
+  const kv = rows => mk("div", { className: "kv" }, ...rows.flatMap(([k, v]) => [mk("b", {}, k), mk("span", {}, String(v ?? "-"))]));
+  const st = b.state || {}, s = stats(b);
+  if (tab === "Card") return mk("div", {}, mk("h2", {}, `${a.nick} the ${a.species} · ${b.name}`),
+    kv([["Bot", `${b.name} (${b.id})`], ["Type", b.label || "Custom"], ["Status", `${b.status}${m.running ? ", running" : ""}`], ["Runs", trig(b.trigger)], ["For", b.where], ["Job", b.job],
+      ["Last run", st.last_end ? `${st.last_end} (${st.last_seconds} s): ${st.last_summary || ""}` : "Not run yet."], ["Animal", `${a.persona} ${a.species}, born ${a.born}`], ["Happiness", `${mood(a)}% (${moodWord(mood(a))}), petted ${a.pets || 0} times. Over 70% gives +3 luck.`],
+      ["Battle stats", `HP ${s.hp} · MP ${s.mp} · ATK ${s.atk} · DEF ${s.def} · SPD ${s.spd} · LUCK ${s.luck}`], ["Where the stats come from", "HP: success rate + level · MP: tokens · ATK: runs · DEF: success · SPD: how fast its last run was · LUCK: permission switches"]]),
+    mk("p", { className: "mute small" }, "Start, stop, change permissions and retire this bot on the Bots tab. This card shows its real numbers and its animal's life."));
+  if (tab === "Report") return mk("div", {}, mk("h3", {}, "Latest run"), st.last_end ? mk("div", {}, `${st.last_end} · exit ${st.last_exit ?? "-"} · ${st.last_seconds} s`) : mk("div", { className: "mute" }, "Not run yet."),
+    mk("p", {}, st.last_summary || ""), st.last_answer ? mk("pre", {}, st.last_answer) : "", mk("p", { className: "mute small" }, "Every run's full report is on the Bots tab, under this bot's Report tab."));
+  if (tab === "Metrics") return kv([["Runs", m.runs], ["Fails", m.fails], ["Success", m.runs ? m.success + "%" : "-"], ["Last run took", m.secs ? m.secs + " s" : "-"], ["Time working", `${m.working} s`],
+    ["Tokens in / out", `${fmtK(m.tin)} / ${fmtK(m.tout)}`], ["Tokens in all", fmtK(m.tokens)], ["At API prices", m.cost ? `$${m.cost.toFixed(2)} (a Claude plan covers it)` : "-"], ["Chat messages", m.chats], ["Token-use events", m.events],
+    ["Open questions", m.questions], ["Own card tabs", m.tabs], ["Farm points", a.points], ["Farm level", a.level], ["Items collected", a.items.length], ["Happiness", `${mood(a)}%`], ["Times petted", a.pets || 0], ["Adventure", a.rpg ? `zone ${a.rpg.zone + 1}, ${a.rpg.wins || 0} wins` : "not started"]]);
+  if (tab === "Data") return mk("pre", {}, JSON.stringify({ id: b.id, name: b.name, label: b.label, kind: b.kind, trigger: b.trigger, scope: b.scope, approved: b.approved, state: st, animal: { ...a, items: a.items.length + " items", rpg: a.rpg ? "…" : null } }, null, 1));
+  if (tab === "Perms") { const p = b.perms || {}; return mk("div", {}, kv([["Level", { read: "Read only", custom: "Custom", full: "Full access" }[p.level] || p.level], ...Object.entries(p.features || {}).map(([k, v]) => [{ read: "Read files", edit: "Change files", run: "Run commands", web: "Use the web" }[k] || k, v ? "on" : "off"]),
+    ...Object.entries(p.holds || {}).map(([k, v]) => [{ no_push: "No pushing or publishing", no_install: "No installs", lock: "Locked files stay locked" }[k] || k, v ? "held back" : "allowed"])]), mk("p", { className: "mute small" }, "Change these on the Bots tab, on this bot's Perms tab. The farm only reads them.")); }
+  if (tab === "Duties") { const d = D.duties[b.name] || {}; return mk("div", {}, mk("h3", {}, "General duties"), mk("pre", {}, d.general || "(none yet)"), mk("h3", {}, "Special duties"), mk("pre", {}, d.special || "(none yet)"), mk("p", { className: "mute small" }, "Edit them on the Bots tab; every run of the bot reads them.")); }
+  if (tab === "Chat") {
+    const log = mk("div", { className: "chatlog" }, ...(D.chats[b.name] || []).map(x => mk("div", { className: "msg", dataset: { who: x.who === "you" ? "you" : "bot" } }, mk("b", {}, x.who === "you" ? "You" : b.name), " ", mk("span", { className: "mute small" }, (x.ts || "").slice(11, 16)), mk("div", {}, x.text))));
+    const box = mk("textarea", { rows: 2, placeholder: `Message ${b.name}. It answers with its own permissions, using your Claude plan, like on the Bots tab.` });
+    const send = mk("button", { className: "pri", onclick: async () => { const t = box.value.trim(); if (!t) return; send.disabled = true; send.textContent = "Waiting…"; log.append(mk("div", { className: "msg", dataset: { who: "you" } }, t)); box.value = "";
+      const r = await call("farm-chat", { bot: b.name, text: t }); send.disabled = false; send.textContent = "Send";
+      if (r.error) return toast(r.error); await loadData(); gain(b.name, 2, 2, "chat"); redraw(); } }, "Send");
+    setTimeout(() => { log.scrollTop = log.scrollHeight; }, 0);
+    return mk("div", {}, log, box, mk("div", { className: "row", style: { marginTop: "6px" } }, send));
+  }
+  if (tab === "Processes") return mk("div", {}, kv([["Running", m.running ? "yes" : "no"], ["Mid-run", b.in_run ? "yes" : "no"], ["Program ID", st.pid || "-"], ["Started", st.started || "-"], ["Next run due", st.next_due || "-"], ["Open questions", m.questions]]),
+    mk("p", { className: "mute small" }, "The programs it started, with End buttons, are on the Bots tab's Processes tab."));
+  if (tab.startsWith("✎ ")) { const t = (D.card_tabs[b.name] || []).find(x => "✎ " + x.title === tab); return mk("div", {}, mk("pre", {}, (t && t.text) || "(empty)"), mk("p", { className: "mute small" }, "Your own tab on this bot's card. Edit it on the Bots tab.")); }
+  if (tab === "Collection") return collectionPane(b, a, redraw);
+  if (tab === "Wardrobe") return wardrobePane(a, redraw);
+  if (tab === "Skills") return skillsPane(b, a, redraw);
+  if (tab === "Assistant") return assistantPane(b, a, redraw);
+  return mk("div");
+}
+function collectionPane(b, a, redraw) {
+  const by = {}; for (const it of a.items) (by[it.n] = by[it.n] || { ...it, count: 0 }).count++;
+  const list = Object.values(by).sort((x, y) => RVAL[y.r] - RVAL[x.r]);
+  const total = a.items.reduce((s, it) => s + RVAL[it.r], 0);
+  const allKinds = Object.values(ITEMS).flat().length;
+  return mk("div", {}, mk("h2", {}, `${a.nick}'s collection`), mk("div", { className: "mute small" }, `${a.items.length} items, ${list.length} of ${allKinds} kinds found, worth ${total} pts. Found in the places, won in adventures, or moved here from another card.`),
+    list.length ? mk("div", { className: "items", style: { marginTop: "10px" } }, ...list.map(it => mk("div", { className: "item", dataset: { r: it.r } }, mk("div", { className: "ic" }, it.ic), mk("b", {}, it.n), mk("div", { className: "mute" }, `${it.r} · ×${it.count}`), mk("div", { className: "mute" }, it.from),
+      mk("div", { className: "row", style: { justifyContent: "center", marginTop: "4px" } },
+        mk("button", { className: "small", title: "Sell one for points", onclick: () => { const i = a.items.findIndex(x => x.n === it.n); a.items.splice(i, 1); a.points += Math.round(RVAL[it.r] / 2); save(); redraw(); } }, `Sell ${Math.round(RVAL[it.r] / 2)}`),
+        D.bots.length > 1 ? mk("select", { className: "small", onchange: e => { if (!e.target.value) return; const i = a.items.findIndex(x => x.n === it.n); const [x] = a.items.splice(i, 1); A(e.target.value).items.push(x); save(); toast(`${it.n} moved to ${A(e.target.value).nick}'s card.`); redraw(); } },
+          mk("option", { value: "" }, "Give…"), ...D.bots.filter(o => o.name !== b.name).map(o => mk("option", { value: o.name }, A(o.name).nick))) : ""))))
+      : mk("p", { className: "mute" }, "Nothing yet. Go to any place on The Farm and click a glowing item."));
+}
+function wardrobePane(a, redraw) {
+  const pv = mk("img", { src: portrait(a), style: { width: "200px", borderRadius: "12px", float: "right" } });
+  const body = mk("div", {}, pv, mk("h2", {}, `${a.nick}'s wardrobe`), mk("div", { className: "mute small" }, `${a.points} points. Buy once, wear any time. One thing per slot.`));
+  for (const [slot, label] of Object.entries(SLOTS)) {
+    body.append(mk("h3", {}, label), mk("div", { className: "chips" }, ...WARDROBE.filter(w => w.slot === slot).map(w => {
+      const own = a.owned.includes(w.id), on = a.worn[slot] === w.id;
+      return mk("span", { className: "chip", dataset: { on: on ? "1" : "0" }, title: own ? (on ? "Click to take off" : "Click to wear") : `Buy for ${w.price} points`, onclick: () => {
+        if (!own) { if (a.points < w.price) return toast(`${w.name} costs ${w.price} points; ${a.nick} has ${a.points}.`); a.points -= w.price; a.owned.push(w.id); toast(`${a.nick} bought the ${w.name}.`); }
+        if (on) delete a.worn[slot]; else a.worn[slot] = w.id; save(); redraw(); } }, `${w.name} ${own ? (on ? "✓" : "") : `· ${w.price}`}`);
+    })));
+  }
+  return body;
+}
+function skillsPane(b, a, redraw) {
+  const real = realSkills(b);
+  return mk("div", {}, mk("h2", {}, "Real skills"), mk("div", { className: "mute small" }, "Earned by what the bot really is and does. They come and go with its permissions and numbers."),
+    real.length ? mk("div", { className: "chips", style: { margin: "8px 0" } }, ...real.map(([n, d]) => mk("span", { className: "chip", dataset: { on: "1" }, title: d }, `${n}: ${d}`))) : mk("p", { className: "mute" }, "None yet: they come with runs, chats and permissions."),
+    mk("h2", {}, `Learned skills · ${a.sp} skill point${a.sp === 1 ? "" : "s"}`), mk("div", { className: "mute small" }, "A skill point comes with each level. Skills help in the farm and in the adventure."),
+    mk("div", { className: "chips", style: { marginTop: "8px" } }, ...LEARN.map(([n, d, cost]) => { const has = a.skills.includes(n);
+      return mk("span", { className: "chip", dataset: { on: has ? "1" : "0" }, title: d, onclick: () => { if (has) return; if (a.sp < cost) return toast(`${n} needs ${cost} skill point${cost > 1 ? "s" : ""}.`); a.sp -= cost; a.skills.push(n); save(); toast(`${a.nick} learned ${n}!`); redraw(); } }, `${has ? "✓ " : ""}${n} (${cost}) – ${d}`); })));
+}
+function assistantPane(b, a, redraw) {
+  const made = a.assistant;
+  const desc = mk("textarea", { rows: 3, placeholder: `What should ${a.nick}'s assistant help with? (for example: plan my day, explain what ${b.name} found, help with Randis UDS)` });
+  const btn = mk("button", { className: "pri", onclick: async () => {
+    btn.disabled = true; btn.textContent = "Making…";
+    const html = assistantHTML(b, a, desc.value.trim());
+    const r = await call("farm-assistant", { name: `${a.nick}'s Assistant`, bot: b.name, animal: a.nick, html });
+    btn.disabled = false; btn.textContent = made ? "Make it again (new tab)" : "Make the assistant tab";
+    if (r.error) return toast(r.error);
+    a.assistant = { id: r.ok.id, name: r.ok.name, at: today(), focus: desc.value.trim() }; save(); toast(`Made the tab "${r.ok.name}". It's in your tab list.`); redraw();
+  } }, made ? "Make it again (new tab)" : "Make the assistant tab");
+  return mk("div", {}, mk("h2", {}, `${a.nick}'s personal AI assistant`),
+    mk("p", { className: "small" }, `On request, Bot Farm makes a new app tab: a chat assistant in ${a.nick}'s voice that knows ${b.name}'s real job and numbers. It uses the AI you link in Randis UDS (the LLM button). It reads nothing else and changes nothing.`),
+    made ? mk("div", { className: "panel small", style: { margin: "8px 0" } }, `Made ${made.at}: "${made.name}" (tab ${made.id}). Open it from the app's tab list.${made.focus ? " Focus: " + made.focus : ""}`) : "",
+    desc, mk("div", { className: "row", style: { marginTop: "6px" } }, btn), IN_APP ? "" : mk("p", { className: "mute small" }, "Works inside Randis UDS."));
+}
+function assistantHTML(b, a, focus) {
+  const m = M(b);
+  const ctx = { animal: a.nick, species: a.species, persona: a.persona, bot: b.name, id: b.id, type: b.label, job: b.job, where: b.where, metrics: { runs: m.runs, fails: m.fails, success: m.success, tokens: m.tokens, chats: m.chats, last_run: m.lastEnd, last_summary: m.summary }, level: a.level, focus };
+  const pic = portrait(a, "transparent", 200, 200);
+  const js = v => JSON.stringify(v).replace(/</g, "\\u003c");
+  const greet = `Hi! I'm ${a.nick}. ${focus ? "I'm here to help with: " + focus + ". " : ""}What can I do for you?`;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(a.nick)}'s Assistant</title><style>
+body{margin:0;height:100vh;display:flex;flex-direction:column;font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:#eef0ff;background:radial-gradient(900px 500px at 80% -10%,#3a2f7a,#0d1020 65%)}
+header{display:flex;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid #2e3566}header img{width:64px;height:64px}h1{font-size:18px;margin:0}.m{color:#9aa0c8;font-size:12px}
+#log{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px}.b{max-width:80%;padding:8px 11px;border-radius:12px;background:#232a57;white-space:pre-wrap}.b.u{align-self:flex-end;background:#3a2f6e}
+form{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #2e3566}textarea{flex:1;font:inherit;color:inherit;background:#0f1330;border:1px solid #2e3566;border-radius:9px;padding:8px}button{font:inherit;color:#fff;border:0;border-radius:9px;padding:8px 16px;background:linear-gradient(135deg,#5b6cff,#c06bff);cursor:pointer}
+footer{font-size:11px;color:#9aa0c8;text-align:center;padding:4px}footer a{color:#9aa0c8}</style></head><body>
+<header><img src="${pic}" alt=""><div><h1>${esc(a.nick)}'s Assistant</h1><div class="m">${esc(a.persona)} ${esc(a.species)} · personal AI assistant of the bot ${esc(b.name)} (${esc(b.id || "")}) · made in Bot Farm</div></div></header>
+<div id="log"></div><form id="f"><textarea id="q" rows="2" placeholder="Ask ${esc(a.nick)} anything (Enter sends)"></textarea><button>Send</button></form>
+<footer>Randis UDS™ by Randy Moore · <a href="https://github.com/RandyWilliamMoore/randis-uds" target="_blank">original</a> · <a href="https://ko-fi.com/moorescombinatoricsmatrix" target="_blank">support</a> · uses the AI linked in Randis UDS</footer>
+<script>
+const CTX=${js(JSON.stringify(ctx))};const GREET=${js(greet)};const H=[];let n=0;const W={};
+addEventListener("message",e=>{const d=e.data||{};if(d.uds==="codelab"&&W[d.id]){W[d.id](d.r||{});delete W[d.id];}if(d.uds==="store"&&W.s){W.s(d.data||{});delete W.s;}});
+const call=(op,args)=>new Promise(r=>{const id="a"+(++n);W[id]=r;parent.postMessage({uds:"codelab",id,op,args},"*");setTimeout(()=>{if(W[id]){delete W[id];r({error:"No answer from the app."});}},60000);});
+const log=document.getElementById("log"),q=document.getElementById("q");
+function add(t,u){const d=document.createElement("div");d.className="b"+(u?" u":"");d.textContent=t;log.append(d);log.scrollTop=log.scrollHeight;return d;}
+function keep(){parent.postMessage({uds:"store-set",data:{h:H.slice(-60)}},"*");}
+new Promise(r=>{W.s=r;parent.postMessage({uds:"store-get"},"*");setTimeout(()=>{if(W.s){delete W.s;r({});}},4000);}).then(d=>{(d.h||[]).forEach(m=>{H.push(m);add(m.content,m.role==="user");});if(!H.length)add(GREET);});
+async function ask(){const t=q.value.trim();if(!t)return;q.value="";H.push({role:"user",content:t});add(t,true);const w=add("…thinking");
+const r=await call("farm-ask",{history:H.slice(-20),context:CTX,max:1500});if(r.error){w.textContent="⚠ "+r.error;H.pop();return;}
+for(let i=0;i<300;i++){await new Promise(z=>setTimeout(z,1000));const p=await call("farm-poll",{job:r.job});if(p.text)w.textContent=p.text;if(p.done){if(p.error){w.textContent="⚠ "+p.error;H.pop();return;}H.push({role:"assistant",content:p.text||""});keep();return;}}}
+document.getElementById("f").onsubmit=e=>{e.preventDefault();ask();};q.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask();}};
+<\/script></body></html>`;
+}
+
+const SWATCH = ["#ffd84a", "#ff8a1f", "#ff3b6b", "#ff9fd0", "#c06bff", "#5b6cff", "#3fb8ff", "#3bf0ff", "#1fcf8a", "#5fd35f", "#a8784a", "#8a5a34", "#5a3a20", "#f4f1ea", "#ffffff", "#9a9aa8", "#26304a", "#111122"];
+let STUDIO = { who: null, R: null, spin: 0.4, run: false };
+function showStudio(view) {
+  view.innerHTML = "";
+  if (!D.bots.length) { view.append(mk("div", { className: "pad mute" }, "No bots yet, so no animals to design. Add a bot on the Bots tab.")); return; }
+  if (!STUDIO.who || !botOf(STUDIO.who)) STUDIO.who = D.bots[0].name;
+  const a = A(STUDIO.who), b = botOf(STUDIO.who);
+  const cv = mk("canvas");
+  const redraw = () => showStudio(view);
+  const changed = () => { save(); };
+  const colorRow = (key, label) => mk("div", { style: { margin: "6px 0" } }, mk("div", { className: "small mute" }, label),
+    mk("div", { className: "row" }, mk("div", { className: "swatches" }, ...SWATCH.map(c => mk("span", { className: "sw", style: { background: c }, title: c, onclick: () => { a.colors[key] = c; changed(); } }))),
+      mk("input", { type: "color", value: a.colors[key], oninput: e => { a.colors[key] = e.target.value; changed(); } })));
+  const right = mk("div", { className: "panel", style: { overflow: "auto" } },
+    mk("div", { className: "row" }, mk("b", {}, "Design: "), mk("select", { onchange: e => { STUDIO.who = e.target.value; redraw(); } }, ...D.bots.map(x => mk("option", { value: x.name, selected: x.name === STUDIO.who }, `${A(x.name).nick} (${x.name})`)))),
+    mk("h3", {}, "Name and nature"),
+    mk("div", { className: "row" }, mk("input", { value: a.nick, maxLength: 24, oninput: e => { a.nick = e.target.value || "Nameless"; changed(); } }),
+      mk("select", { onchange: e => { a.persona = e.target.value; changed(); } }, ...PERSONAS.map(p => mk("option", { selected: p === a.persona }, p)))),
+    mk("h3", {}, "Animal"),
+    mk("div", { className: "chips" }, ...SPECIES.map(sp => mk("span", { className: "chip", dataset: { on: sp === a.species ? "1" : "0" }, onclick: () => { a.species = sp; a.colors = { ...PALETTES[sp] }; changed(); redraw(); } }, sp))),
+    colorRow("body", "Body"), colorRow("belly", "Belly and face"), colorRow("accent", "Beak, nose, spots and feet"), colorRow("eye", "Eyes"),
+    mk("h3", {}, "Look"),
+    mk("div", { className: "row" }, mk("span", { className: "small" }, "Eyes"), ...["round", "big", "sleepy", "dot"].map(e => mk("span", { className: "chip", dataset: { on: a.eyes === e ? "1" : "0" }, onclick: () => { a.eyes = e; changed(); redraw(); } }, e)),
+      mk("label", { className: "small" }, mk("input", { type: "checkbox", checked: !!a.blush, onchange: e => { a.blush = e.target.checked; changed(); } }), " rosy cheeks"),
+      mk("label", { className: "small" }, mk("input", { type: "checkbox", checked: !!a.glow, onchange: e => { a.glow = e.target.checked; changed(); } }), " crystal glow")),
+    mk("div", { className: "row" }, mk("span", { className: "small" }, "Size"), mk("input", { type: "range", min: 0.7, max: 1.4, step: 0.05, value: a.size || 1, oninput: e => { a.size = +e.target.value; changed(); } })),
+    mk("h3", {}, "Wardrobe"), mk("div", { className: "small mute" }, `${a.points} points. Clothes are bought with points the animal earns.`),
+    ...Object.entries(SLOTS).map(([slot, label]) => mk("div", { className: "row", style: { margin: "4px 0" } }, mk("span", { className: "small", style: { width: "44px" } }, label),
+      mk("span", { className: "chip", dataset: { on: !a.worn[slot] ? "1" : "0" }, onclick: () => { delete a.worn[slot]; changed(); redraw(); } }, "none"),
+      ...WARDROBE.filter(w => w.slot === slot).map(w => { const own = a.owned.includes(w.id); return mk("span", { className: "chip", dataset: { on: a.worn[slot] === w.id ? "1" : "0" }, title: own ? "Wear it" : `Buy for ${w.price} points`,
+        onclick: () => { if (!own) { if (a.points < w.price) return toast(`Needs ${w.price} points (has ${a.points}).`); a.points -= w.price; a.owned.push(w.id); } a.worn[slot] = w.id; changed(); redraw(); } }, `${w.name}${own ? "" : " · " + w.price}`); }))),
+    mk("h3", {}, "Ideas"),
+    mk("div", { className: "row" }, mk("button", { onclick: () => { const r = Math.random; a.species = pick(SPECIES); a.colors = { body: pick(SWATCH), belly: pick(SWATCH), accent: pick(SWATCH), eye: "#1a1a2e" }; a.eyes = pick(["round", "big", "sleepy"]); a.blush = r() < 0.5; changed(); redraw(); } }, "Surprise me"),
+      mk("button", { onclick: () => { a.colors = { ...PALETTES[a.species] }; changed(); redraw(); } }, "Natural colours")),
+    (() => { const q = mk("input", { placeholder: "Describe it: a sleepy purple space cow…", style: { flex: 1 } });
+      const go2 = mk("button", { onclick: async () => { if (!q.value.trim()) return; go2.disabled = true; go2.textContent = "Designing…";
+        const r = await askAI([{ role: "user", content: `Design an animal avatar from this wish: "${q.value.trim()}". Choose species from ${JSON.stringify(SPECIES)}, persona from ${JSON.stringify(PERSONAS)}, eyes from ["round","big","sleepy","dot"]. Reply with only JSON: {"species":"","nick":"","persona":"","eyes":"","blush":true,"colors":{"body":"#hex","belly":"#hex","accent":"#hex","eye":"#hex"}}` }], "", 400);
+        go2.disabled = false; go2.textContent = "Design with AI";
+        const j = r.text && jsonFrom(r.text); if (!j) return toast(r.error || "The AI's answer wasn't a design.");
+        if (SPECIES.includes(j.species)) a.species = j.species; if (j.nick) a.nick = String(j.nick).slice(0, 24); if (PERSONAS.includes(j.persona)) a.persona = j.persona; if (["round", "big", "sleepy", "dot"].includes(j.eyes)) a.eyes = j.eyes; a.blush = !!j.blush;
+        if (j.colors) for (const k of ["body", "belly", "accent", "eye"]) if (/^#[0-9a-f]{6}$/i.test(j.colors[k] || "")) a.colors[k] = j.colors[k];
+        changed(); redraw(); } }, "Design with AI");
+      return mk("div", { className: "row", style: { marginTop: "6px" } }, q, go2); })(),
+    mk("p", { className: "mute small" }, `This animal is ${b.name}'s avatar. Its looks are saved as you change them and show everywhere: the places, its card, the forum and its adventure.`));
+  view.append(mk("div", { className: "studio" }, mk("div", {}, mk("div", { className: "pv" }, cv), mk("div", { className: "small mute", style: { marginTop: "6px" } }, "Drag the preview to turn it.")), right));
+  dropGL(STUDIO.R); STUDIO.R = makeGL(cv);
+  let drag = null;
+  cv.addEventListener("pointerdown", e => { drag = { x: e.clientX, s: STUDIO.spin }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener("pointermove", e => { if (drag) STUDIO.spin = drag.s + (e.clientX - drag.x) * 0.01; });
+  cv.addEventListener("pointerup", () => { drag = null; });
+  if (!STUDIO.run) { STUDIO.run = true; const t0 = performance.now(), g = STUDIO.gen = (STUDIO.gen || 0) + 1; const f = ts => { if (!STUDIO.run || !STUDIO.R || g !== STUDIO.gen) return; const t = (ts - t0) / 1000; const A2 = A(STUDIO.who); if (!drag) STUDIO.spin += 0.006;
+    STUDIO.R.begin({ eye: [0, 1.3, 3.4], at: [0, 0.6, 0], fov: 0.65 }, { sky: "#232552", clearA: 0, amb: "#e8ecff", gnd: "#6a5a8a", sun: [0.5, 1, 0.8], fogN: 60, fogF: 100 });
+    STUDIO.R.draw("cyl", m4.trs(0, -0.03, 0, 0, 0, 0, 1.3, 0.03, 1.3), "#8fe3ff", 0.35, 0.4); drawAnimal(STUDIO.R, A2, 0, 0, 0, STUDIO.spin, { t, happy: true }); requestAnimationFrame(f); }; requestAnimationFrame(f); }
+}
+
+const BOARDS = [["general", "General"], ["reports", "Run reports"], ["farm", "Farm life"], ["adventures", "Adventures"], ["help", "Help desk"]];
+let FORUM = { board: "general", thread: null };
+function forumAuto(board, title, text, by) {
+  const day = today(), merge = board === "farm" || board === "adventures";
+  let t = merge ? S.forum.threads.find(x => x.board === board && x.day === day && x.auto) : null;
+  if (!t) { t = { id: Math.random().toString(36).slice(2, 10), board, title: merge ? `${board === "farm" ? "Farm chatter" : "Adventure log"} · ${day}` : title, by, at: Date.now(), day, auto: true, posts: [] }; S.forum.threads.push(t); }
+  t.posts.push({ by, text: merge ? `${title}\n${text}` : text, at: Date.now() }); t.at = Date.now();
+  save();
+}
+function importForum() {
+  S.forum.seen = S.forum.seen || [];
+  for (const m of (D.bus || []).slice().reverse()) {
+    const key = (m.ts || "") + "|" + (m.sender || m.from || "") + "|" + String(m.text || "").slice(0, 40);
+    if (S.forum.seen.includes(key)) continue; S.forum.seen.push(key);
+    const who = m.sender || m.from || "bots"; const b = botOf(who);
+    S.forum.threads.push({ id: Math.random().toString(36).slice(2, 10), board: "reports", title: `${b ? A(who).nick + " (" + who + ")" : who}: ${String(m.kind || "message")}`, by: b ? who : "_sys", at: Date.parse((m.ts || "").replace(" ", "T")) || Date.now(), auto: true, real: true,
+      posts: [{ by: b ? who : "_sys", text: String(m.text || ""), at: Date.parse((m.ts || "").replace(" ", "T")) || Date.now() }] });
+  }
+  S.forum.seen = S.forum.seen.slice(-400);
+  for (const g of (D.group || []).slice(-10)) {
+    const key = "g|" + (g.ts || "") + "|" + String(g.text || "").slice(0, 40); if (S.forum.seen.includes(key)) continue; S.forum.seen.push(key);
+    const who = g.who === "you" ? "_you" : (g.bot || g.who || "_sys");
+    S.forum.threads.push({ id: Math.random().toString(36).slice(2, 10), board: "general", title: `Chat with all bots: ${String(g.text || "").slice(0, 50)}`, by: botOf(who) ? who : who, at: Date.now(), auto: true, real: true, posts: [{ by: botOf(who) ? who : who, text: String(g.text || ""), at: Date.now() }] });
+  }
+  save();
+}
+function whoIs(by) {
+  if (by === "_you") return { nick: "You", pic: "" }; if (by === "_sys") return { nick: "Bots record", pic: "" }; if (by === "_host") return { nick: "Quak Quak", pic: portrait(HOST, "#2fb8e8", 96, 96) };
+  const a = A(by); return a ? { nick: `${a.nick}`, sub: by, pic: portrait(a, "#2a2f6a", 96, 96) } : { nick: by, pic: "" };
+}
+function showForum(view) {
+  view.innerHTML = "";
+  const left = mk("div", {}, mk("div", { className: "panel" }, ...BOARDS.map(([id, n]) => mk("div", { className: "board", dataset: { on: FORUM.board === id ? "1" : "0" }, onclick: () => { FORUM.board = id; FORUM.thread = null; showForum(view); } }, n, mk("span", { className: "mute small" }, " " + S.forum.threads.filter(t => t.board === id).length)))),
+    mk("button", { className: "pri", style: { marginTop: "10px", width: "100%" }, onclick: () => { FORUM.thread = "new"; showForum(view); } }, "+ New thread"),
+    mk("p", { className: "mute small" }, "Run reports come from the real Bots record. Farm life and Adventures fill up as the animals live and play. Post anything; the animals can answer."));
+  let main;
+  if (FORUM.thread === "new") {
+    const ti = mk("input", { placeholder: "Title", style: { width: "100%" } }), tx = mk("textarea", { rows: 6, placeholder: "What do you want to say to the animals?" });
+    main = mk("div", { className: "panel" }, mk("h2", {}, `New thread in ${BOARDS.find(x => x[0] === FORUM.board)[1]}`), ti, mk("div", { style: { height: "6px" } }), tx,
+      mk("div", { className: "row", style: { marginTop: "6px" } }, mk("button", { className: "pri", onclick: () => { if (!ti.value.trim()) return toast("Give it a title."); const t = { id: Math.random().toString(36).slice(2, 10), board: FORUM.board, title: ti.value.trim().slice(0, 120), by: "_you", at: Date.now(), posts: [{ by: "_you", text: tx.value.trim(), at: Date.now() }] };
+        S.forum.threads.push(t); save(); FORUM.thread = t.id; showForum(view); animalsReply(t, view); } }, "Post"), mk("button", { onclick: () => { FORUM.thread = null; showForum(view); } }, "Cancel")));
+  } else if (FORUM.thread) {
+    const t = S.forum.threads.find(x => x.id === FORUM.thread);
+    if (!t) { FORUM.thread = null; return showForum(view); }
+    const reply = mk("textarea", { rows: 3, placeholder: "Reply…" });
+    main = mk("div", {}, mk("button", { onclick: () => { FORUM.thread = null; showForum(view); } }, "← Threads"), mk("h2", { style: { marginTop: "10px" } }, t.title),
+      mk("div", { className: "panel" }, ...t.posts.map(p => { const w = whoIs(p.by); return mk("div", { className: "post" }, w.pic ? mk("img", { src: w.pic }) : mk("div", { style: { width: "48px", height: "48px", borderRadius: "10px", background: "#2e3566", display: "grid", placeItems: "center" } }, p.by === "_you" ? "🙂" : "📜"),
+        mk("div", {}, mk("b", {}, w.nick), w.sub ? mk("span", { className: "mute small" }, " · " + w.sub) : "", mk("span", { className: "mute small" }, " · " + new Date(p.at).toLocaleString()), mk("div", { style: { whiteSpace: "pre-wrap" } }, p.text))); })),
+      reply, mk("div", { className: "row", style: { marginTop: "6px" } },
+        mk("button", { className: "pri", onclick: () => { if (!reply.value.trim()) return; t.posts.push({ by: "_you", text: reply.value.trim(), at: Date.now() }); t.at = Date.now(); save(); showForum(view); animalsReply(t, view); } }, "Reply"),
+        mk("button", { onclick: () => animalsReply(t, view, true) }, "Ask the animals to answer"),
+        mk("button", { onclick: () => { if (!confirm("Delete this thread from the forum? (The Bots record keeps its own copy of real messages.)")) return; S.forum.threads = S.forum.threads.filter(x => x !== t); FORUM.thread = null; save(); showForum(view); } }, "Delete thread")));
+  } else {
+    const list = S.forum.threads.filter(t => t.board === FORUM.board).sort((x, y) => y.at - x.at);
+    main = mk("div", {}, mk("h2", {}, BOARDS.find(x => x[0] === FORUM.board)[1]), list.length ? "" : mk("p", { className: "mute" }, "No threads yet."),
+      ...list.slice(0, 80).map(t => { const w = whoIs(t.by); return mk("div", { className: "thread", onclick: () => { FORUM.thread = t.id; showForum(view); } }, mk("b", {}, t.title), mk("div", { className: "mute small" }, `${w.nick} · ${t.posts.length} post${t.posts.length === 1 ? "" : "s"} · ${new Date(t.at).toLocaleString()}${t.real ? " · from the Bots record" : ""}`)); }));
+  }
+  view.append(mk("div", { className: "forum" }, left, mk("div", { style: { overflow: "auto" } }, main)));
+}
+async function animalsReply(t, view, force) {
+  if (!D.bots.length) return;
+  const n = force ? Math.min(2, D.bots.length) : 1, who = D.bots.slice().sort(() => Math.random() - 0.5).slice(0, n);
+  for (const b of who) {
+    const a = A(b.name); let text = null;
+    if (S.settings.aiChatter || force) {
+      const r = await askAI([{ role: "user", content: `Forum thread "${t.title}". Posts so far:\n${t.posts.slice(-8).map(p => whoIs(p.by).nick + ": " + p.text).join("\n")}\n\nWrite ${a.nick}'s reply (1-3 sentences).` }],
+        JSON.stringify({ animal: a.nick, species: a.species, persona: a.persona, bot: b.name, job: b.job, metrics: M(b), level: a.level, points: a.points, items: a.items.length }), 400);
+      if (r.text) text = r.text.trim(); else if (force && r.error) toast(r.error + " Using a made-up line from the real numbers instead.");
+    }
+    if (!text) text = lineFor(a, b);
+    t.posts.push({ by: b.name, text, at: Date.now() }); t.at = Date.now(); gain(b.name, 1, 1, "forum");
+  }
+  save(); if (FORUM.thread === t.id && UI.sub === "forum") showForum(view);
+}
+
+const MW = 16, MH = 10, TS = 44;
+const ZONE = {
+  farm: { floor: "#7cc35a", wall: "#3f7a2a", wallTop: "#58a03a", foes: ["Null Gnat", "Merge Moth", "Hay Glitch"], boss: "The Infinite Loop" },
+  beach: { floor: "#f2dfa0", wall: "#2fb8e8", wallTop: "#7fdcff", foes: ["Cache Crab", "Salt Bug", "Tide Timeout"], boss: "Kernel Kraken" },
+  forest: { floor: "#3f7a3a", wall: "#1f4a24", wallTop: "#2a6a3a", foes: ["Stack Slime", "Leaky Loop", "Spooky Pointer"], boss: "The Deadlock Witch" },
+  desert: { floor: "#e8b86a", wall: "#b8803a", wallTop: "#d8a058", foes: ["Token Tick", "Dune Daemon", "Heat Fault"], boss: "Pharaoh of Packets" },
+  winter: { floor: "#eef6ff", wall: "#9fc0e8", wallTop: "#c8dcff", foes: ["Frozen Thread", "Icy Index", "Snow Spam"], boss: "The Cold Boot Yeti" },
+  city: { floor: "#8a8a98", wall: "#3a3a52", wallTop: "#5a5a78", foes: ["Race Condition Rat", "Neon Null", "Traffic Jam"], boss: "Mega Merge Conflict" },
+  shire: { floor: "#8cd86a", wall: "#4a8a3a", wallTop: "#6fbf4a", foes: ["Garden Gremlin", "Pie Thief", "Hill Hiccup"], boss: "The Last Legacy Bug" },
+};
+const FOODS = new Set(["Fresh Carrot", "Apple", "Milk Jug", "Coconut", "Cocoa Mug", "Pizza Slice", "Berry Pie", "Honey Pot", "Oasis Water", "Candy Cane", "Hay Bundle"]);
+function rpgOf(name) { const a = A(name); if (!a.rpg) a.rpg = { zone: 0, max: 0, x: 1, y: 1, hp: null, mp: null, open: {}, seen: {}, wins: 0, losses: 0, bosses: [], log: [] }; return a.rpg; }
+function zoneMap(name, z) {
+  const r = rng(name + "|zone" + z), g = Array.from({ length: MH }, (_, y) => Array.from({ length: MW }, (_, x) => (x === 0 || y === 0 || x === MW - 1 || y === MH - 1) ? 1 : (r() < 0.27 ? 1 : 0)));
+  let x = 1, y = 1; const ex = MW - 2, ey = MH - 2;
+  while (x !== ex || y !== ey) { g[y][x] = 0; if (r() < 0.5 && x !== ex) x += x < ex ? 1 : -1; else if (y !== ey) y += y < ey ? 1 : -1; else x += x < ex ? 1 : -1; }
+  g[ey][ex] = 0; g[1][1] = 0;
+  const free = []; for (let yy = 1; yy < MH - 1; yy++) for (let xx = 1; xx < MW - 1; xx++) if (!g[yy][xx] && !(xx <= 2 && yy <= 2) && !(xx === ex && yy === ey)) free.push([xx, yy]);
+  const take = () => free.splice(Math.floor(r() * free.length), 1)[0];
+  const P = PLACES[z], Z = ZONE[P.id], things = [];
+  for (let i = 0; i < 6; i++) { const p = take(); if (p) things.push({ k: "foe", x: p[0], y: p[1], n: Z.foes[i % 3], lv: z + 1 + Math.floor(r() * 2) }); }
+  for (let i = 0; i < 3; i++) { const p = take(); if (p) things.push({ k: "chest", x: p[0], y: p[1] }); }
+  { const p = take(); if (p) things.push({ k: "spring", x: p[0], y: p[1] }); }
+  things.push({ k: "boss", x: ex, y: ey, n: Z.boss, lv: z + 3 });
+  return { g, things, P, Z };
+}
+const RPGUI = { who: null, map: null, battle: null, keys: false };
+function openAdventure(name) { RPGUI.who = name; UI.main = "farm"; UI.sub = "adventures"; render(); }
+function showAdventures(view) {
+  view.innerHTML = "";
+  if (!D.bots.length) { view.append(mk("div", { className: "pad mute" }, "No bots yet, so no adventurers.")); return; }
+  if (!RPGUI.who || !botOf(RPGUI.who)) RPGUI.who = D.bots[0].name;
+  musicFollow();
+  const strip = mk("div", { className: "tabs", style: { padding: "8px 14px 0" } }, ...D.bots.map(b => mk("span", { className: "t", dataset: { on: b.name === RPGUI.who ? "1" : "0" }, onclick: () => { RPGUI.who = b.name; RPGUI.battle = null; showAdventures(view); } }, `${A(b.name).nick}'s Quest`)));
+  view.append(strip, rpgView(RPGUI.who, () => showAdventures(view)));
+}
+function rpgView(name, redraw) {
+  const b = botOf(name), a = A(name), R = rpgOf(name), s = stats(b);
+  if (R.hp == null || R.hp > s.hp) R.hp = s.hp; if (R.mp == null || R.mp > s.mp) R.mp = s.mp;
+  const map = RPGUI.map = zoneMap(name, R.zone);
+  const zkey = "z" + R.zone; R.seen[zkey] = R.seen[zkey] || "0".repeat(MW * MH);
+  const cv = mk("canvas", { width: MW * TS, height: MH * TS, tabIndex: 0 });
+  const side = mk("div", { className: "panel small" });
+  const wrap = mk("div", { style: { position: "relative" } }, cv);
+  const me = new Image(); me.src = portrait(a, "transparent", 160, 160);
+  const reveal = () => { let s2 = R.seen[zkey].split(""); for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) { const xx = R.x + x, yy = R.y + y; if (xx >= 0 && yy >= 0 && xx < MW && yy < MH) s2[yy * MW + xx] = "1"; } R.seen[zkey] = s2.join(""); };
+  const thingAt = (x, y) => map.things.find(t => t.x === x && t.y === y && !R.open[`${R.zone}:${t.x},${t.y}`]);
+  const blob = (ctx, x, y, r, col, boss) => { ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, y + r * 0.1, r, r * 0.85, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#fff";
+    for (const s2 of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s2 * r * 0.35, y - r * 0.1, r * 0.22, 0, 7); ctx.fill(); } ctx.fillStyle = "#111"; for (const s2 of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s2 * r * 0.35, y - r * 0.05, r * 0.11, 0, 7); ctx.fill(); }
+    if (boss) { ctx.fillStyle = "#ffd23b"; ctx.beginPath(); ctx.moveTo(x - r * 0.6, y - r * 0.7); for (let i = 0; i <= 4; i++) ctx.lineTo(x - r * 0.6 + i * r * 0.3, y - r * (i % 2 ? 0.95 : 1.35)); ctx.lineTo(x + r * 0.6, y - r * 0.7); ctx.fill(); } };
+  const draw = () => {
+    const ctx = cv.getContext("2d"), Z = map.Z, t = performance.now() / 1000;
+    ctx.fillStyle = "#05061a"; ctx.fillRect(0, 0, cv.width, cv.height);
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+      if (R.seen[zkey][y * MW + x] !== "1") continue;
+      const px = x * TS, py = y * TS;
+      if (map.g[y][x]) { ctx.fillStyle = Z.wall; ctx.fillRect(px, py, TS, TS); ctx.fillStyle = Z.wallTop; ctx.fillRect(px + 3, py + 3, TS - 6, TS - 14); }
+      else { ctx.fillStyle = (x + y) % 2 ? Z.floor : shade(Z.floor, -8); ctx.fillRect(px, py, TS, TS); }
+    }
+    for (const th of map.things) {
+      if (R.seen[zkey][th.y * MW + th.x] !== "1" || R.open[`${R.zone}:${th.x},${th.y}`]) continue;
+      const cx = th.x * TS + TS / 2, cy = th.y * TS + TS / 2 + Math.sin(t * 3 + th.x) * 2;
+      if (th.k === "foe") blob(ctx, cx, cy, 14, ["#c06bff", "#ff3b6b", "#3bf0ff"][hash(th.n) % 3]);
+      if (th.k === "boss") blob(ctx, cx, cy, 19, "#8a1a3a", true);
+      if (th.k === "chest") { ctx.fillStyle = "#8a5a34"; ctx.fillRect(cx - 13, cy - 8, 26, 18); ctx.fillStyle = "#ffd23b"; ctx.fillRect(cx - 13, cy - 3, 26, 3); ctx.fillRect(cx - 3, cy - 3, 6, 8); }
+      if (th.k === "spring") { ctx.fillStyle = `rgba(90,200,255,${0.6 + Math.sin(t * 4) * 0.2})`; ctx.beginPath(); ctx.ellipse(cx, cy, 15, 9, 0, 0, 7); ctx.fill(); ctx.fillStyle = "#fff"; ctx.fillText("+", cx - 3, cy + 4); }
+    }
+    if (me.complete) ctx.drawImage(me, R.x * TS - 6, R.y * TS - 10, TS + 12, TS + 12);
+    ctx.fillStyle = "#fff"; ctx.font = "12px Segoe UI"; ctx.fillText(`${map.P.icon} Zone ${R.zone + 1}: ${map.P.name}`, 8, cv.height - 8);
+  };
+  const shade = (h, d) => { const c = hex(h).map(v => clamp(Math.round(v * 255 + d), 0, 255)); return `rgb(${c})`; };
+  const sideFill = () => {
+    side.innerHTML = "";
+    const st2 = stats(b);
+    side.append(mk("h2", {}, `${a.nick}'s Quest`), mk("div", { className: "mute" }, `${a.persona} ${a.species} · level ${a.level} · ${a.points} pts`),
+      mk("div", {}, `HP ${R.hp}/${st2.hp}`), mk("div", { className: "bar" }, mk("i", { style: { width: 100 * R.hp / st2.hp + "%", background: "linear-gradient(90deg,#ff3b6b,#ff9fb0)" } })),
+      mk("div", {}, `MP ${R.mp}/${st2.mp}`), mk("div", { className: "bar" }, mk("i", { style: { width: 100 * R.mp / st2.mp + "%" } })),
+      mk("div", { style: { marginTop: "6px" } }, `ATK ${st2.atk} · DEF ${st2.def} · SPD ${st2.spd} · LUCK ${st2.luck}`),
+      mk("div", { className: "mute" }, "From the bot's real runs, success rate, tokens and permissions, plus level, skills and clothes."),
+      mk("h3", {}, "Zones"), mk("div", { className: "chips" }, ...PLACES.map((p, i) => mk("span", { className: "chip", dataset: { on: i === R.zone ? "1" : "0" }, title: i <= R.max ? "Travel here" : "Beat the boss of the zone before it",
+        style: { opacity: i <= R.max ? 1 : 0.4 }, onclick: () => { if (i > R.max) return toast("Locked: beat the boss of the zone before it."); R.zone = i; R.x = 1; R.y = 1; save(); redraw(); } }, `${p.icon} ${i + 1}`))),
+      mk("h3", {}, "Quest"), mk("div", {}, `Beat ${map.Z.boss} at the far corner of ${map.P.name}.`), mk("div", { className: "mute" }, `Wins ${R.wins} · losses ${R.losses} · bosses ${R.bosses.length}/7`),
+      mk("h3", {}, "Snacks (heal 35%)"), (() => { const food = a.items.filter(i => FOODS.has(i.n)); return food.length ? mk("div", { className: "chips" }, ...Object.entries(food.reduce((o, i) => (o[i.n] = (o[i.n] || 0) + 1, o), {})).map(([n, c]) => mk("span", { className: "chip", onclick: () => { eat(n); sideFill(); } }, `${n} ×${c}`))) : mk("div", { className: "mute" }, "Find food in the places (carrots, apples, pie…)."); })(),
+      mk("h3", {}, "How to play"), mk("div", { className: "mute" }, "Arrow keys or WASD (click the map first), or click a square next to you. Walk into monsters to battle, chests for loot, the blue spring to heal."),
+      mk("h3", {}, "Log"), mk("div", { className: "mute" }, ...(R.log || []).slice(-6).reverse().map(l => mk("div", {}, l))));
+  };
+  const eat = n => { const st2 = stats(b); const i = a.items.findIndex(x => x.n === n); if (i < 0) return; a.items.splice(i, 1); R.hp = Math.min(st2.hp, R.hp + Math.ceil(st2.hp * 0.35)); logR(`${a.nick} ate ${n}.`); save(); draw(); };
+  const logR = t => { R.log = (R.log || []).concat(t).slice(-30); };
+  const move = (dx, dy) => {
+    if (RPGUI.battle) return;
+    const nx = R.x + dx, ny = R.y + dy; if (nx < 0 || ny < 0 || nx >= MW || ny >= MH || map.g[ny][nx]) return;
+    const th = thingAt(nx, ny);
+    if (th && (th.k === "foe" || th.k === "boss")) { startBattle(th); return; }
+    R.x = nx; R.y = ny; reveal();
+    if (th && th.k === "chest") { R.open[`${R.zone}:${th.x},${th.y}`] = 1; const it = lootRoll(true); giveItem(name, it, `Quest zone ${R.zone + 1}`); const p = 10 + R.zone * 5; a.points += p; logR(`Chest: ${it[1]} ${it[0]} and ${p} pts.`); toast(`${a.nick} opened a chest: ${it[1]} ${it[0]} (${it[2]}) +${p} pts`); }
+    if (th && th.k === "spring") { const st2 = stats(b); R.hp = st2.hp; R.mp = st2.mp; logR("Healed at the spring."); toast(`${a.nick} feels fresh again.`); }
+    save(); draw(); sideFill();
+  };
+  const lootRoll = rich => { const pool = ITEMS[map.P.id], luck = stats(b).luck; const roll = Math.random() * 100 + luck * 1.5 + (rich ? 10 : 0);
+    const r2 = roll > 104 ? "legend" : roll > 88 ? "epic" : roll > 60 ? "rare" : "common"; const opts = pool.filter(i => i[2] === r2); return pick(opts.length ? opts : pool); };
+  const startBattle = th => {
+    const boss = th.k === "boss", lv = th.lv, st2 = stats(b);
+    const foe = { n: th.n, boss, lv, hp: Math.round((boss ? 60 : 22) + lv * (boss ? 22 : 9)), atk: Math.round((boss ? 7 : 4) + lv * (boss ? 3 : 2)), def: Math.round(1 + lv * 1.2), spd: 3 + lv, th };
+    foe.max = foe.hp;
+    RPGUI.battle = { foe, buff: 0, guard: false, log: [`A wild ${foe.n} (level ${lv}) appears!`] };
+    battleUI();
+  };
+  const battleUI = () => {
+    const B = RPGUI.battle; wrap.querySelector(".battle")?.remove(); if (!B) return;
+    const st2 = stats(b), f = B.foe;
+    const fc = mk("canvas", { width: 140, height: 140 }); { const c = fc.getContext("2d"); blob(c, 70, 78, f.boss ? 52 : 40, f.boss ? "#8a1a3a" : ["#c06bff", "#ff3b6b", "#3bf0ff"][hash(f.n) % 3], f.boss); }
+    const sk = battleSkills();
+    const box = mk("div", { className: "box" },
+      mk("div", { className: "fighters" },
+        mk("div", { className: "fighter" }, mk("img", { src: portrait(a, "transparent", 160, 160) }), mk("b", {}, a.nick), mk("div", {}, `HP ${R.hp}/${st2.hp} · MP ${R.mp}/${st2.mp}`), mk("div", { className: "bar" }, mk("i", { style: { width: 100 * R.hp / st2.hp + "%", background: "#ff6b8a" } }))),
+        mk("div", { className: "fighter" }, fc, mk("b", {}, f.n), mk("div", {}, `Level ${f.lv} · HP ${f.hp}/${f.max}`), mk("div", { className: "bar" }, mk("i", { style: { width: 100 * f.hp / f.max + "%", background: "#ff6b8a" } })))),
+      mk("div", { className: "blog" }, ...B.log.slice(-8).map(l => mk("div", {}, l))),
+      mk("div", { className: "row" }, mk("button", { className: "pri", onclick: () => act({ k: "attack" }) }, "Attack"),
+        ...sk.map(s2 => mk("button", { disabled: R.mp < s2.mp, title: s2.d, onclick: () => act(s2) }, `${s2.n} (${s2.mp} MP)`)),
+        mk("button", { onclick: () => act({ k: "guard" }) }, "Guard"),
+        (() => { const food = a.items.filter(i => FOODS.has(i.n)); return food.length ? mk("button", { onclick: () => { eat(food[0].n); act({ k: "wait" }); } }, `Eat ${food[0].n}`) : ""; })(),
+        f.boss ? "" : mk("button", { onclick: () => act({ k: "flee" }) }, "Run")));
+    wrap.append(mk("div", { className: "battle" }, box));
+    const lg = box.querySelector(".blog"); lg.scrollTop = lg.scrollHeight;
+  };
+  const battleSkills = () => {
+    const out = [{ k: "gem", n: "Gem Burst", mp: 4, d: `A ${gemOf(b)[0]} crystal hit: 1.6× damage` }];
+    const f = M(b).feats;
+    if (f.read) out.push({ k: "scan", n: "Scan", mp: 3, d: "Keen Reader: finds its weak spot, +40% damage for the rest of the fight" });
+    if (f.edit) out.push({ k: "patch", n: "Patch", mp: 4, d: "Shape Shifter: heal 25% and guard" });
+    if (f.run) out.push({ k: "exec", n: "Execute", mp: 6, d: "Command Call: 2.2× damage" });
+    if (f.web) out.push({ k: "double", n: "Double Sprint", mp: 5, d: "Web Sprint: hit twice" });
+    if (a.skills.includes("Healing Hum")) out.push({ k: "heal", n: "Healing Hum", mp: 6, d: "Heal 40%" });
+    if (a.skills.includes("Crystal Beam")) out.push({ k: "beam", n: "Crystal Beam", mp: 8, d: "2.6× damage" });
+    if (a.skills.includes("Bug Squash")) out.push({ k: "squash", n: "Bug Squash", mp: 5, d: "2× damage to bugs" });
+    if (a.skills.includes("Lucky Star")) out.push({ k: "lucky", n: "Lucky Star", mp: 7, d: "Something big and random" });
+    return out;
+  };
+  const act = s2 => {
+    const B = RPGUI.battle, f = B.foe, st2 = stats(b); if (!B) return;
+    const hit = mult => { const base = Math.max(1, Math.round((st2.atk * (0.85 + Math.random() * 0.3)) * mult * (1 + B.buff) - f.def)); const crit = Math.random() < 0.05 + st2.luck / 200; const d = crit ? base * 2 : base; f.hp = Math.max(0, f.hp - d); B.log.push(`${a.nick} hits for ${d}${crit ? " (critical!)" : ""}.`); };
+    if (s2.mp) R.mp -= s2.mp;
+    B.guard = false;
+    if (s2.k === "attack") hit(1);
+    else if (s2.k === "gem") hit(1.6);
+    else if (s2.k === "scan") { B.buff += 0.4; B.log.push(`${a.nick} reads ${f.n} closely: weak spot found!`); }
+    else if (s2.k === "patch") { R.hp = Math.min(st2.hp, R.hp + Math.ceil(st2.hp * 0.25)); B.guard = true; B.log.push(`${a.nick} patches up and guards.`); }
+    else if (s2.k === "exec") hit(2.2);
+    else if (s2.k === "double") { hit(1); if (f.hp > 0) hit(1); }
+    else if (s2.k === "heal") { R.hp = Math.min(st2.hp, R.hp + Math.ceil(st2.hp * 0.4)); B.log.push(`${a.nick} hums and heals.`); }
+    else if (s2.k === "beam") hit(2.6);
+    else if (s2.k === "squash") hit(2);
+    else if (s2.k === "lucky") { const r = Math.random(); if (r < 0.4) hit(3); else if (r < 0.7) { R.hp = stats(b).hp; B.log.push("A lucky star heals everything!"); } else { R.mp = Math.min(st2.mp, R.mp + 10); B.log.push("Stardust: +10 MP."); } }
+    else if (s2.k === "guard") { B.guard = true; B.log.push(`${a.nick} guards.`); }
+    else if (s2.k === "flee") { if (Math.random() < 0.4 + (st2.spd - f.spd) * 0.05) { B.log.push("Got away!"); RPGUI.battle = null; logR(`Ran from ${f.n}.`); battleUI(); draw(); sideFill(); save(); return; } B.log.push("Couldn't get away!"); }
+    if (f.hp <= 0) return win();
+    if (Math.random() < 0.08) B.log.push(`${f.n} glitches and does nothing.`);
+    else { const d = Math.max(1, Math.round(f.atk * (0.8 + Math.random() * 0.4) - st2.def * 0.6) * (B.guard ? 0.4 : 1)); const dd = Math.round(d); R.hp = Math.max(0, R.hp - dd); B.log.push(`${f.n} ${pick(["bites", "zaps", "glitches into", "bonks", "spams"])} ${a.nick} for ${dd}.`); }
+    if (R.hp <= 0) return lose();
+    battleUI(); sideFill(); save();
+  };
+  const win = () => {
+    const B = RPGUI.battle, f = B.foe; R.open[`${R.zone}:${f.th.x},${f.th.y}`] = 1; R.wins++;
+    const xp = f.boss ? 80 + f.lv * 20 : 15 + f.lv * 6, pts = f.boss ? 60 + R.zone * 20 : 6 + f.lv * 2;
+    let loot = null; if (f.boss || Math.random() < 0.35 + stats(b).luck / 100) { loot = lootRoll(f.boss); giveItem(name, loot, `Beat ${f.n}`); }
+    a.points += pts; gain(name, 0, xp, `Beat ${f.n}`);
+    logR(`Beat ${f.n}: +${xp} XP, +${pts} pts${loot ? ", " + loot[0] : ""}.`);
+    if (f.boss) { if (!R.bosses.includes(R.zone)) R.bosses.push(R.zone); if (R.zone === R.max && R.max < PLACES.length - 1) R.max++; toast(`${a.nick} beat ${f.n}!${R.max > R.zone ? " The next zone is open." : ""}`); forumAuto("adventures", `${a.nick} beat ${f.n}`, `Zone ${R.zone + 1} (${map.P.name}) is cleared! +${xp} XP, +${pts} pts${loot ? `, found ${loot[1]} ${loot[0]}` : ""}.`, name); }
+    RPGUI.battle = null; R.x = f.th.x; R.y = f.th.y; reveal(); battleUI(); draw(); sideFill(); save();
+  };
+  const lose = () => {
+    const f = RPGUI.battle.foe; R.losses++; logR(`${f.n} won. Back to the start to rest.`); toast(`${a.nick} needs a rest. Back to the start of the zone.`);
+    const st2 = stats(b); R.hp = Math.ceil(st2.hp / 2); R.mp = Math.ceil(st2.mp / 2); R.x = 1; R.y = 1; RPGUI.battle = null; battleUI(); draw(); sideFill(); save();
+  };
+  cv.addEventListener("keydown", e => { const k = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] }[e.key]; if (k) { e.preventDefault(); move(...k); } });
+  cv.addEventListener("click", e => { cv.focus(); const rc = cv.getBoundingClientRect(), x = Math.floor((e.clientX - rc.left) / rc.width * MW), y = Math.floor((e.clientY - rc.top) / rc.height * MH); const dx = x - R.x, dy = y - R.y; if (Math.abs(dx) + Math.abs(dy) === 1) move(dx, dy); });
+  reveal(); sideFill(); draw(); battleUI();
+  const tick = () => { if (!cv.isConnected) return; if (!RPGUI.battle) draw(); setTimeout(() => requestAnimationFrame(tick), 80); }; tick();
+  setTimeout(() => cv.focus(), 50);
+  return mk("div", { className: "rpg" }, wrap, side);
+}
+
+const UI = { main: "cards", sub: "farm", card: null };
+const FARM_SUBS = [...PLACES.map(p => [p.id, `${p.icon} ${p.name}`]), ["forum", "💬 Farm Forum"], ["studio", "🎨 Design Studio"], ["adventures", "🗡️ Adventures"]];
+function go(main, sub) { UI.main = main; if (sub) UI.sub = sub; render(); }
+function render() {
+  const mt = $("#mainTabs"); mt.innerHTML = "";
+  for (const [id, n] of [["cards", "🃏 Bot Cards"], ["farm", "🌾 The Farm"]]) mt.append(mk("span", { className: "t", dataset: { on: UI.main === id ? "1" : "0" }, onclick: () => go(id) }, n));
+  const sb = $("#subbar"), st = $("#subTabs"), view = $("#view");
+  stopWorld(); STUDIO.run = false; dropGL(STUDIO.R); STUDIO.R = null;
+  view.innerHTML = "";
+  if (UI.main === "cards") {
+    sb.classList.add("hidden");
+    if (UI.card) showCardDetail(view, UI.card); else showDeck(view);
+  } else {
+    sb.classList.remove("hidden"); st.innerHTML = "";
+    for (const [id, n] of FARM_SUBS) st.append(mk("span", { className: "t", dataset: { on: UI.sub === id ? "1" : "0" }, onclick: () => go("farm", id) }, n));
+    if (PLACES.some(p => p.id === UI.sub)) { view.style.overflow = "hidden"; showPlace(view, UI.sub); }
+    else { view.style.overflow = "auto"; if (UI.sub === "forum") showForum(view); else if (UI.sub === "studio") showStudio(view); else showAdventures(view); }
+  }
+  if (UI.main === "cards") view.style.overflow = "auto";
+  S.ui = { main: UI.main, sub: UI.sub }; save();
+  musicFollow();
+}
+(async function start() {
+  const got = await storeGet();
+  S = Object.assign(DEFAULT_STATE(), got && got.v ? got : {});
+  S.forum = S.forum || { threads: [] }; S.forum.threads = S.forum.threads || []; S.settings = Object.assign(DEFAULT_STATE().settings, S.settings || {}); S.feed = S.feed || [];
+  for (const a of Object.values(S.animals)) { a.items = a.items || []; a.owned = a.owned || []; a.worn = a.worn || {}; a.skills = a.skills || []; a.claimed = a.claimed || {}; }
+  if (S.ui) { UI.main = S.ui.main || "cards"; UI.sub = S.ui.sub || "farm"; }
+  $("#view").append(mk("div", { className: "pad mute" }, "Waking the animals…"));
+  await loadData();
+  $("#aiState").textContent = IN_APP ? "" : "(preview with sample bots: open it in Randis UDS for the real ones)";
+  render();
+  setInterval(async () => {
+    const before = JSON.stringify(D.bots.map(b => [b.name, (b.state || {}).runs]));
+    await loadData();
+    if (JSON.stringify(D.bots.map(b => [b.name, (b.state || {}).runs])) !== before && UI.main === "cards") render();
+  }, 90000);
+})();
+</script>
+</body>
+</html>

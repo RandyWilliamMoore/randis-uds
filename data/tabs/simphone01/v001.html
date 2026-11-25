@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Sim Phone</title>
+<style>
+:root { --bg:#0d1117; --panel:#151b26; --line:#263043; --fg:#e8edf5; --mut:#8f9bb3; --acc:#5b8cff; --ok:#3ddc84; --bad:#ff6b6b; }
+* { box-sizing:border-box; } body { margin:0; font:13px/1.4 system-ui,Segoe UI,sans-serif; background:var(--bg); color:var(--fg); height:100vh; display:flex; flex-direction:column; }
+.attr { font-size:11px; padding:4px 12px; background:#070a10; color:var(--mut); } .attr b { color:#f2c14e; } .attr a { color:#7fb2ff; }
+.top { display:flex; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.top h1 { font-size:16px; margin:0 8px 0 0; }
+input, select, textarea { background:#0b1018; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:5px 7px; font:inherit; }
+button { background:#1d2638; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:5px 10px; cursor:pointer; font:inherit; } button:hover { border-color:var(--acc); } button.on { background:var(--acc); border-color:var(--acc); color:#fff; }
+.body { flex:1; display:flex; min-height:0; } .stage { flex:1; display:flex; align-items:center; justify-content:center; overflow:auto; background:radial-gradient(circle at 50% 40%,#1a2233,#0b0f17); position:relative; }
+.side { width:300px; border-left:1px solid var(--line); overflow:auto; padding:10px; background:var(--panel); } .side h3 { margin:12px 0 6px; font-size:12px; color:var(--mut); text-transform:uppercase; letter-spacing:.06em; }
+.side label { display:flex; justify-content:space-between; align-items:center; gap:6px; margin:4px 0; } .side input[type=range] { width:140px; }
+#log { height:150px; overflow:auto; font:11px Consolas,monospace; background:#06090e; border:1px solid var(--line); border-radius:6px; padding:5px; white-space:pre-wrap; } #log .e { color:var(--bad); } #log .w { color:#f2c14e; }
+.phone { position:relative; background:#111; border-radius:46px; padding:12px; box-shadow:0 0 0 2px #2a2f3a, 0 20px 60px #000a; transition:transform .25s; transform-origin:center; }
+.phone.shake { animation:shake .12s linear 4; } @keyframes shake { 25% { translate:-4px 0; } 75% { translate:4px 0; } }
+.screen { position:relative; background:#000; border-radius:36px; overflow:hidden; }
+.status { position:absolute; top:0; left:0; right:0; height:var(--sbh); display:flex; align-items:center; justify-content:space-between; padding:0 22px; font:600 13px system-ui; color:#fff; z-index:5; pointer-events:none; text-shadow:0 1px 2px #0008; }
+.cut { position:absolute; top:8px; left:50%; translate:-50% 0; background:#000; z-index:6; } .cut.notch { width:120px; height:28px; border-radius:16px; } .cut.hole { width:14px; height:14px; border-radius:50%; top:12px; } .cut.none { display:none; }
+.homebar { position:absolute; bottom:6px; left:50%; translate:-50% 0; width:120px; height:5px; background:#fffc; border-radius:3px; z-index:6; cursor:pointer; }
+.app { position:absolute; inset:0; border:0; width:100%; height:100%; background:#fff; }
+.home { position:absolute; inset:0; background:linear-gradient(160deg,#28376b,#5b2a6e 60%,#1d2a4d); padding:calc(var(--sbh) + 18px) 18px 30px; display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:86px; gap:6px; align-content:start; }
+.icon { display:flex; flex-direction:column; align-items:center; gap:5px; color:#fff; font-size:11px; cursor:pointer; user-select:none; } .icon .g { width:56px; height:56px; border-radius:15px; display:flex; align-items:center; justify-content:center; font-size:28px; box-shadow:0 3px 10px #0006; }
+.banner { position:absolute; top:calc(var(--sbh) + 6px); left:8px; right:8px; background:#f4f6fbee; color:#111; border-radius:14px; padding:9px 12px; z-index:8; font-size:12px; box-shadow:0 6px 20px #0006; transition:opacity .3s; }
+.banner b { display:block; } .tip { color:var(--mut); font-size:11px; }
+</style></head><body>
+<div class="attr"><b>Randis UDS™ by Randy Moore.</b> Original: <a href="https://github.com/RandyWilliamMoore/randis-uds" target="_blank">github.com/RandyWilliamMoore/randis-uds</a> · Support: <a href="https://ko-fi.com/moorescombinatoricsmatrix" target="_blank">ko-fi.com/moorescombinatoricsmatrix</a> · Sim Phone</div>
+<div class="top"><h1>📱 Sim Phone</h1>
+ <select id="dev" title="Phone"></select>
+ <button id="rot" title="Turn the phone">⟳ Turn</button>
+ <label class="tip">Zoom <input id="zoom" type="range" min="40" max="120" value="80"></label>
+ <input id="url" placeholder="Open a web address or your app's page (https://… or file:///…)" style="flex:1;min-width:220px">
+ <button id="go">Open</button><button id="file" title="Open an .html file from this PC (sensors and touch work fully)">📂 HTML file</button><button id="paste" title="Paste HTML to test">📋 Paste HTML</button><button id="homeb">⌂ Home</button>
+</div>
+<div class="body"><div class="stage"><div class="phone" id="phone"><div class="screen" id="screen">
+ <div class="status" id="status"><span id="clock">9:41</span><span id="sicons"></span></div><div class="cut" id="cut"></div>
+ <div class="home" id="home"></div><iframe class="app" id="app" hidden></iframe><div class="homebar" id="hb" title="Home"></div>
+</div></div></div>
+<div class="side">
+ <h3>Phone</h3><div id="spec" class="tip"></div>
+ <label>Touch (mouse acts as finger) <input type="checkbox" id="touch" checked></label>
+ <label>Dark mode <input type="checkbox" id="dark"></label>
+ <h3>Own phones</h3><div class="tip">Add any phone by its size, or load a list from a JSON file. Kept in this tab.</div>
+ <div><button id="dv-add">＋ Add a phone</button> <button id="dv-imp">Import JSON</button> <button id="dv-exp">Export JSON</button></div>
+ <div id="dv-form" hidden style="margin:6px 0"><label>Name <input id="dv-n" size="14" placeholder="My phone"></label><label>Width (points) <input id="dv-w" type="number" value="393" style="width:70px"></label><label>Height (points) <input id="dv-h" type="number" value="852" style="width:70px"></label><label>Pixel ratio <input id="dv-r" type="number" step="0.125" value="3" style="width:60px"></label><label>Cutout <select id="dv-c"><option>none</option><option>notch</option><option>hole</option></select></label><label>Status bar (points) <input id="dv-s" type="number" value="44" style="width:60px"></label><label>Platform <input id="dv-p" size="12" value="custom"></label><button id="dv-ok">Add</button> <span id="dv-err" class="tip" style="color:#e66"></span></div>
+ <div id="dv-list" class="tip"></div>
+ <h3>Network</h3><label>Connection <select id="net"><option value="wifi">Wi-Fi</option><option value="5g">5G</option><option value="4g">4G</option><option value="3g">Slow 3G</option><option value="off">Offline</option></select></label>
+ <h3>Battery</h3><label>Level <input type="range" id="bat" min="0" max="100" value="82"> <span id="batv">82%</span></label><label>Charging <input type="checkbox" id="chg"></label>
+ <h3>Location</h3><label>Lat <input id="lat" value="37.5485" size="9"></label><label>Lon <input id="lon" value="-121.9886" size="9"></label>
+ <h3>Motion</h3><label>Tilt front/back <input type="range" id="beta" min="-90" max="90" value="0"></label><label>Tilt left/right <input type="range" id="gamma" min="-90" max="90" value="0"></label><button id="shake">📳 Shake</button>
+ <h3>Test</h3><button id="notif">🔔 Send a notification</button> <button id="reload">↻ Reload app</button>
+ <h3>App log <button id="clr" style="float:right;padding:1px 6px">clear</button></h3><div id="log"></div>
+ <p class="tip">Sensors, touch, offline, battery, location, motion, notifications and the log reach pages opened from a file, pasted, or the built-in apps. Web addresses open as the real site at phone size (the site's own rules may block showing it in a frame).</p>
+</div></div>
+<script id="shim-src" type="text/plain">
+(function(){ if (window.__simphone) return; window.__simphone = true;
+ const P = window.parent, st = {net:"wifi", bat:{level:.82, charging:false}, pos:{latitude:37.5485, longitude:-121.9886, accuracy:12}, touch:true};
+ const say = (k, a) => { try { P.postMessage({simphone:"log", k, msg:[...a].map(x => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch (e) { return String(x); } }).join(" ")}, "*"); } catch (e) {} };
+ for (const k of ["log", "info", "warn", "error"]) { const o = console[k].bind(console); console[k] = (...a) => { say(k, a); o(...a); }; }
+ window.addEventListener("error", e => say("error", [e.message + " (line " + e.lineno + ")"]));
+ const def = (o, k, v) => { try { Object.defineProperty(o, k, {get: v, configurable: true}); } catch (e) {} };
+ def(navigator, "maxTouchPoints", () => st.touch ? 5 : 0);
+ def(navigator, "onLine", () => st.net !== "off");
+ def(navigator, "connection", () => ({effectiveType: {wifi: "4g", "5g": "4g", "4g": "4g", "3g": "3g", off: "slow-2g"}[st.net], downlink: {wifi: 50, "5g": 100, "4g": 12, "3g": .4, off: 0}[st.net], rtt: {wifi: 20, "5g": 25, "4g": 60, "3g": 400, off: 0}[st.net], saveData: false, addEventListener(){}, removeEventListener(){}}));
+ const bat = {get level(){ return st.bat.level; }, get charging(){ return st.bat.charging; }, chargingTime: Infinity, dischargingTime: Infinity, addEventListener(t, f){ (bat._l = bat._l || []).push([t, f]); }, removeEventListener(){}};
+ navigator.getBattery = () => Promise.resolve(bat);
+ const geo = {getCurrentPosition(ok, bad){ setTimeout(() => st.net === "off" && !st.pos ? bad && bad({code: 2, message: "No position"}) : ok({coords: Object.assign({altitude: null, altitudeAccuracy: null, heading: null, speed: null}, st.pos), timestamp: Date.now()}), 150); },
+   watchPosition(ok){ const id = setInterval(() => ok({coords: Object.assign({}, st.pos), timestamp: Date.now()}), 1000); geo.getCurrentPosition(ok); return id; }, clearWatch(id){ clearInterval(id); }};
+ def(navigator, "geolocation", () => geo);
+ navigator.vibrate = p => { P.postMessage({simphone: "vibrate", p}, "*"); return true; };
+ window.Notification = function (title, o) { P.postMessage({simphone: "notify", title: String(title), body: String((o || {}).body || "")}, "*"); }; Notification.permission = "granted"; Notification.requestPermission = () => Promise.resolve("granted");
+ const realFetch = window.fetch && window.fetch.bind(window);
+ if (realFetch) window.fetch = (...a) => st.net === "off" ? Promise.reject(new TypeError("Failed to fetch (Sim Phone: offline)")) : new Promise(r => setTimeout(r, {wifi: 0, "5g": 30, "4g": 80, "3g": 600}[st.net] || 0)).then(() => realFetch(...a));
+ const real = window.matchMedia && window.matchMedia.bind(window);
+ if (real) window.matchMedia = q => { const m = /\(\s*(any-)?pointer\s*:\s*(coarse|fine)\s*\)/.exec(q), h = /\(\s*(any-)?hover\s*:\s*(none|hover)\s*\)/.exec(q), d = /prefers-color-scheme\s*:\s*(dark|light)/.exec(q);
+   if (m || h || d) { const v = m ? (m[2] === "coarse") === st.touch : h ? (h[2] === "none") === st.touch : (d[1] === "dark") === !!st.dark; return {matches: v, media: q, addEventListener(){}, removeEventListener(){}, addListener(){}, removeListener(){}}; } return real(q); };
+ // mouse -> touch
+ let down = null; const T = (e, type) => { if (!st.touch || typeof Touch === "undefined") return; const t = new Touch({identifier: 1, target: e.target, clientX: e.clientX, clientY: e.clientY, pageX: e.pageX, pageY: e.pageY, radiusX: 11, radiusY: 11, force: .5});
+   e.target.dispatchEvent(new TouchEvent(type, {bubbles: true, cancelable: true, touches: type === "touchend" ? [] : [t], targetTouches: type === "touchend" ? [] : [t], changedTouches: [t]})); };
+ addEventListener("mousedown", e => { down = e.target; T(e, "touchstart"); }, true); addEventListener("mousemove", e => { if (down) T(e, "touchmove"); }, true); addEventListener("mouseup", e => { if (down) { T(e, "touchend"); down = null; } }, true);
+ addEventListener("message", e => { const d = e.data; if (!d || !d.simphoneSet) return; const s = d.simphoneSet;
+   if ("net" in s) { const was = st.net; st.net = s.net; if ((was === "off") !== (s.net === "off")) dispatchEvent(new Event(s.net === "off" ? "offline" : "online")); }
+   if ("bat" in s) { st.bat = s.bat; (bat._l || []).forEach(([t, f]) => (t === "levelchange" || t === "chargingchange") && f({})); }
+   if ("pos" in s) st.pos = s.pos; if ("touch" in s) st.touch = s.touch; if ("dark" in s) { st.dark = s.dark; document.documentElement.style.colorScheme = s.dark ? "dark" : "light"; }
+   if ("orient" in s) dispatchEvent(Object.assign(new Event("deviceorientation"), {alpha: 0, beta: s.orient.beta, gamma: s.orient.gamma, absolute: false}));
+   if ("shake" in s) { let k = 0; const iv = setInterval(() => { dispatchEvent(Object.assign(new Event("devicemotion"), {acceleration: {x: k % 2 ? 18 : -18, y: 2, z: 0}, accelerationIncludingGravity: {x: k % 2 ? 18 : -18, y: 11.8, z: 0}, rotationRate: {alpha: 0, beta: 0, gamma: 0}, interval: 16})); if (++k > 8) clearInterval(iv); }, 60); }
+   if ("screen" in s) { def(screen, "width", () => s.screen.w); def(screen, "height", () => s.screen.h); def(window, "devicePixelRatio", () => s.screen.dpr); def(screen, "orientation", () => ({type: s.screen.w > s.screen.h ? "landscape-primary" : "portrait-primary", angle: s.screen.w > s.screen.h ? 90 : 0, addEventListener(){}, removeEventListener(){}})); }
+ });
+ P.postMessage({simphone: "hello"}, "*");
+})();
+</script>
+<script>
+const $ = s => document.querySelector(s);
+const BUILTIN = [
+ ["Phone 6.1\" (notch)", 390, 844, 3, "notch", 47, "iOS-style"], ["Phone 6.7\" (notch)", 430, 932, 3, "notch", 47, "iOS-style"], ["Phone 4.7\" (classic)", 375, 667, 2, "none", 20, "iOS-style"],
+ ["Android 6.3\" (punch hole)", 412, 915, 2.625, "hole", 32, "Android-style"], ["Android compact", 360, 800, 3, "hole", 28, "Android-style"], ["Android large", 412, 892, 3.5, "hole", 32, "Android-style"],
+ ["Foldable (open)", 673, 841, 2.5, "hole", 32, "Android-style"], ["Tablet 10\"", 800, 1280, 2, "none", 24, "Android-style"], ["Tablet 11\"", 834, 1194, 2, "none", 24, "iOS-style"]];
+let DEVICES = BUILTIN.slice(), CUSTOM = [];
+let S = {dev: 0, land: false, zoom: 80, touch: true, dark: false, net: "wifi", bat: 82, chg: false, lat: "37.5485", lon: "-121.9886", beta: 0, gamma: 0, last: null};
+try { Object.assign(S, JSON.parse(localStorage.getItem("simphone") || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem("simphone", JSON.stringify(S)); } catch (e) {} };
+const app = $("#app"), log = (k, m) => { const d = document.createElement("div"); d.className = k === "error" ? "e" : k === "warn" ? "w" : ""; d.textContent = new Date().toLocaleTimeString() + " " + (k === "log" ? "" : k + ": ") + m; $("#log").appendChild(d); $("#log").scrollTop = 1e9; };
+const SHIM = $("#shim-src").textContent;
+function dims() { const d = DEVICES[S.dev]; return S.land ? {w: d[2], h: d[1]} : {w: d[1], h: d[2]}; }
+function layout() {
+  const d = DEVICES[S.dev], {w, h} = dims(), sc = $("#screen");
+  sc.style.width = w + "px"; sc.style.height = h + "px"; sc.style.setProperty("--sbh", (S.land ? 0 : d[5]) + "px");
+  $("#cut").className = "cut " + (S.land ? "none" : d[4]); $("#status").style.display = S.land ? "none" : "flex";
+  $("#phone").style.transform = `scale(${S.zoom / 100})`; $("#phone").style.borderRadius = d[1] > 700 ? "28px" : "46px"; sc.style.borderRadius = d[1] > 700 ? "18px" : d[4] === "none" ? "10px" : "36px";
+  app.style.top = S.land ? "0" : d[5] + "px"; app.style.height = `calc(100% - ${S.land ? 0 : d[5]}px)`;
+  $("#spec").innerHTML = `${d[0]} · ${d[6]}<br>${w} × ${h} points · ${d[7] || ""}${Math.round(w * d[3])} × ${Math.round(h * d[3])} pixels (×${d[3]})<br>${S.land ? "landscape" : "portrait"} · safe area top ${S.land ? 0 : d[5]}px`;
+  push({screen: {w, h, dpr: d[3]}}); icons();
+}
+function icons() { const bars = {wifi: "📶", "5g": "5G", "4g": "4G", "3g": "3G", off: "✈"}[S.net]; $("#sicons").textContent = `${bars} ${S.chg ? "⚡" : ""}${S.bat}%`; }
+setInterval(() => { const t = new Date(); $("#clock").textContent = (t.getHours() % 12 || 12) + ":" + String(t.getMinutes()).padStart(2, "0"); }, 1000);
+function push(set) { try { app.contentWindow && app.contentWindow.postMessage({simphoneSet: set}, "*"); } catch (e) {} }
+function pushAll() { const {w, h} = dims(); push({net: S.net, bat: {level: S.bat / 100, charging: S.chg}, pos: {latitude: +S.lat, longitude: +S.lon, accuracy: 12}, touch: S.touch, dark: S.dark, screen: {w, h, dpr: DEVICES[S.dev][3]}}); }
+function withShim(html) { const tag = "<script>" + SHIM + "<\/script>", vp = /<meta[^>]+viewport/i.test(html) ? "" : '<meta name="viewport" content="width=device-width,initial-scale=1">';
+  return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m => m + vp + tag) : vp + tag + html; }
+function openHTML(html, label) { app.hidden = false; $("#home").hidden = true; app.removeAttribute("src"); app.srcdoc = withShim(html); log("info", "opened " + label); }
+function openURL(u) { u = u.trim(); if (!u) return; if (!/^(https?|file):/i.test(u)) u = "https://" + u; app.hidden = false; $("#home").hidden = true; app.removeAttribute("srcdoc"); app.src = u; S.last = u; save(); log("info", "opened " + u + " (a web address: sensors reach it only if it's your own page loaded as a file)"); }
+function home() { app.hidden = true; app.removeAttribute("src"); app.removeAttribute("srcdoc"); $("#home").hidden = false; }
+window.addEventListener("message", e => { const d = e.data; if (!d || !d.simphone || e.source !== app.contentWindow) return;
+  if (d.simphone === "hello") pushAll(); if (d.simphone === "log") log(d.k, d.msg); if (d.simphone === "vibrate") { $("#phone").classList.remove("shake"); void $("#phone").offsetWidth; $("#phone").classList.add("shake"); log("info", "vibrate " + JSON.stringify(d.p)); }
+  if (d.simphone === "notify") banner(d.title, d.body); });
+function banner(t, b) { const n = document.createElement("div"); n.className = "banner"; n.innerHTML = "<b></b><span></span>"; n.firstChild.textContent = t; n.lastChild.textContent = b; $("#screen").appendChild(n); setTimeout(() => { n.style.opacity = 0; setTimeout(() => n.remove(), 400); }, 3500); }
+const APPS = {
+ sensors: ["🧪", "#2b7a78", "Sensor test", `<!doctype html><html><head><style>body{font:15px system-ui;margin:0;padding:14px;background:#fff;color:#111}@media(prefers-color-scheme:dark){body{background:#111;color:#eee}}h2{margin:0 0 8px}div{padding:6px 0;border-bottom:1px solid #8883}#pad{height:120px;background:#5b8cff22;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-top:8px}</style></head><body><h2>Sensor test</h2>
+  <div id=t>touch: ?</div><div id=n>network: ?</div><div id=b>battery: ?</div><div id=g>location: ?</div><div id=o>tilt: ?</div><div id=m>shake: none yet</div><div id=s>screen: ?</div><div id=p>pointer: ?</div><div id=pad>touch here</div>
+  <button onclick="navigator.vibrate([100,50,100]);new Notification('Sensor test',{body:'Notifications work.'})">Vibrate + notify</button>
+  <script>const $=i=>document.getElementById(i);function up(){$('t').textContent='touch points: '+navigator.maxTouchPoints;$('n').textContent='network: '+(navigator.onLine?'online, '+navigator.connection.effectiveType+', '+navigator.connection.rtt+' ms':'OFFLINE');navigator.getBattery().then(b=>$('b').textContent='battery: '+Math.round(b.level*100)+'%'+(b.charging?' charging':''));navigator.geolocation.getCurrentPosition(p=>$('g').textContent='location: '+p.coords.latitude.toFixed(4)+', '+p.coords.longitude.toFixed(4));$('s').textContent='screen: '+screen.width+' x '+screen.height+' @'+devicePixelRatio+'x';$('p').textContent='coarse pointer: '+matchMedia('(pointer: coarse)').matches}
+  setInterval(up,700);up();addEventListener('deviceorientation',e=>$('o').textContent='tilt: front/back '+e.beta+'°, left/right '+e.gamma+'°');let k=0;addEventListener('devicemotion',e=>{if(Math.abs(e.acceleration.x)>15)$('m').textContent='shake: '+(++k)+' jolts'});
+  $('pad').addEventListener('touchstart',e=>{$('pad').textContent='touchstart at '+Math.round(e.touches[0].clientX)+','+Math.round(e.touches[0].clientY);console.log('touchstart',e.touches.length)});addEventListener('offline',()=>console.warn('went offline'));addEventListener('online',()=>console.log('back online'));<\/script></body></html>`],
+ calc: ["🧮", "#e07a2e", "Calculator", `<!doctype html><html><head><style>body{margin:0;background:#000;color:#fff;font:28px system-ui;display:flex;flex-direction:column;height:100vh}#d{flex:1;display:flex;align-items:flex-end;justify-content:flex-end;padding:16px;font-size:52px;overflow:hidden}#k{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:12px}button{height:68px;border-radius:34px;border:0;font:26px system-ui;background:#333;color:#fff}button.o{background:#f39c12}</style></head><body><div id=d>0</div><div id=k></div><script>let e='';const d=document.getElementById('d');'C,±,%,÷,7,8,9,×,4,5,6,−,1,2,3,+,0,.,⌫,='.split(',').forEach(c=>{const b=document.createElement('button');b.textContent=c;if('÷×−+='.includes(c))b.className='o';b.onclick=()=>{if(c==='C')e='';else if(c==='⌫')e=e.slice(0,-1);else if(c==='=')try{e=String(Function('return '+e.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-').replace(/%/g,'/100'))())}catch(x){e='Error'}else if(c==='±')e=e?'-('+e+')':'';else e+=c;d.textContent=e||'0'};document.getElementById('k').appendChild(b)})<\/script></body></html>`],
+ notes: ["📝", "#c9a227", "Notes", `<!doctype html><html><head><style>body{margin:0;font:16px system-ui;background:#fffbe8}textarea{width:100%;height:100vh;border:0;padding:16px;font:16px system-ui;background:transparent;box-sizing:border-box}</style></head><body><textarea placeholder="Notes on this phone (kept while the tab is open)" oninput="window.n=this.value"></textarea></body></html>`],
+ clock: ["⏰", "#34495e", "Clock", `<!doctype html><html><head><style>body{margin:0;background:#000;color:#fff;font:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh}#t{font:200 64px system-ui}#s{font:20px system-ui;color:#aaa;margin-top:8px}</style></head><body><div id=t></div><div id=s></div><script>setInterval(()=>{const d=new Date();t.textContent=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});s.textContent=d.toLocaleDateString([],{weekday:'long',month:'long',day:'numeric'})},500)<\/script></body></html>`],
+ web: ["🌐", "#2d6cdf", "Your page", null], file: ["📂", "#6c5ce7", "Open file", null],
+};
+function drawHome() { $("#home").innerHTML = Object.entries(APPS).map(([k, [ic, c, n]]) => `<div class="icon" data-app="${k}"><div class="g" style="background:${c}">${ic}</div>${n}</div>`).join("");
+  $("#home").querySelectorAll(".icon").forEach(el => el.onclick = () => { const k = el.dataset.app; if (k === "web") { S.last ? openURL(S.last) : $("#url").focus(); return; } if (k === "file") return pickHTML(); openHTML(APPS[k][3], APPS[k][2]); }); }
+function pickHTML() { const i = document.createElement("input"); i.type = "file"; i.accept = ".html,.htm"; i.onchange = () => i.files[0] && i.files[0].text().then(t => openHTML(t, i.files[0].name)); i.click(); }
+$("#dev").innerHTML = DEVICES.map((d, i) => `<option value="${i}">${d[0]}</option>`).join(""); $("#dev").value = S.dev;
+$("#dev").onchange = e => { S.dev = +e.target.value; save(); layout(); }; $("#rot").onclick = () => { S.land = !S.land; save(); layout(); };
+$("#zoom").value = S.zoom; $("#zoom").oninput = e => { S.zoom = +e.target.value; save(); layout(); };
+$("#go").onclick = () => openURL($("#url").value); $("#url").onkeydown = e => e.key === "Enter" && openURL($("#url").value); $("#file").onclick = pickHTML;
+$("#paste").onclick = () => { const h = prompt("Paste the HTML to run on the phone:"); if (h) openHTML(h, "pasted HTML"); };
+$("#homeb").onclick = home; $("#hb").onclick = home; $("#reload").onclick = () => { if (app.srcdoc) app.srcdoc = app.srcdoc; else if (app.src) app.src = app.src; };
+for (const [id, k, ev] of [["touch", "touch", "change"], ["dark", "dark", "change"], ["chg", "chg", "change"]]) { $("#" + id).checked = S[k]; $("#" + id).addEventListener(ev, e => { S[k] = e.target.checked; save(); icons(); pushAll(); }); }
+$("#net").value = S.net; $("#net").onchange = e => { S.net = e.target.value; save(); icons(); push({net: S.net}); };
+$("#bat").value = S.bat; $("#batv").textContent = S.bat + "%"; $("#bat").oninput = e => { S.bat = +e.target.value; $("#batv").textContent = S.bat + "%"; save(); icons(); push({bat: {level: S.bat / 100, charging: S.chg}}); };
+for (const k of ["lat", "lon"]) { $("#" + k).value = S[k]; $("#" + k).onchange = e => { S[k] = e.target.value; save(); push({pos: {latitude: +S.lat, longitude: +S.lon, accuracy: 12}}); }; }
+for (const k of ["beta", "gamma"]) { $("#" + k).value = S[k]; $("#" + k).oninput = e => { S[k] = +e.target.value; save(); push({orient: {beta: S.beta, gamma: S.gamma}}); }; }
+$("#shake").onclick = () => { $("#phone").classList.remove("shake"); void $("#phone").offsetWidth; $("#phone").classList.add("shake"); push({shake: 1}); };
+$("#notif").onclick = () => banner("Sim Phone", "A test notification at " + new Date().toLocaleTimeString());
+$("#clr").onclick = () => $("#log").innerHTML = "";
+app.addEventListener("load", () => setTimeout(pushAll, 50));
+function checkDevice(o) {
+  const n = String((o && o.name) || "").trim().slice(0, 40), w = +o.width, h = +o.height, r = +(o.ratio || 2), sb = o.statusBar == null ? 24 : +o.statusBar;
+  if (!n) throw new Error("a phone needs a name");
+  if (!(w >= 200 && w <= 3000 && h >= 200 && h <= 3000)) throw new Error(n + ": width and height must be 200 to 3000 points");
+  if (!(r >= 1 && r <= 5)) throw new Error(n + ": pixel ratio must be 1 to 5");
+  if (!(sb >= 0 && sb <= 80)) throw new Error(n + ": status bar must be 0 to 80 points");
+  return [n + " ★", w, h, r, ["none", "notch", "hole"].includes(o.cutout) ? o.cutout : "none", sb, String(o.platform || "custom").slice(0, 20)];
+}
+const devJSON = d => ({name: d[0].replace(/ ★$/, ""), width: d[1], height: d[2], ratio: d[3], cutout: d[4], statusBar: d[5], platform: d[6]});
+function applyDevices() {
+  const cur = DEVICES[S.dev] && DEVICES[S.dev][0];
+  DEVICES = BUILTIN.concat(CUSTOM);
+  const i = DEVICES.findIndex(d => d[0] === cur); S.dev = i >= 0 ? i : Math.min(S.dev, DEVICES.length - 1);
+  $("#dev").innerHTML = DEVICES.map((d, i) => `<option value="${i}">${d[0].replace(/[<&]/g, "")}</option>`).join(""); $("#dev").value = S.dev;
+  $("#dv-list").innerHTML = CUSTOM.length ? CUSTOM.map((d, i) => `<div>${d[0].replace(/[<&]/g, "")} · ${d[1]}×${d[2]} ×${d[3]} <button data-rm="${i}" title="Remove" style="padding:0 5px">×</button></div>`).join("") : "No own phones yet.";
+  $("#dv-list").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { CUSTOM.splice(+b.dataset.rm, 1); keepDevices(); applyDevices(); });
+  save(); layout();
+}
+function keepDevices() {
+  const list = CUSTOM.map(devJSON);
+  try { localStorage.setItem("simphone_devices", JSON.stringify(list)); } catch (e) {}
+  if (window.parent !== window) parent.postMessage({uds: "store-set", data: {devices: list}}, "*");
+}
+function addDevices(list, keep) {
+  const add = list.map(checkDevice);
+  add.forEach(d => { const i = CUSTOM.findIndex(c => c[0] === d[0]); if (i >= 0) CUSTOM[i] = d; else CUSTOM.push(d); });
+  if (keep !== false) keepDevices();
+  applyDevices();
+  return add.length;
+}
+function importDevices(text) { const j = JSON.parse(text), list = Array.isArray(j) ? j : j && j.devices; if (!Array.isArray(list)) throw new Error('expected {"devices": [ ... ]}'); return addDevices(list); }
+$("#dv-add").onclick = () => { $("#dv-form").hidden = !$("#dv-form").hidden; };
+$("#dv-ok").onclick = () => { try { addDevices([{name: $("#dv-n").value, width: $("#dv-w").value, height: $("#dv-h").value, ratio: $("#dv-r").value, cutout: $("#dv-c").value, statusBar: $("#dv-s").value, platform: $("#dv-p").value}]); S.dev = DEVICES.findIndex(d => d[0] === $("#dv-n").value.trim().slice(0, 40) + " ★"); $("#dev").value = S.dev; save(); layout(); $("#dv-err").textContent = ""; $("#dv-form").hidden = true; log("log", "added phone " + DEVICES[S.dev][0]); } catch (e) { $("#dv-err").textContent = e.message; } };
+$("#dv-imp").onclick = () => { const i = document.createElement("input"); i.type = "file"; i.accept = ".json,application/json"; i.onchange = () => i.files[0] && i.files[0].text().then(t => { try { log("log", "imported " + importDevices(t) + " phone(s) from " + i.files[0].name); } catch (e) { log("error", "phone list: " + e.message); } }); i.click(); };
+$("#dv-exp").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify({devices: CUSTOM.map(devJSON)}, null, 1)], {type: "application/json"})); a.download = "simphone_devices.json"; document.body.appendChild(a); a.click(); a.remove(); };
+window.addEventListener("message", e => { const d = e.data; if (d && d.uds === "store" && d.data && Array.isArray(d.data.devices)) { CUSTOM = []; try { addDevices(d.data.devices, false); } catch (x) { log("warn", "saved phones: " + x.message); } } });
+try { const ld = JSON.parse(localStorage.getItem("simphone_devices") || "[]"); if (ld.length) addDevices(ld, false); } catch (e) {}
+if (window.parent !== window) parent.postMessage({uds: "store-get"}, "*");
+window.SimPhone = {importDevices, addDevices, devices: () => DEVICES.map(d => d[0])};
+drawHome(); applyDevices();
+</script></body></html>

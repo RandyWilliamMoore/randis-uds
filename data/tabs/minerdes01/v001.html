@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Miner Design Suite</title>
+<style>
+:root { --bg:#0b0f14; --panel:#131a22; --line:#243140; --fg:#e8eef4; --mut:#8fa0b3; --acc:#29c7a8; --ok:#3ddc84; --bad:#ff6b6b; --warn:#f2c14e; }
+* { box-sizing:border-box; } body { margin:0; font:14px/1.45 system-ui,Segoe UI,sans-serif; background:var(--bg); color:var(--fg); }
+.attr { font-size:11px; padding:4px 12px; background:#05080b; color:var(--mut); } .attr b { color:#f2c14e; } .attr a { color:#7fb2ff; }
+header { padding:10px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; } header h1 { margin:0; font-size:18px; } header span { color:var(--mut); font-size:12px; }
+.wrap { display:flex; height:calc(100vh - 78px); } nav { width:200px; border-right:1px solid var(--line); padding:8px; flex:none; }
+nav button { display:block; width:100%; text-align:left; background:none; border:0; color:var(--fg); padding:7px 10px; border-radius:6px; cursor:pointer; font:inherit; } nav button.on { background:#16302c; box-shadow:inset 3px 0 0 var(--acc); }
+main { flex:1; overflow:auto; padding:16px 20px; } h2 { margin:0 0 4px; } .lead { color:var(--mut); margin:0 0 12px; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; } .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px 12px; }
+label.f { display:block; } label.f span { display:block; font-size:12px; color:var(--mut); } input, select { background:#091018; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; width:100%; }
+button.b { background:#1c2a36; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 12px; cursor:pointer; font:inherit; margin:2px 4px 2px 0; } button.pri { background:var(--acc); border-color:var(--acc); color:#04221c; }
+table { border-collapse:collapse; width:100%; } td, th { border-bottom:1px solid var(--line); padding:5px 6px; text-align:left; } th { color:var(--mut); font-size:12px; }
+.big { font-size:20px; font-weight:600; } .mut { color:var(--mut); } .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); } code { font:12px Consolas,monospace; word-break:break-all; }
+canvas { background:#05080b; border:1px solid var(--line); border-radius:8px; }
+</style></head><body>
+<div class="attr"><b>Randis UDS™ by Randy Moore.</b> Original: <a href="https://github.com/RandyWilliamMoore/randis-uds" target="_blank">github.com/RandyWilliamMoore/randis-uds</a> · Support: <a href="https://ko-fi.com/moorescombinatoricsmatrix" target="_blank">ko-fi.com/moorescombinatoricsmatrix</a> · Miner Design Suite (Developer Edition)</div>
+<header><h1>⛏️ Miner Design Suite</h1><span>design miners from scratch · crowd compute like Foldit · everything stays on this computer</span></header>
+<div class="wrap"><nav id="nav"></nav><main id="main"></main></div>
+<script id="core">
+(function (root) {
+  const K = new Uint32Array([0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2]);
+  function sha256(bytes) {
+    const n = bytes.length, L = ((n + 9 + 63) >> 6) << 6, m = new Uint8Array(L); m.set(bytes); m[n] = 0x80; const bits = n * 8;
+    const dv = new DataView(m.buffer); dv.setUint32(L - 4, bits >>> 0); dv.setUint32(L - 8, Math.floor(bits / 4294967296));
+    const H = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]), w = new Uint32Array(64);
+    for (let o = 0; o < L; o += 64) {
+      for (let i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4);
+      for (let i = 16; i < 64; i++) { const a = w[i - 15], b = w[i - 2]; const s0 = (a >>> 7 | a << 25) ^ (a >>> 18 | a << 14) ^ (a >>> 3), s1 = (b >>> 17 | b << 15) ^ (b >>> 19 | b << 13) ^ (b >>> 10); w[i] = w[i - 16] + s0 + w[i - 7] + s1 | 0; }
+      let [a, b, c, d, e, f, g, h] = H;
+      for (let i = 0; i < 64; i++) { const S1 = (e >>> 6 | e << 26) ^ (e >>> 11 | e << 21) ^ (e >>> 25 | e << 7), ch = e & f ^ ~e & g, t1 = h + S1 + ch + K[i] + w[i] | 0;
+        const S0 = (a >>> 2 | a << 30) ^ (a >>> 13 | a << 19) ^ (a >>> 22 | a << 10), mj = a & b ^ a & c ^ b & c, t2 = S0 + mj | 0; h = g; g = f; f = e; e = d + t1 | 0; d = c; c = b; b = a; a = t1 + t2 | 0; }
+      H[0] += a; H[1] += b; H[2] += c; H[3] += d; H[4] += e; H[5] += f; H[6] += g; H[7] += h;
+    }
+    const out = new Uint8Array(32), ov = new DataView(out.buffer); for (let i = 0; i < 8; i++) ov.setUint32(i * 4, H[i]); return out;
+  }
+  const hex = b => [...b].map(x => x.toString(16).padStart(2, "0")).join(""), unhex = s => new Uint8Array(s.match(/../g).map(x => parseInt(x, 16)));
+  const utf8 = s => new TextEncoder().encode(s);
+  function header(ver, prev, merkle, time, bits, nonce) { const h = new Uint8Array(80), v = new DataView(h.buffer); v.setUint32(0, ver, true); h.set(unhex(prev).reverse(), 4); h.set(unhex(merkle).reverse(), 36); v.setUint32(68, time, true); v.setUint32(72, bits, true); v.setUint32(76, nonce, true); return h; }
+  const sha256d = b => sha256(sha256(b));
+  function zeroBits(hash) { let z = 0; for (let i = hash.length - 1; i >= 0; i--) { const b = hash[i]; if (!b) { z += 8; continue; } z += Math.clz32(b) - 24; break; } return z; }
+  function mine(tpl, target, start, count) { const h = header(tpl.ver, tpl.prev, tpl.merkle, tpl.time, tpl.bits, 0), v = new DataView(h.buffer);
+    for (let n = start; n < start + count; n++) { v.setUint32(76, n >>> 0, true); const d = sha256d(h); if (zeroBits(d) >= target) return {nonce: n >>> 0, hash: hex(d.slice().reverse()), tried: n - start + 1}; }
+    return {nonce: null, tried: count}; }
+  function merkle(txids) { let l = txids.map(t => unhex(t).reverse()); if (!l.length) return "0".repeat(64); while (l.length > 1) { if (l.length % 2) l.push(l[l.length - 1]); const nx = []; for (let i = 0; i < l.length; i += 2) { const c = new Uint8Array(64); c.set(l[i]); c.set(l[i + 1], 32); nx.push(sha256d(c)); } l = nx; } return hex(l[0].slice().reverse()); }
+  const ALGOS = {
+    "sha256d": {name: "SHA-256 (double)", bound: "compute", best: "ASIC", note: "Simple fixed rounds: the easiest to put in silicon, so ASICs dominate."},
+    "scrypt": {name: "Scrypt", bound: "memory", best: "ASIC (memory-light settings)", note: "Meant to be memory-hard; small settings let ASICs in."},
+    "memhard": {name: "Memory-hard DAG (Ethash-style)", bound: "memory bandwidth", best: "GPU", note: "Speed set by memory bandwidth, so GPUs fit."},
+    "cpuhard": {name: "Random-program CPU (RandomX-style)", bound: "CPU features", best: "CPU", note: "Runs random programs that need a full CPU: fair to home PCs."},
+    "equihash": {name: "Equihash (memory + sort)", bound: "memory", best: "GPU / ASIC", note: "Generalised birthday problem."}};
+  function design(p) {
+    const J = p.watts / Math.max(1e-9, p.hashrate), share = p.hashrate / Math.max(1e-9, p.netHash), coins = share * p.blockReward * p.blocksPerDay, rev = coins * p.price, power = p.watts * 24 / 1000 * p.kwh, profit = rev - power;
+    return {joulesPerHash: J, sharePct: share * 100, coinsPerDay: coins, revenuePerDay: rev, powerPerDay: power, profitPerDay: profit, breakEvenDays: profit > 0 ? p.cost / profit : Infinity}; }
+  function asic(a) {
+    const hs = a.cores * a.clockMHz * 1e6 / a.cyclesPerHash * a.chips, watts = hs * a.pjPerHash * 1e-12; return {hashrate: hs, watts, jPerTH: watts / (hs / 1e12)}; }
+  function foldCoords(moves) { const pts = [[0, 0], [1, 0]]; let dx = 1, dy = 0; for (const m of moves) { if (m === "L") [dx, dy] = [-dy, dx]; else if (m === "R") [dx, dy] = [dy, -dx]; const [x, y] = pts[pts.length - 1]; pts.push([x + dx, y + dy]); } return pts; }
+  function energy(seq, moves) { const pts = foldCoords(moves), seen = new Map(); for (let i = 0; i < pts.length; i++) { const k = pts[i] + ""; if (seen.has(k)) return null; seen.set(k, i); }
+    let E = 0; for (let i = 0; i < seq.length; i++) { if (seq[i] !== "H") continue; const [x, y] = pts[i]; for (const [ax, ay] of [[1, 0], [0, 1]]) { const j = seen.get([x + ax, y + ay] + ""); if (j !== undefined && seq[j] === "H" && Math.abs(i - j) > 1) E--; }
+      for (const [ax, ay] of [[-1, 0], [0, -1]]) { const j = seen.get([x + ax, y + ay] + ""); if (j !== undefined && seq[j] === "H" && Math.abs(i - j) > 1) E--; } }
+    return E / 2; }
+  function foldSearch(seq, seed, iters) {
+    let a = seed >>> 0; const r = () => { a = a + 0x6D2B79F5 >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const n = seq.length - 2, M = "LRS"; let cur; do { cur = Array.from({length: n}, () => M[r() * 3 | 0]); } while (energy(seq, cur) === null);
+    let E = energy(seq, cur), best = cur.slice(), bE = E;
+    for (let it = 0; it < iters; it++) { const T = 2 * (1 - it / iters) + .05, nx = cur.slice(), k = r() * n | 0; nx[k] = M[r() * 3 | 0]; if (r() < .3) { const k2 = r() * n | 0; nx[k2] = M[r() * 3 | 0]; }
+      const e2 = energy(seq, nx); if (e2 === null) continue; if (e2 <= E || r() < Math.exp((E - e2) / T)) { cur = nx; E = e2; if (E < bE) { bE = E; best = cur.slice(); } } }
+    return {moves: best.join(""), energy: bE}; }
+  function verifyUnit(seq, res) { const e = energy(seq, res.moves.split("")); return e !== null && e === res.energy; }
+  const api = {sha256, sha256d, hex, unhex, utf8, header, zeroBits, mine, merkle, ALGOS, design, asic, foldCoords, energy, foldSearch, verifyUnit};
+  root.MINER = api; if (typeof module !== "undefined") module.exports = api;
+})(typeof self !== "undefined" ? self : globalThis);
+
+</script>
+<script>
+const $ = s => document.querySelector(s), esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const fmt = (v, u = "") => { if (!isFinite(v)) return "never"; const a = Math.abs(v); const s = a >= 1e18 ? (v / 1e18).toFixed(2) + " E" : a >= 1e15 ? (v / 1e15).toFixed(2) + " P" : a >= 1e12 ? (v / 1e12).toFixed(2) + " T" : a >= 1e9 ? (v / 1e9).toFixed(2) + " G" : a >= 1e6 ? (v / 1e6).toFixed(2) + " M" : a >= 1e3 ? (v / 1e3).toFixed(2) + " k" : a >= 1 || !a ? v.toFixed(2) + " " : v.toExponential(2) + " "; return s + u; };
+let PAGE = "home", stop = null;
+let ST = {}; try { ST = JSON.parse(localStorage.getItem("minersuite") || "{}"); } catch (e) {}
+const inApp = parent !== window; let saveT = null;
+const save = () => { if (inApp) { clearTimeout(saveT); saveT = setTimeout(() => parent.postMessage({uds: "store-set", data: ST}, "*"), 300); } else try { localStorage.setItem("minersuite", JSON.stringify(ST)); } catch (e) {} };
+addEventListener("message", e => { const d = e.data; if (d && d.uds === "store" && d.data && typeof d.data === "object" && !Array.isArray(d.data)) { ST = Object.assign(d.data, ST); if (!stop) go(PAGE); } });
+if (inApp) parent.postMessage({uds: "store-get"}, "*");
+const PAGES = [["home", "🏠 Start"], ["design", "📐 Miner designer"], ["asic", "🔬 Chip designer"], ["scratch", "⛏️ Miner from scratch"], ["crowd", "🤝 Crowd compute"], ["fold", "🧬 Fold it yourself"]];
+function go(p) { if (stop) { stop(); stop = null; } PAGE = p; $("#nav").innerHTML = PAGES.map(([i, l]) => `<button class="${i === p ? "on" : ""}" onclick="go('${i}')">${l}</button>`).join(""); $("#main").innerHTML = V[p](); (A[p] || (() => {}))(); }
+const V = {}, A = {}, CORE = document.getElementById("core").textContent;
+function workers(n) {
+  try { const url = URL.createObjectURL(new Blob([CORE + `\nonmessage = e => { const d = e.data; if (d.job === "mine") postMessage(MINER.mine(d.tpl, d.target, d.start, d.count)); else if (d.job === "fold") { const r = MINER.foldSearch(d.seq, d.seed, d.iters); if (d.cheat) r.energy -= 2; postMessage(r); } };`], {type: "text/javascript"}));
+    return Array.from({length: n}, () => new Worker(url)); } catch (e) { return null; } }
+function run(w, msg) { return new Promise(res => { if (!w) { setTimeout(() => res(msg.job === "mine" ? MINER.mine(msg.tpl, msg.target, msg.start, msg.count) : (r => (msg.cheat && (r.energy -= 2), r))(MINER.foldSearch(msg.seq, msg.seed, msg.iters))), 0); return; } w.onmessage = e => res(e.data); w.postMessage(msg); }); }
+V.home = () => `<h2>Miner Design Suite</h2><p class="lead">Design mining hardware and software from the ground up, and run "crowd compute" the way Foldit and Folding@home do: many helpers, each doing a checkable piece of real work.</p>
+ <div class="card"><b>What stays true here</b><ul><li>Nothing connects to the internet: no pools, no wallets, no coins. The miner mines practice blocks on this computer.</li><li>Every money number comes from numbers <i>you</i> type; nothing is fetched or promised.</li><li>Crowd compute here runs on this computer's own cores (each "volunteer" is a worker thread). Sharing work with other people's computers would be a later step and needs your OK.</li></ul></div>
+ <div class="card"><b>Tested</b> <span class="mut">(node, 39/39): our SHA-256 matches the official test vectors and node's crypto on 500 random inputs; it reproduces the real genesis block's hash 000000000019d6…e26f, so the block layout is right; mines a 16-bit practice block; 24 folding work units reach the best known energy (−9) for the classic 20-bead HP protein benchmark; a faked result is caught.</span></div>`;
+V.design = () => { const p = Object.assign({algo: "sha256d", hw: "ASIC", hashrate: 100e12, watts: 3000, cost: 2000, kwh: .30, netHash: 600e18, blockReward: 3.125, blocksPerDay: 144, price: 0}, ST.design || {}); ST.design = p; const d = MINER.design(p), a = MINER.ALGOS[p.algo];
+  const inp = (k, l) => `<label class="f"><span>${l}</span><input type="number" step="any" value="${p[k]}" onchange="ST.design.${k}=+this.value;save();go('design')"></label>`;
+  return `<h2>📐 Miner designer</h2><p class="lead">Pick the work (algorithm) and the hardware, type its numbers, see efficiency and what it would earn and cost <b>with the numbers you entered</b>.</p>
+  <div class="card"><div class="grid"><label class="f"><span>Algorithm</span><select onchange="ST.design.algo=this.value;save();go('design')">${Object.entries(MINER.ALGOS).map(([k, v]) => `<option value="${k}" ${k === p.algo ? "selected" : ""}>${v.name}</option>`).join("")}</select></label>
+   <label class="f"><span>Hardware</span><select onchange="ST.design.hw=this.value;save();go('design')">${["CPU", "GPU", "FPGA", "ASIC"].map(h => `<option ${h === p.hw ? "selected" : ""}>${h}</option>`).join("")}</select></label></div>
+   <p class="mut">${a.note} Limited by: <b>${a.bound}</b>. Usually best on: <b>${a.best}</b>.${p.hw !== a.best.split(" ")[0] && !a.best.includes(p.hw) ? ` <span class="warn">A ${p.hw} usually loses to ${a.best} on this work.</span>` : ""}</p>
+   <div class="grid">${inp("hashrate", "Hash rate (hashes/s)")}${inp("watts", "Power (watts)")}${inp("cost", "Hardware cost")}${inp("kwh", "Electricity per kWh")}${inp("netHash", "Whole network hash rate (hashes/s)")}${inp("blockReward", "Reward per block (coins)")}${inp("blocksPerDay", "Blocks per day")}${inp("price", "Price per coin (you type it; 0 = leave out)")}</div></div>
+  <div class="card grid"><div><span class="mut">Efficiency</span><div class="big">${fmt(d.joulesPerHash * 1e12, "J/TH")}</div></div><div><span class="mut">Your share of the network</span><div class="big">${d.sharePct.toExponential(3)} %</div></div><div><span class="mut">Coins per day (average)</span><div class="big">${d.coinsPerDay.toExponential(3)}</div></div>
+   <div><span class="mut">Electricity per day</span><div class="big">${d.powerPerDay.toFixed(2)}</div></div><div><span class="mut">Earned − electricity per day</span><div class="big ${d.profitPerDay >= 0 ? "ok" : "bad"}">${d.profitPerDay.toFixed(2)}</div></div><div><span class="mut">Pays back the hardware in</span><div class="big">${isFinite(d.breakEvenDays) ? Math.ceil(d.breakEvenDays) + " days" : "never"}</div></div></div>
+  <p class="mut">Averages only: real results swing with luck, difficulty changes and price. This is a design tool, not advice.</p>`; };
+V.asic = () => { const c = Object.assign({cores: 200, clockMHz: 600, cyclesPerHash: 1, pjPerHash: 15000, chips: 100, nodeNm: 5}, ST.asic || {}); ST.asic = c; const r = MINER.asic(c);
+  const inp = (k, l) => `<label class="f"><span>${l}</span><input type="number" step="any" value="${c[k]}" onchange="ST.asic.${k}=+this.value;save();go('asic')"></label>`;
+  return `<h2>🔬 Chip designer</h2><p class="lead">A first-order model of a hashing chip: how many hash cores, how fast, how many clock cycles per hash (1 = fully unrolled pipeline), and energy per hash. Change one number and see the machine.</p>
+  <div class="card"><div class="grid">${inp("cores", "Hash cores per chip")}${inp("clockMHz", "Clock (MHz)")}${inp("cyclesPerHash", "Cycles per hash (1 = fully pipelined)")}${inp("pjPerHash", "Energy per hash (picojoules)")}${inp("chips", "Chips per machine")}${inp("nodeNm", "Process node (nm, for your notes)")}</div></div>
+  <div class="card grid"><div><span class="mut">Machine hash rate</span><div class="big">${fmt(r.hashrate, "H/s")}</div></div><div><span class="mut">Power</span><div class="big">${fmt(r.watts, "W")}</div></div><div><span class="mut">Efficiency</span><div class="big">${r.jPerTH.toFixed(1)} J/TH</div></div></div>
+  <div class="card"><b>From the ground up</b><ol class="mut"><li>One SHA-256 round = adds, rotates, choose/majority: a few hundred gates.</li><li>64 rounds unrolled = a pipeline that finishes one hash every clock (cycles per hash = 1).</li><li>Double SHA-256 = two pipelines back to back; the first half of the header is the same for every nonce, so it's computed once ("midstate").</li><li>Many cores per chip, many chips per board; the limit is heat (watts) and chip area.</li></ol><button class="b" onclick="ST.design=Object.assign(ST.design||{},{hashrate:${r.hashrate},watts:${r.watts},hw:'ASIC'});save();go('design')">Use this chip in the miner designer ›</button></div>`; };
+V.scratch = () => `<h2>⛏️ Miner from scratch</h2><p class="lead">A complete miner, all our own code: SHA-256 written from the standard, the 80-byte block header, double hashing, and a search for a nonce whose hash starts with enough zero bits. It mines <b>practice blocks</b> only.</p>
+ <div class="card"><div class="grid"><label class="f"><span>Message in the block</span><input id="msg" value="${esc(ST.msg || "Randis UDS practice block")}"></label><label class="f"><span>Difficulty (zero bits)</span><input id="bits" type="number" min="4" max="28" value="${ST.bits || 18}"></label><label class="f"><span>Helpers (threads)</span><input id="thr" type="number" min="1" max="16" value="${ST.thr || Math.max(1, (navigator.hardwareConcurrency || 4) - 1)}"></label></div>
+ <button class="b pri" id="mgo" onclick="mineGo()">Start mining</button><button class="b" onclick="mineStop()">Stop</button> <span id="mst" class="mut"></span></div><div class="card"><table id="blocks"><tr><th>#</th><th>Nonce</th><th>Hash</th><th>Checked</th></tr></table></div>`;
+let MW = null, mining = false;
+async function mineGo() { if (mining) return; mining = true; ST.msg = $("#msg").value; ST.bits = +$("#bits").value; ST.thr = +$("#thr").value; save();
+  const tpl = {ver: 1, prev: (ST.lastHash || "0".repeat(64)), merkle: MINER.hex(MINER.sha256d(MINER.utf8(ST.msg)).reverse()), time: Math.floor(Date.now() / 1000), bits: 0x1f00ffff};
+  MW = workers(ST.thr) || [null]; let next = 0, tried = 0, t0 = performance.now(), found = null; const chunk = 20000;
+  const tick = setInterval(() => { const s = (performance.now() - t0) / 1000; $("#mst").textContent = `${MW.length} helper(s) · ${fmt(tried / s, "H/s")} · ${fmt(tried, "")} hashes tried`; }, 300); stop = mineStop;
+  await Promise.all(MW.map(async w => { while (mining && !found) { const start = next; next += chunk; const r = await run(w, {job: "mine", tpl, target: ST.bits, start, count: chunk}); tried += r.tried; if (r.nonce !== null && !found) found = r; } }));
+  clearInterval(tick); if (found) { const h = MINER.sha256d(MINER.header(tpl.ver, tpl.prev, tpl.merkle, tpl.time, tpl.bits, found.nonce)), okz = MINER.zeroBits(h) >= ST.bits; ST.lastHash = found.hash; ST.count = (ST.count || 0) + 1; save();
+    $("#blocks").insertAdjacentHTML("beforeend", `<tr><td>${ST.count}</td><td>${found.nonce}</td><td><code>${found.hash}</code></td><td class="${okz ? "ok" : "bad"}">${okz ? "✔ re-hashed: " + MINER.zeroBits(h) + " zero bits" : "✘"}</td></tr>`); }
+  const s = (performance.now() - t0) / 1000; $("#mst").textContent = (found ? `Found in ${s.toFixed(1)} s · ` : "Stopped · ") + `${fmt(tried / s, "H/s")} · ${fmt(tried, "")} hashes`; mineStop(); }
+function mineStop() { mining = false; if (MW) MW.forEach(w => w && w.terminate()); MW = null; }
+V.crowd = () => `<h2>🤝 Crowd compute</h2><p class="lead">Like Folding@home: a science job is cut into work units; volunteers each run units; every answer is <b>checked</b> before it counts (a fold's energy takes microseconds to re-check, so cheating doesn't pay). The job: fold a protein in the HP lattice model (Dill 1985), lowest energy wins.</p>
+ <div class="card"><div class="grid"><label class="f"><span>Protein (H = water-fearing, P = water-loving)</span><input id="seq" value="${esc(ST.seq || "HPHPPHHPHPPHPHHPPHPH")}"></label><label class="f"><span>Volunteers</span><input id="vol" type="number" min="1" max="16" value="${ST.vol || 4}"></label><label class="f"><span>Work units</span><input id="units" type="number" min="1" max="200" value="${ST.units || 16}"></label><label class="f"><span>One volunteer cheats (to see it caught)</span><select id="cheat"><option value="0">no</option><option value="1" ${ST.cheat ? "selected" : ""}>yes</option></select></label></div>
+ <button class="b pri" onclick="crowdGo()">Run the job</button> <span id="cst" class="mut"></span></div>
+ <div class="card" style="display:flex;gap:16px;flex-wrap:wrap"><canvas id="fc" width="360" height="360"></canvas><div style="flex:1;min-width:260px"><table id="board"><tr><th>Volunteer</th><th>Units</th><th>Accepted</th><th>Rejected</th><th>Best</th></tr></table><p class="mut" id="cbest"></p></div></div>`;
+async function crowdGo() { const seq = $("#seq").value.toUpperCase().replace(/[^HP]/g, ""); if (seq.length < 4) return; ST.seq = seq; ST.vol = +$("#vol").value; ST.units = +$("#units").value; ST.cheat = $("#cheat").value === "1"; save();
+  const W = workers(ST.vol) || Array(ST.vol).fill(null), stats = W.map((_, i) => ({n: i + 1, units: 0, ok: 0, bad: 0, best: 0})); let next = 0, best = {energy: 1}, t0 = performance.now(); stop = () => W.forEach(w => w && w.terminate());
+  const draw = () => { $("#board").innerHTML = `<tr><th>Volunteer</th><th>Units</th><th>Accepted</th><th>Rejected</th><th>Best</th></tr>` + stats.map(s => `<tr><td>#${s.n}${ST.cheat && s.n === 1 ? " (cheats)" : ""}</td><td>${s.units}</td><td class="ok">${s.ok}</td><td class="${s.bad ? "bad" : ""}">${s.bad}</td><td>${s.best}</td></tr>`).join(""); };
+  await Promise.all(W.map(async (w, i) => { while (next < ST.units) { const u = next++; const r = await run(w, {job: "fold", seq, seed: 1000 + u, iters: 30000, cheat: ST.cheat && i === 0}); const s = stats[i]; s.units++;
+    if (MINER.verifyUnit(seq, r)) { s.ok++; s.best = Math.min(s.best, r.energy); if (r.energy < best.energy) { best = r; drawFold($("#fc"), seq, r.moves.split("")); } } else s.bad++;
+    draw(); $("#cst").textContent = `${stats.reduce((a, s) => a + s.units, 0)}/${ST.units} units · ${((performance.now() - t0) / 1000).toFixed(1)} s`; } }));
+  W.forEach(w => w && w.terminate()); stop = null; ST.crowdBest = best; save(); $("#cbest").innerHTML = `Best checked fold: energy <b>${best.energy}</b> (${best.energy <= -9 && seq === "HPHPPHHPHPPHPHHPPHPH" ? "the best known for this protein" : "lower is better"}). <button class="b" onclick="ST.myFold='${best.moves}';save();go('fold')">Open it in Fold it yourself ›</button>`; }
+function drawFold(c, seq, moves) { const g = c.getContext("2d"), pts = MINER.foldCoords(moves), xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), mx = Math.min(...xs), my = Math.min(...ys), w = Math.max(...xs) - mx + 1, h = Math.max(...ys) - my + 1, s = Math.min(300 / Math.max(w, h), 40), ox = (c.width - (w - 1) * s) / 2, oy = (c.height - (h - 1) * s) / 2;
+  const P = pts.map(([x, y]) => [ox + (x - mx) * s, oy + (y - my) * s]); g.clearRect(0, 0, c.width, c.height);
+  const at = new Map(pts.map((p, i) => [p + "", i])); g.strokeStyle = "#f2c14e88"; g.setLineDash([4, 4]); g.lineWidth = 2; pts.forEach(([x, y], i) => { if (seq[i] !== "H") return; for (const [ax, ay] of [[1, 0], [0, 1]]) { const j = at.get([x + ax, y + ay] + ""); if (j !== undefined && seq[j] === "H" && Math.abs(i - j) > 1) { g.beginPath(); g.moveTo(...P[i]); g.lineTo(...P[j]); g.stroke(); } } });
+  g.setLineDash([]); g.strokeStyle = "#8fa0b3"; g.lineWidth = 3; g.beginPath(); P.forEach((p, i) => g[i ? "lineTo" : "moveTo"](...p)); g.stroke();
+  P.forEach((p, i) => { g.fillStyle = seq[i] === "H" ? "#29c7a8" : "#e8eef4"; g.beginPath(); g.arc(p[0], p[1], s * .28, 0, 7); g.fill(); }); return P; }
+V.fold = () => `<h2>🧬 Fold it yourself</h2><p class="lead">The Foldit idea: people are good at seeing folds. Click a bead to bend the chain there (straight → left → right). Bring the teal H beads together; each H-H touch that isn't a chain link scores −1. Can you match the crowd?</p>
+ <div class="card" style="display:flex;gap:16px;flex-wrap:wrap"><canvas id="uc" width="420" height="420"></canvas><div><div class="big" id="ue"></div><p class="mut" id="ucmp"></p><button class="b" onclick="ST.myFold=null;save();go('fold')">Start straight</button></div></div>`;
+A.fold = () => { const seq = ST.seq || "HPHPPHHPHPPHPHHPPHPH", c = $("#uc"); let mv = (ST.myFold || "S".repeat(seq.length - 2)).split(""); if (mv.length !== seq.length - 2) mv = Array(seq.length - 2).fill("S");
+  const show = () => { const P = drawFold(c, seq, mv), e = MINER.energy(seq, mv); $("#ue").textContent = e === null ? "The chain crosses itself" : "Energy " + e; $("#ue").className = "big " + (e === null ? "bad" : "");
+    $("#ucmp").textContent = ST.crowdBest ? `Crowd's best: ${ST.crowdBest.energy}` : "Run the crowd job to compare."; c.onclick = ev => { const b = c.getBoundingClientRect(), x = (ev.clientX - b.left) * c.width / b.width, y = (ev.clientY - b.top) * c.height / b.height;
+      let k = -1, d = 1e9; P.forEach((p, i) => { const dd = (p[0] - x) ** 2 + (p[1] - y) ** 2; if (dd < d) { d = dd; k = i; } }); if (k >= 1 && k <= mv.length) { mv[k - 1] = {S: "L", L: "R", R: "S"}[mv[k - 1]]; ST.myFold = mv.join(""); save(); show(); } }; }; show(); };
+A.crowd = () => { if (ST.crowdBest && ST.crowdBest.moves && (ST.seq || "HPHPPHHPHPPHPHHPPHPH").length === ST.crowdBest.moves.length + 2) drawFold($("#fc"), ST.seq || "HPHPPHHPHPPHPHHPPHPH", ST.crowdBest.moves.split("")); };
+go("home");
+</script></body></html>

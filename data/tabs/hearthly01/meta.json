@@ -1,0 +1,18 @@
+{
+ "id": "hearthly01",
+ "name": "Hearthly",
+ "created": 1795506988.5438662,
+ "icon": "tab-built",
+ "section": "Tools",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795556975.924278,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

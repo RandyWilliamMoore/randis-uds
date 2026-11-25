@@ -1,0 +1,17 @@
+{
+ "id": "kitwright01",
+ "name": "Kitwright EDC Studio",
+ "created": 1795509978.005925,
+ "section": "Create",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795558848.1644619,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

@@ -1,0 +1,1213 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Home Designer</title>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<style>
+:root{--bg:#f9f9f7;--bg2:#fcfcfb;--bg3:#efeee9;--line:#dcdbd5;--tx:#0b0b0b;--mut:#52514e;--acc:#b0602a;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--bad:#d03b3b;
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948}
+body[data-theme=dark]{--bg:#0d0d0d;--bg2:#1a1a19;--bg3:#262624;--line:#383835;--tx:#f0efec;--mut:#c3c2b7;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+header b#apptitle{font-size:16px;color:var(--acc);margin-right:6px}
+#nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+#nav button{border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--mut)}
+#nav button.on{background:var(--acc);color:#fff}
+#nav button:hover:not(.on){background:var(--bg3)}
+#saved{font-size:11px;color:var(--mut)}
+main#view{flex:1;overflow:auto;padding:14px 18px}
+h2{margin:0 0 4px;font-size:21px}h3{margin:6px 0 8px;font-size:15px;color:var(--acc)}h4{margin:10px 0 4px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em}
+.lead{color:var(--mut);margin:0 0 12px;max-width:980px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}.row>.card{flex:1;min-width:300px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:2px;margin:0 0 6px}
+input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px}
+textarea{width:100%;min-height:80px;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--tx);border-radius:6px;padding:4px 10px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}button.x{padding:1px 7px;color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}td input,td select{width:100%;padding:2px 4px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+pre,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}pre{background:var(--bg3);padding:10px;border-radius:6px;overflow:auto;white-space:pre-wrap;margin:6px 0;max-height:420px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:var(--bg3);color:var(--mut)}
+.ok{color:var(--good)}.bad{color:var(--bad)}.warnc{color:#b7791f}
+.banner{border-left:4px solid var(--serious);background:var(--bg3);padding:8px 12px;border-radius:6px;margin:0 0 12px}
+.stat{font-size:26px;font-weight:600}.sub{font-size:12px;color:var(--mut)}
+svg text{fill:var(--mut);font-size:11px}svg .ink{fill:var(--tx)}
+.lnk{color:var(--s1);cursor:pointer;text-decoration:underline}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:9;max-width:80%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><b id="apptitle">Home Designer</b><nav id="nav"></nav><span id="saved"></span><button data-act="theme" title="Light / dark">◐</button></header>
+<main id="view"></main>
+<div id="toast"></div>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+"use strict";
+const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const inApp = window.parent !== window;
+const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100, r1 = n => Math.round(n * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (n, d) => (+n || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d });
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(+n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = n => (isFinite(n) ? Math.round(n * 1000) / 10 : 0) + "%";
+const SER = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)"];
+let toastT; function toast(t, ms) { const e = $("#toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => e.style.display = "none", ms || 3200); }
+let WEB_ON = false;
+function openLink(url) {
+  if (!inApp) { window.open(url, "_blank", "noopener"); return; }
+  if (WEB_ON) { tell({ uds: "web-pop", url }); return; }
+  copyText(url, "Link copied: paste it into your browser (or tick 'Web view' above this tab).");
+}
+function copyText(t, msg) { const fb = () => prompt("Copy this:", t); try { const p = navigator.clipboard && navigator.clipboard.writeText(t); if (p && p.then) p.then(() => toast(msg || "Copied.", 4000), fb); else fb(); } catch (e) { fb(); } }
+const L = (label, url) => `<span class="lnk" data-url="${esc(url)}">${esc(label)} ↗</span>`;
+
+let S, MEM = { page: null, sub: {} }, loaded = false, useLocal = true, saveT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const data = { [APP.key]: S };
+    if (inApp && !useLocal) tell({ uds: "store-set", data });
+    try { localStorage.setItem("uds-" + APP.key, JSON.stringify(S)); } catch (e) {}
+    const kb = Math.round(JSON.stringify(data).length / 1024), el = $("#saved");
+    if (el) el.textContent = `Saved · ${kb} KB`;
+    if (kb > 900) toast("Storage is nearly full: export a backup and remove some images.", 6000);
+  }, 400);
+}
+function readLocal() { try { return JSON.parse(localStorage.getItem("uds-" + APP.key) || "null"); } catch (e) { return null; } }
+function getP(path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), S); }
+function setP(path, val) { const p = path.split("."); let o = S; while (p.length > 1) { const k = p.shift(); if (o[k] == null) o[k] = {}; o = o[k]; } o[p[0]] = val; }
+function download(name, data, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: type || "text/plain" });
+  if (window.__dl) { window.__dl.push([name, typeof data === "string" ? data : "blob:" + blob.size]); }
+  if (inApp) { tell({ uds: "export-file", name, data: blob }); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const csvCell = c => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`;
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ""));
+}
+
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >> 8) & 255], u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  for (const [name, d] of files) {
+    const data = typeof d === "string" ? enc.encode(d) : d, nm = enc.encode(name), crc = crc32(data);
+    const head = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)]);
+    parts.push(head, nm, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nm);
+    off += head.length + nm.length + data.length;
+  }
+  const csize = central.reduce((a, b) => a + b.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+const AIQ = {};
+function askAI(prompt, cb) {
+  if (!inApp) { cb({ error: "Open this inside Randis UDS with an AI linked to use the AI helper." }); return; }
+  const id = "q10-" + uid(); AIQ[id] = cb;
+  tell({ uds: "planner-ask", id, history: [{ role: "user", content: String(prompt) }], context: APP.title + " app in Randis UDS." });
+}
+
+const F = (label, path, o) => { o = o || {}; const v = getP(path); const t = o.type || (typeof v === "number" ? "number" : "text");
+  if (o.opts) return `<label class="f">${esc(label)}<select data-p="${path}"${o.r ? " data-r" : ""}>${o.opts.map(x => { const [k, n] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(k)}"${String(v) === String(k) ? " selected" : ""}>${esc(n)}</option>`; }).join("")}</select></label>`;
+  if (t === "area") return `<label class="f">${esc(label)}<textarea data-p="${path}"${o.r ? " data-r" : ""} style="min-height:${o.h || 90}px">${esc(v)}</textarea></label>`;
+  if (t === "check") return `<label><input type="checkbox" data-p="${path}" data-r${v ? " checked" : ""}> ${esc(label)}</label>`;
+  return `<label class="f">${esc(label)}<input type="${t}" data-p="${path}"${t === "number" ? " data-num" : ""}${o.r ? " data-r" : ""} value="${esc(v)}"${o.step ? ` step="${o.step}"` : ""}${o.w ? ` style="width:${o.w}"` : ""}></label>`; };
+function TBL(path, cols, o) {
+  o = o || {}; const rows = getP(path) || [];
+  const head = cols.map(c => `<th>${esc(c[1])}</th>`).join("") + (o.extra ? o.extra.map(x => `<th>${esc(x[0])}</th>`).join("") : "") + "<th></th>";
+  const body = rows.map((r, i) => "<tr>" + cols.map(([k, , t, w]) => {
+    const p = `${path}.${i}.${k}`, v = r[k];
+    if (Array.isArray(t)) return `<td${w ? ` style="width:${w}"` : ""}><select data-p="${p}" data-r>${t.map(x => `<option${String(v) === String(x) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></td>`;
+    return `<td${w ? ` style="width:${w}"` : ""}><input data-p="${p}"${t === "number" ? ' type="number" data-num step="any"' : ""}${o.live ? " data-r" : ""} value="${esc(v)}"></td>`;
+  }).join("") + (o.extra ? o.extra.map(x => `<td class="num">${x[1](r, i)}</td>`).join("") : "") + `<td><button class="x" data-act="rowdel" data-arg="${path}|${i}">✕</button></td></tr>`).join("");
+  return `<table><tr>${head}</tr>${body}</table><button data-act="rowadd" data-arg="${path}">+ Add row</button>`;
+}
+function lineChart(series, o) {
+  o = o || {}; const W = o.w || 640, H = o.h || 220, P = { l: 46, r: 12, t: 10, b: 24 };
+  const all = series.flatMap(s => s.pts); if (!all.length) return `<p class="sub">No data yet.</p>`;
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) || 1, y0 = Math.min(0, ...ys), y1 = Math.max(...ys) * 1.08 || 1;
+  const X = x => P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r), Y = y => H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b);
+  let g = ""; for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P.l - 4}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`; }
+  g += `<text x="${P.l}" y="${H - 6}">${esc(o.xl ? o.xl(x0) : fmt(x0))}</text><text x="${W - P.r}" y="${H - 6}" text-anchor="end">${esc(o.xl ? o.xl(x1) : fmt(x1))}</text>`;
+  const lines = series.map((s, i) => `<polyline fill="none" stroke="${s.color || SER[i % 8]}" stroke-width="2" points="${s.pts.map(p => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join(" ")}"/>` +
+    s.pts.filter((p, j) => s.pts.length < 60 || j % Math.ceil(s.pts.length / 40) === 0).map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="6" fill="transparent"><title>${esc(s.name)}: ${esc(o.xl ? o.xl(p[0]) : fmt(p[0]))} → ${fmt(p[1])}</title></circle>`).join("")).join("");
+  const leg = series.length > 1 ? `<div class="legend">${series.map((s, i) => `<span><i style="background:${s.color || SER[i % 8]}"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  return leg + `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${g}${lines}</svg>`;
+}
+function barChart(items, o) {
+  o = o || {}; const W = o.w || 640, bh = 22, H = items.length * (bh + 6) + 8, lw = o.lw || 150, max = Math.max(...items.map(i => i.v), 1e-9);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">` + items.map((it, i) => { const y = 4 + i * (bh + 6), w = Math.max(1, (W - lw - 90) * it.v / max);
+    return `<text class="ink" x="${lw - 6}" y="${y + 15}" text-anchor="end">${esc(it.name)}</text><rect x="${lw}" y="${y}" width="${w}" height="${bh}" rx="4" fill="${it.color || SER[o.one ? 0 : i % 8]}"><title>${esc(it.name)}: ${esc(o.f ? o.f(it.v) : fmt(it.v))}</title></rect><text x="${lw + w + 6}" y="${y + 15}">${esc(o.f ? o.f(it.v) : fmt(it.v))}</text>`; }).join("") + "</svg>";
+}
+
+function nav() {
+  $("#nav").innerHTML = APP.pages.map(([id, label]) => `<button data-page="${id}" class="${MEM.page === id ? "on" : ""}">${esc(label)}</button>`).join("");
+}
+function go(id) { MEM.page = id; S._page = id; render(); }
+let PRESS = false, HELD = false, IN_CHANGE = false, heldT;
+function flushHeld() { clearTimeout(heldT); if (HELD) { HELD = false; render(); } }
+document.addEventListener("pointerdown", e => { PRESS = !!(e.target.closest && e.target.closest("button,[data-act],[data-page],a,.lnk,label.pill")); }, true);
+document.addEventListener("pointerup", () => { if (!PRESS) return; PRESS = false; if (HELD) setTimeout(flushHeld, 0); }, true);
+function render() {
+  if (IN_CHANGE && PRESS) { HELD = true; clearTimeout(heldT); heldT = setTimeout(() => { PRESS = false; flushHeld(); }, 1000); return; }
+  HELD = false;
+  nav(); const pg = APP.pages.find(p => p[0] === MEM.page) || APP.pages[0]; MEM.page = pg[0];
+  try { $("#view").innerHTML = pg[2](); if (APP.after) APP.after(pg[0]); }
+  catch (e) { $("#view").innerHTML = `<div class="card bad">This page hit an error: ${esc(e && e.stack || e)}</div>`; console.error(e); }
+}
+function boot(data) {
+  if (loaded) return; loaded = true;
+  S = Object.assign(APP.defaults(), data && typeof data === "object" ? data : {});
+  if (S._theme) document.body.dataset.theme = S._theme;
+  MEM.page = S._page || APP.pages[0][0]; render();
+}
+const ACT = {
+  theme() { S._theme = document.body.dataset.theme === "dark" ? "" : "dark"; document.body.dataset.theme = S._theme; save(); },
+  rowadd(path) { const a = getP(path) || []; const t = APP.rowTemplates && APP.rowTemplates[path]; a.push(t ? t() : {}); setP(path, a); save(); render(); },
+  rowdel(arg) { const [path, i] = arg.split("|"); getP(path).splice(+i, 1); save(); render(); },
+};
+function onField(e, final) {
+  const el = e.target, p = el.dataset && el.dataset.p; if (!p) return;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num !== undefined) v = num(v);
+  setP(p, v); save();
+  IN_CHANGE = final;
+  try { if (final && el.dataset.r !== undefined) render(); if (APP.onField) APP.onField(p, v, final); } finally { IN_CHANGE = false; }
+}
+document.addEventListener("input", e => { if (e.target.tagName === "SELECT" || e.target.type === "checkbox") return; onField(e, false); });
+document.addEventListener("change", e => { if (e.target.type === "file") { const a = e.target.dataset.file; if (a && ACT[a]) ACT[a]([...e.target.files], e.target); return; } onField(e, true); });
+document.addEventListener("click", e => {
+  const pg = e.target.closest("[data-page]"); if (pg) { go(pg.dataset.page); return; }
+  const l = e.target.closest(".lnk"); if (l) { openLink(l.dataset.url); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const f = ACT[b.dataset.act]; if (!f) return;
+  try { f(b.dataset.arg, b, e); } catch (err) { toast("That didn't work: " + err.message, 6000); console.error(err); }
+});
+window.addEventListener("message", e => {
+  const d = e.data; if (!d || typeof d.uds !== "string") return;
+  if (d.uds === "store") { if (!loaded) { useLocal = false; boot(d.data && d.data[APP.key] ? d.data[APP.key] : readLocal()); } }
+  else if (d.uds === "store-error") toast("Couldn't save: " + (d.note || ""), 6000);
+  else if (d.uds === "web-state") WEB_ON = !!d.on;
+  else if (d.uds === "exported" || d.uds === "exporting") toast(d.note || (d.ok ? "Saved." : "Not saved."));
+  else if (d.uds === "planner" && AIQ[d.id]) { if (d.done) { const cb = AIQ[d.id]; delete AIQ[d.id]; cb(d.error ? { error: d.error } : { text: d.text || "" }); } }
+});
+</script>
+<script>
+
+
+const CM_IN = 2.54;
+const FURN = {
+  "Sofa (3 seat)": [213, 91, 85, "Living"], "Loveseat": [152, 91, 85, "Living"], "Armchair": [86, 86, 90, "Living"], "Coffee table": [120, 60, 45, "Living"], "Side table": [50, 50, 55, "Living"],
+  "TV stand": [160, 45, 55, "Living"], "Bookcase": [90, 30, 190, "Living"], "Rug 8x10 ft": [244, 305, 1, "Living"], "Rug 5x8 ft": [152, 244, 1, "Living"],
+  "Bed king": [193, 203, 60, "Bedroom"], "Bed queen": [152, 203, 60, "Bedroom"], "Bed full": [137, 191, 60, "Bedroom"], "Bed twin": [97, 191, 60, "Bedroom"], "Crib": [71, 132, 90, "Bedroom"],
+  "Nightstand": [50, 40, 60, "Bedroom"], "Dresser": [150, 50, 80, "Bedroom"], "Wardrobe": [100, 60, 200, "Bedroom"],
+  "Dining table 6": [183, 91, 76, "Dining"], "Dining table 4": [122, 91, 76, "Dining"], "Round table 4": [107, 107, 76, "Dining"], "Chair": [45, 50, 90, "Dining"],
+  "Desk": [140, 70, 75, "Office"], "Office chair": [65, 65, 110, "Office"], "Filing cabinet": [40, 60, 70, "Office"],
+  "Fridge": [91, 76, 178, "Kitchen"], "Range / stove": [76, 66, 92, "Kitchen"], "Sink base": [91, 61, 92, "Kitchen"], "Counter (per 60 cm)": [60, 61, 92, "Kitchen"], "Dishwasher": [60, 61, 86, "Kitchen"], "Island": [183, 91, 92, "Kitchen"],
+  "Toilet": [38, 71, 76, "Bath"], "Vanity": [91, 53, 86, "Bath"], "Bathtub": [152, 76, 56, "Bath"], "Shower 90x90": [90, 90, 200, "Bath"],
+  "Washer": [69, 76, 99, "Laundry"], "Dryer": [69, 76, 99, "Laundry"],
+};
+const ROOM_T = { living: ["Living room", 150, "#f3e9d8"], kitchen: ["Kitchen", 300, "#e3eef2"], dining: ["Dining", 150, "#efe4f1"], bedroom: ["Bedroom", 100, "#e6eadf"],
+  bath: ["Bathroom", 200, "#dfeef6"], office: ["Office", 500, "#f2efd9"], hall: ["Hall", 100, "#eeeeee"], laundry: ["Laundry", 200, "#e8e8f3"], garage: ["Garage", 100, "#e4e4e4"], closet: ["Closet", 50, "#f0ece6"] };
+const PRICES0 = { paintL: 9, drywall: 15, floorM2: 35, baseM: 4, doorEa: 180, windowEa: 350 };
+
+const HE = { sel: null, drag: null, mode: "house", zoom: 1 };
+const lvl = () => S.levels[S.cur] || S.levels[0];
+const snap = v => Math.round(v / 10) * 10;
+const U = () => S.units === "imp";
+const len = cm => U() ? `${Math.floor(cm / CM_IN / 12)}′ ${Math.round(cm / CM_IN % 12)}″` : `${r2(cm / 100)} m`;
+const area = cm2 => U() ? `${fmt(cm2 / (CM_IN * CM_IN * 144), 0)} ft²` : `${fmt(cm2 / 10000, 1)} m²`;
+const mkRoom = (t, name, x, y, w, h) => ({ id: "r" + uid().slice(0, 5), t, name, x, y, w, h, color: ROOM_T[t][2] });
+
+function walls(L) {
+  const segs = [];
+  for (const r of L.rooms) { segs.push(["h", r.y, r.x, r.x + r.w], ["h", r.y + r.h, r.x, r.x + r.w], ["v", r.x, r.y, r.y + r.h], ["v", r.x + r.w, r.y, r.y + r.h]); }
+  const key = s => s[0] + s[1], groups = {};
+  segs.forEach(s => (groups[key(s)] = groups[key(s)] || []).push([s[2], s[3]]));
+  const out = [];
+  for (const k in groups) { const iv = groups[k].sort((a, b) => a[0] - b[0]); let [a, b] = iv[0];
+    for (const [c, d] of iv.slice(1)) { if (c <= b) b = Math.max(b, d); else { out.push([k[0], +k.slice(1), a, b]); a = c; b = d; } } out.push([k[0], +k.slice(1), a, b]); }
+  return out;
+}
+function openings(L) {
+  return [...L.doors.map(d => ({ ...d, kind: "door" })), ...L.windows.map(w => ({ ...w, kind: "window" }))].map(o => {
+    const r = L.rooms.find(r => r.id === o.room); if (!r) return null;
+    const horiz = o.wall === "n" || o.wall === "s", along = horiz ? r.w : r.h, p = clamp(num(o.pos), 0, Math.max(0, along - num(o.width)));
+    const x = horiz ? r.x + p : (o.wall === "w" ? r.x : r.x + r.w), y = horiz ? (o.wall === "n" ? r.y : r.y + r.h) : r.y + p;
+    return { ...o, r, horiz, x, y, x2: horiz ? x + num(o.width) : x, y2: horiz ? y : y + num(o.width) };
+  }).filter(Boolean);
+}
+function roomStats(L, r, H) {
+  const per = 2 * (r.w + r.h), op = openings(L).filter(o => o.room === r.id), dW = op.filter(o => o.kind === "door"), wW = op.filter(o => o.kind === "window");
+  const wallA = per * H - dW.reduce((s, o) => s + num(o.width) * 210, 0) - wW.reduce((s, o) => s + num(o.width) * num(o.h || 120), 0);
+  return { floor: r.w * r.h, per, wall: Math.max(0, wallA), base: per - dW.reduce((s, o) => s + num(o.width), 0), doors: dW.length, windows: wW.length, glass: wW.reduce((s, o) => s + num(o.width) * num(o.h || 120), 0) };
+}
+function fRect(f) { const rot = (num(f.rot) % 180) !== 0; return { x: f.x, y: f.y, w: rot ? f.d : f.w, h: rot ? f.w : f.d }; }
+const gap = (a, b) => { const dx = Math.max(a.x - (b.x + b.w), b.x - (a.x + a.w), 0), dy = Math.max(a.y - (b.y + b.h), b.y - (a.y + a.h), 0); return Math.hypot(dx, dy); };
+const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+const inside = (a, r) => a.x >= r.x - 0.5 && a.y >= r.y - 0.5 && a.x + a.w <= r.x + r.w + 0.5 && a.y + a.h <= r.y + r.h + 0.5;
+
+function checks(L) {
+  const out = [], add = (sev, msg, ref) => out.push({ sev, msg, ref });
+  L.rooms.forEach((r, i) => L.rooms.slice(i + 1).forEach(q => { const a = { x: r.x, y: r.y, w: r.w, h: r.h }, b = { x: q.x, y: q.y, w: q.w, h: q.h };
+    if (a.x < b.x + b.w - 1 && b.x < a.x + a.w - 1 && a.y < b.y + b.h - 1 && b.y < a.y + a.h - 1) add("bad", `${r.name} and ${q.name} overlap.`); }));
+  L.rooms.forEach(r => { const hab = ["living", "bedroom", "office", "dining"].includes(r.t);
+    if (hab && r.w * r.h < 70 * 929) add("warn", `${r.name} is ${area(r.w * r.h)}: many US codes want habitable rooms ≥ 70 ft² (6.5 m²).`);
+    if (hab && Math.min(r.w, r.h) < 213) add("warn", `${r.name} is ${len(Math.min(r.w, r.h))} wide: many codes want ≥ 7 ft (2.13 m).`);
+    if (r.t === "bedroom" && !openings(L).some(o => o.room === r.id && o.kind === "window")) add("bad", `${r.name} has no window: bedrooms need an emergency escape opening.`);
+    if (!openings(L).some(o => o.room === r.id && o.kind === "door") && r.t !== "closet") add("warn", `${r.name} has no door.`); });
+  const fr = L.furn.map(f => ({ f, R: fRect(f), room: L.rooms.find(r => inside(fRect(f), r)) }));
+  fr.forEach(({ f, R, room }, i) => {
+    if (!room) add("bad", `${f.t} is not fully inside a room.`, f.id);
+    fr.slice(i + 1).forEach(o => { if (f.t.startsWith("Rug") || o.f.t.startsWith("Rug")) return;
+      if (overlap(R, o.R)) add("bad", `${f.t} overlaps ${o.f.t}.`, f.id);
+      else { const g = gap(R, o.R); if (g > 0 && g < 76 && !/Chair|Nightstand|Side table|Office chair|Coffee table/.test(f.t + o.f.t)) add("warn", `${f.t} and ${o.f.t} are ${len(g)} apart: a walkway needs about 76-91 cm (30-36 in).`, f.id); } });
+    if (/Coffee table/.test(f.t)) { const sofa = fr.find(o => /Sofa|Loveseat/.test(o.f.t)); if (sofa) { const g = gap(R, sofa.R); if (g < 35 || g > 50) add("info", `Coffee table is ${len(g)} from the sofa (comfortable: 35-50 cm / 14-18 in).`, f.id); } }
+    if (/^Bed/.test(f.t) && room) { const sides = [R.x - room.x, room.x + room.w - (R.x + R.w)]; if (Math.min(...sides) < 61 && Math.max(...sides) < 61) add("warn", `${f.t}: leave about 61 cm (24 in) on at least one side to get in and out.`, f.id); }
+  });
+  openings(L).filter(o => o.kind === "door").forEach(o => { const r = o.r, wdt = num(o.width);
+    const sw = o.horiz ? { x: o.x, y: o.wall === "n" ? o.y : o.y - wdt, w: wdt, h: wdt } : { x: o.wall === "w" ? o.x : o.x - wdt, y: o.y, w: wdt, h: wdt };
+    fr.forEach(({ f, R }) => { if (!f.t.startsWith("Rug") && overlap(sw, R)) add("bad", `${f.t} blocks the swing of the ${r.name} door.`, f.id); });
+    if (wdt < 81) add("warn", `${r.name} door is ${len(wdt)}: 81-91 cm (32-36 in) is easier for wheelchairs and moving furniture.`); });
+  if (!out.length) add("ok", "No problems found on this floor.");
+  return out;
+}
+
+function planSVG(L, o) {
+  o = o || {}; const rs = L.rooms; if (!rs.length) return `<p class="sub">Add a room.</p>`;
+  const x0 = Math.min(...rs.map(r => r.x)) - 60, y0 = Math.min(...rs.map(r => r.y)) - 60, x1 = Math.max(...rs.map(r => r.x + r.w)) + 60, y1 = Math.max(...rs.map(r => r.y + r.h)) + 60;
+  const W = x1 - x0, H = y1 - y0, wt = 15;
+  let g = "";
+  if (!o.plain) for (let x = Math.ceil(x0 / 100) * 100; x < x1; x += 100) g += `<line x1="${x}" x2="${x}" y1="${y0}" y2="${y1}" stroke="#e2e2e2" stroke-width="1"/>`;
+  if (!o.plain) for (let y = Math.ceil(y0 / 100) * 100; y < y1; y += 100) g += `<line y1="${y}" y2="${y}" x1="${x0}" x2="${x1}" stroke="#e2e2e2" stroke-width="1"/>`;
+  rs.forEach(r => { const st = roomStats(L, r, num(S.wallH)); g += `<rect data-room="${r.id}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="${r.color}" stroke="${HE.sel === r.id ? "#2a78d6" : "none"}" stroke-width="6" style="cursor:move"/>
+    <text x="${r.x + 16}" y="${r.y + 34}" style="font-size:${clamp(Math.min(r.w, r.h) / 10, 13, 24)}px;fill:#333;pointer-events:none">${esc(r.name)}</text>
+    <text x="${r.x + 16}" y="${r.y + 54}" style="font-size:${clamp(Math.min(r.w, r.h) / 16, 10, 15)}px;fill:#666;pointer-events:none">${area(st.floor)} · ${len(r.w)} × ${len(r.h)}</text>`;
+    if (HE.sel === r.id && !o.plain) g += `<rect data-rs="${r.id}" x="${r.x + r.w - 14}" y="${r.y + r.h - 14}" width="28" height="28" fill="#2a78d6" style="cursor:nwse-resize"/>`; });
+  L.furn.forEach(f => { const R = fRect(f); g += `<g data-furn="${f.id}" style="cursor:move"><rect x="${R.x}" y="${R.y}" width="${R.w}" height="${R.h}" rx="4" fill="${f.t.startsWith("Rug") ? "rgba(160,120,90,.25)" : "#fff"}" stroke="${HE.sel === f.id ? "#2a78d6" : "#555"}" stroke-width="${HE.sel === f.id ? 5 : 2}"/>
+    <text x="${R.x + R.w / 2}" y="${R.y + R.h / 2 + 5}" text-anchor="middle" style="font-size:${clamp(Math.min(R.w, R.h) / 4, 9, 18)}px;fill:#333;pointer-events:none">${esc(f.t.replace(/ \(.*\)/, ""))}</text></g>`; });
+  walls(L).forEach(([d, c, a, b]) => g += d === "h" ? `<line x1="${a}" x2="${b}" y1="${c}" y2="${c}" stroke="#222" stroke-width="${wt}" stroke-linecap="square"/>` : `<line y1="${a}" y2="${b}" x1="${c}" x2="${c}" stroke="#222" stroke-width="${wt}" stroke-linecap="square"/>`);
+  openings(L).forEach(op => { const w = num(op.width);
+    g += `<line x1="${op.x}" y1="${op.y}" x2="${op.x2}" y2="${op.y2}" stroke="${op.kind === "door" ? "#fff" : "#9cd3f0"}" stroke-width="${wt + 2}"/>`;
+    if (op.kind === "window") g += `<line x1="${op.x}" y1="${op.y}" x2="${op.x2}" y2="${op.y2}" stroke="#2a78d6" stroke-width="3"/>`;
+    else { const inward = op.wall === "n" || op.wall === "w" ? 1 : -1; if (op.horiz) g += `<path d="M${op.x} ${op.y} L${op.x} ${op.y + inward * w} A${w} ${w} 0 0 ${inward > 0 ? 0 : 1} ${op.x + w} ${op.y}" fill="none" stroke="#888" stroke-width="2" stroke-dasharray="6 4"/>`;
+      else g += `<path d="M${op.x} ${op.y} L${op.x + inward * w} ${op.y} A${w} ${w} 0 0 ${inward > 0 ? 1 : 0} ${op.x} ${op.y + w}" fill="none" stroke="#888" stroke-width="2" stroke-dasharray="6 4"/>`; } });
+  g += `<text x="${(x0 + x1) / 2}" y="${y0 + 30}" text-anchor="middle" style="font-size:22px;fill:#444">${len(x1 - x0 - 120)}</text><text x="${x0 + 22}" y="${(y0 + y1) / 2}" transform="rotate(-90 ${x0 + 22} ${(y0 + y1) / 2})" text-anchor="middle" style="font-size:22px;fill:#444">${len(y1 - y0 - 120)}</text>`;
+  return `<svg id="plan" ${o.plain ? 'xmlns="http://www.w3.org/2000/svg" ' : ""}viewBox="${x0} ${y0} ${W} ${H}" width="${o.w || 760}" style="background:#fff;border:1px solid var(--line);border-radius:6px;touch-action:none;max-width:100%">${g}</svg>`;
+}
+function planPt(e) { const s = $("#plan"), p = s.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const r = p.matrixTransform(s.getScreenCTM().inverse()); return [r.x, r.y]; }
+function wirePlan() {
+  const s = $("#plan"); if (!s) return; const L = lvl();
+  s.onpointerdown = e => { const t = e.target, fu = t.closest("[data-furn]"), rs = t.dataset.rs, rm = t.dataset.room, p = planPt(e);
+    if (rs) { const r = L.rooms.find(r => r.id === rs); HE.drag = { o: r, mode: "rs", p, s: { ...r } }; }
+    else if (fu) { const f = L.furn.find(f => f.id === fu.dataset.furn); HE.sel = f.id; HE.drag = { o: f, mode: "mv", p, s: { ...f } }; }
+    else if (rm) { const r = L.rooms.find(r => r.id === rm); HE.sel = r.id; HE.drag = { o: r, mode: "mv", p, s: { ...r }, room: true }; }
+    else { HE.sel = null; render(); return; }
+    s.setPointerCapture(e.pointerId); };
+  s.onpointermove = e => { const d = HE.drag; if (!d) return; const [x, y] = planPt(e), dx = snap(x - d.p[0]), dy = snap(y - d.p[1]);
+    if (d.mode === "rs") { d.o.w = Math.max(60, d.s.w + dx); d.o.h = Math.max(60, d.s.h + dy); }
+    else { d.o.x = d.s.x + dx; d.o.y = d.s.y + dy; if (d.room && S.moveFurn) L.furn.filter(f => inside(fRect({ ...f, x: f._sx == null ? f.x : f._sx }), d.s)).forEach(f => { if (f._sx == null) { f._sx = f.x; f._sy = f.y; } f.x = f._sx + dx; f.y = f._sy + dy; }); }
+    $("#plan").outerHTML = planSVG(L); const keep = HE.drag; wirePlan(); HE.drag = keep; };
+  s.onpointerup = () => { if (HE.drag) { L.furn.forEach(f => { delete f._sx; delete f._sy; }); HE.drag = null; save(); render(); } };
+}
+
+function draw3D() {
+  const cv = $("#c3d"); if (!cv) return; const L = lvl(), ctx = cv.getContext("2d"), W = cv.width, Hh = cv.height, wh = num(S.wallH), a = num(S.view.yaw) * Math.PI / 180, t = num(S.view.tilt) * Math.PI / 180;
+  ctx.fillStyle = "#f6f6f4"; ctx.fillRect(0, 0, W, Hh); if (!L.rooms.length) return;
+  const cx = (Math.min(...L.rooms.map(r => r.x)) + Math.max(...L.rooms.map(r => r.x + r.w))) / 2, cy = (Math.min(...L.rooms.map(r => r.y)) + Math.max(...L.rooms.map(r => r.y + r.h))) / 2;
+  const span = Math.max(...L.rooms.map(r => Math.max(r.x + r.w - cx, cx - r.x, r.y + r.h - cy, cy - r.y))) * 2.4, sc = Math.min(W, Hh) / span;
+  const P = (x, y, z) => { const X = x - cx, Y = y - cy, rx = X * Math.cos(a) - Y * Math.sin(a), ry = X * Math.sin(a) + Y * Math.cos(a); return [W / 2 + rx * sc, Hh / 2 + 40 + (ry * Math.sin(t) - z * Math.cos(t)) * sc, ry * Math.cos(t) + z * Math.sin(t)]; };
+  const faces = [];
+  const quad = (pts, fill, line) => { const pp = pts.map(p => P(...p)); faces.push({ pp, d: pp.reduce((s, p) => s + p[2], 0) / pp.length, fill, line }); };
+  L.rooms.forEach(r => quad([[r.x, r.y, 0], [r.x + r.w, r.y, 0], [r.x + r.w, r.y + r.h, 0], [r.x, r.y + r.h, 0]], r.color, "#ccc"));
+  const ops = openings(L);
+  walls(L).forEach(([d, c, a0, b0]) => {
+    const cuts = ops.filter(o => (d === "h" ? o.horiz && Math.abs(o.y - c) < 1 : !o.horiz && Math.abs(o.x - c) < 1)).map(o => d === "h" ? [o.x, o.x2, o] : [o.y, o.y2, o]).filter(q => q[1] > a0 && q[0] < b0).sort((p, q) => p[0] - q[0]);
+    let s0 = a0; const seg = (u, v, z0, z1) => { if (v - u < 1) return; const p = d === "h" ? [[u, c], [v, c]] : [[c, u], [c, v]]; quad([[...p[0], z0], [...p[1], z0], [...p[1], z1], [...p[0], z1]], "#e9e6df", "#9a978f"); };
+    cuts.forEach(([u, v, o]) => { seg(s0, u, 0, wh); if (o.kind === "window") { seg(u, v, 0, 90); seg(u, v, 90 + num(o.h || 120), wh); } else seg(u, v, 210, wh); s0 = v; }); seg(s0, b0, 0, wh); });
+  L.furn.forEach(f => { const R = fRect(f), h = (FURN[f.t] || [0, 0, 60])[2], c = f.t.startsWith("Rug") ? "#c9b49c" : "#b9c7d6";
+    const pts = [[R.x, R.y], [R.x + R.w, R.y], [R.x + R.w, R.y + R.h], [R.x, R.y + R.h]];
+    pts.forEach((p, i) => { const q = pts[(i + 1) % 4]; quad([[...p, 0], [...q, 0], [...q, h], [...p, h]], c, "#6b7785"); }); quad(pts.map(p => [...p, h]), mix(c, "#ffffff", 0.3), "#6b7785"); });
+  faces.sort((p, q) => p.d - q.d).forEach(f => { ctx.beginPath(); f.pp.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fillStyle = f.fill; ctx.fill(); ctx.strokeStyle = f.line; ctx.lineWidth = 1; ctx.stroke(); });
+  return faces.length;
+}
+function mix(a, b, t) { const h = s => { s = s.replace("#", ""); return [0, 2, 4].map(i => parseInt(s.slice(i, i + 2), 16)); }, x = h(a), y = h(b); return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join(""); }
+
+function materials() {
+  const H = num(S.wallH), P = S.prices, rows = [];
+  S.levels.forEach(L => L.rooms.forEach(r => { const st = roomStats(L, r, H);
+    rows.push({ level: L.name, room: r.name, t: r.t, floor: st.floor / 1e4, wall: st.wall / 1e4, base: st.base / 100, doors: st.doors, windows: st.windows, glass: st.glass / 1e4 }); }));
+  const T = rows.reduce((t, r) => { ["floor", "wall", "base", "doors", "windows", "glass"].forEach(k => t[k] = (t[k] || 0) + r[k]); return t; }, {});
+  const coats = num(S.coats) || 2, paintL = (T.wall + T.floor * (S.paintCeil ? 1 : 0)) * coats / 10, drywall = Math.ceil((T.wall + T.floor) * 1.1 / 2.88), floorBuy = T.floor * 1.1;
+  const cost = { paint: paintL * P.paintL, drywall: drywall * P.drywall, floor: floorBuy * P.floorM2, base: T.base * 1.1 * P.baseM, doors: T.doors * P.doorEa, windows: T.windows * P.windowEa };
+  return { rows, T, paintL, drywall, floorBuy, cost, total: Object.values(cost).reduce((a, b) => a + b, 0) };
+}
+
+function pageHomeH() {
+  const m = materials();
+  return `<h2>Home Designer</h2><p class="lead">Plan a whole house or one room: draw rooms, place doors, windows and real-size furniture, check walkways and clearances, see it in 3D, and get a materials list with costs.</p>
+  <div class="row">${[["Floors", S.levels.length], ["Rooms", S.levels.reduce((s, L) => s + L.rooms.length, 0)], ["Floor area", area(m.T.floor * 1e4)], ["Wall area", area(m.T.wall * 1e4)], ["Materials (rough)", money(m.total)]].map(([n, v]) => `<div class="card" style="min-width:150px;flex:0 0 auto"><div class="sub">${n}</div><div class="stat">${v}</div></div>`).join("")}</div>
+  <div class="grid">${[["plan", "🏠 House plan", "Floors, rooms, walls, doors, windows"], ["room", "🛋 Room design", "Furniture at real sizes, clearances, colours"], ["view3d", "🧊 3D view", "Turn and tilt the model"], ["mat", "🧱 Materials + cost", "Paint, drywall, flooring, trim, doors, windows"], ["comfort", "💡 Light + comfort", "Lighting lumens, rough heating/cooling, daylight"], ["checks", "✅ Checks", "Overlaps, walkways, door swings, room-size rules of thumb"], ["exporth", "⬇ Export", "Plan SVG, DXF for CAD, CSV, backup"]]
+    .map(([id, n, d]) => `<div class="card" style="cursor:pointer" data-page="${id}"><h3>${n}</h3><div class="sub">${d}</div></div>`).join("")}</div>
+  <div class="banner">Planning aid only. Room-size and clearance numbers are common rules of thumb (US-based); your local building code, permits and a licensed professional decide what can be built.</div>`;
+}
+function pagePlan() {
+  const L = lvl(), r = L.rooms.find(r => r.id === HE.sel);
+  return `<h2>House plan</h2><p class="lead">Drag rooms to move them, drag the blue corner to resize (10 cm steps). Rooms that touch share a wall.</p>
+  <p>${S.levels.map((l, i) => `<button data-act="pickLvl" data-arg="${i}" class="${i === S.cur ? "pri" : ""}">${esc(l.name)}</button>`).join(" ")} <button data-act="addLvl">+ Floor</button> ${F("Units", "units", { opts: [["met", "Metric"], ["imp", "Feet + inches"]], r: 1 })} ${F("Moving a room moves its furniture", "moveFurn", { type: "check" })}</p>
+  <div class="row"><div class="card" style="flex:0 0 auto">${planSVG(L)}</div>
+  <div class="card"><h3>Add a room</h3><p>${Object.entries(ROOM_T).map(([k, v]) => `<button data-act="addRoom" data-arg="${k}">${v[0]}</button>`).join(" ")}</p>
+   ${r ? `<h3>${esc(r.name)}</h3>${(() => { const i = L.rooms.indexOf(r), b = `levels.${S.cur}.rooms.${i}`; return F("Name", b + ".name", { r: 1 }) + F("Type", b + ".t", { opts: Object.entries(ROOM_T).map(([k, v]) => [k, v[0]]), r: 1 }) + `<div class="grid" style="grid-template-columns:repeat(4,1fr)">${["x", "y", "w", "h"].map(k => F(k + " (cm)", b + "." + k, { type: "number", r: 1 })).join("")}</div>` + F("Floor colour", b + ".color", { type: "color", r: 1 }); })()}
+     <p><button data-act="addDoor" data-arg="${r.id}">+ Door</button> <button data-act="addWin" data-arg="${r.id}">+ Window</button> <button class="x" data-act="delRoom" data-arg="${r.id}">Delete room</button></p>` : `<p class="sub">Click a room to edit it, add doors and windows.</p>`}
+   <h3>Doors + windows on this floor</h3>${openTable(L)}</div></div>`;
+}
+function openTable(L) {
+  const rows = [...L.doors.map((d, i) => ["doors", i, d, "Door"]), ...L.windows.map((w, i) => ["windows", i, w, "Window"])];
+  if (!rows.length) return `<p class="sub">None yet.</p>`;
+  return `<table><tr><th></th><th>Room</th><th>Wall</th><th>From corner (cm)</th><th>Width</th><th></th></tr>${rows.map(([k, i, o, n]) => { const b = `levels.${S.cur}.${k}.${i}`; return `<tr><td>${n}</td><td>${esc((L.rooms.find(r => r.id === o.room) || {}).name || "?")}</td><td>${F("", b + ".wall", { opts: [["n", "top"], ["s", "bottom"], ["w", "left"], ["e", "right"]], r: 1 })}</td><td>${F("", b + ".pos", { type: "number", r: 1 })}</td><td>${F("", b + ".width", { type: "number", r: 1 })}</td><td><button class="x" data-act="delOpen" data-arg="${k}|${i}">✕</button></td></tr>`; }).join("")}</table>`;
+}
+function pageRoom() {
+  const L = lvl(), f = L.furn.find(f => f.id === HE.sel), groups = [...new Set(Object.values(FURN).map(v => v[3]))];
+  const ch = checks(L).filter(c => c.ref || /door/.test(c.msg));
+  return `<h2>Room design</h2><p class="lead">Add furniture at its real size and drag it into place. Problems show up as you go: blocked doors, tight walkways, overlaps.</p>
+  <div class="row"><div class="card" style="flex:0 0 auto">${planSVG(L)}</div>
+  <div class="card" style="max-width:420px"><h3>Add furniture</h3>${F("Into room", "furnRoom", { opts: L.rooms.map(r => [r.id, r.name]) })}
+   ${groups.map(g => `<h4>${g}</h4><p>${Object.entries(FURN).filter(([, v]) => v[3] === g).map(([k, v]) => `<button data-act="addFurn" data-arg="${esc(k)}" title="${v[0]} × ${v[1]} cm">${esc(k)}</button>`).join(" ")}</p>`).join("")}
+   ${f ? `<h3>Selected: ${esc(f.t)}</h3><p>${len(f.w)} × ${len(f.d)} <button data-act="rotF">⟳ Rotate 90°</button> <button class="x" data-act="delF">Delete</button></p>` : ""}
+   <h3>Live checks</h3>${ch.length ? ch.map(c => `<p class="${c.sev === "bad" ? "bad" : c.sev === "warn" ? "warnc" : "sub"}">${c.sev === "bad" ? "✗" : c.sev === "warn" ? "⚠" : "ℹ"} ${esc(c.msg)}</p>`).join("") : `<p class="ok">✓ Nothing in the way.</p>`}
+   <h3>Rug size helper</h3><p class="sub">Living room: the rug should reach under at least the front legs of the sofa and chairs (about 15-20 cm in). Bedroom: about 45-60 cm (18-24 in) of rug beyond each side of the bed. Dining: 60 cm (24 in) beyond the table on every side so chairs stay on it.</p></div></div>`;
+}
+function page3D() {
+  return `<h2>3D view</h2><p class="lead">Walls with door and window openings, floors in their colours, furniture as blocks at real heights.</p>
+  <div class="row"><div class="card" style="flex:0 0 auto"><canvas id="c3d" width="820" height="560" style="max-width:100%;border-radius:6px"></canvas></div>
+  <div class="card" style="max-width:300px">${F("Turn (°)", "view.yaw", { type: "range", r: 1 })}${F("Tilt (°)", "view.tilt", { type: "range", r: 1 })}${F("Wall height (cm)", "wallH", { type: "number", r: 1 })}
+   <p>${S.levels.map((l, i) => `<button data-act="pickLvl" data-arg="${i}" class="${i === S.cur ? "pri" : ""}">${esc(l.name)}</button>`).join(" ")}</p><button data-act="png3d">⬇ Picture (.png)</button></div></div>`;
+}
+function pageMat() {
+  const m = materials(), u = U();
+  return `<h2>Materials + cost</h2><p class="lead">Quantities come from the plan: wall area is the room's walls minus doors (210 cm high) and windows; buying amounts include 10% waste. Prices are yours to set.</p>
+  <div class="row"><div class="card"><table><tr><th>Floor</th><th>Room</th><th class="num">Floor</th><th class="num">Walls</th><th class="num">Baseboard</th><th class="num">Doors</th><th class="num">Windows</th></tr>
+   ${m.rows.map(r => `<tr><td>${esc(r.level)}</td><td>${esc(r.room)}</td><td class="num">${area(r.floor * 1e4)}</td><td class="num">${area(r.wall * 1e4)}</td><td class="num">${len(r.base * 100)}</td><td class="num">${r.doors}</td><td class="num">${r.windows}</td></tr>`).join("")}
+   <tr><th></th><th>Total</th><th class="num">${area(m.T.floor * 1e4)}</th><th class="num">${area(m.T.wall * 1e4)}</th><th class="num">${len(m.T.base * 100)}</th><th class="num">${m.T.doors}</th><th class="num">${m.T.windows}</th></tr></table></div>
+  <div class="card" style="max-width:420px"><h3>Buy</h3>${F("Coats of paint", "coats", { type: "number", r: 1 })}${F("Paint ceilings too", "paintCeil", { type: "check" })}
+   <table><tr><td>Paint</td><td class="num">${u ? r1(m.paintL / 3.785) + " gal" : r1(m.paintL) + " L"}</td><td class="num">${money(m.cost.paint)}</td></tr><tr><td>Drywall sheets 4×8 ft</td><td class="num">${m.drywall}</td><td class="num">${money(m.cost.drywall)}</td></tr>
+   <tr><td>Flooring</td><td class="num">${area(m.floorBuy * 1e4)}</td><td class="num">${money(m.cost.floor)}</td></tr><tr><td>Baseboard</td><td class="num">${len(m.T.base * 110)}</td><td class="num">${money(m.cost.base)}</td></tr>
+   <tr><td>Doors</td><td class="num">${m.T.doors}</td><td class="num">${money(m.cost.doors)}</td></tr><tr><td>Windows</td><td class="num">${m.T.windows}</td><td class="num">${money(m.cost.windows)}</td></tr><tr><th>Total</th><th></th><th class="num">${money(m.total)}</th></tr></table>
+   <h4>Your prices</h4><div class="grid" style="grid-template-columns:1fr 1fr">${F("Paint per L", "prices.paintL", { type: "number", r: 1 })}${F("Drywall per sheet", "prices.drywall", { type: "number", r: 1 })}${F("Flooring per m²", "prices.floorM2", { type: "number", r: 1 })}${F("Baseboard per m", "prices.baseM", { type: "number", r: 1 })}${F("Door each", "prices.doorEa", { type: "number", r: 1 })}${F("Window each", "prices.windowEa", { type: "number", r: 1 })}</div>
+   <p class="sub">Paint coverage used: 10 m² per litre per coat (≈ 400 ft² per gallon). Labour, permits and tax are not included.</p><button data-act="exMat">⬇ Materials (.csv)</button></div></div>`;
+}
+function pageComfort() {
+  const rows = S.levels.flatMap(L => L.rooms.map(r => { const st = roomStats(L, r, num(S.wallH)), m2 = st.floor / 1e4, lux = ROOM_T[r.t][1], lm = lux * m2, ft2 = m2 * 10.764;
+    return { n: r.name, t: ROOM_T[r.t][0], m2, lux, lm, bulbs: Math.ceil(lm / 800), btu: Math.round(ft2 * num(S.btuPerFt2)), day: m2 ? st.glass / st.floor : 0 }; }));
+  return `<h2>Light + comfort</h2><p class="lead">How much light each room needs, roughly how big a heater or air conditioner it needs, and how much daylight its windows let in.</p>
+  <div class="card"><table><tr><th>Room</th><th>Type</th><th class="num">Area</th><th class="num">Target lux</th><th class="num">Lumens</th><th class="num">800 lm bulbs</th><th class="num">Heat/cool BTU/h</th><th class="num">Window ÷ floor</th></tr>
+   ${rows.map(r => `<tr><td>${esc(r.n)}</td><td>${r.t}</td><td class="num">${area(r.m2 * 1e4)}</td><td class="num">${r.lux}</td><td class="num">${fmt(r.lm, 0)}</td><td class="num">${r.bulbs}</td><td class="num">${fmt(r.btu, 0)}</td><td class="num ${r.day && r.day < 0.08 ? "warnc" : ""}">${pct(r.day)}</td></tr>`).join("")}</table>
+   ${F("BTU per ft² (rule of thumb; 20 is common for mild climates)", "btuPerFt2", { type: "number", r: 1 })}
+   <p class="sub">Lux targets are common guide values (office 500, kitchen 300, living 150, bedroom 100). Window glass under about 8% of the floor area feels dark; many codes ask for at least 8% glazing in habitable rooms. A real heating/cooling size needs a Manual J load calculation (insulation, climate, sun).</p></div>`;
+}
+function pageChecks() {
+  const all = S.levels.flatMap((L, i) => checks(L).map(c => ({ ...c, lv: L.name })));
+  return `<h2>Checks</h2><p class="lead">Everything the planner can check from the drawing. Rules of thumb, not a code review.</p>
+  <div class="card">${all.map(c => `<p class="${c.sev === "bad" ? "bad" : c.sev === "warn" ? "warnc" : c.sev === "ok" ? "ok" : "sub"}">${c.sev === "bad" ? "✗" : c.sev === "warn" ? "⚠" : c.sev === "ok" ? "✓" : "ℹ"} <span class="pill">${esc(c.lv)}</span> ${esc(c.msg)}</p>`).join("")}</div>`;
+}
+function dxf(L) {
+  const out = ["0", "SECTION", "2", "HEADER", "9", "$INSUNITS", "70", "5", "0", "ENDSEC", "0", "SECTION", "2", "ENTITIES"];
+  const line = (lay, x1, y1, x2, y2) => out.push("0", "LINE", "8", lay, "10", String(x1), "20", String(-y1), "30", "0", "11", String(x2), "21", String(-y2), "31", "0");
+  walls(L).forEach(([d, c, a, b]) => d === "h" ? line("WALLS", a, c, b, c) : line("WALLS", c, a, c, b));
+  openings(L).forEach(o => line(o.kind === "door" ? "DOORS" : "WINDOWS", o.x, o.y, o.x2, o.y2));
+  L.furn.forEach(f => { const R = fRect(f), p = [[R.x, R.y], [R.x + R.w, R.y], [R.x + R.w, R.y + R.h], [R.x, R.y + R.h]]; p.forEach((q, i) => line("FURNITURE", ...q, ...p[(i + 1) % 4])); });
+  L.rooms.forEach(r => out.push("0", "TEXT", "8", "ROOMS", "10", String(r.x + 20), "20", String(-(r.y + r.h / 2)), "30", "0", "40", "20", "1", r.name));
+  out.push("0", "ENDSEC", "0", "EOF"); return out.join("\r\n") + "\r\n";
+}
+function pageExportH() {
+  return `<h2>Export</h2><div class="card"><button data-act="exSVG" class="pri">⬇ Plan (.svg)</button> <button data-act="exDXF">⬇ Plan for CAD (.dxf)</button> <button data-act="exMat">⬇ Materials (.csv)</button> <button data-act="png3d">⬇ 3D picture (.png)</button> <button data-act="backup">Backup (.json)</button> <label class="pill">Restore <input type="file" data-file="restore" accept=".json" style="width:150px"></label></div>
+  <div class="card"><p>The .dxf opens in LibreCAD, FreeCAD, AutoCAD, SketchUp (import) and the Forge CAD tab: walls, doors, windows and furniture on their own layers, in centimetres.</p></div>`;
+}
+
+Object.assign(ACT, {
+  pickLvl(i) { S.cur = +i; HE.sel = null; save(); render(); },
+  addLvl() { S.levels.push({ name: "Floor " + (S.levels.length + 1), rooms: [], doors: [], windows: [], furn: [] }); S.cur = S.levels.length - 1; save(); render(); },
+  addRoom(t) { const L = lvl(), x = L.rooms.length ? Math.max(...L.rooms.map(r => r.x + r.w)) : 0; const r = mkRoom(t, ROOM_T[t][0], x, 0, t === "closet" ? 120 : t === "bath" ? 250 : 360, t === "closet" ? 120 : 300); L.rooms.push(r); HE.sel = r.id; save(); render(); },
+  delRoom(id) { const L = lvl(); L.rooms = L.rooms.filter(r => r.id !== id); L.doors = L.doors.filter(d => d.room !== id); L.windows = L.windows.filter(d => d.room !== id); HE.sel = null; save(); render(); },
+  addDoor(id) { lvl().doors.push({ room: id, wall: "s", pos: 30, width: 86 }); save(); render(); },
+  addWin(id) { lvl().windows.push({ room: id, wall: "n", pos: 60, width: 120, h: 120 }); save(); render(); },
+  delOpen(a) { const [k, i] = a.split("|"); lvl()[k].splice(+i, 1); save(); render(); },
+  addFurn(t) { const L = lvl(), r = L.rooms.find(r => r.id === S.furnRoom) || L.rooms[0]; if (!r) return toast("Add a room first.");
+    const [w, d] = FURN[t]; const f = { id: "f" + uid().slice(0, 5), t, w, d, rot: 0, x: snap(r.x + (r.w - w) / 2), y: snap(r.y + (r.h - d) / 2) }; L.furn.push(f); HE.sel = f.id; save(); render(); },
+  rotF() { const f = lvl().furn.find(f => f.id === HE.sel); if (f) { f.rot = (num(f.rot) + 90) % 360; save(); render(); } },
+  delF() { const L = lvl(); L.furn = L.furn.filter(f => f.id !== HE.sel); HE.sel = null; save(); render(); },
+  exSVG() { download("plan.svg", planSVG(lvl(), { plain: true, w: 1200 }), "image/svg+xml"); },
+  exDXF() { download("plan.dxf", dxf(lvl())); },
+  exMat() { const m = materials(); download("materials.csv", toCSV([["Floor", "Room", "Floor m2", "Wall m2", "Baseboard m", "Doors", "Windows"], ...m.rows.map(r => [r.level, r.room, r2(r.floor), r2(r.wall), r2(r.base), r.doors, r.windows]), [],
+    ["Item", "Amount", "Cost"], ["Paint (L)", r1(m.paintL), r2(m.cost.paint)], ["Drywall sheets", m.drywall, r2(m.cost.drywall)], ["Flooring m2 (+10%)", r2(m.floorBuy), r2(m.cost.floor)], ["Baseboard m (+10%)", r2(m.T.base * 1.1), r2(m.cost.base)], ["Doors", m.T.doors, r2(m.cost.doors)], ["Windows", m.T.windows, r2(m.cost.windows)], ["Total", "", r2(m.total)]])); },
+  png3d() { if (MEM.page !== "view3d") go("view3d"); const c = $("#c3d"); if (c) c.toBlob(b => download("home-3d.png", b)); },
+  backup() { download("home-designer-backup.json", JSON.stringify(S, null, 1), "application/json"); },
+  restore(files) { const f = files[0]; if (!f) return; f.text().then(t => { const o = JSON.parse(t); if (!o.levels) throw new Error("not a Home Designer backup"); S = Object.assign(APP.defaults(), o); save(); render(); toast("Restored."); }).catch(e => toast("Couldn't restore: " + e.message)); },
+});
+
+function demoHouse() {
+  const L = { name: "Ground floor", rooms: [], doors: [], windows: [], furn: [] };
+  const lv = mkRoom("living", "Living room", 0, 0, 500, 420), kt = mkRoom("kitchen", "Kitchen", 500, 0, 340, 300), hl = mkRoom("hall", "Hall", 500, 300, 340, 120),
+    bd = mkRoom("bedroom", "Bedroom", 0, 420, 400, 360), ba = mkRoom("bath", "Bathroom", 400, 420, 240, 220), cl = mkRoom("closet", "Closet", 640, 420, 200, 120);
+  L.rooms.push(lv, kt, hl, bd, ba, cl);
+  L.doors.push({ room: lv.id, wall: "n", pos: 60, width: 91 }, { room: kt.id, wall: "s", pos: 40, width: 81 }, { room: bd.id, wall: "n", pos: 260, width: 81 }, { room: ba.id, wall: "n", pos: 30, width: 76 }, { room: cl.id, wall: "n", pos: 40, width: 76 });
+  L.windows.push({ room: lv.id, wall: "w", pos: 120, width: 180, h: 140 }, { room: kt.id, wall: "n", pos: 100, width: 120, h: 100 }, { room: bd.id, wall: "w", pos: 110, width: 150, h: 120 }, { room: ba.id, wall: "s", pos: 80, width: 60, h: 60 });
+  const add = (t, x, y, rot) => { const [w, d] = FURN[t]; L.furn.push({ id: "f" + uid().slice(0, 5), t, w, d, rot: rot || 0, x, y }); };
+  add("Sofa (3 seat)", 140, 300); add("Coffee table", 190, 200); add("TV stand", 170, 20); add("Armchair", 380, 180); add("Bed queen", 130, 560); add("Nightstand", 70, 570); add("Nightstand", 290, 570); add("Dresser", 30, 440, 0);
+  add("Fridge", 740, 20); add("Range / stove", 600, 20); add("Toilet", 500, 560); add("Vanity", 405, 582); add("Bathtub", 564, 488, 90);
+  return L;
+}
+const APP = {
+  key: "homedesign", title: "Home Designer", testSkip: ["delRoom", "delF", "png3d"],
+  defaults: () => ({ levels: [demoHouse()], cur: 0, units: "imp", wallH: 244, coats: 2, paintCeil: false, prices: { ...PRICES0 }, btuPerFt2: 20, view: { yaw: 35, tilt: 55 }, furnRoom: "", moveFurn: true }),
+  pages: [["home", "🏠 Home", pageHomeH], ["plan", "📐 House plan", pagePlan], ["room", "🛋 Room design", pageRoom], ["view3d", "🧊 3D", page3D], ["mat", "🧱 Materials", pageMat], ["comfort", "💡 Light + comfort", pageComfort], ["checks", "✅ Checks", pageChecks], ["exporth", "⬇ Export", pageExportH]],
+  after: id => { if (id === "plan" || id === "room") wirePlan(); if (id === "view3d") { const y = $('[data-p="view.yaw"]'), t = $('[data-p="view.tilt"]'); if (y) { y.max = 360; y.value = S.view.yaw; } if (t) { t.min = 10; t.max = 89; t.value = S.view.tilt; } draw3D(); } },
+  selftest,
+};
+function selftest() {
+  const keep = S, fail = []; S = APP.defaults();
+  try {
+    const L = lvl();
+    const w = walls({ rooms: [mkRoom("living", "a", 0, 0, 100, 100), mkRoom("living", "b", 100, 0, 100, 100)] });
+    if (w.length !== 5 || !w.some(s => s[0] === "h" && s[1] === 0 && s[2] === 0 && s[3] === 200)) fail.push("walls merge " + JSON.stringify(w));
+    const rx = { id: "x", x: 0, y: 0, w: 400, h: 300 }, st = roomStats({ rooms: [rx], doors: [{ room: "x", wall: "s", pos: 0, width: 90 }], windows: [] }, rx, 250);
+    if (st.floor !== 120000 || st.wall !== 1400 * 250 - 90 * 210 || st.base !== 1310) fail.push("roomStats " + JSON.stringify(st));
+    const bad = checks(L).filter(c => c.sev === "bad"); if (bad.length) fail.push("demo house has problems: " + bad.map(b => b.msg).join("; "));
+    const T = { rooms: [mkRoom("bedroom", "Bed", 0, 0, 300, 300)], doors: [], windows: [], furn: [] }; T.doors.push({ room: T.rooms[0].id, wall: "n", pos: 0, width: 90 });
+    T.furn.push({ id: "a", t: "Dresser", w: 150, d: 50, rot: 0, x: 0, y: 10 }, { id: "b", t: "Desk", w: 140, d: 70, rot: 0, x: 0, y: 200 }, { id: "c", t: "Wardrobe", w: 100, d: 60, rot: 0, x: 290, y: 0 });
+    const cm = checks(T).map(c => c.msg).join("|"); ["blocks the swing", "no window", "not fully inside"].forEach(k => { if (!cm.includes(k)) fail.push("checks missed: " + k + " in " + cm); });
+    const ovl = { rooms: [mkRoom("living", "L", 0, 0, 400, 400)], doors: [], windows: [], furn: [{ id: "a", t: "Sofa (3 seat)", w: 213, d: 91, rot: 0, x: 10, y: 10 }, { id: "b", t: "Armchair", w: 86, d: 86, rot: 0, x: 100, y: 50 }] };
+    if (!checks(ovl).some(c => /overlaps/.test(c.msg))) fail.push("overlap check");
+    if (fRect({ x: 0, y: 0, w: 200, d: 90, rot: 90 }).w !== 90) fail.push("rotate rect");
+    const m = materials(); if (Math.abs(m.T.floor - 57.36) > 0.01 || m.drywall < 50 || !(m.total > 0)) fail.push("materials " + JSON.stringify(m.T) + " dw " + m.drywall);
+    const d = dxf(L); if (!d.startsWith("0\r\nSECTION") || !d.trim().endsWith("EOF") || (d.match(/\r\nLINE\r\n/g) || []).length < 20) fail.push("dxf");
+    if (!/^<svg id="plan" xmlns/.test(planSVG(L, { plain: true }))) fail.push("svg");
+  } catch (e) { fail.push("exception " + e.message + " " + (e.stack || "").split("\n")[1]); }
+  finally { S = keep; }
+  return { fail };
+}
+
+</script>
+<script>
+
+
+const ROOF_T = { gable: "Gable (two slopes, ridge in the middle)", hip: "Hip (slopes on all four sides)", shed: "Shed (one slope)" };
+function floorBox(L) {
+  if (!L.rooms.length) return null;
+  const x0 = Math.min(...L.rooms.map(r => r.x)), y0 = Math.min(...L.rooms.map(r => r.y)), x1 = Math.max(...L.rooms.map(r => r.x + r.w)), y1 = Math.max(...L.rooms.map(r => r.y + r.h));
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+function roofCalc(box, R) {
+  const p = Math.max(0, num(R.pitch)) / 12, k = Math.sqrt(1 + p * p), eave = Math.max(0, num(R.eave)), rake = Math.max(0, num(R.rake)), sp = Math.max(20, num(R.spacing) || 61);
+  const along = box.w >= box.h ? "x" : "y", Lr = Math.max(box.w, box.h), Wr = Math.min(box.w, box.h);
+  const t = R.type in ROOF_T ? R.type : "gable";
+  const Wo = Wr + 2 * eave, Lo = Lr + 2 * (t === "hip" ? eave : rake);
+  const out = { type: t, along, span: Wr, length: Lr, Wo, Lo, k, deg: Math.atan(p) * 180 / Math.PI, plan: Wo * Lo, area: Wo * Lo * k, warn: [] };
+  if (t === "shed") { out.ridgeH = Wr * p; out.rafter = Wo * k; out.ridge = 0; out.hip = 0; out.rafters = Math.floor(Lo / sp) + 1; out.gableEnds = 2 * 0.5 * Wr * out.ridgeH; out.ridgeCap = 0; }
+  else {
+    out.ridgeH = Wr / 2 * p; out.rafter = Wo / 2 * k;
+    if (t === "gable") { out.ridge = Lo; out.hip = 0; out.rafters = 2 * (Math.floor(Lo / sp) + 1); out.gableEnds = 2 * 0.5 * Wr * out.ridgeH; out.ridgeCap = Lo; }
+    else { const h = Wo / 2; out.ridge = Math.max(0, Lo - Wo); out.hip = Math.sqrt(2 * h * h + (h * p) * (h * p)); out.rafters = 2 * (Math.floor(Lo / sp) + 1) + 2 * (Math.floor(Wo / sp) + 1); out.gableEnds = 0; out.ridgeCap = out.ridge + 4 * out.hip; }
+  }
+  out.drip = 2 * (Wo + Lo);
+  const ft2 = out.area / (CM_IN * CM_IN * 144), w = num(R.waste) / 100;
+  out.squares = ft2 / 100 * (1 + w); out.bundles = Math.ceil(out.squares * 3 - 1e-9);
+  if (p * 12 < 2) out.warn.push(["bad", "Below 2/12 pitch: asphalt shingles are not made for this. Use a low-slope roof (membrane, metal rated for low slope)."]);
+  else if (p * 12 < 4) out.warn.push(["warn", "2/12 to 4/12: shingles usually need two layers of underlayment (common code rule)."]);
+  if (p * 12 > 9) out.warn.push(["info", "Steeper than 9/12: hard to walk on; roofers need harnesses and roof jacks, which adds labour cost."]);
+  if (eave > 90) out.warn.push(["warn", "Eave overhang over 90 cm (3 ft) usually needs extra support (outlookers or brackets)."]);
+  return out;
+}
+function roofSVG(box, r) {
+  const W = 560, H = 230, pad = 20;
+  const sc = Math.min((W / 2 - 2 * pad) / r.Wo, (H - 2 * pad) / (num(S.wallH) + r.ridgeH + 1));
+  const ox = pad, oy = H - pad, wh = num(S.wallH) * sc, ov = (r.Wo - r.span) / 2 * sc, sp = r.span * sc;
+  const pk = r.type === "shed" ? `${ox},${oy - wh - ov * (r.ridgeH / Math.max(1, r.span))} ${ox + ov + sp + ov},${oy - wh - r.ridgeH * sc - ov * (r.ridgeH / Math.max(1, r.span))}` : `${ox},${oy - wh + ov * (r.ridgeH / (r.span / 2 || 1))} ${ox + ov + sp / 2},${oy - wh - r.ridgeH * sc} ${ox + 2 * ov + sp},${oy - wh + ov * (r.ridgeH / (r.span / 2 || 1))}`;
+  const side = `<rect x="${ox + ov}" y="${oy - wh}" width="${sp}" height="${wh}" fill="var(--bg2)" stroke="var(--tx)"/><polyline points="${pk}" fill="none" stroke="var(--acc)" stroke-width="3"/>
+    <text x="${ox + ov + sp / 2}" y="${oy - wh - r.ridgeH * sc - 6}" text-anchor="middle">${esc(len(r.ridgeH))} rise</text><text x="${ox + ov + sp / 2}" y="${oy + 14}" text-anchor="middle">${esc(len(r.span))} span</text>`;
+  const s2 = Math.min((W / 2 - 2 * pad) / r.Lo, (H - 2 * pad) / r.Wo), tx = W / 2 + pad, ty = pad, lw = r.Lo * s2, ww = r.Wo * s2;
+  let lines = "";
+  if (r.type === "gable") lines = `<line x1="${tx}" y1="${ty + ww / 2}" x2="${tx + lw}" y2="${ty + ww / 2}"/>`;
+  else if (r.type === "hip") { const a = tx + ww / 2, b = tx + lw - ww / 2; lines = `<line x1="${a}" y1="${ty + ww / 2}" x2="${b}" y2="${ty + ww / 2}"/><line x1="${tx}" y1="${ty}" x2="${a}" y2="${ty + ww / 2}"/><line x1="${tx}" y1="${ty + ww}" x2="${a}" y2="${ty + ww / 2}"/><line x1="${tx + lw}" y1="${ty}" x2="${b}" y2="${ty + ww / 2}"/><line x1="${tx + lw}" y1="${ty + ww}" x2="${b}" y2="${ty + ww / 2}"/>`; }
+  const top = `<rect x="${tx}" y="${ty}" width="${lw}" height="${ww}" fill="var(--bg2)" stroke="var(--tx)"/><g stroke="var(--acc)" stroke-width="2">${lines}</g><text x="${tx + lw / 2}" y="${ty + ww + 14}" text-anchor="middle">top view (with overhangs)</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${side}${top}</svg>`;
+}
+function pageRoof() {
+  S.roof = S.roof || { type: "gable", pitch: 6, eave: 45, rake: 30, spacing: 61, waste: 10, priceSq: 120 };
+  const L = lvl(), box = floorBox(L); if (!box) return `<h2>Roof</h2><p>Draw rooms on the House plan first.</p>`;
+  const r = roofCalc(box, S.roof), R = S.roof;
+  const row = (n, v) => `<tr><td>${n}</td><td class="num">${v}</td></tr>`;
+  return `<h2>Roof designer</h2><p class="lead">A roof over the outline box of <b>${esc(L.name)}</b> (${esc(len(box.w))} × ${esc(len(box.h))}). The ridge runs along the long side. Pitch is inches of rise per 12 inches of run (6 = 6/12, about ${r1(Math.atan(0.5) * 180 / Math.PI)}°).</p>
+  <div class="row"><div class="card"><h3>Shape</h3>${F("Roof type", "roof.type", { opts: Object.entries(ROOF_T), r: 1 })}${F("Pitch (rise per 12)", "roof.pitch", { type: "number", step: "0.5", r: 1 })}
+    ${F("Eave overhang (cm)", "roof.eave", { type: "number", r: 1 })}${F("Rake overhang, gable ends (cm)", "roof.rake", { type: "number", r: 1 })}
+    ${F("Rafter spacing (cm; 41 = 16 in, 61 = 24 in)", "roof.spacing", { type: "number", r: 1 })}${F("Shingle waste (%)", "roof.waste", { type: "number", r: 1 })}${F("Price per square, installed ($, your quote)", "roof.priceSq", { type: "number", r: 1 })}</div>
+  <div class="card"><h3>Numbers</h3><table>${row("Angle", r1(r.deg) + "°")}${row("Slope factor (roof area ÷ plan area)", r.k.toFixed(3))}${row(r.type === "shed" ? "High-side rise" : "Ridge height above the wall top", len(r.ridgeH))}
+    ${row("Common rafter (with overhang)", len(r.rafter))}${r.type === "hip" ? row("Hip rafter (each of 4)", len(r.hip)) : ""}${row("Ridge length", len(r.ridge))}${row("Rafters (about)", r.rafters)}
+    ${row("Roof area", area(r.area))}${row("Shingles incl. waste", fmt(r.squares, 1) + " squares · " + r.bundles + " bundles")}${row("Drip edge", len(r.drip))}${row("Ridge cap", len(r.ridgeCap))}
+    ${r.gableEnds ? row("Gable-end wall area (siding)", area(r.gableEnds)) : ""}${row("Roofing, rough (squares × your price)", money(r.squares * num(R.priceSq)))}</table></div></div>
+  <div class="card">${roofSVG(box, r)}</div>
+  ${r.warn.length ? `<div class="card">${r.warn.map(([s, m]) => `<p class="${s === "bad" ? "bad" : s === "warn" ? "warn" : "sub"}">${s === "bad" ? "⛔" : s === "warn" ? "⚠" : "ℹ"} ${esc(m)}</p>`).join("")}</div>` : ""}
+  <div class="banner">Rafter sizes (2×6, 2×8...) depend on span, snow load, wood grade and your local code's span tables: ask your building department or an engineer.</div>`;
+}
+
+const KIT = { fridge: /^Fridge/, sink: /^Sink/, stove: /^Range|stove|Cooktop/i };
+const ctr = R => [R.x + R.w / 2, R.y + R.h / 2];
+function segInRect(a, b, R) {
+  let t0 = 0, t1 = 1; const dx = b[0] - a[0], dy = b[1] - a[1];
+  for (const [p, q] of [[-dx, a[0] - R.x], [dx, R.x + R.w - a[0]], [-dy, a[1] - R.y], [dy, R.y + R.h - a[1]]]) {
+    if (p === 0) { if (q < 0) return 0; continue; } const t = q / p; if (p < 0) t0 = Math.max(t0, t); else t1 = Math.min(t1, t); if (t0 > t1) return 0; }
+  return (t1 - t0) * Math.hypot(dx, dy);
+}
+function kitchenTri(L, room) {
+  const items = L.furn.filter(f => inside(fRect(f), room)), out = { room, items, pts: {}, legs: [], notes: [] };
+  for (const k in KIT) { const f = items.find(f => KIT[k].test(f.t)); if (f) out.pts[k] = { f, c: ctr(fRect(f)) }; }
+  const miss = Object.keys(KIT).filter(k => !out.pts[k]);
+  if (miss.length) { out.notes.push(["warn", "Missing: " + miss.join(", ") + ". Place " + (miss.length > 1 ? "them" : "it") + " to check the triangle."]); out.miss = miss; }
+  else {
+    const order = [["fridge", "sink"], ["sink", "stove"], ["stove", "fridge"]]; let total = 0;
+    for (const [a, b] of order) {
+      const A = out.pts[a].c, B = out.pts[b].c, d = Math.hypot(B[0] - A[0], B[1] - A[1]); total += d;
+      const leg = { a, b, d, ok: d >= 122 && d <= 274, cut: [] };
+      items.filter(f => f !== out.pts[a].f && f !== out.pts[b].f && !/^Rug|Chair/.test(f.t)).forEach(f => { const c = segInRect(A, B, fRect(f)); if (c > 30.5) leg.cut.push([f.t, c]); });
+      out.legs.push(leg);
+      if (!leg.ok) out.notes.push(["warn", `${a} to ${b} is ${len(d)}: each leg is easiest at 4-9 ft (122-274 cm).`]);
+      leg.cut.forEach(([t, c]) => out.notes.push(["warn", `The ${t} cuts the ${a}-${b} leg by ${len(c)} (rule of thumb: no more than 12 in / 30 cm).`]));
+    }
+    out.total = total;
+    if (total < 396 || total > 792) out.notes.push(["warn", `The three legs add up to ${len(total)}: 13-26 ft (396-792 cm) is the usual comfortable range.`]);
+    else out.notes.push(["ok", `Triangle total ${len(total)} is inside 13-26 ft.`]);
+  }
+  const isl = items.filter(f => /^Island/.test(f.t));
+  isl.forEach(i => items.filter(f => f !== i && !/^Rug|Chair/.test(f.t)).forEach(f => { const g = gap(fRect(i), fRect(f)); if (g > 0 && g < 107) out.notes.push(["warn", `Island to ${f.t} is ${len(g)}: a one-cook work aisle wants about 42 in (107 cm), two cooks 48 in (122 cm).`]); }));
+  return out;
+}
+function freeSpot(L, room, t) {
+  const [w, d] = FURN[t]; const others = L.furn.map(fRect);
+  const swings = openings(L).filter(o => o.kind === "door").map(o => { const wd = num(o.width); return o.horiz ? { x: o.x, y: o.wall === "n" ? o.y : o.y - wd, w: wd, h: wd } : { x: o.wall === "w" ? o.x : o.x - wd, y: o.y, w: wd, h: wd }; });
+  const tries = [];
+  for (let x = room.x; x + w <= room.x + room.w; x += 10) { tries.push({ x, y: room.y, rot: 0 }); tries.push({ x, y: room.y + room.h - d, rot: 0 }); }
+  for (let y = room.y; y + w <= room.y + room.h; y += 10) { tries.push({ x: room.x, y, rot: 90 }); tries.push({ x: room.x + room.w - d, y, rot: 90 }); }
+  for (const p of tries) { const R = fRect({ x: p.x, y: p.y, w, d, rot: p.rot });
+    if (inside(R, room) && !others.some(o => overlap(R, o) || (gap(R, o) > 0 && gap(R, o) < 76)) && !swings.some(s => overlap(R, s))) return { id: "f" + uid().slice(0, 5), t, w, d, rot: p.rot, x: p.x, y: p.y }; }
+  return null;
+}
+function kitchenSVG(k) {
+  const r = k.room, pad = 10, W = 520, sc = (W - 2 * pad) / r.w, H = r.h * sc + 2 * pad, X = x => pad + (x - r.x) * sc, Y = y => pad + (y - r.y) * sc;
+  const furn = k.items.map(f => { const R = fRect(f), key = Object.keys(KIT).find(q => KIT[q].test(f.t)); return `<rect x="${X(R.x)}" y="${Y(R.y)}" width="${R.w * sc}" height="${R.h * sc}" rx="3" fill="${key ? "var(--acc)" : "var(--line)"}" fill-opacity="${key ? 0.35 : 0.6}" stroke="var(--tx)"><title>${esc(f.t)}</title></rect><text x="${X(R.x + R.w / 2)}" y="${Y(R.y + R.h / 2) + 4}" text-anchor="middle" font-size="10">${esc(f.t.split(" ")[0])}</text>`; }).join("");
+  const tri = k.legs.length ? k.legs.map(l => { const A = k.pts[l.a].c, B = k.pts[l.b].c; return `<line x1="${X(A[0])}" y1="${Y(A[1])}" x2="${X(B[0])}" y2="${Y(B[1])}" stroke="${l.ok && !l.cut.length ? "var(--s2)" : "var(--s6)"}" stroke-width="3" stroke-dasharray="${l.cut.length ? "6 4" : ""}"><title>${l.a}-${l.b}: ${esc(len(l.d))}</title></line>`; }).join("") : "";
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px"><rect x="${pad}" y="${pad}" width="${r.w * sc}" height="${r.h * sc}" fill="none" stroke="var(--tx)" stroke-width="2"/>${furn}${tri}</svg>`;
+}
+function pageKitchen() {
+  const L = lvl(), ks = L.rooms.filter(r => r.t === "kitchen");
+  if (!ks.length) return `<h2>Kitchen helper</h2><p>No kitchen on ${esc(L.name)}. Add a room of type Kitchen on the House plan.</p>`;
+  S.kitRoom = ks.some(r => r.id === S.kitRoom) ? S.kitRoom : ks[0].id;
+  const room = ks.find(r => r.id === S.kitRoom), k = kitchenTri(L, room);
+  return `<h2>Kitchen helper</h2><p class="lead">The work triangle joins the fridge, the sink and the stove (centre to centre). Short legs crowd the cook, long legs mean walking. Move them on the Room design page; this page updates.</p>
+  ${ks.length > 1 ? F("Kitchen", "kitRoom", { opts: ks.map(r => [r.id, r.name]), r: 1 }) : ""}
+  <div class="row"><div class="card">${kitchenSVG(k)}</div><div class="card"><h3>Legs</h3>${k.legs.length ? `<table><tr><th>Leg</th><th class="num">Length</th><th>OK?</th></tr>${k.legs.map(l => `<tr><td>${l.a} → ${l.b}</td><td class="num">${esc(len(l.d))}</td><td>${l.ok && !l.cut.length ? "✓" : "⚠"}</td></tr>`).join("")}<tr><td><b>Total</b></td><td class="num"><b>${esc(len(k.total))}</b></td><td>${k.total >= 396 && k.total <= 792 ? "✓" : "⚠"}</td></tr></table>` : ""}
+    ${k.notes.map(([s, m]) => `<p class="${s === "warn" ? "warn" : s === "ok" ? "ok" : "sub"}">${s === "warn" ? "⚠" : s === "ok" ? "✓" : "ℹ"} ${esc(m)}</p>`).join("")}
+    ${(k.miss || []).map(m => `<button data-act="kitPlace" data-arg="${m}">Place a ${m}</button>`).join(" ")}</div></div>
+  <div class="banner">Work-triangle and aisle numbers are common kitchen-design rules of thumb (US), not code.</div>`;
+}
+Object.assign(ACT, {
+  kitPlace(what) { const L = lvl(), room = L.rooms.find(r => r.id === S.kitRoom); if (!room) return;
+    const t = { fridge: "Fridge", sink: "Sink base", stove: "Range / stove" }[what], f = freeSpot(L, room, t);
+    if (!f) return toast("No free spot along the walls: move something on the Room design page first.", 5000);
+    L.furn.push(f); save(); render(); toast(t + " placed. Drag it on the Room design page."); },
+});
+{
+  const i = APP.pages.findIndex(p => p[0] === "view3d"); APP.pages.splice(i, 0, ["roof", "⛺ Roof", pageRoof], ["kitchen", "🍳 Kitchen", pageKitchen]);
+  const d0 = APP.defaults; APP.defaults = () => Object.assign(d0(), { roof: { type: "gable", pitch: 6, eave: 45, rake: 30, spacing: 61, waste: 10, priceSq: 120 }, kitRoom: "" });
+  const st0 = APP.selftest; APP.selftest = () => {
+    const res = st0() || {}, fail = res.fail || (res.fail = []), keep = S; S = APP.defaults();
+    try {
+      const box = { x: 0, y: 0, w: 1000, h: 800 }, R = { type: "gable", pitch: 6, eave: 0, rake: 0, spacing: 61, waste: 0 };
+      const g = roofCalc(box, R); const near = (a, b, e) => Math.abs(a - b) <= (e || 0.5);
+      if (!near(g.k, Math.sqrt(1.25), 1e-9) || !near(g.area, 800000 * Math.sqrt(1.25)) || !near(g.ridgeH, 200) || !near(g.rafter, 400 * Math.sqrt(1.25)) || g.ridge !== 1000 || !near(g.gableEnds, 160000)) fail.push("gable " + JSON.stringify(g));
+      const h = roofCalc(box, { ...R, type: "hip" }); if (!near(h.ridge, 200) || !near(h.hip, 600) || !near(h.area, g.area)) fail.push("hip " + JSON.stringify(h));
+      const s = roofCalc(box, { ...R, type: "shed" }); if (!near(s.ridgeH, 400) || !near(s.rafter, 800 * Math.sqrt(1.25))) fail.push("shed " + JSON.stringify(s));
+      const sq = roofCalc({ x: 0, y: 0, w: 30.48 * 10, h: 30.48 * 10 }, { ...R, pitch: 0, waste: 0 }); if (!near(sq.squares, 1, 1e-6) || sq.bundles !== 3 || !sq.warn.some(w => w[0] === "bad")) fail.push("squares " + JSON.stringify(sq));
+      if (!near(segInRect([0, 0], [100, 0], { x: 20, y: -5, w: 30, h: 10 }), 30, 1e-9) || segInRect([0, 0], [100, 0], { x: 20, y: 5, w: 30, h: 10 }) !== 0) fail.push("segInRect");
+      const room = mkRoom("kitchen", "K", 0, 0, 400, 300), T = { rooms: [room], doors: [], windows: [], furn: [] };
+      const add = (t, x, y, rot) => { const [w, d] = FURN[t]; T.furn.push({ id: uid(), t, w, d, rot: rot || 0, x, y }); };
+      add("Fridge", 0, 0); add("Range / stove", 200, 0); add("Sink base", 60, 200);
+      let k = kitchenTri(T, room); if (k.legs.length !== 3 || k.legs.some(l => !l.ok) || !(k.total > 396)) fail.push("triangle good " + JSON.stringify(k.notes));
+      add("Island", 100, 100); k = kitchenTri(T, room); if (!k.notes.some(n => /cuts the/.test(n[1])) || !k.notes.some(n => /work aisle/.test(n[1]))) fail.push("island cut/aisle " + JSON.stringify(k.notes));
+      const T2 = { rooms: [room], doors: [], windows: [], furn: [] }; const fs = freeSpot(T2, room, "Sink base"); if (!fs || !inside(fRect(fs), room)) fail.push("freeSpot");
+      if (!/Missing: fridge, sink, stove/.test(kitchenTri(T2, room).notes[0][1])) fail.push("missing note");
+    } catch (e) { fail.push("roof/kitchen selftest threw " + e.message); }
+    S = keep; return res;
+  };
+}
+
+</script>
+<script>
+
+
+const STAIR_RULE = { maxR: 19.6, minT: 25.4, minW: 91.4, head: 203.2 };
+const W3 = { mode: "select", chain: null, hover: null, sel: null };
+const lw = L => { L.xwalls = L.xwalls || []; L.prooms = L.prooms || []; L.stairs = L.stairs || []; return L; };
+const P2 = (x, y) => ({ x, y });
+const wlen = w => Math.hypot(w.x2 - w.x1, w.y2 - w.y1);
+const wang = w => { let a = Math.atan2(-(w.y2 - w.y1), w.x2 - w.x1) * 180 / Math.PI; return Math.round(((a % 360) + 360) % 360 * 10) / 10; };
+const near = (a, b, e) => Math.hypot(a.x - b.x, a.y - b.y) <= (e == null ? 0.5 : e);
+
+function lineX(p, d, q, e) {
+  const den = d.x * e.y - d.y * e.x; if (Math.abs(den) < 1e-9) return null;
+  const u = ((q.x - p.x) * e.y - (q.y - p.y) * e.x) / den; return P2(p.x + u * d.x, p.y + u * d.y);
+}
+function wallPoly(L, w) {
+  const t = Math.max(1, num(w.t)) / 2, len = wlen(w) || 1, d = P2((w.x2 - w.x1) / len, (w.y2 - w.y1) / len), n = P2(-d.y, d.x);
+  const end = (P, dOut, nOut) => {
+    const others = L.xwalls.filter(o => o !== w && (near(P2(o.x1, o.y1), P) || near(P2(o.x2, o.y2), P)));
+    const plain = [P2(P.x + nOut.x * t, P.y + nOut.y * t), P2(P.x - nOut.x * t, P.y - nOut.y * t)];
+    if (others.length !== 1) return plain;
+    const o = others[0], ol = wlen(o) || 1, s = near(P2(o.x1, o.y1), P), e = s ? P2((o.x2 - o.x1) / ol, (o.y2 - o.y1) / ol) : P2((o.x1 - o.x2) / ol, (o.y1 - o.y2) / ol), m = P2(-e.y, e.x), to = Math.max(1, num(o.t)) / 2;
+    const a = lineX(P2(P.x + nOut.x * t, P.y + nOut.y * t), dOut, P2(P.x - m.x * to, P.y - m.y * to), e), b = lineX(P2(P.x - nOut.x * t, P.y - nOut.y * t), dOut, P2(P.x + m.x * to, P.y + m.y * to), e);
+    const lim = 4 * Math.max(t, to); return [a && Math.hypot(a.x - P.x, a.y - P.y) < lim ? a : plain[0], b && Math.hypot(b.x - P.x, b.y - P.y) < lim ? b : plain[1]];
+  };
+  const S0 = end(P2(w.x1, w.y1), d, n), E0 = end(P2(w.x2, w.y2), P2(-d.x, -d.y), P2(-n.x, -n.y));
+  return [S0[0], E0[1], E0[0], S0[1]];
+}
+const polyArea = pts => { let s = 0; pts.forEach((p, i) => { const q = pts[(i + 1) % pts.length]; s += p.x * q.y - q.x * p.y; }); return Math.abs(s) / 2; };
+const polyPer = pts => pts.reduce((s, p, i) => s + Math.hypot(pts[(i + 1) % pts.length].x - p.x, pts[(i + 1) % pts.length].y - p.y), 0);
+const ptsOf = r => String(r.pts || "").trim().split(/\s+/).map(s => s.split(",").map(Number)).filter(a => a.length === 2 && a.every(isFinite)).map(a => P2(a[0], a[1]));
+function selfCross(pts) {
+  const n = pts.length, cr = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) { if (i === 0 && j === n - 1) continue; const a = pts[i], b = pts[(i + 1) % n], c = pts[j], d = pts[(j + 1) % n];
+    if (cr(a, b, c) * cr(a, b, d) < 0 && cr(c, d, a) * cr(c, d, b) < 0) return true; }
+  return false;
+}
+function loopFrom(L, w0) {
+  const pts = [P2(w0.x1, w0.y1)], used = new Set([w0]); let at = P2(w0.x2, w0.y2);
+  for (let k = 0; k < 200; k++) {
+    if (near(at, pts[0], 1)) return pts.length >= 3 ? pts : null;
+    pts.push(at); const nx = L.xwalls.find(o => !used.has(o) && (near(P2(o.x1, o.y1), at, 1) || near(P2(o.x2, o.y2), at, 1))); if (!nx) return null;
+    used.add(nx); at = near(P2(nx.x1, nx.y1), at, 1) ? P2(nx.x2, nx.y2) : P2(nx.x1, nx.y1);
+  }
+  return null;
+}
+function wallStats(w, H) {
+  const len = wlen(w), face = len * H, sheet = 122 * 244;
+  return { len, ang: wang(w), face, sheets: Math.ceil(2 * face / sheet * 1.1), studs: Math.floor(len / 40.6) + 1 + 2, plates: 3 * len };
+}
+
+function stairCalc(st, f2f, floorT) {
+  const H = num(f2f), T = Math.max(num(st.tread) || STAIR_RULE.minT, 1);
+  let n = Math.max(2, Math.ceil(H / STAIR_RULE.maxR - 1e-9));
+  while (2 * H / n + T > 64 && H / (n + 1) >= 15) n++;
+  if (num(st.risers) >= 2) n = Math.round(num(st.risers));
+  const R = H / n, treads = n - 1, run = treads * T;
+  const ft = num(floorT); let firstLow = null;
+  for (let i = 0; i <= n; i++) if (H - ft - i * R < STAIR_RULE.head) { firstLow = i; break; }
+  const opening = firstLow == null ? 0 : Math.max(0, run - Math.max(0, firstLow - 1) * T);
+  const twoRT = 2 * R + T, warn = [];
+  if (R > STAIR_RULE.maxR + 1e-6) warn.push("riser over 19.6 cm (7 3/4 in)");
+  if (T < STAIR_RULE.minT - 1e-6) warn.push("tread under 25.4 cm (10 in)");
+  if (num(st.w) < STAIR_RULE.minW) warn.push("width under 91.4 cm (36 in)");
+  if (twoRT < 60.95 || twoRT > 64.05) warn.push("2 x riser + tread = " + r1(twoRT) + " cm, comfortable is about 61-64 cm (24-25 in)");
+  return { H, n, R, T, treads, run, opening: Math.min(run, opening), twoRT, angle: Math.atan2(R, T) * 180 / Math.PI, warn };
+}
+function stairRect(st, c) { const d = st.dir || "n", w = num(st.w), run = c.run;
+  return d === "n" ? { x: st.x, y: st.y - run, w, h: run } : d === "s" ? { x: st.x, y: st.y, w, h: run } : d === "e" ? { x: st.x, y: st.y, w: run, h: w } : { x: st.x - run, y: st.y, w: run, h: w }; }
+const f2f = () => num(S.wallH) + num(S.floorT == null ? 30 : S.floorT);
+function stairSVG(st, c, upper) {
+  const R = stairRect(st, c), d = st.dir || "n", vert = d === "n" || d === "s"; let g = `<g data-stair="${st.id}">`;
+  if (upper) { const o = c.opening, op = d === "n" ? { x: R.x, y: R.y, w: R.w, h: o } : d === "s" ? { x: R.x, y: R.y + R.h - o, w: R.w, h: o } : d === "e" ? { x: R.x + R.w - o, y: R.y, w: o, h: R.h } : { x: R.x, y: R.y, w: o, h: R.h };
+    return g + `<rect x="${op.x}" y="${op.y}" width="${op.w}" height="${op.h}" fill="none" stroke="#c0392b" stroke-width="3" stroke-dasharray="10 6"/><text x="${op.x + 6}" y="${op.y + 22}" style="font-size:16px;fill:#c0392b">opening ${esc(len(o))}</text></g>`; }
+  g += `<rect x="${R.x}" y="${R.y}" width="${R.w}" height="${R.h}" fill="#fafafa" stroke="#555" stroke-width="2"/>`;
+  for (let i = 1; i < c.n - 1; i++) { const k = i * c.T; g += vert ? `<line x1="${R.x}" x2="${R.x + R.w}" y1="${d === "n" ? R.y + R.h - k : R.y + k}" y2="${d === "n" ? R.y + R.h - k : R.y + k}" stroke="#888" stroke-width="1.5"/>` : `<line y1="${R.y}" y2="${R.y + R.h}" x1="${d === "e" ? R.x + k : R.x + R.w - k}" x2="${d === "e" ? R.x + k : R.x + R.w - k}" stroke="#888" stroke-width="1.5"/>`; }
+  const cx = R.x + R.w / 2, cy = R.y + R.h / 2, ax = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }[d], L2 = Math.min(R.w, R.h, c.run) * 0.35 + 20;
+  g += `<line x1="${cx - ax[0] * L2}" y1="${cy - ax[1] * L2}" x2="${cx + ax[0] * L2}" y2="${cy + ax[1] * L2}" stroke="#2a78d6" stroke-width="3" marker-end="url(#hwArrow)"/><text x="${cx + 8}" y="${cy + 6}" style="font-size:16px;fill:#2a78d6">UP ${c.n}R</text></g>`;
+  return g;
+}
+
+function extraSVG(L, sel) {
+  lw(L); let g = `<defs><marker id="hwArrow" markerWidth="8" markerHeight="8" refX="5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2a78d6"/></marker></defs>`;
+  for (const r of L.prooms) { const p = ptsOf(r); if (p.length < 3) continue; const c = p.reduce((s, q) => P2(s.x + q.x / p.length, s.y + q.y / p.length), P2(0, 0));
+    g += `<polygon data-proom="${r.id}" points="${p.map(q => q.x + "," + q.y).join(" ")}" fill="${esc(r.color || "#eef3e6")}" stroke="${sel === r.id ? "#2a78d6" : "none"}" stroke-width="5"/><text x="${c.x}" y="${c.y}" text-anchor="middle" style="font-size:18px;fill:#333;pointer-events:none">${esc(r.name)}</text><text x="${c.x}" y="${c.y + 20}" text-anchor="middle" style="font-size:13px;fill:#666;pointer-events:none">${area(polyArea(p))}</text>`; }
+  const ci = S.levels.indexOf(L);
+  S.levels.forEach((L2, li) => lw(L2).stairs.forEach(st => { const c = stairCalc(st, f2f(), S.floorT == null ? 30 : S.floorT); if (li === ci) g += stairSVG(st, c, false); else if (num(st.to) === ci) g += stairSVG(st, c, true); }));
+  for (const w of L.xwalls) { const q = wallPoly(L, w); g += `<polygon data-xwall="${w.id}" points="${q.map(p => r1(p.x) + "," + r1(p.y)).join(" ")}" fill="${sel === w.id ? "#2a78d6" : "#333"}" stroke="#111" stroke-width="1"/>`; }
+  return g;
+}
+function extraBox(L) { lw(L); const P = [];
+  L.xwalls.forEach(w => P.push(P2(w.x1, w.y1), P2(w.x2, w.y2))); L.prooms.forEach(r => P.push(...ptsOf(r)));
+  S.levels.forEach((L2, li) => lw(L2).stairs.forEach(st => { if (L2 === L || num(st.to) === S.levels.indexOf(L)) { const R = stairRect(st, stairCalc(st, f2f(), 30)); P.push(P2(R.x, R.y), P2(R.x + R.w, R.y + R.h)); } }));
+  return P;
+}
+const planSVG1 = planSVG;
+planSVG = function (L, o) {
+  o = o || {}; lw(L);
+  if (!L.rooms.length && !extraBox(L).length) return planSVG1(L, o);
+  let s = L.rooms.length ? planSVG1(L, o) : `<svg id="plan" ${o.plain ? 'xmlns="http://www.w3.org/2000/svg" ' : ""}viewBox="0 0 100 100" width="${o.w || 760}" style="background:#fff;border:1px solid var(--line);border-radius:6px;touch-action:none;max-width:100%"></svg>`;
+  const P = extraBox(L); if (!P.length) return s;
+  const m = /viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"/.exec(s); let [x0, y0, W, H] = m.slice(1).map(Number), x1 = x0 + W, y1 = y0 + H;
+  if (!L.rooms.length) { x0 = 1e9; y0 = 1e9; x1 = -1e9; y1 = -1e9; }
+  P.forEach(p => { x0 = Math.min(x0, p.x - 60); y0 = Math.min(y0, p.y - 60); x1 = Math.max(x1, p.x + 60); y1 = Math.max(y1, p.y + 60); });
+  s = s.replace(m[0], `viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}"`);
+  return s.replace(/<\/svg>$/, extraSVG(L, HE.sel) + "</svg>");
+};
+function wallsSVG(L) {
+  lw(L); const P = extraBox(L); L.rooms.forEach(r => P.push(P2(r.x, r.y), P2(r.x + r.w, r.y + r.h)));
+  if (W3.chain) P.push(W3.chain); if (P.length < 2) P.push(P2(0, 0), P2(800, 600));
+  let x0 = Math.min(...P.map(p => p.x)) - 300, y0 = Math.min(...P.map(p => p.y)) - 300, x1 = Math.max(...P.map(p => p.x)) + 300, y1 = Math.max(...P.map(p => p.y)) + 300;
+  if (W3.chain && W3.box) [x0, y0, x1, y1] = W3.box; else W3.box = [x0, y0, x1, y1];
+  let g = ""; for (let x = Math.ceil(x0 / 100) * 100; x < x1; x += 100) g += `<line x1="${x}" x2="${x}" y1="${y0}" y2="${y1}" stroke="#e6e6e6"/>`;
+  for (let y = Math.ceil(y0 / 100) * 100; y < y1; y += 100) g += `<line y1="${y}" y2="${y}" x1="${x0}" x2="${x1}" stroke="#e6e6e6"/>`;
+  L.rooms.forEach(r => g += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="${r.color}" opacity=".45"/>`);
+  g += extraSVG(L, W3.sel);
+  L.xwalls.forEach(w => g += `<text x="${(w.x1 + w.x2) / 2}" y="${(w.y1 + w.y2) / 2 - num(w.t) / 2 - 6}" text-anchor="middle" style="font-size:14px;fill:#2a5bd7;pointer-events:none">${esc(len(wlen(w)))}</text>`);
+  if (W3.chain && W3.hover) g += `<line x1="${W3.chain.x}" y1="${W3.chain.y}" x2="${W3.hover.x}" y2="${W3.hover.y}" stroke="#2a78d6" stroke-width="${num(S.wallT) || 15}" opacity=".5"/><text x="${W3.hover.x + 10}" y="${W3.hover.y - 10}" style="font-size:15px;fill:#2a78d6">${esc(len(Math.hypot(W3.hover.x - W3.chain.x, W3.hover.y - W3.chain.y)))}</text>`;
+  if (W3.chain) g += `<circle cx="${W3.chain.x}" cy="${W3.chain.y}" r="7" fill="#2a78d6"/>`;
+  return `<svg id="wplan" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" width="760" style="background:#fff;border:1px solid var(--line);border-radius:6px;touch-action:none;max-width:100%;cursor:${W3.mode === "draw" ? "crosshair" : "default"}">${g}</svg>`;
+}
+function wPt(e) { const s = $("#wplan"), p = s.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const r = p.matrixTransform(s.getScreenCTM().inverse()); return P2(r.x, r.y); }
+function snapPt(L, p, from) {
+  for (const w of L.xwalls) for (const q of [P2(w.x1, w.y1), P2(w.x2, w.y2)]) if (near(p, q, 25)) return q;
+  let q = P2(snap(p.x), snap(p.y));
+  if (from && S.angleSnap) {
+    const d = Math.hypot(q.x - from.x, q.y - from.y), raw = Math.atan2(q.y - from.y, q.x - from.x), a = Math.round(raw / (Math.PI / 12)) * (Math.PI / 12), l = Math.round(d / 10) * 10;
+    if (Math.abs(a - raw) <= 3 * Math.PI / 180 && Math.abs(a - raw) > 1e-9) q = P2(Math.round((from.x + l * Math.cos(a)) * 10) / 10, Math.round((from.y + l * Math.sin(a)) * 10) / 10); }
+  return q;
+}
+function wireWalls() {
+  const s = $("#wplan"); if (!s) return; const L = lw(lvl());
+  s.onpointerdown = e => { const p = wPt(e);
+    if (W3.mode === "draw") { const q = snapPt(L, p, W3.chain);
+      if (!W3.chain) W3.chain = q;
+      else if (!near(q, W3.chain, 5)) { const w = { id: "w" + uid().slice(0, 5), x1: W3.chain.x, y1: W3.chain.y, x2: q.x, y2: q.y, t: num(S.wallT) || 15 }; L.xwalls.push(w); save();
+        const closed = L.xwalls.some(o => o !== w && (near(P2(o.x1, o.y1), q) || near(P2(o.x2, o.y2), q)) && loopFrom(L, w));
+        W3.chain = closed ? null : q; if (closed) toast("Walls closed into a loop. 'Room from walls' turns it into a room."); }
+      redraw(); return; }
+    const t = e.target, id = t.dataset && (t.dataset.xwall || t.dataset.proom); W3.sel = id || null; HE.sel = W3.sel; render(); };
+  s.onpointermove = e => { if (W3.mode !== "draw" || !W3.chain) return; W3.hover = snapPt(L, wPt(e), W3.chain); redraw(); };
+  function redraw() { const k = $("#wplan"); if (!k) return; k.outerHTML = wallsSVG(L); wireWalls(); const tb = $("#wtbl"); if (tb) tb.innerHTML = wallTable(L); }
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape" && W3.chain) { W3.chain = null; W3.hover = null; if ($("#wplan")) render(); } });
+function wallTable(L) {
+  const H = num(S.wallH);
+  return `<table><tr><th>Wall</th><th class="num">Length</th><th class="num">Angle</th><th class="num">Thick (cm)</th><th class="num">Drywall sheets</th><th class="num">Studs</th><th></th></tr>${L.xwalls.map((w, i) => { const st = wallStats(w, H);
+    return `<tr${W3.sel === w.id ? ' style="background:var(--hl,#eef4ff)"' : ""}><td>${i + 1}</td><td class="num">${esc(len(st.len))}</td><td class="num">${st.ang}°</td><td><input data-p="levels.${S.cur}.xwalls.${i}.t" data-num data-r type="number" value="${esc(w.t)}" style="width:70px"></td><td class="num">${st.sheets}</td><td class="num">${st.studs}</td><td><button class="x" data-act="wDel" data-arg="${w.id}">✕</button></td></tr>`; }).join("")}</table>
+    <p class="sub">Drywall: both faces, 4×8 ft sheets, +10% waste. Studs: 40.6 cm (16 in) centres, +2 at the ends. Openings not taken off yet.</p>`;
+}
+function pageWalls() {
+  const L = lw(lvl()), f = f2f();
+  const stairRows = L.stairs.map((st, i) => { const c = stairCalc(st, f, S.floorT == null ? 30 : S.floorT); return `<tr><td>${i + 1}</td><td class="num">${c.n} × ${r1(c.R)} cm</td><td class="num">${c.treads} × ${r1(c.T)} cm</td><td class="num">${esc(len(c.run))}</td><td class="num">${r1(c.angle)}°</td><td class="num">${esc(len(c.opening))}</td><td class="${c.warn.length ? "bad" : ""}">${c.warn.length ? esc(c.warn.join("; ")) : "OK"}</td></tr>`; }).join("");
+  return `<h2>Walls, shaped rooms + stairs</h2><p class="lead">Draw walls at any angle with their own thickness. Close a chain of walls and turn it into a room of any shape. Add stairs and see the risers, treads, run and the opening the floor above needs.</p>
+  <p>${S.levels.map((l, i) => `<button data-act="pickLvl" data-arg="${i}" class="${i === S.cur ? "pri" : ""}">${esc(l.name)}</button>`).join(" ")} · <button data-act="wMode" data-arg="draw" class="${W3.mode === "draw" ? "pri" : ""}">✏ Draw walls</button> <button data-act="wMode" data-arg="select" class="${W3.mode === "select" ? "pri" : ""}">Select</button>
+   ${F("New wall thickness (cm)", "wallT", { type: "number", w: "70px" })} ${F("Snap angle to 15°", "angleSnap", { type: "check" })} <button data-act="wRoom">Room from walls</button> <button data-act="wDemo">Example: angled bay</button></p>
+  <div class="row"><div class="card" style="flex:0 0 auto">${wallsSVG(L)}<div class="sub">Draw: click to start, click for each corner, Esc to stop. Ends snap to other walls' ends.</div></div>
+  <div class="card"><h3>Walls on this floor (${L.xwalls.length})</h3><div id="wtbl">${wallTable(L)}</div>
+   <h3>Shaped rooms</h3>${TBL(`levels.${S.cur}.prooms`, [["name", "Name", "text", "120px"], ["pts", "Corners x,y (cm)", "text", "260px"], ["color", "Colour", "text", "80px"]], { live: true, extra: [["Area", r => { const p = ptsOf(r); return p.length > 2 ? area(polyArea(p)) + (selfCross(p) ? ' <span class="bad">edges cross</span>' : "") : "-"; }], ["Perimeter", r => { const p = ptsOf(r); return p.length > 2 ? len(polyPer(p)) : "-"; }]] })}
+   <h3>Stairs from this floor</h3>${F("Floor thickness (cm)", "floorT", { type: "number", r: 1, w: "70px" })} <span class="sub">Floor to floor: ${esc(len(f))} (wall height + floor)</span>
+   ${TBL(`levels.${S.cur}.stairs`, [["x", "x", "number", "60px"], ["y", "y", "number", "60px"], ["w", "Width", "number", "60px"], ["tread", "Tread", "number", "60px"], ["dir", "Goes up to", ["n", "s", "e", "w"], "50px"], ["to", "Floor no.", "number", "50px"], ["risers", "Risers (blank = auto)", "number", "60px"]], { live: true })}
+   ${L.stairs.length ? `<table><tr><th>Stair</th><th class="num">Risers</th><th class="num">Treads</th><th class="num">Run</th><th class="num">Pitch</th><th class="num">Opening above</th><th>Check</th></tr>${stairRows}</table>` : ""}
+   <p class="sub">Floor no. counts from 0 (${S.levels.map((l, i) => i + " = " + esc(l.name)).join(", ")}). Limits are common US rule-of-thumb numbers (riser ≤ 19.6 cm, tread ≥ 25.4 cm, width ≥ 91.4 cm, headroom ≥ 203 cm), not your local code.</p></div></div>`;
+}
+Object.assign(ACT, {
+  wMode(m) { W3.mode = m; W3.chain = null; W3.hover = null; W3.box = null; render(); },
+  wDel(id) { const L = lw(lvl()); L.xwalls = L.xwalls.filter(w => w.id !== id); W3.box = null; save(); render(); },
+  wRoom() { const L = lw(lvl()); const start = L.xwalls.find(w => w.id === W3.sel) || L.xwalls[L.xwalls.length - 1]; const loop = start && loopFrom(L, start);
+    if (!loop) return toast("No closed chain of walls found: the last wall's end must meet the first wall's start.", 5000);
+    const key = loop.map(p => p.x + "," + p.y).join(" "); if (L.prooms.some(r => r.pts === key)) return toast("That room already exists.");
+    L.prooms.push({ id: "p" + uid().slice(0, 5), name: "Room " + (L.prooms.length + 1), pts: key, color: "#eef3e6" }); save(); render(); toast("Room made: " + area(polyArea(loop)) + "."); },
+  wDemo() { const L = lw(lvl()), x = Math.max(0, ...L.rooms.map(r => r.x + r.w)) + 200, pts = [[x, 0], [x + 400, 0], [x + 400, 300], [x + 300, 400], [x + 100, 400], [x, 300]];
+    pts.forEach((p, i) => { const q = pts[(i + 1) % pts.length]; L.xwalls.push({ id: "w" + uid().slice(0, 5), x1: p[0], y1: p[1], x2: q[0], y2: q[1], t: 15 }); });
+    L.prooms.push({ id: "p" + uid().slice(0, 5), name: "Bay room", pts: pts.map(p => p.join(",")).join(" "), color: "#f1e9dc" }); W3.box = null; save(); render(); },
+});
+const dxf1 = dxf;
+dxf = function (L) {
+  lw(L); const add = [], line = (lay, a, b) => add.push("0", "LINE", "8", lay, "10", String(r2(a.x)), "20", String(r2(-a.y)), "30", "0", "11", String(r2(b.x)), "21", String(r2(-b.y)), "31", "0");
+  L.xwalls.forEach(w => { const q = wallPoly(L, w); line("WALLS", q[0], q[1]); line("WALLS", q[3], q[2]); });
+  L.prooms.forEach(r => { const p = ptsOf(r); p.forEach((a, i) => line("ROOMS", a, p[(i + 1) % p.length])); });
+  L.stairs.forEach(st => { const R = stairRect(st, stairCalc(st, f2f(), S.floorT == null ? 30 : S.floorT)), c = [P2(R.x, R.y), P2(R.x + R.w, R.y), P2(R.x + R.w, R.y + R.h), P2(R.x, R.y + R.h)]; c.forEach((a, i) => line("STAIRS", a, c[(i + 1) % 4])); });
+  const s = dxf1(L), tail = "0\r\nENDSEC\r\n0\r\nEOF\r\n"; return add.length ? s.slice(0, s.length - tail.length) + add.join("\r\n") + "\r\n" + tail : s;
+};
+const checks1 = checks;
+checks = function (L) {
+  lw(L); let out = checks1(L); const extra = [], add = (sev, msg) => extra.push({ sev, msg });
+  L.xwalls.forEach((w, i) => { if (wlen(w) < 10) add("bad", `Wall ${i + 1} is shorter than 10 cm.`); if (num(w.t) < 5 || num(w.t) > 60) add("warn", `Wall ${i + 1} is ${num(w.t)} cm thick: usual is 10-30 cm.`); });
+  L.prooms.forEach(r => { const p = ptsOf(r); if (p.length < 3) add("bad", `${r.name} needs at least 3 corners.`); else if (selfCross(p)) add("bad", `${r.name}: its edges cross each other.`); });
+  L.stairs.forEach((st, i) => { const c = stairCalc(st, f2f(), S.floorT == null ? 30 : S.floorT); c.warn.forEach(w => add("warn", `Stair ${i + 1}: ${w}.`));
+    if (!S.levels[num(st.to)] || num(st.to) === S.cur) add("bad", `Stair ${i + 1} goes to floor ${st.to}, which is not another floor.`); });
+  if (extra.length) out = out.filter(x => x.sev !== "ok").concat(extra);
+  return out;
+};
+{
+  const i = APP.pages.findIndex(p => p[0] === "plan"); APP.pages.splice(i + 1, 0, ["walls", "📏 Walls + stairs", pageWalls]);
+  const a0 = APP.after; APP.after = id => { if (a0) a0(id); if (id === "walls") wireWalls(); };
+  APP.rowTemplates = APP.rowTemplates || {};
+  const d0 = APP.defaults; APP.defaults = () => { const s = d0(); s.wallT = 15; s.angleSnap = true; s.floorT = 30; return s; };
+  APP.testSkip = (APP.testSkip || []).concat(["wMode"]);
+  const tpl = new Proxy({}, { get: (o, k) => typeof k === "string" && /\.stairs$/.test(k) ? () => ({ id: "s" + uid().slice(0, 5), x: 0, y: 0, w: 91.4, tread: 27.9, dir: "n", to: Math.min(S.levels.length - 1, S.cur + 1) }) : /\.prooms$/.test(k) ? () => ({ id: "p" + uid().slice(0, 5), name: "Room", pts: "0,0 300,0 300,200 0,200", color: "#eef3e6" }) : undefined });
+  const rt = APP.rowTemplates; APP.rowTemplates = new Proxy(rt, { get: (o, k) => o[k] || tpl[k] });
+  const st0 = APP.selftest; APP.selftest = () => {
+    const res = st0() || {}, fail = res.fail || (res.fail = []), keep = S; S = APP.defaults();
+    try {
+      const L = lw(lvl()); L.xwalls = []; const sq = [[0, 0], [400, 0], [400, 300], [0, 300]];
+      sq.forEach((p, i) => { const q = sq[(i + 1) % 4]; L.xwalls.push({ id: "t" + i, x1: p[0], y1: p[1], x2: q[0], y2: q[1], t: 20 }); });
+      const q0 = wallPoly(L, L.xwalls[0]);
+      if (!q0.some(p => near(p, P2(-10, -10), 0.01)) || !q0.some(p => near(p, P2(10, 10), 0.01))) fail.push("mitre corners " + JSON.stringify(q0));
+      const loop = loopFrom(L, L.xwalls[0]); if (!loop || polyArea(loop) !== 120000 || polyPer(loop) !== 1400) fail.push("loop area " + JSON.stringify(loop));
+      const tri = [P2(0, 0), P2(300, 0), P2(0, 400)]; if (polyArea(tri) !== 60000 || r1(polyPer(tri)) !== 1200) fail.push("triangle");
+      if (!selfCross([P2(0, 0), P2(100, 100), P2(100, 0), P2(0, 100)]) || selfCross(sq.map(p => P2(...p)))) fail.push("selfCross");
+      const c = stairCalc({ w: 91.4, tread: 25.4 }, 274, 30); if (c.n !== 15 || Math.abs(c.R - 18.267) > 0.01 || c.treads !== 14 || Math.abs(c.run - 355.6) > 0.01 || c.warn.length) fail.push("stair " + JSON.stringify(c));
+      const c14 = stairCalc({ w: 91.4, tread: 25.4, risers: 14 }, 274, 30); if (c14.n !== 14 || !c14.warn.some(w => /2 x riser/.test(w))) fail.push("stair risers override " + JSON.stringify(c14));
+      if (Math.abs(c.opening - 304.8) > 0.01) fail.push("opening " + c.opening);
+      if (!stairCalc({ w: 80, tread: 22 }, 274, 30).warn.some(w => /tread/.test(w))) fail.push("stair short tread not caught");
+      if (Math.abs(wang({ x1: 0, y1: 0, x2: 100, y2: -100 }) - 45) > 0.01) fail.push("angle");
+      S.levels.push({ name: "Upstairs", rooms: [], doors: [], windows: [], furn: [] }); L.stairs = [{ id: "s1", x: 520, y: 420, w: 91.4, tread: 27.9, dir: "n", to: 1 }];
+      const up = planSVG(S.levels[1]); if (!up.includes("opening")) fail.push("upper floor opening not drawn");
+      const d = dxf(L); if (!d.endsWith("0\r\nENDSEC\r\n0\r\nEOF\r\n") || (d.match(/\r\nSTAIRS\r\n/g) || []).length !== 4 || (d.match(/\r\nWALLS\r\n/g) || []).length < 8) fail.push("dxf extras");
+      L.xwalls.push({ id: "bad", x1: 0, y1: 0, x2: 5, y2: 0, t: 15 }); if (!checks(L).some(x => /shorter than 10/.test(x.msg))) fail.push("short wall check");
+    } catch (e) { fail.push("walls selftest threw " + e.message + " " + (e.stack || "").split("\n")[1]); }
+    S = keep; return res;
+  };
+}
+
+</script>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+
+
+const DOOR_H = 210;
+const lo = L => { lw(L); L.xopen = L.xopen || []; return L; };
+function xOpenings(L) {
+  lo(L); return L.xopen.map(o => { const w = L.xwalls.find(x => x.id === o.wall); if (!w) return null; const Lw = wlen(w) || 1, wd = Math.max(1, num(o.width)), pos = clamp(num(o.pos), 0, Math.max(0, Lw - wd));
+    const d = P2((w.x2 - w.x1) / Lw, (w.y2 - w.y1) / Lw), a = P2(w.x1 + d.x * pos, w.y1 + d.y * pos), b = P2(a.x + d.x * wd, a.y + d.y * wd);
+    return { ...o, w, d, a, b, pos, wd, h: o.kind === "door" ? DOOR_H : num(o.h || 120), sill: o.kind === "door" ? 0 : num(o.sill == null ? 90 : o.sill), over: num(o.pos) + wd > Lw + 0.5 || num(o.pos) < 0 }; }).filter(Boolean);
+}
+const openArea = (L, w) => xOpenings(L).filter(o => o.w === w).reduce((s, o) => s + o.wd * o.h, 0);
+
+const extraSVG2 = extraSVG;
+extraSVG = function (L, sel) {
+  let g = extraSVG2(L, sel);
+  for (const o of xOpenings(L)) { const t = Math.max(1, num(o.w.t)) / 2 + 1, n = P2(-o.d.y, o.d.x), q = [P2(o.a.x + n.x * t, o.a.y + n.y * t), P2(o.b.x + n.x * t, o.b.y + n.y * t), P2(o.b.x - n.x * t, o.b.y - n.y * t), P2(o.a.x - n.x * t, o.a.y - n.y * t)];
+    g += `<polygon data-xopen="${o.id}" points="${q.map(p => r1(p.x) + "," + r1(p.y)).join(" ")}" fill="${o.kind === "door" ? "#fff" : "#cfeaf8"}" stroke="${sel === o.id ? "#2a78d6" : "#111"}" stroke-width="${sel === o.id ? 4 : 1}"/>`;
+    if (o.kind === "window") g += `<line x1="${r1(o.a.x)}" y1="${r1(o.a.y)}" x2="${r1(o.b.x)}" y2="${r1(o.b.y)}" stroke="#2a78d6" stroke-width="3"/>`;
+    else { const s = o.side === -1 ? -1 : 1, hinge = o.swing === "r" ? o.b : o.a, free = o.swing === "r" ? o.a : o.b, leaf = P2(hinge.x + n.x * s * o.wd, hinge.y + n.y * s * o.wd);
+      const cw = (free.x - hinge.x) * (leaf.y - hinge.y) - (free.y - hinge.y) * (leaf.x - hinge.x) > 0 ? 1 : 0;
+      g += `<path d="M${r1(hinge.x)} ${r1(hinge.y)} L${r1(leaf.x)} ${r1(leaf.y)} A${o.wd} ${o.wd} 0 0 ${1 - cw} ${r1(free.x)} ${r1(free.y)}" fill="none" stroke="#888" stroke-width="2" stroke-dasharray="6 4"/>`; } }
+  return g;
+};
+const wallStats2 = wallStats;
+wallStats = function (w, H) { const s = wallStats2(w, H), L = S.levels.find(L2 => (L2.xwalls || []).includes(w)); if (!L) return s;
+  const cut = openArea(L, w), n = xOpenings(L).filter(o => o.w === w).length; s.open = cut; s.nOpen = n; s.face = Math.max(0, s.face - cut); s.sheets = Math.ceil(2 * s.face / (122 * 244) * 1.1); s.studs += 2 * n; return s; };
+function roomWalls(L, r) { const p = ptsOf(r); return L.xwalls.filter(w => p.some((a, i) => { const b = p[(i + 1) % p.length]; return (near(a, P2(w.x1, w.y1), 1) && near(b, P2(w.x2, w.y2), 1)) || (near(b, P2(w.x1, w.y1), 1) && near(a, P2(w.x2, w.y2), 1)); })); }
+function shapedStats(L, r, H) {
+  const p = ptsOf(r), per = polyPer(p), ws = new Set(roomWalls(L, r)), op = xOpenings(L).filter(o => ws.has(o.w)), dW = op.filter(o => o.kind === "door"), wW = op.filter(o => o.kind === "window");
+  return { floor: polyArea(p), per, wall: Math.max(0, per * H - op.reduce((s, o) => s + o.wd * o.h, 0)), base: per - dW.reduce((s, o) => s + o.wd, 0), doors: dW.length, windows: wW.length, glass: wW.reduce((s, o) => s + o.wd * o.h, 0), walls: ws.size };
+}
+const materials2 = materials;
+materials = function () {
+  const m = materials2(), H = num(S.wallH), P = S.prices;
+  S.levels.forEach(L => lo(L).prooms.forEach(r => { if (ptsOf(r).length < 3) return; const st = shapedStats(L, r, H);
+    m.rows.push({ level: L.name, room: r.name + " (shaped)", t: "", floor: st.floor / 1e4, wall: st.wall / 1e4, base: st.base / 100, doors: st.doors, windows: st.windows, glass: st.glass / 1e4 }); }));
+  const T = m.rows.reduce((t, r) => { ["floor", "wall", "base", "doors", "windows", "glass"].forEach(k => t[k] = (t[k] || 0) + r[k]); return t; }, {});
+  const coats = num(S.coats) || 2, paintL = (T.wall + T.floor * (S.paintCeil ? 1 : 0)) * coats / 10, drywall = Math.ceil((T.wall + T.floor) * 1.1 / 2.88), floorBuy = T.floor * 1.1;
+  const cost = { paint: paintL * P.paintL, drywall: drywall * P.drywall, floor: floorBuy * P.floorM2, base: T.base * 1.1 * P.baseM, doors: T.doors * P.doorEa, windows: T.windows * P.windowEa };
+  return { rows: m.rows, T, paintL, drywall, floorBuy, cost, total: Object.values(cost).reduce((a, b) => a + b, 0) };
+};
+draw3D = function () {
+  const cv = $("#c3d"); if (!cv) return; const L = lo(lvl()), ctx = cv.getContext("2d"), W = cv.width, Hh = cv.height, wh = num(S.wallH), a = num(S.view.yaw) * Math.PI / 180, t = num(S.view.tilt) * Math.PI / 180;
+  ctx.fillStyle = "#f6f6f4"; ctx.fillRect(0, 0, W, Hh);
+  const B = []; L.rooms.forEach(r => B.push(P2(r.x, r.y), P2(r.x + r.w, r.y + r.h))); L.xwalls.forEach(w => B.push(P2(w.x1, w.y1), P2(w.x2, w.y2))); L.prooms.forEach(r => B.push(...ptsOf(r)));
+  if (!B.length) return 0;
+  const bx0 = Math.min(...B.map(p => p.x)), bx1 = Math.max(...B.map(p => p.x)), by0 = Math.min(...B.map(p => p.y)), by1 = Math.max(...B.map(p => p.y)), cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2;
+  const span = Math.max(bx1 - cx, cx - bx0, by1 - cy, cy - by0, 50) * 2.4, sc = Math.min(W, Hh) / span;
+  const P = (x, y, z) => { const X = x - cx, Y = y - cy, rx = X * Math.cos(a) - Y * Math.sin(a), ry = X * Math.sin(a) + Y * Math.cos(a); return [W / 2 + rx * sc, Hh / 2 + 40 + (ry * Math.sin(t) - z * Math.cos(t)) * sc, ry * Math.cos(t) + z * Math.sin(t)]; };
+  const faces = [], quad = (pts, fill, line) => { const pp = pts.map(p => P(...p)); faces.push({ pp, d: pp.reduce((s, p) => s + p[2], 0) / pp.length, fill, line }); };
+  L.rooms.forEach(r => quad([[r.x, r.y, 0], [r.x + r.w, r.y, 0], [r.x + r.w, r.y + r.h, 0], [r.x, r.y + r.h, 0]], r.color, "#ccc"));
+  L.prooms.forEach(r => { const p = ptsOf(r); if (p.length > 2) quad(p.map(q => [q.x, q.y, 0]), r.color || "#eef3e6", "#ccc"); });
+  const ops = openings(L);
+  walls(L).forEach(([d, c, a0, b0]) => {
+    const cuts = ops.filter(o => (d === "h" ? o.horiz && Math.abs(o.y - c) < 1 : !o.horiz && Math.abs(o.x - c) < 1)).map(o => d === "h" ? [o.x, o.x2, o] : [o.y, o.y2, o]).filter(q => q[1] > a0 && q[0] < b0).sort((p, q) => p[0] - q[0]);
+    let s0 = a0; const seg = (u, v, z0, z1) => { if (v - u < 1) return; const p = d === "h" ? [[u, c], [v, c]] : [[c, u], [c, v]]; quad([[...p[0], z0], [...p[1], z0], [...p[1], z1], [...p[0], z1]], "#e9e6df", "#9a978f"); };
+    cuts.forEach(([u, v, o]) => { seg(s0, u, 0, wh); if (o.kind === "window") { seg(u, v, 0, 90); seg(u, v, 90 + num(o.h || 120), wh); } else seg(u, v, 210, wh); s0 = v; }); seg(s0, b0, 0, wh); });
+  const xo = xOpenings(L);
+  L.xwalls.forEach(w => { const Lw = wlen(w); if (Lw < 1) return; const d = P2((w.x2 - w.x1) / Lw, (w.y2 - w.y1) / Lw), at = s => [w.x1 + d.x * s, w.y1 + d.y * s];
+    const seg = (u, v, z0, z1) => { if (v - u < 1 || z1 - z0 < 1) return; const p = at(u), q = at(v); quad([[...p, z0], [...q, z0], [...q, z1], [...p, z1]], "#e4e0d6", "#8f8b82"); };
+    let s0 = 0; xo.filter(o => o.w === w).sort((p, q) => p.pos - q.pos).forEach(o => { seg(s0, o.pos, 0, wh); seg(o.pos, o.pos + o.wd, 0, o.sill); seg(o.pos, o.pos + o.wd, Math.min(wh, o.sill + o.h), wh); s0 = Math.max(s0, o.pos + o.wd); }); seg(s0, Lw, 0, wh); });
+  L.furn.forEach(f => { const R = fRect(f), h = (FURN[f.t] || [0, 0, 60])[2], c = f.t.startsWith("Rug") ? "#c9b49c" : "#b9c7d6";
+    const pts = [[R.x, R.y], [R.x + R.w, R.y], [R.x + R.w, R.y + R.h], [R.x, R.y + R.h]];
+    pts.forEach((p, i) => { const q = pts[(i + 1) % 4]; quad([[...p, 0], [...q, 0], [...q, h], [...p, h]], c, "#6b7785"); }); quad(pts.map(p => [...p, h]), mix(c, "#ffffff", 0.3), "#6b7785"); });
+  faces.sort((p, q) => p.d - q.d).forEach(f => { ctx.beginPath(); f.pp.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fillStyle = f.fill; ctx.fill(); ctx.strokeStyle = f.line; ctx.lineWidth = 1; ctx.stroke(); });
+  return faces.length;
+};
+const dxf2 = dxf;
+dxf = function (L) {
+  const s = dxf2(L), add = [], line = (lay, a, b) => add.push("0", "LINE", "8", lay, "10", String(r2(a.x)), "20", String(r2(-a.y)), "30", "0", "11", String(r2(b.x)), "21", String(r2(-b.y)), "31", "0");
+  for (const o of xOpenings(L)) { const t = Math.max(1, num(o.w.t)) / 2, n = P2(-o.d.y, o.d.x), lay = o.kind === "door" ? "DOORS" : "WINDOWS";
+    for (const p of [o.a, o.b]) line(lay, P2(p.x + n.x * t, p.y + n.y * t), P2(p.x - n.x * t, p.y - n.y * t)); if (o.kind === "window") line(lay, o.a, o.b); }
+  const tail = "0\r\nENDSEC\r\n0\r\nEOF\r\n"; return add.length ? s.slice(0, s.length - tail.length) + add.join("\r\n") + "\r\n" + tail : s;
+};
+const checks2 = checks;
+checks = function (L) {
+  let out = checks2(L); const extra = [], add = (sev, msg) => extra.push({ sev, msg }), H = num(S.wallH), xo = xOpenings(L);
+  xo.forEach((o, i) => { const nm = `${o.kind === "door" ? "Door" : "Window"} ${i + 1} on wall ${L.xwalls.indexOf(o.w) + 1}`;
+    if (o.over) add("bad", `${nm} runs past the end of its wall (wall ${len(wlen(o.w))}, opening ends at ${len(num(o.pos) + o.wd)}).`);
+    if (o.kind === "door" && o.wd < 76) add("warn", `${nm} is ${len(o.wd)} wide: 76 cm (30 in) is about the narrowest usual interior door; 81-91 cm for wheelchairs.`);
+    if (o.sill + o.h > H) add("bad", `${nm} reaches ${len(o.sill + o.h)}, above the ${len(H)} ceiling.`);
+    xo.forEach((p, j) => { if (j > i && p.w === o.w && p.pos < o.pos + o.wd && o.pos < p.pos + p.wd) add("bad", `${nm} overlaps opening ${j + 1} on the same wall.`); }); });
+  if (extra.length) out = out.filter(x => x.sev !== "ok").concat(extra);
+  return out;
+};
+function openCard(L) {
+  const sel = L.xwalls.find(w => w.id === W3.sel), xo = xOpenings(L);
+  return `<div class="card"><h3>Doors + windows on free walls (${L.xopen.length})</h3>
+  ${sel ? `<p>Wall ${L.xwalls.indexOf(sel) + 1} picked (${esc(len(wlen(sel)))}): <button data-act="xoAdd" data-arg="door" class="pri">+ Door</button> <button data-act="xoAdd" data-arg="window">+ Window</button></p>` : `<p class="sub">Pick a wall (Select, then click it) to put a door or window in it.</p>`}
+  ${L.xopen.length ? `<table><tr><th>#</th><th>Kind</th><th>Wall</th><th class="num">From wall start (cm)</th><th class="num">Width</th><th class="num">Height</th><th class="num">Sill</th><th>Swing</th><th>Opens to</th><th></th></tr>${L.xopen.map((o, i) => { const x = xo.find(q => q.id === o.id), p = `levels.${S.cur}.xopen.${i}`;
+    return `<tr><td>${i + 1}</td><td>${o.kind === "door" ? "🚪 Door" : "🪟 Window"}</td><td>${x ? L.xwalls.indexOf(x.w) + 1 : '<span class="bad">wall gone</span>'}</td><td><input data-p="${p}.pos" data-num data-r type="number" value="${esc(o.pos)}" style="width:70px"></td><td><input data-p="${p}.width" data-num data-r type="number" value="${esc(o.width)}" style="width:60px"></td>
+    <td>${o.kind === "door" ? DOOR_H : `<input data-p="${p}.h" data-num data-r type="number" value="${esc(o.h)}" style="width:60px">`}</td><td>${o.kind === "door" ? 0 : `<input data-p="${p}.sill" data-num data-r type="number" value="${esc(o.sill)}" style="width:60px">`}</td>
+    <td>${o.kind === "door" ? `<select data-p="${p}.swing" data-r><option value="l"${o.swing !== "r" ? " selected" : ""}>hinge at start</option><option value="r"${o.swing === "r" ? " selected" : ""}>hinge at end</option></select>` : ""}</td>
+    <td>${o.kind === "door" ? `<button data-act="xoFlip" data-arg="${o.id}">⇄ flip</button>` : ""}</td><td><button class="x" data-act="xoDel" data-arg="${o.id}">✕</button></td></tr>`; }).join("")}</table>` : ""}
+  <p class="sub">Doors are ${DOOR_H} cm high. Openings come off the wall's drywall above and off the room's paint and baseboard in Materials.</p></div>`;
+}
+Object.assign(ACT, {
+  xoAdd(kind) { const L = lo(lvl()), w = L.xwalls.find(x => x.id === W3.sel); if (!w) return toast("Pick a wall first.");
+    const wd = kind === "door" ? 86 : 120, used = xOpenings(L).filter(o => o.w === w).sort((p, q) => p.pos - q.pos); let pos = Math.max(0, (wlen(w) - wd) / 2);
+    for (const o of used) if (pos < o.pos + o.wd && o.pos < pos + wd) pos = o.pos + o.wd + 20;
+    if (pos + wd > wlen(w)) return toast("No room left on that wall for another " + kind + ".");
+    L.xopen.push({ id: "o" + uid().slice(0, 5), wall: w.id, kind, pos: Math.round(pos), width: wd, h: kind === "door" ? DOOR_H : 120, sill: kind === "door" ? 0 : 90, swing: "l", side: 1 }); save(); render(); },
+  xoDel(id) { const L = lo(lvl()); L.xopen = L.xopen.filter(o => o.id !== id); save(); render(); },
+  xoFlip(id) { const o = lo(lvl()).xopen.find(x => x.id === id); if (o) { o.side = o.side === -1 ? 1 : -1; save(); render(); } },
+});
+{
+  const i = APP.pages.findIndex(p => p[0] === "walls"), pg0 = APP.pages[i][2];
+  APP.pages[i][2] = () => { const L = lo(lvl()); return pg0().replace("Openings not taken off yet.", "Doors and windows in the wall are taken off.") + openCard(L); };
+  const wDel0 = ACT.wDel; ACT.wDel = id => { const L = lo(lvl()); L.xopen = L.xopen.filter(o => o.wall !== id); wDel0(id); };
+  const wDemo0 = ACT.wDemo; ACT.wDemo = () => { const L = lo(lvl()), n = L.xwalls.length; wDemo0(); const ws = L.xwalls.slice(n);
+    if (ws.length >= 5) L.xopen.push({ id: "o" + uid().slice(0, 5), wall: ws[0].id, kind: "door", pos: 157, width: 86, h: DOOR_H, sill: 0, swing: "l", side: 1 }, { id: "o" + uid().slice(0, 5), wall: ws[3].id, kind: "window", pos: 40, width: 120, h: 120, sill: 90, swing: "l", side: 1 });
+    save(); render(); };
+  APP.testSkip = (APP.testSkip || []).concat(["xoDel"]);
+  const st0 = APP.selftest; APP.selftest = () => {
+    const res = st0() || {}, fail = res.fail || (res.fail = []), keep = S; S = APP.defaults();
+    try {
+      S.levels[0].rooms = []; S.levels[0].doors = []; S.levels[0].windows = []; S.levels[0].furn = [];
+      const L = lo(lvl()), H = num(S.wallH), sq = [[0, 0], [400, 0], [400, 300], [0, 300]];
+      sq.forEach((p, i) => { const q = sq[(i + 1) % 4]; L.xwalls.push({ id: "t" + i, x1: p[0], y1: p[1], x2: q[0], y2: q[1], t: 15 }); });
+      L.prooms.push({ id: "pr", name: "Box", pts: sq.map(p => p.join(",")).join(" "), color: "#eef3e6" });
+      L.xopen.push({ id: "d1", wall: "t0", kind: "door", pos: 100, width: 90 }, { id: "w1", wall: "t2", kind: "window", pos: 50, width: 120, h: 100, sill: 90 });
+      const s0 = wallStats(L.xwalls[0], H); if (Math.abs(s0.face - (400 * H - 90 * 210)) > 1e-6 || s0.sheets !== Math.ceil(2 * (400 * H - 18900) / (122 * 244) * 1.1)) fail.push("open: wall face " + JSON.stringify(s0));
+      const st = shapedStats(L, L.prooms[0], H);
+      if (st.floor !== 120000 || st.walls !== 4 || Math.abs(st.wall - (1400 * H - 90 * 210 - 120 * 100)) > 1e-6 || st.base !== 1310 || st.doors !== 1 || st.windows !== 1) fail.push("open: shaped stats " + JSON.stringify(st));
+      const m = materials(), row = m.rows.find(r => /Box/.test(r.room)); if (!row || Math.abs(row.floor - 12) > 1e-9 || m.T.doors !== 1) fail.push("open: materials row " + JSON.stringify(row));
+      L.xopen.push({ id: "d2", wall: "t0", kind: "door", pos: 150, width: 90 }, { id: "w2", wall: "t1", kind: "window", pos: 0, width: 400, h: 300, sill: 0 });
+      const ck = checks(L).map(x => x.msg).join("|"); if (!/overlaps opening/.test(ck) || !/above the/.test(ck)) fail.push("open: checks " + ck);
+      L.xopen[3].pos = 0; L.xopen[3].width = 100; L.xopen.push({ id: "d3", wall: "t1", kind: "door", pos: 250, width: 90 }); if (!/runs past the end/.test(checks(L).map(x => x.msg).join("|"))) fail.push("open: past end not caught");
+      L.xopen.splice(2); const d = dxf(L); if ((d.match(/\r\nDOORS\r\n/g) || []).length !== 2 || (d.match(/\r\nWINDOWS\r\n/g) || []).length !== 3 || !d.endsWith("EOF\r\n")) fail.push("open: dxf layers");
+      if (!extraSVG(L, null).includes('data-xopen="d1"')) fail.push("open: not drawn on plan");
+    } catch (e) { fail.push("openings selftest threw " + e.message + " " + (e.stack || "").split("\n")[1]); }
+    S = keep; return res;
+  };
+}
+
+</script>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+
+
+const W5 = { view: null, pan: null };
+const ST_SHAPES = [["straight", "Straight"], ["L", "L (one turn)"], ["U", "U (turn back)"]];
+
+function stairFrame(st, w) {
+  const d = st.dir || "n", x = num(st.x), y = num(st.y);
+  return d === "n" ? { O: P2(x, y), f: P2(0, -1), r: P2(1, 0) } : d === "s" ? { O: P2(x + w, y), f: P2(0, 1), r: P2(-1, 0) }
+    : d === "e" ? { O: P2(x, y), f: P2(1, 0), r: P2(0, 1) } : { O: P2(x, y + w), f: P2(-1, 0), r: P2(0, -1) };
+}
+function stairPieces(st, c) {
+  const w = num(st.w), T = c.T, R = c.R, shape = st.shape || "straight", s = st.turn === "l" ? -1 : 1, P = [];
+  if (shape === "straight") { for (let i = 1; i < c.n; i++) P.push({ a0: (i - 1) * T, a1: i * T, b0: 0, b1: w, h: i * R, kind: "tread", up: [1, 0] }); return P; }
+  const n1 = Math.ceil(c.n / 2), n2 = c.n - n1, run1 = (n1 - 1) * T, run2 = (n2 - 1) * T;
+  for (let i = 1; i < n1; i++) P.push({ a0: (i - 1) * T, a1: i * T, b0: 0, b1: w, h: i * R, kind: "tread", up: [1, 0] });
+  if (shape === "L") {
+    P.push({ a0: run1, a1: run1 + w, b0: 0, b1: w, h: n1 * R, kind: "landing" });
+    for (let j = 1; j < n2; j++) { const b0 = s > 0 ? w + (j - 1) * T : -j * T; P.push({ a0: run1, a1: run1 + w, b0, b1: b0 + T, h: (n1 + j) * R, kind: "tread", up: [0, s] }); }
+  } else {
+    P.push({ a0: run1, a1: run1 + w, b0: s > 0 ? 0 : -w, b1: s > 0 ? 2 * w : w, h: n1 * R, kind: "landing" });
+    for (let j = 1; j < n2; j++) { const a1 = run1 - (j - 1) * T; P.push({ a0: a1 - T, a1, b0: s > 0 ? w : -w, b1: s > 0 ? 2 * w : 0, h: (n1 + j) * R, kind: "tread", up: [-1, 0] }); }
+  }
+  P.n1 = n1; P.n2 = n2; P.run1 = run1; P.run2 = run2; return P;
+}
+function pieceRect(fr, p) {
+  const pts = [[p.a0, p.b0], [p.a1, p.b1]].map(([a, b]) => P2(fr.O.x + a * fr.f.x + b * fr.r.x, fr.O.y + a * fr.f.y + b * fr.r.y));
+  return { x: Math.min(pts[0].x, pts[1].x), y: Math.min(pts[0].y, pts[1].y), w: Math.abs(pts[1].x - pts[0].x), h: Math.abs(pts[1].y - pts[0].y) };
+}
+function stairInfo(st) {
+  const ft = S.floorT == null ? 30 : S.floorT, c = stairCalc(st, f2f(), ft), w = num(st.w), fr = stairFrame(st, w), P = stairPieces(st, c);
+  const rects = P.map(p => Object.assign(pieceRect(fr, p), { h0: p.h, kind: p.kind, piece: p }));
+  const low = rects.filter(r => f2f() - num(ft) - r.h0 < STAIR_RULE.head);
+  const box = rects.length ? rects.reduce((b, r) => ({ x0: Math.min(b.x0, r.x), y0: Math.min(b.y0, r.y), x1: Math.max(b.x1, r.x + r.w), y1: Math.max(b.y1, r.y + r.h) }), { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 }) : null;
+  const openArea = low.reduce((s, r) => s + r.w * r.h, 0);
+  return { c, fr, P, rects, low, box, openArea, shape: st.shape || "straight" };
+}
+{
+  const sv0 = stairSVG; stairSVG = function (st, c, upper) {
+    if ((st.shape || "straight") === "straight") return sv0(st, c, upper);
+    const I = stairInfo(st); let g = `<g data-stair="${st.id}">`;
+    if (upper) { I.low.forEach(r => g += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="#fbe3e0" stroke="none"/>`);
+      if (I.low.length) { const b = I.low.reduce((b, r) => ({ x0: Math.min(b.x0, r.x), y0: Math.min(b.y0, r.y), x1: Math.max(b.x1, r.x + r.w), y1: Math.max(b.y1, r.y + r.h) }), { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 });
+        g += `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="none" stroke="#c0392b" stroke-width="3" stroke-dasharray="10 6"/><text x="${b.x0 + 6}" y="${b.y0 + 22}" style="font-size:16px;fill:#c0392b">opening ${esc(area(I.openArea))}</text>`; }
+      return g + "</g>"; }
+    I.rects.forEach(r => g += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="${r.kind === "landing" ? "#eef2f6" : "#fafafa"}" stroke="${r.kind === "landing" ? "#555" : "#888"}" stroke-width="${r.kind === "landing" ? 2 : 1.5}"/>`);
+    const first = I.rects[0] || I.rects.find(r => r.kind === "landing"), last = I.rects[I.rects.length - 1], cx = r => r.x + r.w / 2, cy = r => r.y + r.h / 2;
+    const pts = [first, I.rects.find(r => r.kind === "landing"), last].filter(Boolean).map(r => `${cx(r)},${cy(r)}`).join(" ");
+    g += `<polyline points="${pts}" fill="none" stroke="#2a78d6" stroke-width="3" marker-end="url(#hwArrow)"/><text x="${cx(first) + 8}" y="${cy(first) + 6}" style="font-size:16px;fill:#2a78d6">UP ${c.n}R ${I.shape}</text></g>`;
+    return g;
+  };
+  const sr0 = stairRect; stairRect = function (st, c) { if ((st.shape || "straight") === "straight") return sr0(st, c); const b = stairInfo(st).box; return { x: b.x0, y: b.y0, w: b.x1 - b.x0, h: b.y1 - b.y0 }; };
+  const dx0 = dxf; dxf = function (L) {
+    lw(L); const shaped = L.stairs.filter(st => (st.shape || "straight") !== "straight"); if (!shaped.length) return dx0(L);
+    const all = L.stairs; L.stairs = all.filter(st => !shaped.includes(st)); let s; try { s = dx0(L); } finally { L.stairs = all; }
+    const add = [], line = (a, b) => add.push("0", "LINE", "8", "STAIRS", "10", String(r2(a.x)), "20", String(r2(-a.y)), "30", "0", "11", String(r2(b.x)), "21", String(r2(-b.y)), "31", "0");
+    shaped.forEach(st => stairInfo(st).rects.forEach(R => { const c = [P2(R.x, R.y), P2(R.x + R.w, R.y), P2(R.x + R.w, R.y + R.h), P2(R.x, R.y + R.h)]; c.forEach((a, i) => line(a, c[(i + 1) % 4])); }));
+    const tail = "0\r\nENDSEC\r\n0\r\nEOF\r\n"; return s.slice(0, s.length - tail.length) + add.join("\r\n") + "\r\n" + tail;
+  };
+}
+
+{
+  const ws0 = wallsSVG; wallsSVG = function (L) {
+    let s = ws0(L); if (!W5.view) { const m = /viewBox="([-\d.e]+) ([-\d.e]+) ([-\d.e]+) ([-\d.e]+)"/.exec(s); W5.full = m.slice(1).map(Number); return s; }
+    const [x, y, w, h] = W5.view; return s.replace(/viewBox="[^"]*"/, `viewBox="${x} ${y} ${w} ${h}"`);
+  };
+  const ww0 = wireWalls; wireWalls = function () {
+    ww0(); const s = $("#wplan"); if (!s) return;
+    const vb = () => s.getAttribute("viewBox").split(/\s+/).map(Number);
+    s.addEventListener("wheel", e => { e.preventDefault(); const p = wPt(e), [x, y, w, h] = vb(), k = e.deltaY > 0 ? 1.25 : 0.8;
+      W5.view = [p.x - (p.x - x) * k, p.y - (p.y - y) * k, w * k, h * k]; s.setAttribute("viewBox", W5.view.join(" ")); }, { passive: false });
+    const down0 = s.onpointerdown;
+    s.onpointerdown = e => { const bg = !(e.target.dataset && (e.target.dataset.xwall || e.target.dataset.proom || e.target.dataset.xopen));
+      if (e.button === 1 || (W3.mode !== "draw" && bg && e.button === 0)) { e.preventDefault(); W5.pan = { cx: e.clientX, cy: e.clientY, v: vb(), moved: false, k: vb()[2] / s.getBoundingClientRect().width }; s.setPointerCapture && s.setPointerCapture(e.pointerId); return; }
+      down0 && down0(e); };
+    const move0 = s.onpointermove;
+    s.onpointermove = e => { if (W5.pan) { const P = W5.pan, dx = (e.clientX - P.cx) * P.k, dy = (e.clientY - P.cy) * P.k; if (Math.abs(dx) + Math.abs(dy) > 0) P.moved = true;
+      W5.view = [P.v[0] - dx, P.v[1] - dy, P.v[2], P.v[3]]; s.setAttribute("viewBox", W5.view.join(" ")); return; } move0 && move0(e); };
+    s.onpointerup = e => { if (W5.pan) { const moved = W5.pan.moved; W5.pan = null; if (!moved && W3.mode !== "draw") { W3.sel = null; HE.sel = null; render(); } } };
+  };
+}
+
+const ELEV_VIEWS = { front: ["Front (from the bottom of the plan)", p => p.x, p => -p.y], back: ["Back (from the top)", p => -p.x, p => p.y], left: ["Left side", p => p.y, p => p.x], right: ["Right side", p => -p.y, p => -p.x] };
+function elevParts(view) {
+  const [, U, D] = ELEV_VIEWS[view] || ELEV_VIEWS.front, H = num(S.wallH), F = f2f(), parts = [];
+  S.levels.forEach((L, li) => { lw(L); const z0 = li * F;
+    const push = (a, b, ops, id, t) => { const ua = U(a), ub = U(b); if (Math.abs(ua - ub) < 0.5) return;
+      const flip = ua > ub, u0 = Math.min(ua, ub), u1 = Math.max(ua, ub), Lw = Math.hypot(b.x - a.x, b.y - a.y);
+      const op = ops.map(o => { let s0 = U(P2(a.x + (b.x - a.x) * o.s0 / Lw, a.y + (b.y - a.y) * o.s0 / Lw)), s1 = U(P2(a.x + (b.x - a.x) * o.s1 / Lw, a.y + (b.y - a.y) * o.s1 / Lw)); if (s0 > s1) [s0, s1] = [s1, s0];
+        return { kind: o.kind, u0: s0, u1: s1, z0: z0 + o.sill, z1: z0 + o.sill + o.h, id: o.id }; });
+      parts.push({ id, level: li, u0, u1, z0, z1: z0 + H, dist: (D(a) + D(b)) / 2, op, t: t || 15 }); };
+    const ops = openings(L);
+    L.rooms.forEach(r => { const c = [P2(r.x, r.y), P2(r.x + r.w, r.y), P2(r.x + r.w, r.y + r.h), P2(r.x, r.y + r.h)], side = ["n", "e", "s", "w"];
+      c.forEach((a, i) => { const b = c[(i + 1) % 4], wall = side[i];
+        const mine = ops.filter(o => o.room === r.id && o.wall === wall).map(o => { const s = o.horiz ? o.x - r.x : o.y - r.y; return { kind: o.kind, s0: s, s1: s + num(o.width), sill: o.kind === "door" ? 0 : 90, h: o.kind === "door" ? 210 : num(o.h || 120), id: o.id }; });
+        const L2 = i % 2 ? r.h : r.w, fix = mine.map(o => (i >= 2 ? { ...o, s0: L2 - o.s1, s1: L2 - o.s0 } : o));
+        push(a, b, fix, r.id + ":" + wall); }); });
+    const xo = typeof xOpenings === "function" ? xOpenings(L) : [];
+    L.xwalls.forEach(w => push(P2(w.x1, w.y1), P2(w.x2, w.y2), xo.filter(o => o.w === w).map(o => ({ kind: o.kind, s0: o.pos, s1: o.pos + o.wd, sill: o.sill, h: o.h, id: o.id })), w.id, num(w.t)));
+  });
+  parts.sort((a, b) => b.dist - a.dist || a.level - b.level);
+  return parts;
+}
+function elevSVG(view, o) {
+  o = o || {}; const parts = elevParts(view); if (!parts.length) return `<p class="sub">Nothing to draw yet: add rooms or walls on the House plan or Walls page.</p>`;
+  const u0 = Math.min(...parts.map(p => p.u0)) - 60, u1 = Math.max(...parts.map(p => p.u1)) + 60, top = Math.max(...parts.map(p => p.z1)) + 60, W = u1 - u0, Hh = top + 40;
+  const Y = z => top - z; let g = `<line x1="${u0}" x2="${u1}" y1="${Y(0)}" y2="${Y(0)}" stroke="#6b5b45" stroke-width="4"/>`;
+  for (const p of parts) {
+    g += `<rect data-ewall="${esc(p.id)}" data-lvl="${p.level}" x="${r1(p.u0)}" y="${r1(Y(p.z1))}" width="${r1(p.u1 - p.u0)}" height="${r1(p.z1 - p.z0)}" fill="#e9e2d4" stroke="#6b5b45" stroke-width="2"/>`;
+    for (const q of p.op) { const a = Math.max(q.u0, p.u0), b = Math.min(q.u1, p.u1); if (b <= a) continue;
+      g += q.kind === "door" ? `<rect data-eopen="door" data-oid="${esc(q.id || "")}" x="${r1(a)}" y="${r1(Y(q.z1))}" width="${r1(b - a)}" height="${r1(q.z1 - q.z0)}" fill="#8a6a45" stroke="#3b2a17" stroke-width="2"/><circle cx="${r1(b - 10)}" cy="${r1(Y(q.z0 + 100))}" r="3" fill="#e8c26a"/>`
+        : `<rect data-eopen="window" data-oid="${esc(q.id || "")}" x="${r1(a)}" y="${r1(Y(q.z1))}" width="${r1(b - a)}" height="${r1(q.z1 - q.z0)}" fill="#a9d4ee" stroke="#2a4d69" stroke-width="2"/><line x1="${r1((a + b) / 2)}" x2="${r1((a + b) / 2)}" y1="${r1(Y(q.z1))}" y2="${r1(Y(q.z0))}" stroke="#2a4d69" stroke-width="1.5"/>`; }
+  }
+  const lvTxt = S.levels.map((L, i) => `<text x="${u1 - 8}" y="${r1(Y(i * f2f()) - 8)}" text-anchor="end" style="font-size:16px;fill:#6b5b45">${esc(L.name)}</text>`).join("");
+  return `<svg id="elev" ${o.plain ? 'xmlns="http://www.w3.org/2000/svg" ' : ""}viewBox="${r1(u0)} 0 ${r1(W)} ${r1(Hh)}" width="${o.w || 760}" style="background:#f7fbff;border:1px solid var(--line);border-radius:6px;max-width:100%">${g}${lvTxt}<text x="${u0 + 8}" y="${Hh - 10}" style="font-size:16px;fill:#555">${esc(ELEV_VIEWS[view][0])} · ${esc(len(W - 120))} wide</text></svg>`;
+}
+function pageElev() {
+  const v = S.elevView || "front", parts = elevParts(v), n = k => parts.reduce((s, p) => s + p.op.filter(q => q.kind === k).length, 0);
+  return `<h2>Elevations</h2><p class="lead">The house seen straight on from each side, floors stacked. Walls facing you are drawn at their real width and height; nearer walls hide the ones behind; doors and windows are cut in where they sit.</p>
+  <p>${Object.entries(ELEV_VIEWS).map(([k, a]) => `<button data-act="elevView" data-arg="${k}" class="${k === v ? "pri" : ""}">${esc(a[0])}</button>`).join(" ")} <button data-act="exElev">⬇ Elevation SVG</button></p>
+  <div class="card">${elevSVG(v)}<p class="sub">${parts.length} wall faces · ${n("door")} doors · ${n("window")} windows (counted on every wall in this direction, hidden or not) · windows on rectangle-room walls use a 90 cm sill, as the 3D view does.</p></div>`;
+}
+Object.assign(ACT, {
+  elevView(v) { S.elevView = v; save(); render(); },
+  exElev() { download(`elevation-${S.elevView || "front"}.svg`, elevSVG(S.elevView || "front", { plain: 1, w: 1600 }), "image/svg+xml"); },
+  wZoom(k) { const s = $("#wplan"); if (!s) return; const [x, y, w, h] = s.getAttribute("viewBox").split(/\s+/).map(Number);
+    if (k === "fit") W5.view = null; else { const f = k === "in" ? 0.8 : 1.25, cx = x + w / 2, cy = y + h / 2; W5.view = [cx - w * f / 2, cy - h * f / 2, w * f, h * f]; } render(); },
+});
+{
+  const i = APP.pages.findIndex(p => p[0] === "walls"), pw0 = APP.pages[i][2];
+  APP.pages[i][2] = function () {
+    let h = pw0();
+    h = h.replace(`<button data-act="wRoom">`, `<button data-act="wZoom" data-arg="in" title="Zoom in">＋</button> <button data-act="wZoom" data-arg="out" title="Zoom out">−</button> <button data-act="wZoom" data-arg="fit">Fit</button> <button data-act="wRoom">`);
+    h = h.replace("Ends snap to other walls' ends.", "Ends snap to other walls' ends. Wheel = zoom round the pointer; drag the empty canvas (Select) or middle-drag = pan.");
+    return h;
+  };
+  const tb0 = TBL; TBL = function (path, cols, o) {
+    if (/\.stairs$/.test(path) && !cols.some(c => c[0] === "shape")) cols = cols.concat([["shape", "Shape", ST_SHAPES, "90px"], ["turn", "Turn", [["r", "right"], ["l", "left"]], "60px"]]);
+    return tb0(path, cols, o); };
+  const j = APP.pages.findIndex(p => p[0] === "view3d"); APP.pages.splice(j + 1, 0, ["elev", "🏛 Elevations", pageElev]);
+  const d0 = APP.defaults; APP.defaults = () => Object.assign(d0(), { elevView: "front" });
+  APP.testSkip = (APP.testSkip || []).concat(["wZoom"]);
+  const ck0 = checks; checks = function (L) { lw(L); const out = ck0(L);
+    L.stairs.forEach((st, i) => { if ((st.shape || "straight") === "straight") return; const I = stairInfo(st);
+      if (I.P.n1 < 3 || I.P.n2 < 3) out.push({ sev: "warn", msg: `Stair ${i + 1}: a flight of ${Math.min(I.P.n1, I.P.n2)} risers is short; 3+ risers per flight is the usual minimum.` }); });
+    return out; };
+  const st0 = APP.selftest; APP.selftest = () => {
+    const res = st0() || {}, fail = res.fail || (res.fail = []), keep = S; S = APP.defaults();
+    try {
+      S.wallH = 244; S.floorT = 30; S.levels = [{ name: "Ground", rooms: [], doors: [], windows: [], furn: [] }, { name: "Upstairs", rooms: [], doors: [], windows: [], furn: [] }];
+      const base = { id: "a", x: 0, y: 0, w: 91.4, tread: 25.4, dir: "n", to: 1 };
+      const I0 = stairInfo(base); if (Math.abs(I0.low.reduce((s, r) => s + r.h, 0) - I0.c.opening) > 0.01 || I0.rects.length !== I0.c.treads) fail.push("stairs: straight pieces != old opening " + JSON.stringify([I0.low.length, I0.c.opening]));
+      for (const shape of ["L", "U"]) for (const turn of ["r", "l"]) for (const dir of ["n", "s", "e", "w"]) {
+        const st = { ...base, shape, turn, dir }, I = stairInfo(st), tr = I.rects.filter(r => r.kind === "tread"), la = I.rects.filter(r => r.kind === "landing");
+        if (tr.length !== I.c.n - 2 || la.length !== 1) fail.push(`stairs ${shape}${turn}${dir}: ${tr.length} treads, ${la.length} landings`);
+        for (let a = 0; a < I.rects.length; a++) for (let b = a + 1; b < I.rects.length; b++) { const p = I.rects[a], q = I.rects[b]; if (Math.min(p.x + p.w, q.x + q.w) - Math.max(p.x, q.x) > 0.01 && Math.min(p.y + p.h, q.y + q.h) - Math.max(p.y, q.y) > 0.01) { fail.push(`stairs ${shape}${turn}${dir}: pieces ${a},${b} overlap`); a = 1e9; break; } }
+        if (tr.some(r => Math.abs(r.w * r.h - 91.4 * 25.4) > 0.01)) fail.push(`stairs ${shape}${turn}${dir}: tread size`);
+        for (let k = 1; k < I.rects.length; k++) { const p = I.rects[k - 1], q = I.rects[k]; const gx = Math.max(p.x, q.x) - Math.min(p.x + p.w, q.x + q.w), gy = Math.max(p.y, q.y) - Math.min(p.y + p.h, q.y + q.h); if (gx > 0.01 || gy > 0.01) { fail.push(`stairs ${shape}${turn}${dir}: step ${k} not next to step ${k - 1}`); break; } }
+      }
+      const IL = stairInfo({ ...base, shape: "L", turn: "r" }); if (Math.abs(IL.box.x1 - IL.box.x0 - (91.4 + IL.P.run2)) > 0.01 || Math.abs(IL.box.y1 - IL.box.y0 - (IL.P.run1 + 91.4)) > 0.01) fail.push("stairs: L footprint " + JSON.stringify(IL.box));
+      const IU = stairInfo({ ...base, shape: "U", turn: "r" }); if (Math.abs(IU.box.x1 - IU.box.x0 - 182.8) > 0.01) fail.push("stairs: U width " + JSON.stringify(IU.box));
+      S.levels[0].rooms = [{ id: "r1", t: "living", name: "R", x: 0, y: 0, w: 400, h: 300, color: "#fff" }];
+      S.levels[0].windows = [{ id: "w1", room: "r1", wall: "s", pos: 50, width: 100, h: 120 }]; S.levels[0].doors = [{ id: "d1", room: "r1", wall: "n", pos: 250, width: 90 }];
+      const fp = elevParts("front"), sw = fp.find(p => p.id === "r1:s");
+      if (!sw || sw.op.length !== 1 || Math.abs(sw.op[0].u0 - 50) > 0.01 || Math.abs(sw.op[0].z0 - 90) > 0.01 || Math.abs(sw.op[0].z1 - 210) > 0.01) fail.push("elev: front window " + JSON.stringify(sw && sw.op));
+      if (fp[fp.length - 1].id !== "r1:s") fail.push("elev: nearest wall not drawn last");
+      const bp = elevParts("back"), nw = bp.find(p => p.id === "r1:n"); if (!nw || Math.abs(nw.op[0].u0 - -340) > 0.01 || Math.abs(nw.op[0].z1 - 210) > 0.01) fail.push("elev: back door " + JSON.stringify(nw && nw.op));
+      if (elevParts("left").some(p => p.op.length)) fail.push("elev: side view shows openings of walls it can't see face-on");
+    } catch (e) { fail.push("elev selftest threw " + e.message + " " + (e.stack || "").split("\n")[1]); }
+    S = keep; return res;
+  };
+}
+
+</script>
+<script>
+if (inApp) { tell({ uds: "store-get" }); tell({ uds: "web-hello" }); setTimeout(() => { if (!loaded) { useLocal = true; boot(readLocal()); } }, 1500); }
+else boot(readLocal());
+</script>
+</body>
+</html>

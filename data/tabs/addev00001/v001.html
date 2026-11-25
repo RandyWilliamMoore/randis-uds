@@ -1,0 +1,325 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Ad Dev Suite</title>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<style>
+:root{--bg:#f9f9f7;--bg2:#fcfcfb;--bg3:#efeee9;--line:#dcdbd5;--tx:#0b0b0b;--mut:#52514e;--acc:#c2185b;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--bad:#d03b3b;
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948}
+body[data-theme=dark]{--bg:#0d0d0d;--bg2:#1a1a19;--bg3:#262624;--line:#383835;--tx:#f0efec;--mut:#c3c2b7;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+header b#apptitle{font-size:16px;color:var(--acc);margin-right:6px}
+#nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+#nav button{border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--mut)}
+#nav button.on{background:var(--acc);color:#fff}
+#nav button:hover:not(.on){background:var(--bg3)}
+#saved{font-size:11px;color:var(--mut)}
+main#view{flex:1;overflow:auto;padding:14px 18px}
+h2{margin:0 0 4px;font-size:21px}h3{margin:6px 0 8px;font-size:15px;color:var(--acc)}h4{margin:10px 0 4px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em}
+.lead{color:var(--mut);margin:0 0 12px;max-width:980px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}.row>.card{flex:1;min-width:300px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:2px;margin:0 0 6px}
+input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px}
+textarea{width:100%;min-height:80px;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--tx);border-radius:6px;padding:4px 10px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}button.x{padding:1px 7px;color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}td input,td select{width:100%;padding:2px 4px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+pre,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}pre{background:var(--bg3);padding:10px;border-radius:6px;overflow:auto;white-space:pre-wrap;margin:6px 0;max-height:420px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:var(--bg3);color:var(--mut)}
+.ok{color:var(--good)}.bad{color:var(--bad)}.warnc{color:#b7791f}
+.banner{border-left:4px solid var(--serious);background:var(--bg3);padding:8px 12px;border-radius:6px;margin:0 0 12px}
+.stat{font-size:26px;font-weight:600}.sub{font-size:12px;color:var(--mut)}
+svg text{fill:var(--mut);font-size:11px}svg .ink{fill:var(--tx)}
+.lnk{color:var(--s1);cursor:pointer;text-decoration:underline}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:9;max-width:80%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><b id="apptitle">Ad Dev Suite</b><nav id="nav"></nav><span id="saved"></span><button data-act="theme" title="Light / dark">◐</button></header>
+<main id="view"></main>
+<div id="toast"></div>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+"use strict";
+const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const inApp = window.parent !== window;
+const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100, r1 = n => Math.round(n * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (n, d) => (+n || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d });
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(+n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = n => (isFinite(n) ? Math.round(n * 1000) / 10 : 0) + "%";
+const SER = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)"];
+let toastT; function toast(t, ms) { const e = $("#toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => e.style.display = "none", ms || 3200); }
+let WEB_ON = false;
+function openLink(url) {
+  if (!inApp) { window.open(url, "_blank", "noopener"); return; }
+  if (WEB_ON) { tell({ uds: "web-pop", url }); return; }
+  copyText(url, "Link copied: paste it into your browser (or tick 'Web view' above this tab).");
+}
+function copyText(t, msg) { const fb = () => prompt("Copy this:", t); try { const p = navigator.clipboard && navigator.clipboard.writeText(t); if (p && p.then) p.then(() => toast(msg || "Copied.", 4000), fb); else fb(); } catch (e) { fb(); } }
+const L = (label, url) => `<span class="lnk" data-url="${esc(url)}">${esc(label)} ↗</span>`;
+
+let S, MEM = { page: null, sub: {} }, loaded = false, useLocal = true, saveT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const data = { [APP.key]: S };
+    if (inApp && !useLocal) tell({ uds: "store-set", data });
+    try { localStorage.setItem("uds-" + APP.key, JSON.stringify(S)); } catch (e) {}
+    const kb = Math.round(JSON.stringify(data).length / 1024), el = $("#saved");
+    if (el) el.textContent = `Saved · ${kb} KB`;
+    if (kb > 900) toast("Storage is nearly full: export a backup and remove some images.", 6000);
+  }, 400);
+}
+function readLocal() { try { return JSON.parse(localStorage.getItem("uds-" + APP.key) || "null"); } catch (e) { return null; } }
+function getP(path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), S); }
+function setP(path, val) { const p = path.split("."); let o = S; while (p.length > 1) { const k = p.shift(); if (o[k] == null) o[k] = {}; o = o[k]; } o[p[0]] = val; }
+function download(name, data, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: type || "text/plain" });
+  if (window.__dl) { window.__dl.push([name, typeof data === "string" ? data : "blob:" + blob.size]); }
+  if (inApp) { tell({ uds: "export-file", name, data: blob }); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const csvCell = c => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`;
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ""));
+}
+
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >> 8) & 255], u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  for (const [name, d] of files) {
+    const data = typeof d === "string" ? enc.encode(d) : d, nm = enc.encode(name), crc = crc32(data);
+    const head = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)]);
+    parts.push(head, nm, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nm);
+    off += head.length + nm.length + data.length;
+  }
+  const csize = central.reduce((a, b) => a + b.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+const AIQ = {};
+function askAI(prompt, cb) {
+  if (!inApp) { cb({ error: "Open this inside Randis UDS with an AI linked to use the AI helper." }); return; }
+  const id = "q10-" + uid(); AIQ[id] = cb;
+  tell({ uds: "planner-ask", id, history: [{ role: "user", content: String(prompt) }], context: APP.title + " app in Randis UDS." });
+}
+
+const F = (label, path, o) => { o = o || {}; const v = getP(path); const t = o.type || (typeof v === "number" ? "number" : "text");
+  if (o.opts) return `<label class="f">${esc(label)}<select data-p="${path}"${o.r ? " data-r" : ""}>${o.opts.map(x => { const [k, n] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(k)}"${String(v) === String(k) ? " selected" : ""}>${esc(n)}</option>`; }).join("")}</select></label>`;
+  if (t === "area") return `<label class="f">${esc(label)}<textarea data-p="${path}"${o.r ? " data-r" : ""} style="min-height:${o.h || 90}px">${esc(v)}</textarea></label>`;
+  if (t === "check") return `<label><input type="checkbox" data-p="${path}" data-r${v ? " checked" : ""}> ${esc(label)}</label>`;
+  return `<label class="f">${esc(label)}<input type="${t}" data-p="${path}"${t === "number" ? " data-num" : ""}${o.r ? " data-r" : ""} value="${esc(v)}"${o.step ? ` step="${o.step}"` : ""}${o.w ? ` style="width:${o.w}"` : ""}></label>`; };
+function TBL(path, cols, o) {
+  o = o || {}; const rows = getP(path) || [];
+  const head = cols.map(c => `<th>${esc(c[1])}</th>`).join("") + (o.extra ? o.extra.map(x => `<th>${esc(x[0])}</th>`).join("") : "") + "<th></th>";
+  const body = rows.map((r, i) => "<tr>" + cols.map(([k, , t, w]) => {
+    const p = `${path}.${i}.${k}`, v = r[k];
+    if (Array.isArray(t)) return `<td${w ? ` style="width:${w}"` : ""}><select data-p="${p}" data-r>${t.map(x => `<option${String(v) === String(x) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></td>`;
+    return `<td${w ? ` style="width:${w}"` : ""}><input data-p="${p}"${t === "number" ? ' type="number" data-num step="any"' : ""}${o.live ? " data-r" : ""} value="${esc(v)}"></td>`;
+  }).join("") + (o.extra ? o.extra.map(x => `<td class="num">${x[1](r, i)}</td>`).join("") : "") + `<td><button class="x" data-act="rowdel" data-arg="${path}|${i}">✕</button></td></tr>`).join("");
+  return `<table><tr>${head}</tr>${body}</table><button data-act="rowadd" data-arg="${path}">+ Add row</button>`;
+}
+function lineChart(series, o) {
+  o = o || {}; const W = o.w || 640, H = o.h || 220, P = { l: 46, r: 12, t: 10, b: 24 };
+  const all = series.flatMap(s => s.pts); if (!all.length) return `<p class="sub">No data yet.</p>`;
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) || 1, y0 = Math.min(0, ...ys), y1 = Math.max(...ys) * 1.08 || 1;
+  const X = x => P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r), Y = y => H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b);
+  let g = ""; for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P.l - 4}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`; }
+  g += `<text x="${P.l}" y="${H - 6}">${esc(o.xl ? o.xl(x0) : fmt(x0))}</text><text x="${W - P.r}" y="${H - 6}" text-anchor="end">${esc(o.xl ? o.xl(x1) : fmt(x1))}</text>`;
+  const lines = series.map((s, i) => `<polyline fill="none" stroke="${s.color || SER[i % 8]}" stroke-width="2" points="${s.pts.map(p => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join(" ")}"/>` +
+    s.pts.filter((p, j) => s.pts.length < 60 || j % Math.ceil(s.pts.length / 40) === 0).map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="6" fill="transparent"><title>${esc(s.name)}: ${esc(o.xl ? o.xl(p[0]) : fmt(p[0]))} → ${fmt(p[1])}</title></circle>`).join("")).join("");
+  const leg = series.length > 1 ? `<div class="legend">${series.map((s, i) => `<span><i style="background:${s.color || SER[i % 8]}"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  return leg + `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${g}${lines}</svg>`;
+}
+function barChart(items, o) {
+  o = o || {}; const W = o.w || 640, bh = 22, H = items.length * (bh + 6) + 8, lw = o.lw || 150, max = Math.max(...items.map(i => i.v), 1e-9);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">` + items.map((it, i) => { const y = 4 + i * (bh + 6), w = Math.max(1, (W - lw - 90) * it.v / max);
+    return `<text class="ink" x="${lw - 6}" y="${y + 15}" text-anchor="end">${esc(it.name)}</text><rect x="${lw}" y="${y}" width="${w}" height="${bh}" rx="4" fill="${it.color || SER[o.one ? 0 : i % 8]}"><title>${esc(it.name)}: ${esc(o.f ? o.f(it.v) : fmt(it.v))}</title></rect><text x="${lw + w + 6}" y="${y + 15}">${esc(o.f ? o.f(it.v) : fmt(it.v))}</text>`; }).join("") + "</svg>";
+}
+
+function nav() {
+  $("#nav").innerHTML = APP.pages.map(([id, label]) => `<button data-page="${id}" class="${MEM.page === id ? "on" : ""}">${esc(label)}</button>`).join("");
+}
+function go(id) { MEM.page = id; S._page = id; render(); }
+function render() {
+  nav(); const pg = APP.pages.find(p => p[0] === MEM.page) || APP.pages[0]; MEM.page = pg[0];
+  try { $("#view").innerHTML = pg[2](); if (APP.after) APP.after(pg[0]); }
+  catch (e) { $("#view").innerHTML = `<div class="card bad">This page hit an error: ${esc(e && e.stack || e)}</div>`; console.error(e); }
+}
+function boot(data) {
+  if (loaded) return; loaded = true;
+  S = Object.assign(APP.defaults(), data && typeof data === "object" ? data : {});
+  if (S._theme) document.body.dataset.theme = S._theme;
+  MEM.page = S._page || APP.pages[0][0]; render();
+}
+const ACT = {
+  theme() { S._theme = document.body.dataset.theme === "dark" ? "" : "dark"; document.body.dataset.theme = S._theme; save(); },
+  rowadd(path) { const a = getP(path) || []; const t = APP.rowTemplates && APP.rowTemplates[path]; a.push(t ? t() : {}); setP(path, a); save(); render(); },
+  rowdel(arg) { const [path, i] = arg.split("|"); getP(path).splice(+i, 1); save(); render(); },
+};
+function onField(e, final) {
+  const el = e.target, p = el.dataset && el.dataset.p; if (!p) return;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num !== undefined) v = num(v);
+  setP(p, v); save();
+  if (final && el.dataset.r !== undefined) render();
+  if (APP.onField) APP.onField(p, v, final);
+}
+document.addEventListener("input", e => { if (e.target.tagName === "SELECT" || e.target.type === "checkbox") return; onField(e, false); });
+document.addEventListener("change", e => { if (e.target.type === "file") { const a = e.target.dataset.file; if (a && ACT[a]) ACT[a]([...e.target.files], e.target); return; } onField(e, true); });
+document.addEventListener("click", e => {
+  const pg = e.target.closest("[data-page]"); if (pg) { go(pg.dataset.page); return; }
+  const l = e.target.closest(".lnk"); if (l) { openLink(l.dataset.url); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const f = ACT[b.dataset.act]; if (!f) return;
+  try { f(b.dataset.arg, b, e); } catch (err) { toast("That didn't work: " + err.message, 6000); console.error(err); }
+});
+window.addEventListener("message", e => {
+  const d = e.data; if (!d || typeof d.uds !== "string") return;
+  if (d.uds === "store") { if (!loaded) { useLocal = false; boot(d.data && d.data[APP.key] ? d.data[APP.key] : readLocal()); } }
+  else if (d.uds === "store-error") toast("Couldn't save: " + (d.note || ""), 6000);
+  else if (d.uds === "web-state") WEB_ON = !!d.on;
+  else if (d.uds === "exported" || d.uds === "exporting") toast(d.note || (d.ok ? "Saved." : "Not saved."));
+  else if (d.uds === "planner" && AIQ[d.id]) { if (d.done) { const cb = AIQ[d.id]; delete AIQ[d.id]; cb(d.error ? { error: d.error } : { text: d.text || "" }); } }
+});
+</script>
+<script>
+
+const PLAT = {
+  "Google search (RSA)": { fields: [["Headline", 30, 15], ["Description", 90, 4]], note: "Up to 15 headlines and 4 descriptions; Google mixes them." },
+  "Meta feed": { fields: [["Primary text", 125, 5], ["Headline", 40, 5], ["Description", 30, 5]], note: "Longer primary text is cut after about 125 characters." },
+  "LinkedIn": { fields: [["Intro text", 150, 3], ["Headline", 70, 3]], note: "Intro text over ~150 characters is cut on desktop." },
+  "X / Twitter": { fields: [["Post", 280, 3]], note: "280 characters including links (a link counts as 23)." },
+  "TikTok": { fields: [["Ad text", 100, 3]], note: "Short, native-sounding text works best." },
+  "YouTube": { fields: [["Headline", 15, 3], ["Long headline", 90, 3], ["Description", 70, 3]], note: "Video action campaign text limits." },
+  "Pinterest": { fields: [["Title", 100, 3], ["Description", 500, 3]], note: "First 40 characters of the title show in feeds." },
+  "Reddit": { fields: [["Headline", 300, 3]], note: "Plain, honest headlines fit Reddit best." },
+};
+const FORMULAS = {
+  "AIDA": p => [`${p.hook || "Tired of " + p.pain + "?"}`, `${p.product} helps ${p.audience} ${p.benefit1}.`, `${p.benefit2 ? p.benefit2[0].toUpperCase() + p.benefit2.slice(1) + "." : ""} ${p.proof}`.trim(), `${p.cta}.`],
+  "PAS": p => [`${p.pain[0].toUpperCase() + p.pain.slice(1)}?`, `It costs ${p.audience} time every week.`, `${p.product} ${p.benefit1}.`, `${p.cta}.`],
+  "BAB": p => [`Before: ${p.pain}.`, `After: ${p.benefit1}.`, `The bridge: ${p.product}.`, `${p.cta}.`],
+  "4U": p => [`${p.benefit1[0].toUpperCase() + p.benefit1.slice(1)} in ${p.time || "minutes"}`, `Made for ${p.audience}`, `${p.proof}`, `${p.cta} today`],
+};
+const SIZES = [["Square feed", 1080, 1080], ["Portrait feed", 1080, 1350], ["Story / reel", 1080, 1920], ["Link card", 1200, 628], ["Medium rectangle", 300, 250], ["Leaderboard", 728, 90], ["Skyscraper", 160, 600], ["YouTube thumb", 1280, 720]];
+const POLICY = ["Claims are true and can be backed up", "No before/after or body-shaming images for health or weight products", "No personal attributes (\"Are you depressed?\", \"other singles near you\")", "Prices and offers match the landing page",
+  "No fake buttons, fake play icons or fake system alerts", "Landing page works, loads fast and matches the ad", "Rights to every image, song, font and logo used", "Required disclaimers (finance, health, contests)", "Not aimed at children if the product is age-restricted", "Text is readable on a phone"];
+const APP = {
+  key: "addev", title: "Ad Dev Suite",
+  defaults: () => ({
+    brief: { product: "Trailmix Planner (example)", audience: "weekend hikers", pain: "planning trips across five apps", benefit1: "plan a whole hike in one place", benefit2: "maps, packing list and weather together", proof: "Rated 4.8 by 2,000 hikers (example).", cta: "Try it free", hook: "", time: "minutes", url: "https://example.com" },
+    plat: "Meta feed", copies: {}, formula: "AIDA",
+    cre: { size: 0, bg1: "#0e1116", bg2: "#2a78d6", head: "Plan the whole hike in one place", sub: "Maps, packing and weather together", cta: "Try it free", img: "", fontK: 1 },
+    bud: { budget: 1000, days: 14, cpm: 9, ctr: 1.2, cvr: 3, aov: 30, split: "Meta feed:50\nGoogle search (RSA):30\nReddit:20" },
+    pol: {},
+  }),
+  pages: [["brief", "📝 Brief & copy", pageBrief], ["matrix", "🧮 Variants", pageMatrix], ["creative", "🎨 Creative", pageCreative], ["budget", "💵 Budget", pageBudget], ["policy", "✅ Policy check", pagePolicy]],
+  after: id => { if (id === "creative") drawCreative(); }, selftest,
+};
+function fields() { return PLAT[S.plat].fields; }
+function copyList(f) { const k = S.plat + "|" + f; return S.copies[k] = S.copies[k] || []; }
+function counter(t, lim) { const n = [...String(t)].length; return `<span class="${n > lim ? "bad" : "sub"}">${n}/${lim}</span>`; }
+function pageBrief() {
+  return `<div class="banner">Build only. Nothing here publishes, uploads or buys ads. You take the exports to the ad platform yourself.</div><h2>Brief & copy</h2>
+  <div class="row"><div class="card" style="max-width:380px"><h3>Brief</h3>${["product", "audience", "pain", "benefit1", "benefit2", "proof", "cta", "hook", "url"].map(k => F({ product: "Product", audience: "Who it's for", pain: "Their problem", benefit1: "Main benefit (verb phrase)", benefit2: "Second benefit", proof: "Proof / trust line", cta: "Call to action", hook: "Hook (optional)", url: "Landing page" }[k], "brief." + k)).join("")}</div>
+  <div class="card"><div class="row">${F("Platform", "plat", { opts: Object.keys(PLAT), r: 1 })}${F("Formula", "formula", { opts: Object.keys(FORMULAS), r: 1 })}</div><p class="sub">${esc(PLAT[S.plat].note)}</p>
+  <button data-act="gen" class="pri">✍ Write from the formula</button> <button data-act="aiCopy">✨ More with the linked AI</button>
+  ${fields().map(([f, lim, max]) => `<h4>${esc(f)} · max ${lim} characters · up to ${max}</h4>${copyList(f).map((t, i) => `<div class="row" style="align-items:center"><input data-copy="${esc(f)}|${i}" value="${esc(t)}" style="flex:1"> <span id="cnt-${esc(f).replace(/\W/g, "")}-${i}">${counter(t, lim)}</span> <button class="x" data-act="delCopy" data-arg="${esc(f)}|${i}">✕</button></div>`).join("")}<button data-act="addCopy" data-arg="${esc(f)}">+ Add</button>`).join("")}
+  <p><button data-act="copyCsv">⬇ This platform's copy (.csv)</button></p></div></div>`;
+}
+document.addEventListener("input", e => { const k = e.target.dataset && e.target.dataset.copy; if (!k) return; const [f, i] = k.split("|"); copyList(f)[+i] = e.target.value; save();
+  const lim = fields().find(x => x[0] === f)[1], c = $("#cnt-" + f.replace(/\W/g, "") + "-" + i); if (c) c.innerHTML = counter(e.target.value, lim); });
+function fit(t, lim) { t = String(t).replace(/\s+/g, " ").trim(); if ([...t].length <= lim) return t; const w = t.split(" "); let o = ""; for (const x of w) { if ((o + " " + x).trim().length > lim - 1) break; o = (o + " " + x).trim(); } return o.replace(/[,;:]$/, ""); }
+function generate() { const p = S.brief, lines = FORMULAS[S.formula](p).filter(Boolean);
+  for (const [f, lim, max] of fields()) { const L = copyList(f); const cands = /head|title/i.test(f) ? [lines[0], `${p.product}: ${p.benefit1}`, `${p.cta} - ${p.product}`, lines[3], `For ${p.audience}`, `${p.benefit2}`] : [lines.join(" "), `${lines[1]} ${lines[3]}`, `${lines[0]} ${lines[2]}`, `${p.product} ${p.benefit1}. ${p.cta}.`];
+    for (const c of cands) { const t = fit(c, lim); if (t && !L.includes(t) && L.length < max) L.push(t); } } }
+function pageMatrix() { const F0 = fields(), lists = F0.map(([f]) => copyList(f)), combos = [];
+  const rec = (i, acc) => { if (combos.length >= 200) return; if (i === lists.length) { combos.push(acc); return; } for (const t of lists[i].length ? lists[i] : [""]) rec(i + 1, [...acc, t]); }; rec(0, []);
+  return `<h2>Variants</h2><p class="lead">Every combination of your ${S.plat} copy (up to 200), with problems flagged. Export to upload by hand or into the platform's bulk editor.</p>
+  <div class="card"><table><tr><th>#</th>${F0.map(f => `<th>${esc(f[0])}</th>`).join("")}<th>Problems</th></tr>${combos.slice(0, 60).map((c, i) => { const probs = c.map((t, j) => [...t].length > F0[j][1] ? `${F0[j][0]} too long` : !t ? `${F0[j][0]} empty` : "").filter(Boolean).concat(/!!|FREE!!|100%/.test(c.join(" ")) ? ["shouty"] : []);
+    return `<tr><td>${i + 1}</td>${c.map(t => `<td>${esc(t)}</td>`).join("")}<td class="${probs.length ? "bad" : "ok"}">${probs.length ? esc(probs.join(", ")) : "✔"}</td></tr>`; }).join("")}</table>${combos.length > 60 ? `<p class="sub">Showing 60 of ${combos.length}.</p>` : ""}
+  <button data-act="matrixCsv" class="pri">⬇ All variants (.csv)</button></div>`; }
+let CRE_IMG = null;
+function drawCreative(cv) { cv = cv || $("#cre"); if (!cv) return; const c = S.cre, [, W, H] = SIZES[num(c.size)] || SIZES[0]; cv.width = W; cv.height = H; const g = cv.getContext("2d");
+  const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, c.bg1); gr.addColorStop(1, c.bg2); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  if (CRE_IMG) { const k = Math.max(W / CRE_IMG.width, H / CRE_IMG.height) * 0.6, iw = CRE_IMG.width * k, ih = CRE_IMG.height * k; g.drawImage(CRE_IMG, W - iw - W * 0.05, H - ih - H * 0.05, iw, ih); }
+  const short = Math.min(W, H), tall = H > W * 1.2, wide = W > H * 2.5, fs = Math.round((wide ? H * 0.32 : short * 0.085) * num(c.fontK || 1)), pad = wide ? H * 0.12 : short * 0.07, boxes = [];
+  g.fillStyle = "#fff"; g.textBaseline = "top"; g.font = `700 ${fs}px "Segoe UI", sans-serif`;
+  const wrap = (t, x, y, maxW, lh) => { const words = String(t).split(" "); let line = "", yy = y; for (const w of words) { const test = (line + " " + w).trim(); if (g.measureText(test).width > maxW && line) { g.fillText(line, x, yy); boxes.push([x, yy, g.measureText(line).width, lh]); line = w; yy += lh; } else line = test; } if (line) { g.fillText(line, x, yy); boxes.push([x, yy, g.measureText(line).width, lh]); } return yy + lh; };
+  let y = wide ? pad : tall ? H * 0.2 : pad * 1.2; y = wrap(c.head, pad, y, (wide ? W * 0.55 : W - 2 * pad), fs * 1.15);
+  g.font = `400 ${Math.round(fs * 0.55)}px "Segoe UI", sans-serif`; g.fillStyle = "#e8eef7"; if (!wide) y = wrap(c.sub, pad, y + fs * 0.2, W - 2 * pad, fs * 0.7);
+  g.font = `700 ${Math.round(fs * 0.5)}px "Segoe UI", sans-serif`; const bw = g.measureText(c.cta).width + fs, bh = fs * 0.9, bx = wide ? W - bw - pad : pad, by = wide ? (H - bh) / 2 : H - bh - pad * 1.2;
+  g.fillStyle = "#ffffff"; g.beginPath(); g.roundRect ? g.roundRect(bx, by, bw, bh, bh / 2) : g.rect(bx, by, bw, bh); g.fill(); g.fillStyle = c.bg1; g.fillText(c.cta, bx + fs / 2, by + bh * 0.22); boxes.push([bx, by, bw, bh]);
+  const cover = boxes.reduce((a, b) => a + b[2] * b[3], 0) / (W * H); const el = $("#cover"); if (el) el.innerHTML = `Text covers about <b>${pct(cover)}</b> of the image${cover > 0.2 ? ' <span class="warnc">(over 20%: some platforms show image-heavy ads to more people)</span>' : ""}.`;
+  return cover; }
+function pageCreative() { const c = S.cre, [, W, H] = SIZES[num(c.size)] || SIZES[0];
+  return `<h2>Creative</h2><div class="row"><div class="card" style="max-width:340px">${F("Size", "cre.size", { opts: SIZES.map((s, i) => [i, `${s[0]} ${s[1]}×${s[2]}`]), r: 1 })}<div class="row">${F("Colour 1", "cre.bg1", { type: "color", r: 1 })}${F("Colour 2", "cre.bg2", { type: "color", r: 1 })}</div>
+  ${F("Headline", "cre.head", { r: 1 })}${F("Sub line", "cre.sub", { r: 1 })}${F("Button", "cre.cta", { r: 1 })}${F("Text size ×", "cre.fontK", { r: 1, step: 0.1 })}<label class="pill">Product image <input type="file" data-file="creImg" accept="image/*" style="width:160px"></label>
+  <p id="cover"></p><button data-act="crePng" class="pri">⬇ PNG</button> <button data-act="creAll">⬇ All sizes (.zip)</button></div>
+  <div class="card"><canvas id="cre" style="max-width:100%;max-height:640px;border:1px solid var(--line)"></canvas><p class="sub">${W} × ${H} px</p></div></div>`; }
+APP.onField = p => { if (p.startsWith("cre.")) drawCreative(); };
+function budget() { const b = S.bud, imp = num(b.budget) / num(b.cpm) * 1000, clicks = imp * num(b.ctr) / 100, conv = clicks * num(b.cvr) / 100, rev = conv * num(b.aov);
+  return { imp, clicks, conv, rev, cpc: clicks ? num(b.budget) / clicks : 0, cpa: conv ? num(b.budget) / conv : 0, roas: rev / (num(b.budget) || 1), perDay: num(b.budget) / (num(b.days) || 1) }; }
+function pageBudget() { const r = budget(), split = String(S.bud.split).split(/\n/).map(l => l.split(":")).filter(x => x.length === 2).map(([n, p]) => [n.trim(), num(p)]), tot = split.reduce((a, x) => a + x[1], 0) || 1;
+  return `<h2>Budget</h2><p class="lead">Rough plan from typical rates. Replace the rates with your own once you have real numbers (Reach Visualizer reads them from your exports).</p>
+  <div class="row"><div class="card" style="max-width:380px"><div class="row">${F("Budget ($)", "bud.budget", { r: 1 })}${F("Days", "bud.days", { r: 1 })}</div><div class="row">${F("Cost per 1000 views ($)", "bud.cpm", { r: 1 })}${F("Click rate %", "bud.ctr", { r: 1 })}</div><div class="row">${F("Conversion rate %", "bud.cvr", { r: 1 })}${F("Order value ($)", "bud.aov", { r: 1 })}</div>${F("Split by platform (name:%)", "bud.split", { type: "area", h: 70, r: 1 })}</div>
+  <div class="card"><div class="grid">${[["Views", fmt(r.imp, 0)], ["Clicks", fmt(r.clicks, 0)], ["Conversions", fmt(r.conv, 1)], ["Revenue", "$" + fmt(r.rev, 0)], ["Cost per click", "$" + fmt(r.cpc, 2)], ["Cost per conversion", "$" + fmt(r.cpa, 2)], ["Return on spend", fmt(r.roas, 2) + "×"], ["Per day", "$" + fmt(r.perDay, 2)]].map(([k, v]) => `<div class="card"><div class="stat">${v}</div><div class="sub">${k}</div></div>`).join("")}</div>
+  <h3>Split</h3>${barChart(split.map(([n, p]) => ({ name: n, v: num(S.bud.budget) * p / tot })), { f: v => "$" + fmt(v, 0), lw: 170 })}${Math.abs(tot - 100) > 0.5 ? `<p class="warnc">The split adds up to ${tot}%, not 100%.</p>` : ""}</div></div>`; }
+function pagePolicy() { const done = POLICY.filter((_, i) => S.pol[i]).length;
+  return `<h2>Policy check</h2><p class="lead">General rules most ad platforms share. Each platform has its own full policy: read it before you launch.</p><div class="card">${POLICY.map((p, i) => `<div>${F(p, "pol." + i, { type: "check" })}</div>`).join("")}
+  <p class="stat ${done === POLICY.length ? "ok" : "warnc"}">${done} / ${POLICY.length}</p></div>`; }
+Object.assign(ACT, {
+  gen() { generate(); save(); render(); },
+  addCopy(f) { copyList(f).push(""); save(); render(); }, delCopy(a) { const [f, i] = a.split("|"); copyList(f).splice(+i, 1); save(); render(); },
+  aiCopy() { askAI(`Write ad copy for ${S.plat}. Limits: ${fields().map(f => f[0] + " max " + f[1] + " chars").join(", ")}. Brief: ${JSON.stringify(S.brief)}. Give 3 options per field, one per line, as "Field: text".`, r => {
+    if (r.error) return toast(r.error, 6000); for (const line of String(r.text).split(/\n/)) { const m = line.match(/^\s*[-*\d.]*\s*([^:]+):\s*(.+)$/); if (!m) continue; const f = fields().find(x => x[0].toLowerCase() === m[1].trim().toLowerCase()); if (f) copyList(f[0]).push(m[2].trim().replace(/^"|"$/g, "")); } save(); render(); }); toast("Asking the linked AI…"); },
+  copyCsv() { download("ad_copy_" + S.plat.replace(/\W+/g, "_") + ".csv", toCSV([["Platform", "Field", "Text", "Characters", "Limit"], ...fields().flatMap(([f, lim]) => copyList(f).map(t => [S.plat, f, t, [...t].length, lim]))]), "text/csv"); },
+  matrixCsv() { const F0 = fields(), lists = F0.map(([f]) => copyList(f)), rows = []; const rec = (i, acc) => { if (rows.length >= 2000) return; if (i === lists.length) { rows.push(acc); return; } for (const t of lists[i].length ? lists[i] : [""]) rec(i + 1, [...acc, t]); }; rec(0, []);
+    download("ad_variants.csv", toCSV([["Variant", ...F0.map(f => f[0]), "Final URL"], ...rows.map((r, i) => [i + 1, ...r, S.brief.url])]), "text/csv"); },
+  creImg(files) { const r = new FileReader(); r.onload = () => { const im = new Image(); im.onload = () => { CRE_IMG = im; drawCreative(); }; im.src = r.result; }; r.readAsDataURL(files[0]); },
+  crePng() { const cv = $("#cre"); drawCreative(cv); cv.toBlob(b => download(`creative_${cv.width}x${cv.height}.png`, b, "image/png")); },
+  async creAll() { const files = []; const keep = S.cre.size; for (let i = 0; i < SIZES.length; i++) { S.cre.size = i; const cv = document.createElement("canvas"); drawCreative(cv); const b = await new Promise(r => cv.toBlob(r)); files.push([`creative_${SIZES[i][1]}x${SIZES[i][2]}.png`, new Uint8Array(await b.arrayBuffer())]); } S.cre.size = keep; download("creatives_all_sizes.zip", makeZip(files)); },
+});
+function selftest() { const keep = S, fail = [], out = {}; S = APP.defaults();
+  try { for (const p of Object.keys(PLAT)) { S.plat = p; generate(); for (const [f, lim] of fields()) { const L = copyList(f); if (!L.length) fail.push(p + " " + f + " empty"); if (L.some(t => [...t].length > lim)) fail.push(p + " " + f + " over limit"); } }
+    if (fit("one two three four", 9) !== "one two") fail.push("fit " + fit("one two three four", 9));
+    const b = budget(); out.budget = b; if (Math.round(b.imp) !== 111111) fail.push("imp " + b.imp);
+    const cv = document.createElement("canvas"); S.cre.size = 5; const cover = drawCreative(cv); out.cover = cover; if (cv.width !== 728 || cv.height !== 90 || !(cover > 0 && cover < 1)) fail.push("canvas");
+  } catch (e) { fail.push("exception " + e.stack); } finally { S = keep; } return { fail, out }; }
+
+</script>
+<script>
+if (inApp) { tell({ uds: "store-get" }); tell({ uds: "web-hello" }); setTimeout(() => { if (!loaded) { useLocal = true; boot(readLocal()); } }, 1500); }
+else boot(readLocal());
+</script>
+</body>
+</html>

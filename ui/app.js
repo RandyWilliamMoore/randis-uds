@@ -1751,6 +1751,32 @@ window.addEventListener("message", async e => {
   try { e.source.postMessage({ uds: "vm", id: e.data.id, r }, "*"); } catch (_) {}
 });
 
+const OS_OPS = new Set(["status", "build", "boot", "job", "stop"]);
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "os" || !OS_OPS.has(e.data.op)) return;
+  if (!api() || typeof api().os_call !== "function") {
+    try { e.source.postMessage({ uds: "os", id: e.data.id, r: { error: "Close Randis UDS and open it again to finish setting this up." } }, "*"); } catch (_) {}
+    return;
+  }
+  const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
+  if (!tab) return;
+  let r; try { r = await api().os_call(tab.builtId, e.data.op, e.data.args || {}); } catch (err) { r = { error: String(err) }; }
+  try { e.source.postMessage({ uds: "os", id: e.data.id, r }, "*"); } catch (_) {}
+});
+
+const PRICE_OPS = new Set(["quotes", "wallet"]);
+window.addEventListener("message", async e => {
+  if (!e.data || e.data.uds !== "prices" || !PRICE_OPS.has(e.data.op)) return;
+  if (!api() || typeof api().price_call !== "function") {
+    try { e.source.postMessage({ uds: "prices", id: e.data.id, r: { error: "Close Randis UDS and open it again to finish setting this up." } }, "*"); } catch (_) {}
+    return;
+  }
+  const tab = state.tabs.find(t => t.kind === "built" && t.builtId && $("iframe", t.pane) && $("iframe", t.pane).contentWindow === e.source);
+  if (!tab) return;
+  let r; try { r = await api().price_call(tab.builtId, e.data.op, e.data.args || {}); } catch (err) { r = { error: String(err) }; }
+  try { e.source.postMessage({ uds: "prices", id: e.data.id, r }, "*"); } catch (_) {}
+});
+
 window.addEventListener("message", async e => {
   if (!e.data || e.data.uds !== "studio" || !api()) return;
   const tab = builtTabOf(e.source);
@@ -1989,6 +2015,8 @@ async function loadBuilt(tab) {
   $(".web-on", tab.pane).checked = tab.web;
   mediaStopOwner("t" + tab.id); tab.media = r.meta.media === true;
   $("iframe", tab.pane).setAttribute("allow", tab.media ? "midi; camera; microphone" : "midi");
+  { const f = $("iframe", tab.pane); if (!f.dataset.cspWall) f.dataset.cspWall = f.getAttribute("csp");
+    f.setAttribute("csp", r.localNet === true && f.dataset.cspLocal ? f.dataset.cspLocal : f.dataset.cspWall); }
   $("iframe", tab.pane).srcdoc = withMedia(withSoundGuard(withEmoji(r.html)), tab.media);
   $("iframe", tab.pane).hidden = false;
   $(".build-log", tab.pane).hidden = true;

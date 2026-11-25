@@ -1,0 +1,241 @@
+<!doctype html>
+<!-- Made with Randis UDS by Randy Moore - https://github.com/RandyWilliamMoore/randis-uds - https://ko-fi.com/moorescombinatoricsmatrix -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Wiki</title>
+<style>
+:root{--bg:#f4f8fd;--side:#ffffff;--card:#ffffff;--ink:#1f2a3a;--sub:#5d6b82;--line:#dbe4f0;--acc:#2b6cb0;--acc2:#ebf4ff;--link:#2b6cb0;--miss:#d9480f;--ok:#2f9e44;--sun:#ffd43b;--pink:#f06595}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 "Segoe UI",system-ui,sans-serif;display:flex}
+a{color:var(--link);text-decoration:none;cursor:pointer}a:hover{text-decoration:underline}
+a.miss{color:var(--miss);border-bottom:1px dashed var(--miss)}a.miss:hover{text-decoration:none;background:#fff4e6}
+#side{width:260px;min-width:260px;background:var(--side);border-right:1px solid var(--line);overflow-y:auto;padding:14px 12px 40px;display:flex;flex-direction:column;gap:6px}
+.brand{display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px}
+.brand .mk{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#2b6cb0,#4dabf7);color:#fff;display:grid;place-items:center;font-weight:800;font-size:17px;box-shadow:0 3px 10px #2b6cb044}
+.brand b{font-size:17px;display:block}.brand small{color:var(--sub);font-size:11.5px}
+#q{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:#f8fbff;color:var(--ink);font:inherit;font-size:14px}
+#q:focus{outline:2px solid #90c2ff;border-color:var(--acc)}
+#side h4{margin:12px 4px 2px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--sub)}
+#side .pl a{display:block;padding:4px 9px;border-radius:7px;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#side .pl a:hover{background:var(--acc2);text-decoration:none}#side .pl a.on{background:var(--acc);color:#fff}
+.sbtns{display:flex;gap:6px;flex-wrap:wrap}
+button{font:inherit;font-size:13.5px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--acc);color:var(--acc)}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}button.pri:hover{background:#2c5282;color:#fff}
+button.bad{color:#c92a2a}button.bad:hover{border-color:#c92a2a}
+.store{font-size:11.5px;color:var(--sub);background:var(--acc2);border-radius:8px;padding:6px 8px;margin-top:auto}
+.store b{color:var(--acc)}
+#main{flex:1;overflow-y:auto}
+#page{max-width:900px;margin:0 auto;padding:22px 34px 80px}
+.bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.crumb{color:var(--sub);font-size:12.5px;flex:1}
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 28px 26px;box-shadow:0 6px 22px #2b6cb012}
+h1{font-size:30px;margin:4px 0 8px;padding-bottom:8px;border-bottom:3px solid var(--sun);display:inline-block}
+.sheet h2{font-size:21px;margin:24px 0 8px;color:var(--acc)}
+.sheet h3{font-size:17px;margin:18px 0 6px}
+table{border-collapse:collapse;margin:10px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}th{background:var(--acc2)}
+code{background:#f1f3f5;padding:1px 5px;border-radius:5px;font:13px Consolas,monospace;color:#c2255c}
+pre{background:#f8f9fa;border:1px solid var(--line);border-radius:9px;padding:10px;overflow-x:auto;font:13px/1.45 Consolas,monospace}
+pre code{background:none;padding:0;color:#343a40}
+blockquote{border-left:4px solid var(--sun);background:#fff9db;margin:10px 0;padding:6px 14px;border-radius:0 9px 9px 0}
+hr{border:0;border-top:1px solid var(--line);margin:18px 0}
+li.task{list-style:none;margin-left:-20px}
+.meta{color:var(--sub);font-size:12.5px;margin-top:22px;border-top:1px solid var(--line);padding-top:8px}
+.meta .bl a{display:inline-block;margin:2px 4px 2px 0;padding:1px 9px;background:var(--acc2);border-radius:12px;font-size:12.5px}
+.hit{background:#fff3bf;border-radius:3px}
+.res{margin:10px 0;padding:10px 14px;background:#fff;border:1px solid var(--line);border-radius:10px}.res small{color:var(--sub)}
+.ed{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ed textarea{width:100%;min-height:420px;font:14px/1.5 Consolas,monospace;border:1px solid var(--line);border-radius:10px;padding:10px;resize:vertical;background:#fbfdff;color:var(--ink)}
+.ed .pv{border:1px dashed var(--line);border-radius:10px;padding:4px 16px;max-height:600px;overflow:auto;background:#fff}
+#et{width:100%;font:700 22px "Segoe UI",system-ui,sans-serif;border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-bottom:10px;color:var(--ink)}
+.tip{font-size:12.5px;color:var(--sub);margin:6px 0}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--acc);color:#fff;padding:8px 18px;border-radius:20px;z-index:9;box-shadow:0 6px 18px #2b6cb055;font-size:14px}
+.foot{margin-top:30px;color:var(--sub);font-size:12px;text-align:center}
+.get{background:#fff9db;border:1px solid #ffe066;border-radius:10px;padding:8px 12px;font-size:13px;margin:10px 0}
+@media (max-width:760px){body{flex-direction:column}#side{width:auto;min-width:0;max-height:40vh}.ed{grid-template-columns:1fr}}
+</style></head><body>
+<nav id="side"></nav><div id="main"><div id="page"></div></div>
+<script>
+const KEY = "my-wiki-pages";
+const store = {
+  mem: {}, ok: false,
+  get(k) { try { const v = localStorage.getItem(k); this.ok = true; return v; } catch (e) { this.ok = false; return this.mem[k] == null ? null : this.mem[k]; } },
+  set(k, v) { this.mem[k] = v; try { localStorage.setItem(k, v); this.ok = true; } catch (e) { this.ok = false; } }
+};
+const SAMPLE = [
+  {title: "Welcome", md: "Welcome to **My Wiki**, a little notebook where every page can link to every other page.\n\n> Tip: click **Edit** at the top of any page to change it. Your changes show up live as you type.\n\n## Start here\n\n- Read [[How linking works]] to see how pages connect.\n- Peek at [[Weekend pancakes]], a sample page with a list, a table and a checklist.\n- Type in the **search box** on the left to find any word on any page.\n- Press **+ New page** to start your own.\n\n## Ideas for your wiki\n\n| Wiki idea | Pages you might add |\n|---|---|\n| Home | Recipes, plants, chores |\n| Hobbies | Games, crafts, music |\n| Learning | Notes, words, summaries |\n| Projects | Plans, lists, links |\n\nWhen you are ready, delete these sample pages and make the wiki yours. Use **Export** to keep a copy as a file."},
+  {title: "How linking works", md: "Pages link to each other with double square brackets.\n\n## Making a link\n\nWrite the name of a page inside double brackets, like this:\n\n```\nSee the [[Welcome]] page.\nShort label: [[Weekend pancakes|pancakes]]\n```\n\nThat shows up as: see the [[Welcome]] page, or the short label [[Weekend pancakes|pancakes]].\n\n## Links to pages that do not exist yet\n\nAn orange dashed link means the page is not written yet. Click it to create it: [[My reading list]].\n\n## Backlinks\n\nAt the bottom of every page you can see **which pages link here**. Scroll down on [[Welcome]] to try it.\n\n## Search\n\nThe search box finds words in titles and in page text, and highlights every match. Try typing *syrup*.\n\n## Formatting cheat sheet\n\n- `**bold**` gives **bold**, `*italic*` gives *italic*\n- `# Heading` and `## Smaller heading`\n- `- item` for lists, `1. item` for numbered lists\n- `- [ ] task` and `- [x] done` for checklists\n- `> note` for a highlighted note\n- `| a | b |` rows for tables\n- web links: `[Example](https://example.com)`"},
+  {title: "Weekend pancakes", md: "A sample page to show off lists, tables and checklists. Back to [[Welcome]].\n\n## Shopping list\n\n- [x] Flour\n- [x] Milk\n- [ ] Eggs\n- [ ] Maple syrup\n- [ ] Blueberries\n\n## Recipe (makes 8)\n\n| Ingredient | Amount |\n|---|---|\n| Flour | 1 1/2 cups |\n| Milk | 1 1/4 cups |\n| Egg | 1 |\n| Sugar | 1 tablespoon |\n| Baking powder | 3 teaspoons |\n| Butter, melted | 3 tablespoons |\n\n1. Whisk the dry things together.\n2. Add the milk, egg and butter. Stir until just mixed.\n3. Cook on a hot pan until bubbles pop, then flip.\n4. Stack them high and add syrup.\n\n> Fun idea: drop blueberries on each pancake right after you pour it.\n\nSee [[How linking works]] to learn how this page links back home."}
+];
+let P = [], cur = "", mode = "view", qv = "", back = [];
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"})[c]);
+const norm = t => String(t).trim().toLowerCase().replace(/\s+/g, " ");
+const find = t => P.find(p => norm(p.title) === norm(t));
+function load() {
+  let d = null; try { d = JSON.parse(store.get(KEY) || "null"); } catch (e) { d = null; }
+  P = Array.isArray(d) && d.length ? d.filter(p => p && p.title) : SAMPLE.map(p => Object.assign({updated: Date.now()}, p));
+}
+function save() { store.set(KEY, JSON.stringify(P)); }
+function toast(m) { const t = document.createElement("div"); t.className = "toast"; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
+function wl(title, label) {
+  const p = find(title);
+  return `<a class="${p ? "wl" : "wl miss"}" data-go="${esc(title.trim())}" title="${p ? "" : "Not written yet: click to create"}">${esc((label || title).trim())}</a>`;
+}
+function inline(s) {
+  const keep = []; const hold = h => "\u0000" + (keep.push(h) - 1) + "\u0000";
+  s = String(s).replace(/`([^`]+)`/g, (m, c) => hold("<code>" + esc(c) + "</code>"));
+  s = s.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, t, l) => hold(wl(t, l)));
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (m, t, u) => hold(`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>`));
+  s = esc(s);
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<i>$2</i>").replace(/~~([^~]+)~~/g, "<s>$1</s>");
+  return s.replace(/\u0000(\d+)\u0000/g, (m, k) => keep[+k]);
+}
+function md(src) {
+  const L = String(src).replace(/\r/g, "").split("\n"); let h = "", i = 0;
+  while (i < L.length) {
+    const l = L[i];
+    if (/^```/.test(l)) { const b = []; i++; while (i < L.length && !/^```/.test(L[i])) b.push(L[i++]); i++; h += `<pre><code>${esc(b.join("\n"))}</code></pre>`; continue; }
+    const m = l.match(/^(#{1,4})\s+(.*)/);
+    if (m) { const n = Math.min(m[1].length + 1, 4); h += `<h${n}>${inline(m[2])}</h${n}>`; i++; continue; }
+    if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < L.length && /^\s*\|?[\s:|-]+\|?\s*$/.test(L[i + 1])) {
+      const row = r => r.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+      h += "<table><tr>" + row(l).map(c => `<th>${inline(c)}</th>`).join("") + "</tr>"; i += 2;
+      while (i < L.length && /^\s*\|/.test(L[i])) h += "<tr>" + row(L[i++]).map(c => `<td>${inline(c)}</td>`).join("") + "</tr>";
+      h += "</table>"; continue;
+    }
+    if (/^\s*([-*+]|\d+\.)\s+/.test(l)) {
+      const ol = /^\s*\d+\./.test(l); h += ol ? "<ol>" : "<ul>";
+      while (i < L.length && /^\s*([-*+]|\d+\.)\s+/.test(L[i])) {
+        let t = L[i].replace(/^\s*([-*+]|\d+\.)\s+/, ""), cls = "";
+        if (/^\[ \]\s*/.test(t)) { t = "⬜ " + t.replace(/^\[ \]\s*/, ""); cls = "task"; }
+        else if (/^\[x\]\s*/i.test(t)) { t = "✅ " + t.replace(/^\[x\]\s*/i, ""); cls = "task"; }
+        h += `<li class="${cls}">${inline(t)}</li>`; i++;
+      }
+      h += ol ? "</ol>" : "</ul>"; continue;
+    }
+    if (/^>\s?/.test(l)) { const b = []; while (i < L.length && /^>\s?/.test(L[i])) b.push(L[i++].replace(/^>\s?/, "")); h += `<blockquote>${inline(b.join(" "))}</blockquote>`; continue; }
+    if (/^\s*(---|\*\*\*)\s*$/.test(l)) { h += "<hr>"; i++; continue; }
+    if (!l.trim()) { i++; continue; }
+    const p = []; while (i < L.length && L[i].trim() && !/^(#{1,4}\s|```|\s*[-*+]\s|\s*\d+\.\s|>|\s*\|)/.test(L[i])) p.push(L[i++]);
+    if (!p.length) p.push(L[i++]);
+    h += `<p>${inline(p.join(" "))}</p>`;
+  }
+  return h;
+}
+function linksIn(p) { const out = new Set(); String(p.md).replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, (m, t) => out.add(norm(t))); return out; }
+function backlinks(p) { const k = norm(p.title); return P.filter(x => x !== p && linksIn(x).has(k)); }
+function side() {
+  const st = store.ok ? `<b>Saved</b> in this browser as you go.` : `<b>Kept while this page is open.</b> Use Export to keep a copy as a file.`;
+  const list = P.slice().sort((a, b) => a.title.localeCompare(b.title));
+  $("#side").innerHTML = `<div class="brand" data-go="${esc((P[0] || {}).title || "")}"><div class="mk">MW</div><div><b>My Wiki</b><small>${P.length} page${P.length === 1 ? "" : "s"}</small></div></div>
+  <input id="q" placeholder="🔎 Search every page…" value="${esc(qv)}">
+  <div class="sbtns"><button class="pri" id="newp">+ New page</button><button id="rnd" title="Open a random page">🎲 Random</button></div>
+  <h4>Pages</h4><div class="pl">${list.map(p => `<a data-go="${esc(p.title)}" class="${mode !== "search" && norm(cur) === norm(p.title) ? "on" : ""}">${esc(p.title)}</a>`).join("")}</div>
+  <h4>Your file</h4><div class="sbtns"><button id="exp">⬇ Export</button><button id="imp">⬆ Import</button></div>
+  <div class="store">${st}</div>`;
+  const q = $("#q");
+  q.oninput = () => { qv = q.value; if (qv.trim().length > 0) { mode = "search"; draw(true); } else { mode = "view"; draw(true); } };
+}
+function snip(t, q) {
+  const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return "";
+  const s = t.slice(Math.max(0, i - 80), i + 140).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, a, b) => b || a);
+  const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  return "…" + esc(s).replace(rx, m => `<span class="hit">${m}</span>`) + "…";
+}
+function searchView() {
+  const q = qv.trim(), ql = q.toLowerCase();
+  const out = P.map(p => { const inT = p.title.toLowerCase().includes(ql), n = (p.md.toLowerCase().split(ql).length - 1); return {p, n: n + (inT ? 5 : 0)}; }).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
+  return `<div class="sheet"><h1>Search: ${esc(q)}</h1><p>${out.length} page${out.length === 1 ? "" : "s"} found.</p>${out.map(({p}) => `<div class="res"><a data-go="${esc(p.title)}"><b>${esc(p.title)}</b></a><br><small>${snip(p.md, q) || "Title match"}</small></div>`).join("")}
+  ${find(q) ? "" : `<p class="tip">No page called “${esc(q)}” yet. ${wl(q, "Create it")}</p>`}</div>`;
+}
+function pageView(p) {
+  const bl = backlinks(p);
+  return `<div class="bar"><span class="crumb">My Wiki › ${esc(p.title)}</span>${back.length ? `<button id="bk">← Back</button>` : ""}<button class="pri" id="edit">✏️ Edit</button><button id="expmd" title="Save this page as a Markdown file">⬇ .md</button><button class="bad" id="del">Delete</button></div>
+  <div class="sheet"><h1>${esc(p.title)}</h1>${md(p.md)}
+  <div class="meta"><div class="bl">🔗 Pages that link here: ${bl.length ? bl.map(x => wl(x.title)).join("") : "none yet"}</div>
+  <div>Last changed ${new Date(p.updated || Date.now()).toLocaleString()} · ${(p.md.match(/\S+/g) || []).length} words</div></div></div>`;
+}
+function editView(p, isNew) {
+  return `<div class="bar"><span class="crumb">${isNew ? "New page" : "Editing › " + esc(p.title)}</span><button id="cancel">Cancel</button><button class="pri" id="savep">💾 Save page</button></div>
+  <input id="et" value="${esc(p.title)}" placeholder="Page title">
+  <div class="ed"><div><textarea id="ex" spellcheck="true">${esc(p.md)}</textarea><div class="tip">Link with <code>[[Page name]]</code> · <code>**bold**</code> · <code>- [ ] task</code> · <code>## Heading</code> · <code>| table |</code></div></div>
+  <div class="pv sheet" id="pv">${md(p.md)}</div></div>`;
+}
+let draft = null;
+function draw(keepFocus) {
+  side();
+  let body;
+  if (mode === "search" && qv.trim()) body = searchView();
+  else if (mode === "edit" && draft) body = editView(draft, draft.isNew);
+  else { const p = find(cur) || P[0]; if (!p) { draft = {title: "Welcome", md: "", isNew: true}; mode = "edit"; return draw(); } cur = p.title; mode = "view"; body = pageView(p); }
+  $("#page").innerHTML = body + `<div class="foot">My Wiki · made with Randis UDS</div>`;
+  if (mode === "edit") { const x = $("#ex"); x.oninput = () => { $("#pv").innerHTML = md(x.value); }; }
+  if (keepFocus) { const q = $("#q"); q.focus(); q.setSelectionRange(q.value.length, q.value.length); } else $("#main").scrollTop = 0;
+}
+function openPage(title) {
+  const p = find(title);
+  if (!p) { draft = {title: title.trim(), md: "Write something here. Link back to [[" + (cur || "Welcome") + "]].", isNew: true}; mode = "edit"; qv = ""; return draw(); }
+  if (cur && norm(cur) !== norm(p.title)) { back.push(cur); if (back.length > 60) back.shift(); }
+  cur = p.title; mode = "view"; qv = ""; draw();
+}
+function savePage() {
+  const t = $("#et").value.trim(), m = $("#ex").value;
+  if (!t) { toast("Give the page a title first."); return; }
+  const other = find(t);
+  if (draft.isNew) {
+    if (other) { toast("A page with that title already exists."); return; }
+    P.push({title: t, md: m, updated: Date.now()});
+  } else {
+    const p = find(draft.orig);
+    if (other && other !== p) { toast("A page with that title already exists."); return; }
+    if (p) {
+      if (norm(p.title) !== norm(t)) P.forEach(x => { x.md = x.md.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, (a, n, l) => norm(n) === norm(p.title) ? `[[${t}${l || ""}]]` : a); });
+      p.title = t; p.md = m; p.updated = Date.now();
+    }
+  }
+  save(); cur = t; mode = "view"; draft = null; draw(); toast("Saved ✔");
+}
+function download(name, text, type) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], {type: (type || "text/plain") + ";charset=utf-8"})); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+function importFile() {
+  const i = document.createElement("input"); i.type = "file"; i.accept = ".json,.md,.txt";
+  i.onchange = () => { const f = i.files[0]; if (!f) return; f.text().then(t => {
+    let added = 0, changed = 0;
+    if (/\.json$/i.test(f.name)) {
+      let d; try { d = JSON.parse(t); } catch (e) { toast("That file isn't a wiki export."); return; }
+      const list = Array.isArray(d) ? d : d && Array.isArray(d.pages) ? d.pages : null;
+      if (!list) { toast("That file isn't a wiki export."); return; }
+      list.forEach(x => { if (!x || !x.title) return; const p = find(x.title); if (p) { p.md = String(x.md || ""); p.updated = x.updated || Date.now(); changed++; } else { P.push({title: String(x.title), md: String(x.md || ""), updated: x.updated || Date.now()}); added++; } });
+    } else {
+      const title = f.name.replace(/\.(md|txt)$/i, ""), p = find(title);
+      if (p) { p.md = t; p.updated = Date.now(); changed++; } else { P.push({title, md: t, updated: Date.now()}); added++; }
+    }
+    save(); draw(); toast(`Imported: ${added} new, ${changed} updated.`);
+  }); };
+  i.click();
+}
+document.addEventListener("click", e => {
+  const g = e.target.closest && e.target.closest("[data-go]");
+  if (g) { e.preventDefault(); openPage(g.getAttribute("data-go")); return; }
+  const b = e.target.closest && e.target.closest("button"); if (!b) return;
+  const id = b.id;
+  if (id === "newp") { draft = {title: "", md: "Write something here. Link back to [[" + (cur || "Welcome") + "]].", isNew: true}; mode = "edit"; qv = ""; draw(); setTimeout(() => { const t = $("#et"); if (t) t.focus(); }, 0); }
+  else if (id === "rnd") { const others = P.filter(p => norm(p.title) !== norm(cur)); if (others.length) openPage(others[Math.floor(Math.random() * others.length)].title); }
+  else if (id === "edit") { const p = find(cur); if (p) { draft = {title: p.title, md: p.md, orig: p.title}; mode = "edit"; draw(); } }
+  else if (id === "cancel") { draft = null; mode = "view"; draw(); }
+  else if (id === "savep") savePage();
+  else if (id === "bk") { const t = back.pop(); if (t) { cur = t; mode = "view"; draw(); } }
+  else if (id === "del") { const p = find(cur); if (!p) return; if (P.length < 2) { toast("Keep at least one page."); return; } if (confirm(`Delete the page “${p.title}”?`)) { P = P.filter(x => x !== p); save(); cur = (back.pop() || P[0].title); draw(); toast("Page deleted."); } }
+  else if (id === "exp") { download("my-wiki.json", JSON.stringify({app: "my-wiki", version: 1, pages: P}, null, 1), "application/json"); toast("Exported " + P.length + " pages."); }
+  else if (id === "expmd") { const p = find(cur); if (p) download(p.title.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "_") + ".md", "# " + p.title + "\n\n" + p.md, "text/markdown"); }
+  else if (id === "imp") importFile();
+});
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && mode === "edit") { e.preventDefault(); savePage(); }
+  if (e.altKey && e.key === "ArrowLeft" && back.length && mode === "view") { cur = back.pop(); draw(); }
+});
+load(); cur = (P[0] || {}).title || ""; draw();
+</script></body></html>

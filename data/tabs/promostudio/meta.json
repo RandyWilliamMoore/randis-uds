@@ -1,0 +1,19 @@
+{
+ "id": "promostudio",
+ "name": "Promo Studio",
+ "created": 1794806655,
+ "academy": true,
+ "icon": "tab-promo",
+ "section": "Money & Shop",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1794807918,
+   "uds": "0.1.13"
+  }
+ ],
+ "current": 1
+}

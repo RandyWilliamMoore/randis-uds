@@ -1,0 +1,17 @@
+{
+ "id": "iotsuite01",
+ "name": "IoT Command",
+ "created": 1795505832.7932389,
+ "section": "Tools",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795555820.091616,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

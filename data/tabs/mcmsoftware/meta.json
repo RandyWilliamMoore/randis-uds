@@ -1,0 +1,18 @@
+{
+ "id": "mcmsoftware",
+ "name": "MCM Software",
+ "created": 1795347317.2012026,
+ "icon": "tab-mcm",
+ "section": "Create",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795347317.2012026,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

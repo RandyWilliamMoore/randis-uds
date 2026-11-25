@@ -1,0 +1,996 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Forge CAD</title>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<style>
+:root{--bg:#f9f9f7;--bg2:#fcfcfb;--bg3:#efeee9;--line:#dcdbd5;--tx:#0b0b0b;--mut:#52514e;--acc:#1c5cab;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--bad:#d03b3b;
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948}
+body[data-theme=dark]{--bg:#0d0d0d;--bg2:#1a1a19;--bg3:#262624;--line:#383835;--tx:#f0efec;--mut:#c3c2b7;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+header b#apptitle{font-size:16px;color:var(--acc);margin-right:6px}
+#nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+#nav button{border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--mut)}
+#nav button.on{background:var(--acc);color:#fff}
+#nav button:hover:not(.on){background:var(--bg3)}
+#saved{font-size:11px;color:var(--mut)}
+main#view{flex:1;overflow:auto;padding:14px 18px}
+h2{margin:0 0 4px;font-size:21px}h3{margin:6px 0 8px;font-size:15px;color:var(--acc)}h4{margin:10px 0 4px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em}
+.lead{color:var(--mut);margin:0 0 12px;max-width:980px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}.row>.card{flex:1;min-width:300px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:2px;margin:0 0 6px}
+input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px}
+textarea{width:100%;min-height:80px;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--tx);border-radius:6px;padding:4px 10px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}button.x{padding:1px 7px;color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}td input,td select{width:100%;padding:2px 4px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+pre,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px}pre{background:var(--bg3);padding:10px;border-radius:6px;overflow:auto;white-space:pre-wrap;margin:6px 0;max-height:420px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:var(--bg3);color:var(--mut)}
+.ok{color:var(--good)}.bad{color:var(--bad)}.warnc{color:#b7791f}
+.banner{border-left:4px solid var(--serious);background:var(--bg3);padding:8px 12px;border-radius:6px;margin:0 0 12px}
+.stat{font-size:26px;font-weight:600}.sub{font-size:12px;color:var(--mut)}
+svg text{fill:var(--mut);font-size:11px}svg .ink{fill:var(--tx)}
+.lnk{color:var(--s1);cursor:pointer;text-decoration:underline}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:9;max-width:80%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header><b id="apptitle">Forge CAD</b><nav id="nav"></nav><span id="saved"></span><button data-act="theme" title="Light / dark">◐</button></header>
+<main id="view"></main>
+<div id="toast"></div>
+<script>
+/* Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix */
+"use strict";
+const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const inApp = window.parent !== window;
+const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100, r1 = n => Math.round(n * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (n, d) => (+n || 0).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d });
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(+n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = n => (isFinite(n) ? Math.round(n * 1000) / 10 : 0) + "%";
+const SER = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)", "var(--s7)", "var(--s8)"];
+let toastT; function toast(t, ms) { const e = $("#toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => e.style.display = "none", ms || 3200); }
+let WEB_ON = false;
+function openLink(url) {
+  if (!inApp) { window.open(url, "_blank", "noopener"); return; }
+  if (WEB_ON) { tell({ uds: "web-pop", url }); return; }
+  copyText(url, "Link copied: paste it into your browser (or tick 'Web view' above this tab).");
+}
+function copyText(t, msg) { const fb = () => prompt("Copy this:", t); try { const p = navigator.clipboard && navigator.clipboard.writeText(t); if (p && p.then) p.then(() => toast(msg || "Copied.", 4000), fb); else fb(); } catch (e) { fb(); } }
+const L = (label, url) => `<span class="lnk" data-url="${esc(url)}">${esc(label)} ↗</span>`;
+
+let S, MEM = { page: null, sub: {} }, loaded = false, useLocal = true, saveT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const data = { [APP.key]: S };
+    if (inApp && !useLocal) tell({ uds: "store-set", data });
+    try { localStorage.setItem("uds-" + APP.key, JSON.stringify(S)); } catch (e) {}
+    const kb = Math.round(JSON.stringify(data).length / 1024), el = $("#saved");
+    if (el) el.textContent = `Saved · ${kb} KB`;
+    if (kb > 900) toast("Storage is nearly full: export a backup and remove some images.", 6000);
+  }, 400);
+}
+function readLocal() { try { return JSON.parse(localStorage.getItem("uds-" + APP.key) || "null"); } catch (e) { return null; } }
+function getP(path) { return path.split(".").reduce((o, k) => (o == null ? o : o[k]), S); }
+function setP(path, val) { const p = path.split("."); let o = S; while (p.length > 1) { const k = p.shift(); if (o[k] == null) o[k] = {}; o = o[k]; } o[p[0]] = val; }
+function download(name, data, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: type || "text/plain" });
+  if (window.__dl) { window.__dl.push([name, typeof data === "string" ? data : "blob:" + blob.size]); }
+  if (inApp) { tell({ uds: "export-file", name, data: blob }); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const csvCell = c => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`;
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ""));
+}
+
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >> 8) & 255], u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  for (const [name, d] of files) {
+    const data = typeof d === "string" ? enc.encode(d) : d, nm = enc.encode(name), crc = crc32(data);
+    const head = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)]);
+    parts.push(head, nm, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nm);
+    off += head.length + nm.length + data.length;
+  }
+  const csize = central.reduce((a, b) => a + b.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+const AIQ = {};
+function askAI(prompt, cb) {
+  if (!inApp) { cb({ error: "Open this inside Randis UDS with an AI linked to use the AI helper." }); return; }
+  const id = "q10-" + uid(); AIQ[id] = cb;
+  tell({ uds: "planner-ask", id, history: [{ role: "user", content: String(prompt) }], context: APP.title + " app in Randis UDS." });
+}
+
+const F = (label, path, o) => { o = o || {}; const v = getP(path); const t = o.type || (typeof v === "number" ? "number" : "text");
+  if (o.opts) return `<label class="f">${esc(label)}<select data-p="${path}"${o.r ? " data-r" : ""}>${o.opts.map(x => { const [k, n] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(k)}"${String(v) === String(k) ? " selected" : ""}>${esc(n)}</option>`; }).join("")}</select></label>`;
+  if (t === "area") return `<label class="f">${esc(label)}<textarea data-p="${path}"${o.r ? " data-r" : ""} style="min-height:${o.h || 90}px">${esc(v)}</textarea></label>`;
+  if (t === "check") return `<label><input type="checkbox" data-p="${path}" data-r${v ? " checked" : ""}> ${esc(label)}</label>`;
+  return `<label class="f">${esc(label)}<input type="${t}" data-p="${path}"${t === "number" ? " data-num" : ""}${o.r ? " data-r" : ""} value="${esc(v)}"${o.step ? ` step="${o.step}"` : ""}${o.w ? ` style="width:${o.w}"` : ""}></label>`; };
+function TBL(path, cols, o) {
+  o = o || {}; const rows = getP(path) || [];
+  const head = cols.map(c => `<th>${esc(c[1])}</th>`).join("") + (o.extra ? o.extra.map(x => `<th>${esc(x[0])}</th>`).join("") : "") + "<th></th>";
+  const body = rows.map((r, i) => "<tr>" + cols.map(([k, , t, w]) => {
+    const p = `${path}.${i}.${k}`, v = r[k];
+    if (Array.isArray(t)) return `<td${w ? ` style="width:${w}"` : ""}><select data-p="${p}" data-r>${t.map(x => `<option${String(v) === String(x) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></td>`;
+    return `<td${w ? ` style="width:${w}"` : ""}><input data-p="${p}"${t === "number" ? ' type="number" data-num step="any"' : ""}${o.live ? " data-r" : ""} value="${esc(v)}"></td>`;
+  }).join("") + (o.extra ? o.extra.map(x => `<td class="num">${x[1](r, i)}</td>`).join("") : "") + `<td><button class="x" data-act="rowdel" data-arg="${path}|${i}">✕</button></td></tr>`).join("");
+  return `<table><tr>${head}</tr>${body}</table><button data-act="rowadd" data-arg="${path}">+ Add row</button>`;
+}
+function lineChart(series, o) {
+  o = o || {}; const W = o.w || 640, H = o.h || 220, P = { l: 46, r: 12, t: 10, b: 24 };
+  const all = series.flatMap(s => s.pts); if (!all.length) return `<p class="sub">No data yet.</p>`;
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) || 1, y0 = Math.min(0, ...ys), y1 = Math.max(...ys) * 1.08 || 1;
+  const X = x => P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r), Y = y => H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b);
+  let g = ""; for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P.l - 4}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`; }
+  g += `<text x="${P.l}" y="${H - 6}">${esc(o.xl ? o.xl(x0) : fmt(x0))}</text><text x="${W - P.r}" y="${H - 6}" text-anchor="end">${esc(o.xl ? o.xl(x1) : fmt(x1))}</text>`;
+  const lines = series.map((s, i) => `<polyline fill="none" stroke="${s.color || SER[i % 8]}" stroke-width="2" points="${s.pts.map(p => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join(" ")}"/>` +
+    s.pts.filter((p, j) => s.pts.length < 60 || j % Math.ceil(s.pts.length / 40) === 0).map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="6" fill="transparent"><title>${esc(s.name)}: ${esc(o.xl ? o.xl(p[0]) : fmt(p[0]))} → ${fmt(p[1])}</title></circle>`).join("")).join("");
+  const leg = series.length > 1 ? `<div class="legend">${series.map((s, i) => `<span><i style="background:${s.color || SER[i % 8]}"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  return leg + `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">${g}${lines}</svg>`;
+}
+function barChart(items, o) {
+  o = o || {}; const W = o.w || 640, bh = 22, H = items.length * (bh + 6) + 8, lw = o.lw || 150, max = Math.max(...items.map(i => i.v), 1e-9);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">` + items.map((it, i) => { const y = 4 + i * (bh + 6), w = Math.max(1, (W - lw - 90) * it.v / max);
+    return `<text class="ink" x="${lw - 6}" y="${y + 15}" text-anchor="end">${esc(it.name)}</text><rect x="${lw}" y="${y}" width="${w}" height="${bh}" rx="4" fill="${it.color || SER[o.one ? 0 : i % 8]}"><title>${esc(it.name)}: ${esc(o.f ? o.f(it.v) : fmt(it.v))}</title></rect><text x="${lw + w + 6}" y="${y + 15}">${esc(o.f ? o.f(it.v) : fmt(it.v))}</text>`; }).join("") + "</svg>";
+}
+
+function nav() {
+  $("#nav").innerHTML = APP.pages.map(([id, label]) => `<button data-page="${id}" class="${MEM.page === id ? "on" : ""}">${esc(label)}</button>`).join("");
+}
+function go(id) { MEM.page = id; S._page = id; render(); }
+let PRESS = false, HELD = false, IN_CHANGE = false, heldT;
+function flushHeld() { clearTimeout(heldT); if (HELD) { HELD = false; render(); } }
+document.addEventListener("pointerdown", e => { PRESS = !!(e.target.closest && e.target.closest("button,[data-act],[data-page],a,.lnk,label.pill")); }, true);
+document.addEventListener("pointerup", () => { if (!PRESS) return; PRESS = false; if (HELD) setTimeout(flushHeld, 0); }, true);
+function render() {
+  if (IN_CHANGE && PRESS) { HELD = true; clearTimeout(heldT); heldT = setTimeout(() => { PRESS = false; flushHeld(); }, 1000); return; }
+  HELD = false;
+  nav(); const pg = APP.pages.find(p => p[0] === MEM.page) || APP.pages[0]; MEM.page = pg[0];
+  try { $("#view").innerHTML = pg[2](); if (APP.after) APP.after(pg[0]); }
+  catch (e) { $("#view").innerHTML = `<div class="card bad">This page hit an error: ${esc(e && e.stack || e)}</div>`; console.error(e); }
+}
+function boot(data) {
+  if (loaded) return; loaded = true;
+  S = Object.assign(APP.defaults(), data && typeof data === "object" ? data : {});
+  if (S._theme) document.body.dataset.theme = S._theme;
+  MEM.page = S._page || APP.pages[0][0]; render();
+}
+const ACT = {
+  theme() { S._theme = document.body.dataset.theme === "dark" ? "" : "dark"; document.body.dataset.theme = S._theme; save(); },
+  rowadd(path) { const a = getP(path) || []; const t = APP.rowTemplates && APP.rowTemplates[path]; a.push(t ? t() : {}); setP(path, a); save(); render(); },
+  rowdel(arg) { const [path, i] = arg.split("|"); getP(path).splice(+i, 1); save(); render(); },
+};
+function onField(e, final) {
+  const el = e.target, p = el.dataset && el.dataset.p; if (!p) return;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num !== undefined) v = num(v);
+  setP(p, v); save();
+  IN_CHANGE = final;
+  try { if (final && el.dataset.r !== undefined) render(); if (APP.onField) APP.onField(p, v, final); } finally { IN_CHANGE = false; }
+}
+document.addEventListener("input", e => { if (e.target.tagName === "SELECT" || e.target.type === "checkbox") return; onField(e, false); });
+document.addEventListener("change", e => { if (e.target.type === "file") { const a = e.target.dataset.file; if (a && ACT[a]) ACT[a]([...e.target.files], e.target); return; } onField(e, true); });
+document.addEventListener("click", e => {
+  const pg = e.target.closest("[data-page]"); if (pg) { go(pg.dataset.page); return; }
+  const l = e.target.closest(".lnk"); if (l) { openLink(l.dataset.url); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const f = ACT[b.dataset.act]; if (!f) return;
+  try { f(b.dataset.arg, b, e); } catch (err) { toast("That didn't work: " + err.message, 6000); console.error(err); }
+});
+window.addEventListener("message", e => {
+  const d = e.data; if (!d || typeof d.uds !== "string") return;
+  if (d.uds === "store") { if (!loaded) { useLocal = false; boot(d.data && d.data[APP.key] ? d.data[APP.key] : readLocal()); } }
+  else if (d.uds === "store-error") toast("Couldn't save: " + (d.note || ""), 6000);
+  else if (d.uds === "web-state") WEB_ON = !!d.on;
+  else if (d.uds === "exported" || d.uds === "exporting") toast(d.note || (d.ok ? "Saved." : "Not saved."));
+  else if (d.uds === "planner" && AIQ[d.id]) { if (d.done) { const cb = AIQ[d.id]; delete AIQ[d.id]; cb(d.error ? { error: d.error } : { text: d.text || "" }); } }
+});
+</script>
+<script>
+
+const MATS = {
+  "Aluminium 6061-T6": { E: 68900, nu: 0.33, rho: 2700, Sy: 276, Su: 310 , k: 167, cp: 896 }, "Steel 1018": { E: 205000, nu: 0.29, rho: 7870, Sy: 370, Su: 440 , k: 51.9, cp: 486 },
+  "Stainless 304": { E: 193000, nu: 0.29, rho: 8000, Sy: 215, Su: 505 , k: 16.2, cp: 500 }, "Titanium Ti-6Al-4V": { E: 113800, nu: 0.342, rho: 4430, Sy: 880, Su: 950 , k: 6.7, cp: 526 },
+  "Brass C360": { E: 97000, nu: 0.31, rho: 8500, Sy: 310, Su: 385 , k: 115, cp: 380 }, "PLA (printed)": { E: 3500, nu: 0.36, rho: 1240, Sy: 50, Su: 55 , k: 0.13, cp: 1800 },
+  "ABS": { E: 2200, nu: 0.35, rho: 1040, Sy: 40, Su: 44 , k: 0.17, cp: 1400 }, "Nylon PA12": { E: 1700, nu: 0.39, rho: 1010, Sy: 48, Su: 50 , k: 0.25, cp: 1700 }, "Oak (along grain)": { E: 11000, nu: 0.35, rho: 750, Sy: 40, Su: 90 , k: 0.17, cp: 2380 },
+};
+const RAMP = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"];
+const APP = {
+  key: "cad", title: "Forge CAD",
+  defaults: () => ({
+    part: { name: "Mounting bracket", outer: "rect", w: 100, h: 60, r: 6, d: 80, poly: "0,0 100,0 100,20 40,60 0,60", t: 6, mat: "Aluminium 6061-T6",
+      holes: [{ x: 10, y: 10, d: 6.6 }, { x: 90, y: 10, d: 6.6 }, { x: 10, y: 50, d: 6.6 }, { x: 90, y: 50, d: 6.6 }, { x: 50, y: 30, d: 20 }] },
+    view: { yaw: 35, pitch: 30 },
+    fea: { h: 5, fix: "left", fx: 2000, fy: 0, loadEdge: "right", scale: 200, show: "vm", fos: 2, grade: true, smooth: 3, order: "2", curved: true },
+    truss: { nodes: "0,0\n2000,0\n1000,1500", members: "1-2\n2-3\n1-3", supports: "1:xy\n2:y", loads: "3:0,-10000", A: 500, I: "", Kf: 1, mat: "Steel 1018" },
+    bolt: { d: 10, pitch: 1.5, cls: "8.8", pre: 75, K: 0.2, Ft: 5000, Fs: 2000, n: 1, mu: 0.2, planes: 1, thread: "no", grip: 20, len: 30, Eb: 207000, mem: "Steel 1018" },
+    wgroup: { shape: "two_v", b: 80, d: 120, leg: 6, V: 20000, e: 150, Exx: 482 },
+    weld: { leg: 6, len: 100, n: 2, F: 20000, ecc: 0, Exx: 482, kind: "fillet", thick: 8 },
+    modal: { n: 4, pick: 0 }, heat: { hot: "left", T1: 100, cold: "right", mode: "temp", T2: 20, Q: 10, hc: 0, Ta: 20, faces: 2, show: "T", T0: 20, tEnd: 300, steps: 150 },
+    beam: { L: 1000, P: 1000, w: 1, type: "ss-center", E: 205000, I: 833333, c: 25 },
+    fmea: [
+      { item: "Bracket plate", fn: "Hold motor to frame", mode: "Cracks at hole edge", effect: "Motor falls, machine stops", S: 8, cause: "Stress at the 20 mm hole under shock load", O: 3, prev: "FEA with factor of safety 2", det: "Load test of first article", D: 4, action: "", owner: "", due: "" },
+      { item: "Mounting holes", fn: "Locate bolts", mode: "Holes out of position", effect: "Won't assemble", S: 5, cause: "CAM origin set wrong", O: 4, prev: "Probe origin before cutting", det: "Go/no-go pin gauge", D: 3, action: "", owner: "", due: "" },
+      { item: "Finish", fn: "Resist corrosion", mode: "Corrosion", effect: "Looks bad, weakens over years", S: 4, cause: "No anodising", O: 5, prev: "Spec anodise type II", det: "Visual", D: 6, action: "", owner: "", due: "" }],
+    cam: { tool: 6, flutes: 2, sfm: 600, chip: 0.04, stepdown: 1.5, safe: 5, stock: 0, drillMax: 7, plunge: 0.3, mat: "Aluminium 6061-T6" },
+  }),
+  rowTemplates: { fmea: () => ({ item: "", fn: "", mode: "", effect: "", S: 5, cause: "", O: 5, prev: "", det: "", D: 5, action: "", owner: "", due: "" }) },
+  pages: [["sketch", "✏ Sketch", pageSketch], ["view3d", "🧊 3D & mass", page3D], ["fea", "🧮 FEA plate", pageFEA], ["truss", "🔺 Truss", pageTruss], ["beam", "📏 Beam", pageBeam], ["joints", "🔩 Bolts & welds", pageJoints], ["modes", "〰 Modes & heat", pageModes],
+    ["fmea", "⚠ FMEA", pageFMEA], ["cam", "⚙ CAM / G-code", pageCAM]],
+  after: id => { if (id === "view3d") draw3D(); }, selftest,
+};
+
+function outerPts(p, seg) {
+  p = p || S.part; seg = seg || 12;
+  if (p.outer === "circle") { const R = num(p.d) / 2, n = Math.max(24, seg * 4); return Array.from({ length: n }, (_, i) => [R + R * Math.cos(2 * Math.PI * i / n), R + R * Math.sin(2 * Math.PI * i / n)]); }
+  if (p.outer === "poly") { const pts = String(p.poly).split(/\s+/).map(s => s.split(",").map(Number)).filter(a => a.length === 2 && a.every(isFinite)); return area(pts) < 0 ? pts.reverse() : pts; }
+  const w = num(p.w), h = num(p.h), r = clamp(num(p.r), 0, Math.min(w, h) / 2 - 0.01);
+  if (r <= 0) return [[0, 0], [w, 0], [w, h], [0, h]];
+  const out = [], c = [[w - r, r, -90], [w - r, h - r, 0], [r, h - r, 90], [r, r, 180]];
+  for (const [cx, cy, a0] of c) for (let i = 0; i <= seg / 2; i++) { const a = (a0 + 90 * i / (seg / 2)) * Math.PI / 180; out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+  return out;
+}
+function holePts(hl, n) { const R = num(hl.d) / 2; n = n || Math.max(12, Math.round(Math.PI * num(hl.d) / 2)); return Array.from({ length: n }, (_, i) => [num(hl.x) + R * Math.cos(2 * Math.PI * i / n), num(hl.y) + R * Math.sin(2 * Math.PI * i / n)]); }
+function area(pts) { let a = 0; for (let i = 0; i < pts.length; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % pts.length]; a += x1 * y2 - x2 * y1; } return a / 2; }
+function inPoly(x, y, pts) { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; }
+function inPart(x, y) { if (!inPoly(x, y, outerPts())) return false; return !S.part.holes.some(h => Math.hypot(x - h.x, y - h.y) < num(h.d) / 2); }
+function bbox(pts) { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }
+function massProps() {
+  const o = outerPts(S.part, 48); let A = area(o), cx = 0, cy = 0, Ix = 0, Iy = 0;
+  const acc = (pts, sgn) => { for (let i = 0; i < pts.length; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % pts.length], cr = x1 * y2 - x2 * y1;
+    cx += sgn * (x1 + x2) * cr / 6; cy += sgn * (y1 + y2) * cr / 6; Ix += sgn * (y1 * y1 + y1 * y2 + y2 * y2) * cr / 12; Iy += sgn * (x1 * x1 + x1 * x2 + x2 * x2) * cr / 12; } };
+  acc(o, 1); for (const h of S.part.holes) { const hp = holePts(h, 64); A -= Math.abs(area(hp)); acc(hp, -1); }
+  cx /= A; cy /= A; const m = MATS[S.part.mat] || MATS["Steel 1018"], V = A * num(S.part.t);
+  return { A, V, mass: V * 1e-9 * m.rho, cx, cy, Ixc: Ix - A * cy * cy, Iyc: Iy - A * cx * cx };
+}
+function partSVG(extra, k) {
+  const o = outerPts(), b = bbox(o); k = k || Math.min(8, 760 / (b[2] - b[0] || 1)); const W = (b[2] - b[0]) * k + 80, H = (b[3] - b[1]) * k + 80;
+  const T = ([x, y]) => [(x - b[0]) * k + 40, H - ((y - b[1]) * k + 40)];
+  const path = "M" + o.map(p => T(p).join(",")).join("L") + "Z" + S.part.holes.map(h => { const [x, y] = T([h.x, h.y]), r = h.d / 2 * k; return `M${x - r},${y}a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0Z`; }).join("");
+  let dims = `<text class="ink" x="${W / 2}" y="${H - 10}" text-anchor="middle">${fmt(b[2] - b[0])} mm</text><text class="ink" x="14" y="${H / 2}" transform="rotate(-90 14 ${H / 2})" text-anchor="middle">${fmt(b[3] - b[1])} mm</text>`;
+  S.part.holes.forEach(h => { const [x, y] = T([h.x, h.y]); dims += `<text x="${x + h.d / 2 * k + 3}" y="${y - 3}">⌀${h.d}</text>`; });
+  return { svg: `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px"><path d="${path}" fill="var(--bg3)" stroke="var(--acc)" stroke-width="2" fill-rule="evenodd"/>${dims}${extra ? extra(T, k) : ""}</svg>`, T, k };
+}
+
+function pageSketch() {
+  const p = S.part, mp = massProps();
+  return `<h2>Sketch</h2><p class="lead">A plate part: pick the outline, set its size, add holes. Everything else (3D, FEA, FMEA, CAM) uses this part.</p>
+  <div class="row"><div class="card" style="max-width:380px">${F("Part name", "part.name")}${F("Outline", "part.outer", { opts: [["rect", "Rectangle (rounded corners)"], ["circle", "Circle"], ["poly", "Polygon (x,y points)"]], r: 1 })}
+  ${p.outer === "rect" ? `<div class="row">${F("Width", "part.w", { r: 1 })}${F("Height", "part.h", { r: 1 })}${F("Corner radius", "part.r", { r: 1 })}</div>` : p.outer === "circle" ? F("Diameter", "part.d", { r: 1 }) : F("Points (x,y separated by spaces)", "part.poly", { type: "area", h: 60, r: 1 })}
+  <div class="row">${F("Thickness", "part.t", { r: 1 })}${F("Material", "part.mat", { opts: Object.keys(MATS), r: 1 })}</div>
+  <h4>Holes</h4>${TBL("part.holes", [["x", "x", "number"], ["y", "y", "number"], ["d", "⌀", "number"]], { live: true })}
+  <p class="sub">Area ${fmt(mp.A)} mm² · mass ${fmt(mp.mass * 1000, 1)} g</p><button data-act="dxf">⬇ DXF</button> <button data-act="svgOut">⬇ SVG</button> <button data-act="backup">Backup</button></div>
+  <div class="card">${partSVG().svg}</div></div>`;
+}
+APP.rowTemplates["part.holes"] = () => ({ x: 20, y: 20, d: 5 });
+function dxf() {
+  const L = ["0", "SECTION", "2", "HEADER", "9", "$INSUNITS", "70", "4", "0", "ENDSEC", "0", "SECTION", "2", "ENTITIES"];
+  const o = outerPts(S.part, 24); o.forEach((p, i) => { const q = o[(i + 1) % o.length]; L.push("0", "LINE", "8", "OUTLINE", "10", r2(p[0]), "20", r2(p[1]), "11", r2(q[0]), "21", r2(q[1])); });
+  S.part.holes.forEach(h => L.push("0", "CIRCLE", "8", "HOLES", "10", h.x, "20", h.y, "40", h.d / 2));
+  L.push("0", "ENDSEC", "0", "EOF"); return L.join("\n") + "\n";
+}
+
+function prism() {
+  const t = num(S.part.t), loops = [outerPts(S.part, 16), ...S.part.holes.map(h => holePts(h, 20))], tris = faceTris(loops);
+  const faces = [];
+  for (const [a, b, c] of tris) { faces.push({ p: [[...a, t], [...b, t], [...c, t]], top: 1 }); faces.push({ p: [[...a, 0], [...c, 0], [...b, 0]], top: -1 }); }
+  loops.forEach((lp, li) => { for (let i = 0; i < lp.length; i++) { let a = lp[i], b = lp[(i + 1) % lp.length]; if (li > 0) [a, b] = [b, a];
+    faces.push({ p: [[...a, 0], [...b, 0], [...b, t]], side: 1 }); faces.push({ p: [[...a, 0], [...b, t], [...a, t]], side: 1 }); } });
+  return faces;
+}
+function faceTris(loops) {
+  const pts = loops.flat(), tri = delaunay(pts), out = [];
+  for (const [i, j, k] of tri) { const a = pts[i], b = pts[j], c = pts[k], cx = (a[0] + b[0] + c[0]) / 3, cy = (a[1] + b[1] + c[1]) / 3;
+    if (!inPoly(cx, cy, loops[0]) || loops.slice(1).some(h => inPoly(cx, cy, h))) continue;
+    out.push(area([a, b, c]) > 0 ? [a, b, c] : [a, c, b]); }
+  return out;
+}
+function delaunay(pts) {
+  const b = bbox(pts), d = Math.max(b[2] - b[0], b[3] - b[1]) * 20 + 1, mx = (b[0] + b[2]) / 2, my = (b[1] + b[3]) / 2;
+  const P = pts.concat([[mx - d, my - d], [mx + d, my - d], [mx, my + d]]), n = pts.length;
+  let T = [[n, n + 1, n + 2]].map(t => withCirc(P, t));
+  for (let i = 0; i < n; i++) { const [x, y] = P[i], bad = [], keep = [];
+    for (const t of T) ((x - t.cx) ** 2 + (y - t.cy) ** 2 <= t.r2 * (1 + 1e-12) ? bad : keep).push(t);
+    const edges = new Map(); for (const t of bad) for (const [a, c] of [[t.v[0], t.v[1]], [t.v[1], t.v[2]], [t.v[2], t.v[0]]]) { const k = a < c ? a + "_" + c : c + "_" + a; edges.set(k, edges.has(k) ? null : [a, c]); }
+    T = keep; for (const e of edges.values()) if (e) T.push(withCirc(P, [e[0], e[1], i])); }
+  return T.filter(t => t.v.every(v => v < n)).map(t => t.v);
+}
+function withCirc(P, v) { const [ax, ay] = P[v[0]], [bx, by] = P[v[1]], [cx, cy] = P[v[2]], D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by)) || 1e-12;
+  const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / D, uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / D;
+  return { v, cx: ux, cy: uy, r2: (ax - ux) ** 2 + (ay - uy) ** 2 }; }
+function stl() { const f = prism(); let s = `solid ${slugp()}\n`;
+  for (const { p } of f) { const u = sub3(p[1], p[0]), v = sub3(p[2], p[0]), n = norm3(cross3(u, v)); s += ` facet normal ${n.map(x => x.toFixed(5)).join(" ")}\n  outer loop\n${p.map(q => `   vertex ${q.map(x => x.toFixed(4)).join(" ")}\n`).join("")}  endloop\n endfacet\n`; }
+  return s + `endsolid ${slugp()}\n`; }
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], norm3 = a => { const l = Math.hypot(...a) || 1; return a.map(x => x / l); };
+function stlVolume() { return prism().reduce((v, { p }) => v + (p[0][0] * (p[1][1] * p[2][2] - p[1][2] * p[2][1]) - p[0][1] * (p[1][0] * p[2][2] - p[1][2] * p[2][0]) + p[0][2] * (p[1][0] * p[2][1] - p[1][1] * p[2][0])) / 6, 0); }
+const slugp = () => (S.part.name || "part").toLowerCase().replace(/[^a-z0-9]+/g, "_");
+function page3D() {
+  const mp = massProps(), m = MATS[S.part.mat];
+  return `<h2>3D & mass properties</h2><p class="lead">The sketch extruded by its thickness. Drag the sliders to turn it.</p>
+  <div class="row"><div class="card" style="max-width:340px"><label class="f">Turn<input type="range" min="0" max="360" data-p="view.yaw" data-num value="${S.view.yaw}"></label><label class="f">Tilt<input type="range" min="0" max="89" data-p="view.pitch" data-num value="${S.view.pitch}"></label>
+  <table><tr><td>Volume</td><td class="num">${fmt(mp.V / 1000, 2)} cm³</td></tr><tr><td>Mass (${esc(S.part.mat)})</td><td class="num">${fmt(mp.mass * 1000, 1)} g</td></tr><tr><td>Centroid</td><td class="num">${fmt(mp.cx, 2)}, ${fmt(mp.cy, 2)} mm</td></tr>
+  <tr><td>Area moment Ix (centroid)</td><td class="num">${fmt(mp.Ixc, 0)} mm⁴</td></tr><tr><td>Area moment Iy (centroid)</td><td class="num">${fmt(mp.Iyc, 0)} mm⁴</td></tr><tr><td>Young's modulus</td><td class="num">${fmt(m.E)} MPa</td></tr><tr><td>Yield strength</td><td class="num">${m.Sy} MPa</td></tr></table>
+  <p><button data-act="stlOut" class="pri">⬇ STL (for printing / CAM)</button></p></div><div class="card"><svg id="v3d" viewBox="0 0 700 460" width="100%" style="max-width:700px"></svg></div></div>`;
+}
+function draw3D() {
+  const svg = $("#v3d"); if (!svg) return; const f = prism(), b = bbox(outerPts()), cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, t = num(S.part.t);
+  const ya = S.view.yaw * Math.PI / 180, pa = S.view.pitch * Math.PI / 180, size = Math.max(b[2] - b[0], b[3] - b[1], t), k = 420 / size;
+  const pr = ([x, y, z]) => { x -= cx; y -= cy; z -= t / 2; const x1 = x * Math.cos(ya) - y * Math.sin(ya), y1 = x * Math.sin(ya) + y * Math.cos(ya); const y2 = y1 * Math.sin(pa) - z * Math.cos(pa), d = y1 * Math.cos(pa) + z * Math.sin(pa); return [350 + x1 * k, 230 + y2 * k, d]; };
+  const L = norm3([0.3, -0.5, 0.8]);
+  const polys = f.map(fc => { const q = fc.p.map(pr), n = norm3(cross3(sub3(fc.p[1], fc.p[0]), sub3(fc.p[2], fc.p[0]))); return { q, z: (q[0][2] + q[1][2] + q[2][2]) / 3, sh: 0.45 + 0.55 * Math.abs(n[0] * L[0] + n[1] * L[1] + n[2] * L[2]) }; });
+  polys.sort((a, b) => b.z - a.z);
+  svg.innerHTML = polys.map(p => `<polygon points="${p.q.map(v => v[0].toFixed(1) + "," + v[1].toFixed(1)).join(" ")}" fill="rgb(${Math.round(60 + 150 * p.sh)},${Math.round(110 + 120 * p.sh)},${Math.round(170 + 80 * p.sh)})" stroke="rgb(${Math.round(60 + 150 * p.sh)},${Math.round(110 + 120 * p.sh)},${Math.round(170 + 80 * p.sh)})" stroke-width="0.6"/>`).join("");
+}
+APP.onField = p => { if (p.startsWith("view.")) draw3D(); };
+
+function meshUniform(h) {
+  h = Math.max(0.5, num(h)); const o = outerPts(S.part, 16), loops = [resample(o, h), ...S.part.holes.map(hl => holePts(hl, Math.max(12, Math.round(Math.PI * hl.d / h))))];
+  const pts = loops.flat(), b = bbox(o), near = (x, y) => loops.some(lp => lp.some(p => Math.hypot(p[0] - x, p[1] - y) < 0.6 * h));
+  for (let y = b[1] + h / 2; y < b[3]; y += h * 0.866) for (let x = b[0] + h / 2 + ((Math.round((y - b[1]) / (h * 0.866)) % 2) ? h / 2 : 0); x < b[2]; x += h) if (inPart(x, y) && !near(x, y)) pts.push([x, y]);
+  const tris = delaunay(pts).filter(([i, j, k]) => { const cx = (pts[i][0] + pts[j][0] + pts[k][0]) / 3, cy = (pts[i][1] + pts[j][1] + pts[k][1]) / 3; return inPart(cx, cy); })
+    .map(([i, j, k]) => area([pts[i], pts[j], pts[k]]) > 0 ? [i, j, k] : [i, k, j]);
+  return { pts, tris };
+}
+
+function holeH(hl, h) { return clamp(Math.PI * num(hl.d) / 48, h / 8, h); }
+function sizeAt(x, y, h) { let s = h; for (const hl of S.part.holes) { const dd = Math.max(0, Math.hypot(x - hl.x, y - hl.y) - num(hl.d) / 2); s = Math.min(s, holeH(hl, h) + 0.35 * dd); } return s; }
+function mesh(h) {
+  h = Math.max(0.5, num(h)); const fe = S.fea || {};
+  if (fe.grade === false || !S.part.holes.length) return meshUniform(h);
+  const o = outerPts(S.part, 16), loops = [resampleSized(o, h), ...S.part.holes.map(hl => holePts(hl, Math.max(12, Math.round(Math.PI * num(hl.d) / holeH(hl, h)))))];
+  const nB = loops.reduce((a, l) => a + l.length, 0), pts = loops.flat(), b = bbox(o), cell = Math.min(...S.part.holes.map(hl => holeH(hl, h))) * 0.7, grid = new Map();
+  const key = (x, y) => Math.floor(x / cell) + "_" + Math.floor(y / cell), add = (p, i) => { const k = key(p[0], p[1]); (grid.get(k) || grid.set(k, []).get(k)).push(i); };
+  const tooNear = (x, y, r) => { const n = Math.ceil(r / cell); const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+    for (let a = -n; a <= n; a++) for (let c = -n; c <= n; c++) { const L = grid.get((cx + a) + "_" + (cy + c)); if (L) for (const i of L) if (Math.hypot(pts[i][0] - x, pts[i][1] - y) < r) return true; } return false; };
+  pts.forEach(add);
+  const hmin = Math.min(...S.part.holes.map(hl => holeH(hl, h))), levels = []; for (let L = hmin; L < h * 1.01; L *= 2) levels.push(L); if (levels[levels.length - 1] < h * 0.99) levels.push(h);
+  for (const L of levels) for (let y = b[1] + L / 2, row = 0; y < b[3]; y += L * 0.866, row++) for (let x = b[0] + L / 2 + (row % 2 ? L / 2 : 0); x < b[2]; x += L) {
+    const s = sizeAt(x, y, h); if (s > L * 1.42 && L < h * 0.99) continue; if (!inPart(x, y)) continue; if (tooNear(x, y, 0.8 * s)) continue; pts.push([x, y]); add(pts[pts.length - 1], pts.length - 1); }
+  const keepIn = t => { const cx = (pts[t[0]][0] + pts[t[1]][0] + pts[t[2]][0]) / 3, cy = (pts[t[0]][1] + pts[t[1]][1] + pts[t[2]][1]) / 3; return inPart(cx, cy); };
+  for (let it = 0; it < num(fe.smooth == null ? 3 : fe.smooth); it++) {
+    const tris = delaunay(pts).filter(keepIn), nb = pts.map(() => new Set());
+    for (const [i, j, k] of tris) { nb[i].add(j).add(k); nb[j].add(i).add(k); nb[k].add(i).add(j); }
+    for (let i = nB; i < pts.length; i++) { if (!nb[i].size) continue; let x = 0, y = 0; for (const j of nb[i]) { x += pts[j][0]; y += pts[j][1]; } x /= nb[i].size; y /= nb[i].size;
+      if (inPart(x, y) && !loops.some(lp => lp.some(q => Math.hypot(q[0] - x, q[1] - y) < 0.35 * sizeAt(x, y, h)))) pts[i] = [x, y]; } }
+  const tris = delaunay(pts).filter(keepIn).map(([i, j, k]) => area([pts[i], pts[j], pts[k]]) > 0 ? [i, j, k] : [i, k, j]);
+  return { pts, tris, graded: true };
+}
+function resampleSized(poly, h) { const out = []; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; let t = 0; const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  while (t < L - 1e-9) { const x = a[0] + (b[0] - a[0]) * t / L, y = a[1] + (b[1] - a[1]) * t / L; out.push([x, y]); const s = sizeAt(x, y, h), left = L - t; t += left < 1.5 * s ? (left > s ? left / 2 : left) : s; } } return out; }
+function meshQuality(M) { let worst = 180, sum = 0; for (const [i, j, k] of M.tris) { const P = [M.pts[i], M.pts[j], M.pts[k]]; let mn = 180;
+  for (let a = 0; a < 3; a++) { const A = P[a], B = P[(a + 1) % 3], C = P[(a + 2) % 3], u = [B[0] - A[0], B[1] - A[1]], v = [C[0] - A[0], C[1] - A[1]];
+    mn = Math.min(mn, Math.acos(clamp((u[0] * v[0] + u[1] * v[1]) / (Math.hypot(...u) * Math.hypot(...v) || 1), -1, 1)) * 180 / Math.PI); } worst = Math.min(worst, mn); sum += mn; }
+  return { minAngle: worst, avgMin: sum / (M.tris.length || 1) }; }
+let CONV_LAST = null;
+function convergence() {
+  const h0 = Math.max(0.5, num(S.fea.h)), out = [];
+  for (const f of [1, 0.75, 0.56, 0.42]) { const keep = S.fea.h; S.fea.h = h0 * f; let R; try { R = solvePlate(); } finally { S.fea.h = keep; }
+    out.push({ h: h0 * f, n: R.M.tris.length, vmax: R.vmax, umax: R.umax }); if (R.M.tris.length > 9000) break; }
+  const a = out[out.length - 2], z = out[out.length - 1], ch = a ? Math.abs(z.vmax - a.vmax) / (z.vmax || 1) : 1;
+  return { rows: out, change: ch, ok: ch < 0.05 };
+}
+function resample(poly, h) { const out = []; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / h)); for (let j = 0; j < n; j++) out.push([a[0] + (b[0] - a[0]) * j / n, a[1] + (b[1] - a[1]) * j / n]); } return out; }
+function solvePlate() {
+  if (String((S.fea || {}).order) === "2") return solvePlate6();
+  const m = MATS[S.part.mat], { E, nu } = m, t = num(S.part.t), fe = S.fea, M = mesh(fe.h), N = M.pts.length, b = bbox(M.pts), eps = 1e-6 + 0.01 * num(fe.h);
+  const D = [E / (1 - nu * nu), E * nu / (1 - nu * nu), E / (2 * (1 + nu))];
+  const K = Array.from({ length: 2 * N }, () => new Map()), F = new Float64Array(2 * N), Bs = [];
+  for (const [i, j, k] of M.tris) { const [x1, y1] = M.pts[i], [x2, y2] = M.pts[j], [x3, y3] = M.pts[k], A = ((x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1)) / 2;
+    const bb = [y2 - y3, y3 - y1, y1 - y2], cc = [x3 - x2, x1 - x3, x2 - x1], B = [[], [], []];
+    for (let a = 0; a < 3; a++) { B[0].push(bb[a] / (2 * A), 0); B[1].push(0, cc[a] / (2 * A)); B[2].push(cc[a] / (2 * A), bb[a] / (2 * A)); }
+    Bs.push({ B, n: [i, j, k], A }); const dof = [2 * i, 2 * i + 1, 2 * j, 2 * j + 1, 2 * k, 2 * k + 1];
+    const DB = [0, 1, 2].map(r => B[0].map((_, c) => r === 2 ? D[2] * B[2][c] : r === 0 ? D[0] * B[0][c] + D[1] * B[1][c] : D[1] * B[0][c] + D[0] * B[1][c]));
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) { const v = t * A * (B[0][r] * DB[0][c] + B[1][r] * DB[1][c] + B[2][r] * DB[2][c]); if (v) K[dof[r]].set(dof[c], (K[dof[r]].get(dof[c]) || 0) + v); } }
+  const onEdge = (p, e) => e === "left" ? p[0] < b[0] + eps : e === "right" ? p[0] > b[2] - eps : e === "bottom" ? p[1] < b[1] + eps : p[1] > b[3] - eps;
+  const fixed = new Set(); M.pts.forEach((p, i) => { if (onEdge(p, fe.fix)) { fixed.add(2 * i); fixed.add(2 * i + 1); } });
+  const ln = M.pts.map((p, i) => onEdge(p, fe.loadEdge) ? i : -1).filter(i => i >= 0), ax = fe.loadEdge === "left" || fe.loadEdge === "right" ? 1 : 0;
+  ln.sort((a, c) => M.pts[a][ax] - M.pts[c][ax]); const trib = ln.map((n, q) => { const lo = q ? (M.pts[n][ax] + M.pts[ln[q - 1]][ax]) / 2 : M.pts[n][ax], hi = q < ln.length - 1 ? (M.pts[n][ax] + M.pts[ln[q + 1]][ax]) / 2 : M.pts[n][ax]; return hi - lo; });
+  const tot = trib.reduce((a, c) => a + c, 0) || 1; ln.forEach((n, q) => { F[2 * n] += num(fe.fx) * trib[q] / tot; F[2 * n + 1] += num(fe.fy) * trib[q] / tot; });
+  const u = cg(K, F, fixed);
+  const el = Bs.map(({ B, n, A }) => { const d = n.flatMap(i => [u[2 * i], u[2 * i + 1]]), e = B.map(r => r.reduce((a, v, c) => a + v * d[c], 0));
+    const sx = D[0] * e[0] + D[1] * e[1], sy = D[1] * e[0] + D[0] * e[1], txy = D[2] * e[2]; return { sx, sy, txy, vm: Math.sqrt(sx * sx - sx * sy + sy * sy + 3 * txy * txy), A }; });
+  const vmax = Math.max(...el.map(e => e.vm)), umax = Math.max(...M.pts.map((_, i) => Math.hypot(u[2 * i], u[2 * i + 1])));
+  return { M, u, el, vmax, umax, fos: m.Sy / vmax, nFixed: fixed.size / 2, nLoad: ln.length };
+}
+
+function assemble6(withK = true) {
+  const m = MATS[S.part.mat], { E, nu } = m, t = num(S.part.t), fe = S.fea, M = mesh(fe.h), b = bbox(M.pts), eps = 1e-6 + 0.01 * num(fe.h);
+  const D = [E / (1 - nu * nu), E * nu / (1 - nu * nu), E / (2 * (1 + nu))], P = M.pts.map(p => p.slice()), mids = new Map();
+  const curvedOn = fe.curved !== false, onHole = new Map(), curvedMid = new Set();
+  if (curvedOn) M.pts.forEach((p, i) => S.part.holes.forEach((hl, q) => { const R = num(hl.d) / 2; if (R > 0 && Math.abs(Math.hypot(p[0] - num(hl.x), p[1] - num(hl.y)) - R) < 1e-7 * (1 + R)) onHole.set(i, q); }));
+  const mid = (i, j) => { const k = i < j ? i + "_" + j : j + "_" + i; let n = mids.get(k); if (n == null) { n = P.length; let xy = [(P[i][0] + P[j][0]) / 2, (P[i][1] + P[j][1]) / 2];
+      const hq = onHole.get(i); if (hq != null && hq === onHole.get(j)) { const hl = S.part.holes[hq], cx = num(hl.x), cy = num(hl.y), R = num(hl.d) / 2;
+        const a1 = Math.atan2(P[i][1] - cy, P[i][0] - cx); let da = Math.atan2(P[j][1] - cy, P[j][0] - cx) - a1; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+        if (Math.abs(da) < 0.8) { xy = [cx + R * Math.cos(a1 + da / 2), cy + R * Math.sin(a1 + da / 2)]; curvedMid.add(n); } }
+      P.push(xy); mids.set(k, n); } return n; };
+  const E6 = M.tris.map(([i, j, k]) => [i, j, k, mid(i, j), mid(j, k), mid(k, i)]), N = P.length;
+  const K = Array.from({ length: 2 * N }, () => new Map()), els = [];
+  const isoB = (L, X) => {
+    const [l1, l2, l3] = L, dX = [4 * l1 - 1, 0, -(4 * l3 - 1), 4 * l2, -4 * l2, 4 * (l3 - l1)], dE = [0, 4 * l2 - 1, -(4 * l3 - 1), 4 * l1, 4 * (l3 - l2), -4 * l1];
+    let j11 = 0, j12 = 0, j21 = 0, j22 = 0; for (let a = 0; a < 6; a++) { j11 += dX[a] * X[a][0]; j12 += dX[a] * X[a][1]; j21 += dE[a] * X[a][0]; j22 += dE[a] * X[a][1]; }
+    const det = j11 * j22 - j12 * j21, B = [[], [], []];
+    for (let a = 0; a < 6; a++) { const nx = (j22 * dX[a] - j12 * dE[a]) / det, ny = (-j21 * dX[a] + j11 * dE[a]) / det; B[0].push(nx, 0); B[1].push(0, ny); B[2].push(ny, nx); } return { B, det }; };
+  const Bat = (L, bb, cc, A, e) => {
+    if (e && e.X) return isoB(L, e.X).B;
+    const dL = [[4 * L[0] - 1, 0, 0], [0, 4 * L[1] - 1, 0], [0, 0, 4 * L[2] - 1], [4 * L[1], 4 * L[0], 0], [0, 4 * L[2], 4 * L[1]], [4 * L[2], 0, 4 * L[0]]];
+    const B = [[], [], []]; for (const d of dL) { const nx = (d[0] * bb[0] + d[1] * bb[1] + d[2] * bb[2]) / (2 * A), ny = (d[0] * cc[0] + d[1] * cc[1] + d[2] * cc[2]) / (2 * A); B[0].push(nx, 0); B[1].push(0, ny); B[2].push(ny, nx); } return B; };
+  const GP = [[2 / 3, 1 / 6, 1 / 6], [1 / 6, 2 / 3, 1 / 6], [1 / 6, 1 / 6, 2 / 3]];
+  let nCurved = 0;
+  for (const n of E6) { const [x1, y1] = P[n[0]], [x2, y2] = P[n[1]], [x3, y3] = P[n[2]]; let A = ((x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1)) / 2;
+    const bb = [y2 - y3, y3 - y1, y1 - y2], cc = [x3 - x2, x1 - x3, x2 - x1], X = curvedMid.has(n[3]) || curvedMid.has(n[4]) || curvedMid.has(n[5]) ? n.map(q => P[q]) : null;
+    const dets = X ? GP.map(L => isoB(L, X).det) : null; if (X) { A = dets.reduce((s, d) => s + d / 6, 0); nCurved++; }
+    if (withK) { const dof = n.flatMap(q => [2 * q, 2 * q + 1]), Ke = Array.from({ length: 12 }, () => new Float64Array(12));
+      for (let g = 0; g < 3; g++) { const L = GP[g], B = X ? isoB(L, X).B : Bat(L, bb, cc, A), w = X ? t * dets[g] / 6 : t * A / 3;
+        for (let c = 0; c < 12; c++) { const d0 = D[0] * B[0][c] + D[1] * B[1][c], d1 = D[1] * B[0][c] + D[0] * B[1][c], d2 = D[2] * B[2][c];
+          for (let r = 0; r < 12; r++) Ke[r][c] += w * (B[0][r] * d0 + B[1][r] * d1 + B[2][r] * d2); } }
+      for (let r = 0; r < 12; r++) for (let c = 0; c < 12; c++) { const v = Ke[r][c]; if (v) K[dof[r]].set(dof[c], (K[dof[r]].get(dof[c]) || 0) + v); } }
+    els.push(X ? { n, A, bb, cc, X } : { n, A, bb, cc }); }
+  const onEdge = (p, e) => e === "left" ? p[0] < b[0] + eps : e === "right" ? p[0] > b[2] - eps : e === "bottom" ? p[1] < b[1] + eps : p[1] > b[3] - eps;
+  return { m, E, nu, t, fe, M, b, eps, D, P, E6, N, K, els, Bat, onEdge, nCurved, curvedMid };
+}
+function solvePlate6() {
+  const { m, fe, M, D, P, E6, N, K, els, Bat, onEdge, nCurved } = assemble6(), F = new Float64Array(2 * N);
+  const fixed = new Set(); P.forEach((p, i) => { if (onEdge(p, fe.fix)) { fixed.add(2 * i); fixed.add(2 * i + 1); } });
+  const ledges = []; for (const n of E6) for (const [a, c, mm] of [[n[0], n[1], n[3]], [n[1], n[2], n[4]], [n[2], n[0], n[5]]]) if (onEdge(P[a], fe.loadEdge) && onEdge(P[c], fe.loadEdge)) ledges.push([a, c, mm, Math.hypot(P[c][0] - P[a][0], P[c][1] - P[a][1])]);
+  const tot = ledges.reduce((s, e) => s + e[3], 0) || 1, loaded = new Set();
+  for (const [a, c, mm, L] of ledges) for (const [q, f] of [[a, 1 / 6], [c, 1 / 6], [mm, 4 / 6]]) { F[2 * q] += num(fe.fx) * L * f / tot; F[2 * q + 1] += num(fe.fy) * L * f / tot; loaded.add(q); }
+  const u = cg(K, F, fixed), acc = new Float64Array(N), cnt = new Float64Array(N);
+  const stressAt = (e, L) => { const B = Bat(L, e.bb, e.cc, e.A, e), d = e.n.flatMap(q => [u[2 * q], u[2 * q + 1]]), s = B.map(r => r.reduce((a, v, c) => a + v * d[c], 0));
+    const sx = D[0] * s[0] + D[1] * s[1], sy = D[1] * s[0] + D[0] * s[1], txy = D[2] * s[2]; return { sx, sy, txy, vm: Math.sqrt(sx * sx - sx * sy + sy * sy + 3 * txy * txy) }; };
+  const el = els.map(e => { const c = stressAt(e, [1 / 3, 1 / 3, 1 / 3]); [[1, 0, 0], [0, 1, 0], [0, 0, 1]].forEach((L, q) => { const v = stressAt(e, L); acc[e.n[q]] += v.vm; cnt[e.n[q]]++; }); return { ...c, A: e.A }; });
+  let vmax = 0; for (let i = 0; i < M.pts.length; i++) if (cnt[i]) vmax = Math.max(vmax, acc[i] / cnt[i]);
+  const umax = Math.max(...P.map((_, i) => Math.hypot(u[2 * i], u[2 * i + 1])));
+  return { M, u, el, vmax, umax, fos: m.Sy / vmax, nFixed: fixed.size / 2, nLoad: loaded.size, quad: true, nNodes: N, P, nCurved };
+}
+function cg(K, F, fixed, x0) {
+  const n = F.length, x = new Float64Array(n), mul = (v, out) => { for (let r = 0; r < n; r++) { if (fixed.has(r)) { out[r] = v[r]; continue; } let s = 0; for (const [c, k] of K[r]) if (!fixed.has(c)) s += k * v[c]; out[r] = s; } };
+  const dg = new Float64Array(n); for (let r = 0; r < n; r++) dg[r] = fixed.has(r) ? 1 : (K[r].get(r) || 1);
+  const r = new Float64Array(n); for (let i = 0; i < n; i++) r[i] = fixed.has(i) ? 0 : F[i];
+  const r0 = Math.sqrt(r.reduce((a, v) => a + v * v, 0)) || 1;
+  if (x0) { for (let i = 0; i < n; i++) x[i] = fixed.has(i) ? 0 : x0[i]; const t = new Float64Array(n); mul(x, t); for (let i = 0; i < n; i++) r[i] = fixed.has(i) ? 0 : F[i] - t[i]; }
+  const z = r.map((v, i) => v / dg[i]), p = Float64Array.from(z), Ap = new Float64Array(n); let rz = r.reduce((a, v, i) => a + v * z[i], 0);
+  for (let it = 0; it < 6 * n; it++) { mul(p, Ap); const a = rz / p.reduce((s, v, i) => s + v * Ap[i], 0); for (let i = 0; i < n; i++) { x[i] += a * p[i]; r[i] -= a * Ap[i]; }
+    if (Math.sqrt(r.reduce((s, v) => s + v * v, 0)) / r0 < 1e-9) break; for (let i = 0; i < n; i++) z[i] = r[i] / dg[i]; const rz2 = r.reduce((s, v, i) => s + v * z[i], 0); const bta = rz2 / rz; rz = rz2; for (let i = 0; i < n; i++) p[i] = z[i] + bta * p[i]; }
+  return x; }
+let FEA_LAST = null;
+function pageFEA() {
+  const fe = S.fea, R = FEA_LAST, m = MATS[S.part.mat];
+  let pic = "", res = '<p class="sub">Press Solve.</p>';
+  if (R) { const vals = R.el.map(e => fe.show === "vm" ? e.vm : fe.show === "sx" ? e.sx : e.sy), lo = Math.min(...vals), hi = Math.max(...vals);
+    const sc = num(fe.scale) * (R.umax ? 1 : 0);
+    pic = partSVG((T) => R.M.tris.map(([i, j, k], q) => { const c = RAMP[Math.min(RAMP.length - 1, Math.floor((vals[q] - lo) / ((hi - lo) || 1) * RAMP.length))];
+      const P = [i, j, k].map(n => T([R.M.pts[n][0] + sc * R.u[2 * n], R.M.pts[n][1] + sc * R.u[2 * n + 1]]));
+      return `<polygon points="${P.map(p => p.join(",")).join(" ")}" fill="${c}" stroke="${c}" stroke-width="0.5"><title>${fe.show}: ${fmt(vals[q], 1)} MPa</title></polygon>`; }).join("")).svg;
+    res = `<table><tr><td>Nodes / elements</td><td class="num">${R.nNodes || R.M.pts.length} / ${R.M.tris.length} ${R.quad ? "(6-node" + (R.nCurved ? ", " + R.nCurved + " curved on hole edges" : "") + ")" : "(3-node)"}</td></tr><tr><td>Max von Mises stress</td><td class="num"><b>${fmt(R.vmax, 1)} MPa</b></td></tr><tr><td>Max displacement</td><td class="num">${fmt(R.umax, 4)} mm</td></tr>
+    <tr><td>Factor of safety (yield ${m.Sy} MPa)</td><td class="num ${R.fos >= num(fe.fos) ? "ok" : "bad"}"><b>${fmt(R.fos, 2)}</b> ${R.fos >= num(fe.fos) ? "✔ meets" : "✘ below"} target ${fe.fos}</td></tr><tr><td>Fixed nodes / loaded nodes</td><td class="num">${R.nFixed} / ${R.nLoad}</td></tr><tr><td>Mesh ${R.M.graded ? "(graded)" : "(uniform)"}: worst / average smallest angle</td><td class="num">${(q => fmt(q.minAngle, 1) + "° / " + fmt(q.avgMin, 1) + "°")(meshQuality(R.M))}</td></tr></table>${convHTML()}
+    <div class="legend"><span>${fmt(lo, 1)} MPa</span>${RAMP.map(c => `<i style="background:${c};margin:0"></i>`).join("")}<span>${fmt(hi, 1)} MPa</span></div>
+    <button data-act="feaToFmea">Add the result to the FMEA</button> <button data-act="feaCsv">⬇ Element results (.csv)</button>`; }
+  return `<h2>FEA: plate under load</h2><p class="lead">Plane-stress finite elements (6-node quadratic or 3-node linear triangles) on the sketch. One edge is held fixed, the force is spread over another edge. Colour = stress; the shape is drawn bent, scaled up so you can see it.</p>
+  <div class="row"><div class="card" style="max-width:340px">${F("Mesh size (mm)", "fea.h")}${F("Fixed edge", "fea.fix", { opts: ["left", "right", "bottom", "top"] })}${F("Loaded edge", "fea.loadEdge", { opts: ["right", "left", "top", "bottom"] })}
+  <div class="row">${F("Force X (N)", "fea.fx")}${F("Force Y (N)", "fea.fy")}</div><div class="row">${F("Show", "fea.show", { opts: [["vm", "von Mises"], ["sx", "σx"], ["sy", "σy"]], r: 1 })}${F("Bend scale", "fea.scale", { r: 1 })}</div>${F("Target factor of safety", "fea.fos", { r: 1 })}
+  ${F("Element type", "fea.order", { opts: [["2", "quadratic 6-node (better peaks)"], ["1", "linear 3-node (fast)"]] })}${String(fe.order) === "2" ? F("Curved hole edges (6-node)", "fea.curved", { type: "check" }) : ""}<div class="row">${F("Finer mesh near holes", "fea.grade", { type: "check" })}${F("Smoothing passes", "fea.smooth")}</div>
+  <button data-act="solve" class="pri">▶ Solve</button> <button data-act="conv">📉 Mesh convergence</button><div style="margin-top:8px">${res}</div></div><div class="card">${pic || partSVG().svg}</div></div>
+  <p class="sub">Linear-elastic, small-strain, plane stress. Quadratic triangles: stresses averaged at the nodes, peak = highest node. Linear triangles are stiff near holes: refine the mesh and watch the peak settle. For real parts check with a full 3D solver.</p>`;
+}
+Object.assign(ACT, {
+  solve() { const t0 = performance.now(); FEA_LAST = solvePlate(); render(); toast(`Solved in ${Math.round(performance.now() - t0)} ms`); },
+  feaToFmea() { const R = FEA_LAST; if (!R) return; S.fmea.push({ item: S.part.name, fn: "Carry " + Math.hypot(S.fea.fx, S.fea.fy) + " N", mode: "Yields / cracks at peak stress", effect: "Part bends or breaks", S: 8, cause: `Peak von Mises ${fmt(R.vmax, 1)} MPa vs yield ${MATS[S.part.mat].Sy} MPa (FoS ${fmt(R.fos, 2)})`, O: R.fos < 1 ? 9 : R.fos < 1.5 ? 6 : R.fos < 2 ? 4 : 2, prev: "FEA in Forge CAD", det: "Load test", D: 4, action: R.fos < num(S.fea.fos) ? "Thicken the plate or change material, re-run FEA" : "", owner: "", due: "" }); save(); go("fmea"); },
+  feaCsv() { const R = FEA_LAST; if (R) download(slugp() + "_fea.csv", toCSV([["element", "n1", "n2", "n3", "area_mm2", "sx_MPa", "sy_MPa", "txy_MPa", "vm_MPa"], ...R.el.map((e, i) => [i + 1, ...R.M.tris[i], r2(e.A), r2(e.sx), r2(e.sy), r2(e.txy), r2(e.vm)])]), "text/csv"); },
+  dxf() { download(slugp() + ".dxf", dxf(), "application/dxf"); }, svgOut() { download(slugp() + ".svg", partSVG().svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" '), "image/svg+xml"); },
+  stlOut() { download(slugp() + ".stl", stl(), "model/stl"); }, backup() { download(slugp() + "_forgecad.json", JSON.stringify(S, null, 1), "application/json"); },
+});
+
+function convHTML() { const C = CONV_LAST; if (!C) return "";
+  return `<h4>Mesh convergence</h4><table><tr><th class="num">Mesh (mm)</th><th class="num">Elements</th><th class="num">Peak von Mises (MPa)</th><th class="num">Max move (mm)</th></tr>${C.rows.map(r => `<tr><td class="num">${fmt(r.h, 2)}</td><td class="num">${r.n}</td><td class="num">${fmt(r.vmax, 1)}</td><td class="num">${fmt(r.umax, 4)}</td></tr>`).join("")}</table>
+  ${lineChart([{ name: "Peak von Mises (MPa)", pts: C.rows.map(r => [r.n, r.vmax]) }], { h: 160, w: 320 })}
+  <p class="${C.ok ? "ok" : "warnc"}">Last refinement changed the peak by ${pct(C.change)}: ${C.ok ? "settled (under 5%)." : "not settled yet: use a smaller mesh size, peaks at sharp corners may never settle."}</p>`; }
+Object.assign(ACT, { conv() { const t0 = performance.now(); CONV_LAST = convergence(); FEA_LAST = solvePlate(); render(); toast(`Convergence: ${CONV_LAST.rows.length} meshes in ${Math.round(performance.now() - t0)} ms`); } });
+
+function parseTruss() { const T = S.truss, nodes = String(T.nodes).trim().split(/\n+/).map(l => l.split(",").map(Number)), mem = String(T.members).trim().split(/\n+/).map(l => l.split("-").map(x => +x - 1));
+  const sup = {}; String(T.supports).trim().split(/\n+/).forEach(l => { const [n, d] = l.split(":"); if (n) sup[+n - 1] = (d || "").trim(); });
+  const loads = {}; String(T.loads).trim().split(/\n+/).forEach(l => { const [n, v] = l.split(":"); if (n && v) loads[+n - 1] = v.split(",").map(Number); }); return { nodes, mem, sup, loads }; }
+function solveTruss() {
+  const { nodes, mem, sup, loads } = parseTruss(), E = MATS[S.truss.mat].E, A = num(S.truss.A), n = nodes.length, K = Array.from({ length: 2 * n }, () => new Float64Array(2 * n)), F = new Float64Array(2 * n);
+  for (const [a, b] of mem) { const [x1, y1] = nodes[a], [x2, y2] = nodes[b], L = Math.hypot(x2 - x1, y2 - y1), c = (x2 - x1) / L, s = (y2 - y1) / L, k = E * A / L, m = [[c * c, c * s], [c * s, s * s]];
+    const d = [2 * a, 2 * a + 1, 2 * b, 2 * b + 1]; for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) K[d[i]][d[j]] += k * m[i % 2][j % 2] * ((i < 2) === (j < 2) ? 1 : -1); }
+  for (const [i, v] of Object.entries(loads)) { F[2 * i] += v[0] || 0; F[2 * i + 1] += v[1] || 0; }
+  const fixed = []; for (const [i, d] of Object.entries(sup)) { if (d.includes("x")) fixed.push(2 * i); if (d.includes("y")) fixed.push(2 * i + 1); }
+  const free = [...Array(2 * n).keys()].filter(i => !fixed.includes(i)), Kf = free.map(i => free.map(j => K[i][j])), uf = gauss(Kf, free.map(i => F[i]));
+  if (!uf) return { error: "The truss can move (a mechanism): add supports or members." };
+  const u = new Float64Array(2 * n); free.forEach((i, q) => u[i] = uf[q]);
+  const forces = mem.map(([a, b]) => { const [x1, y1] = nodes[a], [x2, y2] = nodes[b], L = Math.hypot(x2 - x1, y2 - y1), c = (x2 - x1) / L, s = (y2 - y1) / L; return E * A / L * (c * (u[2 * b] - u[2 * a]) + s * (u[2 * b + 1] - u[2 * a + 1])); });
+  const react = fixed.map(i => [i, K[i].reduce((s, k, j) => s + k * u[j], 0) - F[i]]);
+  const I = trussI(), kEnd = num(S.truss.Kf) || 1, len = mem.map(([a, b]) => Math.hypot(nodes[b][0] - nodes[a][0], nodes[b][1] - nodes[a][1]));
+  const pcr = len.map(L => Math.PI * Math.PI * E * I / ((kEnd * L) ** 2));
+  return { nodes, mem, u, forces, react, Sy: MATS[S.truss.mat].Sy, A, I, len, pcr };
+}
+function trussI() { const I = num(S.truss.I); if (I > 0) return I; const d = Math.sqrt(4 * num(S.truss.A) / Math.PI); return Math.PI * d ** 4 / 64; }
+function gauss(A, b) { const n = b.length, M = A.map((r, i) => [...r, b[i]]); for (let c = 0; c < n; c++) { let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r; if (Math.abs(M[p][c]) < 1e-9 * (Math.abs(M[c][c]) + 1)) { if (Math.abs(M[p][c]) < 1e-12) return null; }
+  [M[c], M[p]] = [M[p], M[c]]; for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; } } return M.map((r, i) => r[n] / r[i]); }
+function pageTruss() {
+  let R; try { R = solveTruss(); } catch (e) { R = { error: e.message }; }
+  let pic = "", tab = "";
+  if (!R.error) { const b = bbox(R.nodes), k = 560 / Math.max(b[2] - b[0], b[3] - b[1], 1), T = ([x, y]) => [40 + (x - b[0]) * k, 360 - (y - b[1]) * k], fm = Math.max(...R.forces.map(Math.abs), 1e-9);
+    pic = `<svg viewBox="0 0 680 400" width="100%" style="max-width:680px">` + R.mem.map(([a, c], i) => { const p = T(R.nodes[a]), q = T(R.nodes[c]), f = R.forces[i];
+      return `<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}" stroke="${f >= 0 ? "var(--s1)" : "var(--s2)"}" stroke-width="${2 + 6 * Math.abs(f) / fm}"><title>Member ${i + 1}: ${fmt(f, 0)} N (${f >= 0 ? "tension" : "compression"})</title></line><text class="ink" x="${(p[0] + q[0]) / 2 + 4}" y="${(p[1] + q[1]) / 2 - 4}">${fmt(f / 1000, 2)} kN</text>`; }).join("")
+      + R.nodes.map((n, i) => { const p = T(n); return `<circle cx="${p[0]}" cy="${p[1]}" r="5" fill="var(--tx)"/><text x="${p[0] + 7}" y="${p[1] + 14}">${i + 1}</text>`; }).join("") + "</svg>";
+    tab = `<div class="legend"><span><i style="background:var(--s1)"></i>tension</span><span><i style="background:var(--s2)"></i>compression</span></div><table><tr><th>Member</th><th class="num">Force (N)</th><th class="num">Stress (MPa)</th><th class="num">FoS yield</th><th class="num">Length (mm)</th><th class="num">Buckling load (N)</th><th class="num">FoS buckling</th></tr>${R.forces.map((f, i) => { const fb = f < 0 ? R.pcr[i] / -f : null, lim = Math.min(R.Sy / Math.abs(f / R.A || 1e-9), fb == null ? 1e9 : fb);
+      return `<tr><td>${i + 1}</td><td class="num">${fmt(f, 1)}</td><td class="num">${fmt(f / R.A, 2)}</td><td class="num">${fmt(R.Sy / Math.abs(f / R.A || 1e-9), 1)}</td><td class="num">${fmt(R.len[i], 0)}</td><td class="num">${fmt(R.pcr[i], 0)}</td><td class="num ${fb == null ? "" : fb >= 2 ? "ok" : fb >= 1 ? "warnc" : "bad"}">${fb == null ? "tension" : fmt(fb, 2)}</td></tr>`; }).join("")}</table>
+    <h4>Support reactions</h4>${R.react.map(([d, v]) => `<div>Node ${Math.floor(d / 2) + 1} ${d % 2 ? "Y" : "X"}: ${fmt(v, 1)} N</div>`).join("")}<p class="sub">Buckling: Euler P<sub>cr</sub> = π²EI/(KL)², I = ${fmt(R.I, 0)} mm⁴${num(S.truss.I) > 0 ? "" : " (solid round bar of the member area)"}, K = ${num(S.truss.Kf) || 1}. Short stocky members fail by yield first; the smaller factor of safety rules.</p>`; }
+  return `<h2>2D truss</h2><p class="lead">Pin-jointed members, direct stiffness method. Nodes as x,y (mm), members as a-b, supports as node:xy / node:x / node:y, loads as node:Fx,Fy (N).</p>
+  <div class="row"><div class="card" style="max-width:340px">${F("Nodes", "truss.nodes", { type: "area", h: 80, r: 1 })}${F("Members", "truss.members", { type: "area", h: 70, r: 1 })}${F("Supports", "truss.supports", { type: "area", h: 50, r: 1 })}${F("Loads", "truss.loads", { type: "area", h: 50, r: 1 })}
+  <div class="row">${F("Member area (mm²)", "truss.A", { r: 1 })}${F("Material", "truss.mat", { opts: Object.keys(MATS), r: 1 })}</div><div class="row">${F("Member I (mm⁴, blank = round bar)", "truss.I", { r: 1 })}${F("End factor K", "truss.Kf", { opts: [["1", "1 pinned-pinned"], ["0.7", "0.7 fixed-pinned"], ["0.5", "0.5 fixed-fixed"], ["2", "2 free end"]], r: 1 })}</div></div><div class="card">${R.error ? `<p class="bad">${esc(R.error)}</p>` : pic + tab}</div></div>`;
+}
+
+const BEAMS = { "ss-center": "Simply supported, point load at centre", "ss-udl": "Simply supported, uniform load", "cant-end": "Cantilever, point load at free end", "cant-udl": "Cantilever, uniform load", "fixed-center": "Both ends fixed, point load at centre" };
+function beamCalc() { const { L, P, w, type, E, I, c } = Object.fromEntries(Object.entries(S.beam).map(([k, v]) => [k, k === "type" ? v : num(v)]));
+  const r = { "ss-center": [P * L / 4, P * L ** 3 / (48 * E * I), P / 2], "ss-udl": [w * L * L / 8, 5 * w * L ** 4 / (384 * E * I), w * L / 2], "cant-end": [P * L, P * L ** 3 / (3 * E * I), P], "cant-udl": [w * L * L / 2, w * L ** 4 / (8 * E * I), w * L], "fixed-center": [P * L / 8, P * L ** 3 / (192 * E * I), P / 2] }[type];
+  return { M: r[0], defl: r[1], V: r[2], sigma: r[0] * c / I }; }
+function beamDiag() { const { L, P, w, type } = S.beam, n = 60, pts = [];
+  for (let i = 0; i <= n; i++) { const x = num(L) * i / n, l = num(L); let M;
+    if (type === "ss-center") M = x < l / 2 ? P * x / 2 : P * (l - x) / 2; else if (type === "ss-udl") M = w * x * (l - x) / 2; else if (type === "cant-end") M = -P * (l - x); else if (type === "cant-udl") M = -w * (l - x) ** 2 / 2; else M = x < l / 2 ? P * (4 * x - l) / 8 : P * (3 * l - 4 * x) / 8;
+    pts.push([x, M]); } return pts; }
+function pageBeam() { const r = beamCalc();
+  return `<h2>Beam calculator</h2><p class="lead">Classic beam cases (Euler-Bernoulli). I is the area moment of the section, c the distance from the neutral axis to the outer fibre. Rectangle b×h: I = b·h³/12, c = h/2.</p>
+  <div class="row"><div class="card" style="max-width:340px">${F("Case", "beam.type", { opts: Object.entries(BEAMS), r: 1 })}<div class="row">${F("Length L (mm)", "beam.L", { r: 1 })}${F("Point load P (N)", "beam.P", { r: 1 })}${F("Uniform load w (N/mm)", "beam.w", { r: 1 })}</div>
+  <div class="row">${F("E (MPa)", "beam.E", { r: 1 })}${F("I (mm⁴)", "beam.I", { r: 1 })}${F("c (mm)", "beam.c", { r: 1 })}</div>
+  <table><tr><td>Max bending moment</td><td class="num">${fmt(r.M, 0)} N·mm</td></tr><tr><td>Max bending stress</td><td class="num"><b>${fmt(r.sigma, 2)} MPa</b></td></tr><tr><td>Max deflection</td><td class="num"><b>${fmt(r.defl, 4)} mm</b></td></tr><tr><td>Max support reaction</td><td class="num">${fmt(r.V, 1)} N</td></tr></table></div>
+  <div class="card"><h3>Bending moment along the beam (N·mm)</h3>${lineChart([{ name: "M(x)", pts: beamDiag() }], { h: 240, xl: x => fmt(x, 0) + " mm" })}</div></div>`; }
+
+function ap(S_, O, D) {
+  S_ = num(S_); O = num(O); D = num(D);
+  if (S_ >= 9) return O >= 4 || (O >= 2 && D >= 5) ? "H" : O >= 2 ? "M" : "L";
+  if (S_ >= 7) return O >= 6 || (O >= 4 && D >= 5) ? "H" : O >= 4 || (O >= 2 && D >= 7) ? "M" : "L";
+  if (S_ >= 4) return O >= 8 && D >= 5 ? "H" : O >= 6 || (O >= 4 && D >= 7) ? "M" : "L";
+  return S_ >= 2 && O >= 8 && D >= 7 ? "M" : "L";
+}
+const rpn = r => num(r.S) * num(r.O) * num(r.D);
+function pageFMEA() {
+  const rows = S.fmea.map((r, i) => ({ r, i, rpn: rpn(r), ap: ap(r.S, r.O, r.D) })), sorted = [...rows].sort((a, b) => b.rpn - a.rpn);
+  const apc = { H: "bad", M: "warnc", L: "ok" }, ten = [...Array(10)].map((_, i) => i + 1);
+  return `<h2>FMEA</h2><p class="lead">Design / process failure modes. Severity, Occurrence, Detection 1-10. RPN = S×O×D; Action Priority (H/M/L) follows the AIAG-VDA table, which weighs Severity first.</p>
+  <div class="card" style="overflow:auto"><table><tr><th>Item</th><th>Function</th><th>Failure mode</th><th>Effect</th><th>S</th><th>Cause</th><th>O</th><th>Prevention</th><th>Detection</th><th>D</th><th>RPN</th><th>AP</th><th>Action</th><th>Owner</th><th>Due</th><th></th></tr>
+  ${rows.map(({ r, i, rpn: R, ap: A }) => `<tr>${["item", "fn", "mode", "effect"].map(k => `<td><input data-p="fmea.${i}.${k}" value="${esc(r[k])}"></td>`).join("")}<td><select data-p="fmea.${i}.S" data-num data-r>${ten.map(v => `<option${+r.S === v ? " selected" : ""}>${v}</option>`).join("")}</select></td>
+  <td><input data-p="fmea.${i}.cause" value="${esc(r.cause)}"></td><td><select data-p="fmea.${i}.O" data-num data-r>${ten.map(v => `<option${+r.O === v ? " selected" : ""}>${v}</option>`).join("")}</select></td>
+  ${["prev", "det"].map(k => `<td><input data-p="fmea.${i}.${k}" value="${esc(r[k])}"></td>`).join("")}<td><select data-p="fmea.${i}.D" data-num data-r>${ten.map(v => `<option${+r.D === v ? " selected" : ""}>${v}</option>`).join("")}</select></td>
+  <td class="num"><b>${R}</b></td><td class="${apc[A]}"><b>${A}</b></td>${["action", "owner", "due"].map(k => `<td><input data-p="fmea.${i}.${k}" value="${esc(r[k])}"${k === "due" ? ' type="date"' : ""}></td>`).join("")}<td><button class="x" data-act="rowdel" data-arg="fmea|${i}">✕</button></td></tr>`).join("")}</table>
+  <button data-act="rowadd" data-arg="fmea">+ Add failure mode</button> <button data-act="fmeaCsv" class="pri">⬇ FMEA (.csv)</button></div>
+  <div class="row"><div class="card"><h3>Highest risk first (RPN)</h3>${barChart(sorted.map(x => ({ name: (x.r.mode || "?").slice(0, 22), v: x.rpn })), { one: 1, lw: 170 })}</div>
+  <div class="card"><h3>Open high-priority items</h3>${rows.filter(x => x.ap === "H" && !x.r.action).map(x => `<div class="bad">✘ ${esc(x.r.mode)}: needs an action (S${x.r.S} O${x.r.O} D${x.r.D})</div>`).join("") || '<div class="ok">✔ Every H item has an action.</div>'}</div></div>`;
+}
+ACT.fmeaCsv = () => download(slugp() + "_fmea.csv", toCSV([["Item", "Function", "Failure mode", "Effect", "S", "Cause", "O", "Prevention", "Detection", "D", "RPN", "AP", "Action", "Owner", "Due"], ...S.fmea.map(r => [r.item, r.fn, r.mode, r.effect, r.S, r.cause, r.O, r.prev, r.det, r.D, rpn(r), ap(r.S, r.O, r.D), r.action, r.owner, r.due])]), "text/csv");
+
+function speeds() { const c = S.cam, d = num(c.tool), rpm = Math.min(24000, num(c.sfm) * 3.82 / (d / 25.4)), feed = rpm * num(c.flutes) * num(c.chip); return { rpm: Math.round(rpm), feed: Math.round(feed), plunge: Math.round(feed * num(c.plunge)) }; }
+function offsetPoly(pts, d) { const n = pts.length, out = [];
+  for (let i = 0; i < n; i++) { const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n];
+    const n1 = norm3([p1[1] - p0[1], -(p1[0] - p0[0]), 0]), n2 = norm3([p2[1] - p1[1], -(p2[0] - p1[0]), 0]), bx = n1[0] + n2[0], by = n1[1] + n2[1], bl = Math.hypot(bx, by) || 1, cos = (n1[0] * bx + n1[1] * by) / bl;
+    out.push([p1[0] + bx / bl * d / Math.max(cos, 0.25), p1[1] + by / bl * d / Math.max(cos, 0.25)]); } return out; }
+function gcode() {
+  const c = S.cam, sp = speeds(), t = num(S.part.t), r = num(c.tool) / 2, depths = []; for (let z = -num(c.stepdown); z > -t - 0.3; z -= num(c.stepdown)) depths.push(r2(Math.max(z, -t - 0.3))); if (!depths.length || depths[depths.length - 1] > -t - 0.3) depths.push(r2(-t - 0.3));
+  const L = [`(${S.part.name} - Forge CAD / Randis UDS)`, `(tool: ${c.tool} mm ${c.flutes}-flute end mill, ${S.cam.mat})`, `(origin: lower-left corner of the part, Z0 = top of stock)`, `(SIMULATE AND CHECK BEFORE RUNNING ON A MACHINE)`, "G21 G90 G17 G94", `G0 Z${c.safe}`, `M3 S${sp.rpm}`];
+  const path = [], drills = [], pockets = [];
+  for (const h of S.part.holes) (num(h.d) <= num(c.drillMax) ? drills : pockets).push(h);
+  if (drills.length) { L.push("(drill small holes - peck cycle)"); for (const h of drills) L.push(`G83 X${r2(h.x)} Y${r2(h.y)} Z${r2(-t - 0.5)} R1 Q${r2(num(c.stepdown))} F${sp.plunge}`); L.push("G80"); drills.forEach(h => path.push({ drill: [h.x, h.y] })); }
+  for (const h of pockets) { const R = num(h.d) / 2 - r; if (R <= 0) { L.push(`(hole ⌀${h.d} too small for the ${c.tool} mm tool - skipped)`); continue; }
+    L.push(`(pocket hole ⌀${h.d} at ${h.x},${h.y})`, `G0 X${r2(h.x + R)} Y${r2(h.y)}`, "G0 Z1");
+    for (const z of depths) { L.push(`G1 Z${z} F${sp.plunge}`, `G2 X${r2(h.x + R)} Y${r2(h.y)} I${r2(-R)} J0 F${sp.feed}`); }
+    L.push(`G0 Z${c.safe}`); path.push({ circle: [h.x, h.y, R] }); }
+  const prof = offsetPoly(outerPts(S.part, 16), r); L.push("(outside profile, climb)", `G0 X${r2(prof[0][0])} Y${r2(prof[0][1])}`, "G0 Z1");
+  for (const z of depths) { L.push(`G1 Z${z} F${sp.plunge}`); for (const p of prof.slice(1).concat([prof[0]])) L.push(`G1 X${r2(p[0])} Y${r2(p[1])} F${sp.feed}`); }
+  L.push(`G0 Z${c.safe}`, "M5", "G0 X0 Y0", "M30"); path.push({ poly: prof });
+  return { text: L.join("\n") + "\n", path, sp, depths };
+}
+function pageCAM() {
+  const g = gcode(), mins = (() => { let len = 0; for (const p of g.path) { if (p.poly) for (let i = 0; i < p.poly.length; i++) { const a = p.poly[i], b = p.poly[(i + 1) % p.poly.length]; len += Math.hypot(b[0] - a[0], b[1] - a[1]); } if (p.circle) len += 2 * Math.PI * p.circle[2]; } return len * g.depths.length / (g.sp.feed || 1); })();
+  const pic = partSVG((T, k) => g.path.map(p => p.poly ? `<polygon points="${p.poly.map(q => T(q).join(",")).join(" ")}" fill="none" stroke="var(--s2)" stroke-width="2" stroke-dasharray="6 3"/>` : p.circle ? `<circle cx="${T(p.circle).join('" cy="')}" r="${p.circle[2] * k}" fill="none" stroke="var(--s2)" stroke-width="2"/>` : `<circle cx="${T(p.drill).join('" cy="')}" r="3" fill="var(--s8)"/>`).join("")).svg;
+  return `<h2>CAM / G-code</h2><p class="lead">Toolpaths for a 3-axis mill from the sketch: small holes are peck-drilled, larger holes are circular pockets, then the outside profile is cut in step-downs. Open the file in the Machine Shop tab to simulate it. <b>Nothing is sent to a machine from here.</b></p>
+  <div class="row"><div class="card" style="max-width:340px"><div class="row">${F("Tool ⌀ (mm)", "cam.tool", { r: 1 })}${F("Flutes", "cam.flutes", { r: 1 })}</div><div class="row">${F("Surface speed (SFM)", "cam.sfm", { r: 1 })}${F("Chip load (mm/tooth)", "cam.chip", { r: 1 })}</div>
+  <div class="row">${F("Step-down (mm)", "cam.stepdown", { r: 1 })}${F("Safe Z (mm)", "cam.safe", { r: 1 })}</div><div class="row">${F("Drill holes up to ⌀", "cam.drillMax", { r: 1 })}${F("Plunge feed ×", "cam.plunge", { r: 1 })}</div>
+  <table><tr><td>Spindle</td><td class="num"><b>${g.sp.rpm} rpm</b></td></tr><tr><td>Feed</td><td class="num"><b>${g.sp.feed} mm/min</b></td></tr><tr><td>Plunge</td><td class="num">${g.sp.plunge} mm/min</td></tr><tr><td>Passes</td><td class="num">${g.depths.length}</td></tr><tr><td>Cutting time (approx.)</td><td class="num">${fmt(mins, 1)} min</td></tr></table>
+  <button data-act="ncOut" class="pri">⬇ G-code (.nc)</button></div><div class="card">${pic}<pre>${esc(g.text.slice(0, 3000))}${g.text.length > 3000 ? "\n…" : ""}</pre></div></div>`;
+}
+ACT.ncOut = () => download(slugp() + ".nc", gcode().text);
+
+
+const BOLT_CLS = { "4.6": { proof: 225, Sy: 240, Su: 400 }, "5.8": { proof: 380, Sy: 420, Su: 520 }, "8.8": { proof: 600, Sy: 640, Su: 800 }, "10.9": { proof: 830, Sy: 940, Su: 1040 }, "12.9": { proof: 970, Sy: 1100, Su: 1220 } };
+function boltCalc(B) { B = B || S.bolt; const d = num(B.d), p = num(B.pitch), c = BOLT_CLS[B.cls] || BOLT_CLS["8.8"], As = Math.PI / 4 * (d - 0.9382 * p) ** 2, Ar = Math.PI / 4 * (d - 1.2269 * p) ** 2;
+  const Fp = num(B.pre) / 100 * c.proof * As, T = num(B.K) * Fp * d / 1000, n = Math.max(1, num(B.n)), ft = num(B.Ft) / n, fs = num(B.Fs) / n;
+  const slip = num(B.mu) * Math.max(0, Fp - ft) * Math.max(1, num(B.planes)), Ashear = B.thread === "yes" ? Ar : Math.PI / 4 * d * d, tau = fs / (Ashear * Math.max(1, num(B.planes)));
+  const sigT = (Fp + ft) / As, vmB = Math.sqrt(sigT ** 2 + 3 * tau ** 2);
+  return { As, Ar, Fp, T, ft, fs, slip, slipOk: slip >= fs, sepOk: Fp > ft, tau, sigT, vmB, fosY: c.Sy / vmB, c, Ashear }; }
+function weldCalc(W) { W = W || S.weld; const a = W.kind === "butt" ? num(W.thick) : 0.7071 * num(W.leg), L = num(W.len), n = Math.max(1, num(W.n)), A = a * L * n, F = num(W.F);
+  const tauD = F / A, Zw = n === 1 ? a * L * L / 6 : a * L * L / 3 * (n / 2), tauM = F * num(W.ecc) / (Zw || 1), tau = Math.hypot(tauD, tauM), allow = 0.3 * num(W.Exx);
+  return { a, A, tauD, tauM, tau, allow, fos: allow / tau }; }
+
+const BOLT_SE = { "4.6": 93, "5.8": 93, "8.8": 129, "10.9": 162, "12.9": 190 };
+const JOINT_DEF = { grip: 20, len: 30, Eb: 207000, mem: "Steel 1018" };
+const WG_DEF = { shape: "two_v", b: 80, d: 120, leg: 6, V: 20000, e: 150, Exx: 482 };
+const WG_SHAPES = { line: "One vertical line (d)", two_v: "Two vertical lines, b apart, d long", two_h: "Two horizontal lines, b long, d apart", box: "Box all round (b x d)", c: "C shape: top + bottom + left side" };
+function boltThreadLen(d, L) { return L <= 125 ? 2 * d + 6 : L <= 200 ? 2 * d + 12 : 2 * d + 25; }
+function frustumKm(E, d, l) { const t = Math.tan(Math.PI / 6); return Math.PI * E * d * t / (2 * Math.log(5 * (t * l + 0.5 * d) / (t * l + 2.5 * d))); }
+function jointCalc(B) {
+  B = Object.assign({}, JOINT_DEF, B || S.bolt);
+  const d = num(B.d), p = num(B.pitch), l = Math.max(0.1, num(B.grip)), L = Math.max(l, num(B.len)), Eb = num(B.Eb) || 207000, mat = MATS[B.mem] || MATS["Steel 1018"], Em = mat.E;
+  const c = BOLT_CLS[B.cls] || BOLT_CLS["8.8"], As = Math.PI / 4 * (d - 0.9382 * p) ** 2, Ad = Math.PI / 4 * d * d;
+  const LT = boltThreadLen(d, L), ld = Math.max(0, Math.min(l, L - LT)), lt = l - ld;
+  const kb = Ad * As * Eb / (Ad * lt + As * ld), km = frustumKm(Em, d, l), kmW = Em * d * 0.78715 * Math.exp(0.62873 * d / l), C = kb / (kb + km);
+  const Fi = num(B.pre) / 100 * c.proof * As, n = Math.max(1, num(B.n)), P = num(B.Ft) / n;
+  const Fb = Fi + C * P, Fm = Fi - (1 - C) * P, P0 = Fi / (1 - C), nSep = P > 0 ? P0 / P : Infinity, nLoad = P > 0 ? (c.proof * As - Fi) / (C * P) : Infinity;
+  const Se = BOLT_SE[B.cls] || 129, Sut = c.Su, si = Fi / As, sa = C * P / (2 * As), sm = si + sa, nf = sa > 0 ? Se * (Sut - si) / (sa * (Sut + Se)) : Infinity;
+  return { d, l, L, LT, ld, lt, Ad, As, kb, km, kmW, C, Fi, P, Fb, Fm, P0, nSep, nLoad, Se, Sut, si, sa, sm, nf, Eb, Em, steel: /Steel|Stainless/.test(B.mem), proof: c.proof };
+}
+function wgLines(G) {
+  const b = num(G.b), d = num(G.d);
+  return { line: [[0, 0, 0, d]], two_v: [[0, 0, 0, d], [b, 0, b, d]], two_h: [[0, 0, b, 0], [0, d, b, d]],
+    box: [[0, 0, b, 0], [b, 0, b, d], [b, d, 0, d], [0, d, 0, 0]], c: [[0, 0, b, 0], [0, d, b, d], [0, 0, 0, d]] }[G.shape] || [[0, 0, 0, d]];
+}
+function weldGroup(G) {
+  G = Object.assign({}, WG_DEF, G || S.wgroup);
+  const segs = wgLines(G), len = s => Math.hypot(s[2] - s[0], s[3] - s[1]), Lw = segs.reduce((a, s) => a + len(s), 0);
+  const xc = segs.reduce((a, s) => a + len(s) * (s[0] + s[2]) / 2, 0) / Lw, yc = segs.reduce((a, s) => a + len(s) * (s[1] + s[3]) / 2, 0) / Lw;
+  const Ju = segs.reduce((a, s) => { const L = len(s), mx = (s[0] + s[2]) / 2 - xc, my = (s[1] + s[3]) / 2 - yc; return a + L ** 3 / 12 + L * (mx * mx + my * my); }, 0);
+  const a = 0.7071 * num(G.leg), A = a * Lw, J = a * Ju, V = num(G.V), e = num(G.e), Mz = -V * e;
+  const at = (x, y) => { const tx = Mz / J * -(y - yc), ty = -V / A + Mz / J * (x - xc); return { x, y, tx, ty, t: Math.hypot(tx, ty), sec: Math.abs(Mz) / J * Math.hypot(x - xc, y - yc) }; };
+  let worst = null;
+  for (const s of segs) for (const [x, y] of [[s[0], s[1]], [s[2], s[3]]]) { const q = at(x, y); if (!worst || q.t > worst.t + 1e-12) worst = q; }
+  const allow = 0.3 * num(G.Exx);
+  return { G, segs, Lw, xc, yc, Ju, a, A, J, V, e, M: V * e, prim: V / A, worst, allow, fos: allow / worst.t, at };
+}
+function wgSvg(w) {
+  const b = Math.max(num(w.G.b), 1), d = Math.max(num(w.G.d), 1), ex = w.xc + w.e, x0 = Math.min(0, ex) - 20, x1 = Math.max(b, ex) + 20, y0 = -20, y1 = d + 40;
+  const sc = Math.min(300 / (x1 - x0), 220 / (y1 - y0)), X = x => ((x - x0) * sc).toFixed(1), Y = y => ((y1 - y) * sc).toFixed(1);
+  const lines = w.segs.map(s => `<line x1="${X(s[0])}" y1="${Y(s[1])}" x2="${X(s[2])}" y2="${Y(s[3])}" stroke="var(--accent,#2a78d6)" stroke-width="5" stroke-linecap="round"/>`).join("");
+  return `<svg width="${((x1 - x0) * sc).toFixed(0)}" height="${((y1 - y0) * sc).toFixed(0)}" style="background:var(--panel,#fff);border:1px solid #8884;border-radius:6px">${lines}
+    <circle cx="${X(w.xc)}" cy="${Y(w.yc)}" r="4" fill="#888"/><text x="${+X(w.xc) + 6}" y="${+Y(w.yc) - 6}" font-size="11" fill="currentColor">centroid</text>
+    <line x1="${X(ex)}" y1="${Y(d + 30)}" x2="${X(ex)}" y2="${Y(d + 4)}" stroke="#c33" stroke-width="2"/><path d="M${X(ex)},${Y(d + 4)} l-5,-9 l10,0 z" fill="#c33"/>
+    <text x="${+X(ex) + 6}" y="${Y(d + 24)}" font-size="11" fill="#c33">V</text>
+    <circle cx="${X(w.worst.x)}" cy="${Y(w.worst.y)}" r="7" fill="none" stroke="#c33" stroke-width="2"/></svg>`;
+}
+function jointCards() {
+  S.bolt = Object.assign({}, JOINT_DEF, S.bolt); S.wgroup = Object.assign({}, WG_DEF, S.wgroup || {});
+  const j = jointCalc(), w = weldGroup(), ok = (v, t) => `<span class="${v ? "ok" : "bad"}">${v ? "✔" : "✘"} ${t}</span>`, inf = v => isFinite(v) ? fmt(v, 2) : "∞";
+  return `<div class="row"><div class="card" style="max-width:460px"><h3>Joint stiffness + fatigue</h3>
+  <p class="sub">Uses the bolt card's size, class, preload, bolts and pull-apart force. The outside load is shared: the bolt feels only C × P.</p>
+  <div class="row">${F("Grip (clamped thickness, mm)", "bolt.grip")}${F("Bolt length (mm)", "bolt.len")}</div>
+  <div class="row">${F("Clamped parts", "bolt.mem", { opts: Object.keys(MATS) })}${F("Bolt E (MPa)", "bolt.Eb")}</div>
+  <table><tr><td>Thread length (ISO 4014) · in the grip: plain / threaded</td><td class="num">${fmt(j.LT, 0)} · ${fmt(j.ld, 1)} / ${fmt(j.lt, 1)} mm</td></tr>
+  <tr><td>Bolt stiffness k<sub>b</sub></td><td class="num">${fmt(j.kb / 1000, 0)} kN/mm</td></tr>
+  <tr><td>Clamped parts k<sub>m</sub> (30° cones)${j.steel ? " · Wileman check" : ""}</td><td class="num">${fmt(j.km / 1000, 0)} kN/mm${j.steel ? " · " + fmt(j.kmW / 1000, 0) : ""}</td></tr>
+  <tr><td>Joint constant C = k<sub>b</sub> / (k<sub>b</sub> + k<sub>m</sub>)</td><td class="num"><b>${fmt(j.C, 3)}</b></td></tr>
+  <tr><td>Per bolt at load P = ${fmt(j.P, 0)} N: bolt / clamp force</td><td class="num">${fmt(j.Fb, 0)} / ${fmt(j.Fm, 0)} N</td></tr>
+  <tr><td>Load that opens the joint P<sub>0</sub> = F<sub>i</sub> / (1 − C)</td><td class="num">${fmt(j.P0, 0)} N ${ok(j.nSep > 1, "margin " + inf(j.nSep))}</td></tr>
+  <tr><td>Load factor to proof load</td><td class="num">${ok(j.nLoad > 1, inf(j.nLoad))}</td></tr>
+  <tr><td>Fatigue (P on/off): σ<sub>a</sub> / σ<sub>m</sub></td><td class="num">${fmt(j.sa, 1)} / ${fmt(j.sm, 0)} MPa</td></tr>
+  <tr><td>Goodman, S<sub>e</sub> ${j.Se} MPa (rolled thread) · S<sub>ut</sub> ${j.Sut}</td><td class="num">n<sub>f</sub> ${ok(j.nf >= 1, inf(j.nf))}</td></tr></table>
+  <p class="sub">Shigley's method (not the full VDI 2230). Cone angle 30°, washer face 1.5 d. Wileman's fit is for steel parts only.</p></div>
+  <div class="card" style="max-width:460px"><h3>Weld group, load off-centre</h3>
+  <div class="row">${F("Shape", "wgroup.shape", { opts: Object.entries(WG_SHAPES), r: 1 })}${F("b (mm)", "wgroup.b")}${F("d (mm)", "wgroup.d")}</div>
+  <div class="row">${F("Leg (mm)", "wgroup.leg")}${F("Load V down (N)", "wgroup.V")}${F("Load offset from centroid (mm)", "wgroup.e")}${F("Electrode (MPa)", "wgroup.Exx")}</div>
+  ${wgSvg(w)}
+  <table><tr><td>Weld length · centroid (x, y)</td><td class="num">${fmt(w.Lw, 0)} mm · ${fmt(w.xc, 1)}, ${fmt(w.yc, 1)}</td></tr>
+  <tr><td>Unit polar moment J<sub>u</sub> · J = 0.707 h J<sub>u</sub></td><td class="num">${fmt(w.Ju, 0)} mm³ · ${fmt(w.J, 0)} mm⁴</td></tr>
+  <tr><td>Twist M = V e</td><td class="num">${fmt(w.M / 1000, 1)} N·m</td></tr>
+  <tr><td>Direct shear V / A</td><td class="num">${fmt(w.prim, 1)} MPa</td></tr>
+  <tr><td>Worst point (${fmt(w.worst.x, 0)}, ${fmt(w.worst.y, 0)}): from the twist</td><td class="num">${fmt(w.worst.sec, 1)} MPa</td></tr>
+  <tr><td>Combined (vector sum)</td><td class="num"><b>${fmt(w.worst.t, 1)} MPa</b></td></tr>
+  <tr><td>Allowed (0.30 × electrode)</td><td class="num">${fmt(w.allow, 0)} MPa · FoS <b class="${w.fos >= 1 ? "ok" : "bad"}">${fmt(w.fos, 2)}</b></td></tr></table>
+  <p class="sub">The red ring marks the worst point. Lines are treated as thin (throat on one side), the usual hand method.</p></div></div>`;
+}
+function pageJoints() { const r = boltCalc(), w = weldCalc(), ok = (v, t) => `<span class="${v ? "ok" : "bad"}">${v ? "✔" : "✘"} ${t}</span>`;
+  return `<h2>Bolts and welds</h2><p class="lead">Quick sizing of a bolted joint (preload, tightening torque, slip, separation, bolt stress) and a fillet or butt weld line. Hand-calc level: check critical joints to the full standard.</p>
+  <div class="row"><div class="card" style="max-width:420px"><h3>Bolt (metric)</h3><div class="row">${F("Diameter d (mm)", "bolt.d")}${F("Pitch (mm)", "bolt.pitch")}${F("Class", "bolt.cls", { opts: Object.keys(BOLT_CLS) })}</div>
+  <div class="row">${F("Preload (% of proof)", "bolt.pre")}${F("Nut factor K", "bolt.K")}${F("Bolts", "bolt.n")}</div><div class="row">${F("Pull-apart force (N)", "bolt.Ft")}${F("Shear force (N)", "bolt.Fs")}</div>
+  <div class="row">${F("Friction μ", "bolt.mu")}${F("Shear planes", "bolt.planes")}${F("Thread in shear plane", "bolt.thread", { opts: ["no", "yes"] })}</div>
+  <table><tr><td>Stress area A<sub>s</sub></td><td class="num">${fmt(r.As, 2)} mm²</td></tr><tr><td>Preload F<sub>p</sub></td><td class="num">${fmt(r.Fp / 1000, 2)} kN</td></tr><tr><td>Tightening torque</td><td class="num"><b>${fmt(r.T, 1)} N·m</b></td></tr>
+  <tr><td>Per bolt: pull / shear</td><td class="num">${fmt(r.ft, 0)} / ${fmt(r.fs, 0)} N</td></tr><tr><td>Slip resistance (friction)</td><td class="num">${fmt(r.slip, 0)} N ${ok(r.slipOk, r.slipOk ? "no slip" : "slips: shear goes into the bolt")}</td></tr>
+  <tr><td>Joint stays closed</td><td class="num">${ok(r.sepOk, r.sepOk ? "yes" : "separates")}</td></tr><tr><td>Bolt stress (tension + shear, von Mises)</td><td class="num">${fmt(r.vmB, 0)} MPa · yield ${r.c.Sy} · FoS <b>${fmt(r.fosY, 2)}</b></td></tr></table>
+  <p class="sub">Conservative: the full outside load is added to the preload (no joint stiffness split). Torque varies ±25% with lubrication: K 0.2 dry, about 0.15 oiled.</p></div>
+  <div class="card" style="max-width:420px"><h3>Weld</h3><div class="row">${F("Kind", "weld.kind", { opts: ["fillet", "butt"] })}${F("Leg size (mm)", "weld.leg")}${F("Butt: plate thickness (mm)", "weld.thick")}</div>
+  <div class="row">${F("Length each (mm)", "weld.len")}${F("Number of lines", "weld.n")}</div><div class="row">${F("Force (N)", "weld.F")}${F("Offset of force (mm)", "weld.ecc")}${F("Electrode strength (MPa)", "weld.Exx")}</div>
+  <table><tr><td>Throat</td><td class="num">${fmt(w.a, 2)} mm</td></tr><tr><td>Throat area</td><td class="num">${fmt(w.A, 0)} mm²</td></tr><tr><td>Direct shear</td><td class="num">${fmt(w.tauD, 1)} MPa</td></tr>
+  <tr><td>From the offset (bending)</td><td class="num">${fmt(w.tauM, 1)} MPa</td></tr><tr><td>Combined</td><td class="num"><b>${fmt(w.tau, 1)} MPa</b></td></tr><tr><td>Allowed (0.30 × electrode)</td><td class="num">${fmt(w.allow, 0)} MPa · FoS <b class="${w.fos >= 1 ? "ok" : "bad"}">${fmt(w.fos, 2)}</b></td></tr></table>
+  <p class="sub">E70 electrode = 482 MPa. Offset uses parallel lines bending about their middle (line method). Butt welds use the plate thickness as throat.</p></div></div>${jointCards()}`; }
+
+function jacobiEig(A) { const n = A.length, a = A.map(r => r.slice()), V = a.map((_, i) => a.map((_, j) => +(i === j)));
+  for (let sw = 0; sw < 100; sw++) { let off = 0, dia = 0; for (let i = 0; i < n; i++) { dia += a[i][i] ** 2; for (let j = i + 1; j < n; j++) off += a[i][j] ** 2; } if (off <= 1e-28 * dia) break;
+    for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) { if (Math.abs(a[p][q]) < 1e-300) continue; const th = (a[q][q] - a[p][p]) / (2 * a[p][q]), t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)), c = 1 / Math.sqrt(t * t + 1), sn = t * c;
+      for (let k = 0; k < n; k++) { const akp = a[k][p], akq = a[k][q]; a[k][p] = c * akp - sn * akq; a[k][q] = sn * akp + c * akq; }
+      for (let k = 0; k < n; k++) { const apk = a[p][k], aqk = a[q][k]; a[p][k] = c * apk - sn * aqk; a[q][k] = sn * apk + c * aqk; }
+      for (let k = 0; k < n; k++) { const vkp = V[k][p], vkq = V[k][q]; V[k][p] = c * vkp - sn * vkq; V[k][q] = sn * vkp + c * vkq; } } }
+  return { vals: a.map((r, i) => r[i]), V }; }
+function genEig(Kr, Mr) {
+  const n = Kr.length, L = Array.from({ length: n }, () => new Float64Array(n));
+  for (let i = 0; i < n; i++) for (let j = 0; j <= i; j++) { let s = Mr[i][j]; for (let k = 0; k < j; k++) s -= L[i][k] * L[j][k]; L[i][j] = i === j ? Math.sqrt(Math.max(s, 1e-300)) : s / L[j][j]; }
+  const inv = Array.from({ length: n }, () => new Float64Array(n)); for (let c = 0; c < n; c++) for (let i = 0; i < n; i++) { let s = +(i === c); for (let k = 0; k < i; k++) s -= L[i][k] * inv[k][c]; inv[i][c] = s / L[i][i]; }
+  const C = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => { let s = 0; for (let a = 0; a < n; a++) { if (!inv[i][a]) continue; for (let b = 0; b < n; b++) s += inv[i][a] * Kr[a][b] * inv[j][b]; } return s; }));
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) C[i][j] = C[j][i] = (C[i][j] + C[j][i]) / 2;
+  const { vals, V } = jacobiEig(C), ord = vals.map((v, i) => i).sort((a, b) => vals[a] - vals[b]);
+  return { vals: ord.map(i => vals[i]), Q: ord.map(i => Array.from({ length: n }, (_, r) => { let s = 0; for (let k = 0; k < n; k++) s += inv[k][r] * V[k][i]; return s; })) }; }
+function lumpedMass6(A6) { const rho = A6.m.rho * 1e-12, Mv = new Float64Array(2 * A6.N);
+  for (const e of A6.els) { const me = rho * A6.t * Math.abs(e.A); e.n.forEach((q, i) => { const w = me * (i < 3 ? 3 : 16) / 57; Mv[2 * q] += w; Mv[2 * q + 1] += w; }); } return Mv; }
+function kDot(K, a, b) { let s = 0; for (let r = 0; r < a.length; r++) { if (!a[r]) continue; let t = 0; for (const [c, k] of K[r]) t += k * b[c]; s += a[r] * t; } return s; }
+function solveModes(nModes) {
+  const A6 = assemble6(), { K, N, P, fe, onEdge } = A6, Mv = lumpedMass6(A6), n = 2 * N, q = Math.max(1, Math.min(12, Math.round(nModes || S.modal.n || 4))), p = Math.min(q + 4, 2 * q + 2);
+  const fixed = new Set(); P.forEach((pt, i) => { if (onEdge(pt, fe.fix)) { fixed.add(2 * i); fixed.add(2 * i + 1); } });
+  if (!fixed.size) throw new Error("no fixed edge: a free plate has zero-frequency rigid motions; pick a fixed edge on the FEA page");
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5;
+  let X = Array.from({ length: p }, (_, j) => Float64Array.from({ length: n }, (_, i) => fixed.has(i) ? 0 : j === 0 ? Mv[i] : rnd())), Zprev = X.map(() => null), lam = null, it = 0;
+  for (; it < 60; it++) {
+    const Z = X.map((x, j) => cg(K, x.map((v, i) => v * Mv[i]), fixed, Zprev[j]));
+    const Kr = Z.map(a => Z.map(b => kDot(K, a, b))), Mr = Z.map(a => Z.map(b => a.reduce((s, v, i) => s + v * Mv[i] * b[i], 0)));
+    const g = genEig(Kr, Mr); X = g.Q.map(col => { const x = new Float64Array(n); col.forEach((c, j) => { for (let i = 0; i < n; i++) x[i] += c * Z[j][i]; }); return x; });
+    X = X.map(x => { const nm = Math.sqrt(x.reduce((s, v, i) => s + v * v * Mv[i], 0)) || 1; return x.map(v => v / nm); });
+    Zprev = g.vals.map((l, j) => X[j].map(v => v / Math.max(l, 1e-300)));
+    const done = lam && g.vals.slice(0, q).every((v, i) => Math.abs(v - lam[i]) <= 1e-7 * Math.abs(v)); lam = g.vals; if (done) break; }
+  const modes = lam.slice(0, q).map((l, k) => { const x = X[k]; let ux = 0, uy = 0; for (let i = 0; i < N; i++) { ux += Mv[2 * i] * x[2 * i] ** 2; uy += Mv[2 * i + 1] * x[2 * i + 1] ** 2; }
+    const horiz = (fe.fix === "left" || fe.fix === "right") ? ux / (ux + uy) : uy / (ux + uy);
+    return { f: Math.sqrt(Math.max(l, 0)) / (2 * Math.PI), u: x, kind: horiz > 0.8 ? "stretch (along the part)" : horiz < 0.2 ? "sideways bending" : "mixed / shear", share: horiz }; });
+  return { M: A6.M, P, N, modes, iters: it + 1, mass: Mv.reduce((s, v, i) => s + (i % 2 ? 0 : v), 0) * 1e6 }; }
+
+function heatSystem() {
+  const H = S.heat, m = MATS[S.part.mat], kk = m.k / 1000, t = num(S.part.t), hc = num(H.hc) * 1e-6 * (num(H.faces) === 1 ? 1 : 2), Ta = num(H.Ta);
+  if (H.cold === H.hot) throw new Error("pick two different edges");
+  const M = mesh(S.fea.h), N = M.pts.length, b = bbox(M.pts), eps = 1e-6 + 0.01 * num(S.fea.h);
+  const onEdge = (p, e) => e === "none" ? false : e === "left" ? p[0] < b[0] + eps : e === "right" ? p[0] > b[2] - eps : e === "bottom" ? p[1] < b[1] + eps : p[1] > b[3] - eps;
+  const K = Array.from({ length: N }, () => new Map()), F = new Float64Array(N), add = (r, c, v) => K[r].set(c, (K[r].get(c) || 0) + v);
+  const grads = M.tris.map(([i, j, k]) => { const [x1, y1] = M.pts[i], [x2, y2] = M.pts[j], [x3, y3] = M.pts[k], A = ((x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1)) / 2, n = [i, j, k];
+    const bb = [y2 - y3, y3 - y1, y1 - y2], cc = [x3 - x2, x1 - x3, x2 - x1];
+    for (let a = 0; a < 3; a++) { for (let c = 0; c < 3; c++) add(n[a], n[c], kk * t * (bb[a] * bb[c] + cc[a] * cc[c]) / (4 * A) + (hc ? hc * A / 12 * (a === c ? 2 : 1) : 0)); if (hc) F[n[a]] += hc * Ta * A / 3; }
+    return { n, A, bb, cc }; });
+  const T = new Float64Array(N), fixed = new Set(), hotN = [], coldN = [];
+  M.pts.forEach((p, i) => { if (onEdge(p, H.hot)) { fixed.add(i); T[i] = num(H.T1); hotN.push(i); } else if (onEdge(p, H.cold)) coldN.push(i); });
+  if (H.mode === "temp") coldN.forEach(i => { fixed.add(i); T[i] = num(H.T2); });
+  else if (H.mode === "flux") { const ax = H.cold === "left" || H.cold === "right" ? 1 : 0, ln = coldN.slice().sort((a, c) => M.pts[a][ax] - M.pts[c][ax]);
+    const trib = ln.map((nn, q) => { const lo = q ? (M.pts[nn][ax] + M.pts[ln[q - 1]][ax]) / 2 : M.pts[nn][ax], hi = q < ln.length - 1 ? (M.pts[nn][ax] + M.pts[ln[q + 1]][ax]) / 2 : M.pts[nn][ax]; return hi - lo; });
+    const tot = trib.reduce((a, c) => a + c, 0) || 1; ln.forEach((nn, q) => { F[nn] += num(H.Q) * trib[q] / tot; }); }
+  return { H, m, t, hc, Ta, M, N, K, F, T, fixed, hotN, coldN, grads }; }
+function solveHeat() {
+  const { H, m, hc, Ta, M, N, K, F, T, fixed, hotN, coldN, grads } = heatSystem();
+  if (!fixed.size && H.hot !== "none") throw new Error("no nodes on the held edge");
+  if (!fixed.size && !hc) throw new Error("hold an edge or add convection: otherwise nothing sets the temperature");
+  const Fr = Float64Array.from(F); for (let r = 0; r < N; r++) if (!fixed.has(r)) for (const [c, k] of K[r]) if (fixed.has(c)) Fr[r] -= k * T[c];
+  const x = cg(K, Fr, fixed); for (let i = 0; i < N; i++) if (!fixed.has(i)) T[i] = x[i];
+  const flow = list => list.reduce((s, i) => { let v = -F[i]; for (const [c, k] of K[i]) v += k * T[c]; return s + v; }, 0);
+  const el = grads.map(g => { const gx = g.n.reduce((s, q, a) => s + g.bb[a] * T[q], 0) / (2 * g.A), gy = g.n.reduce((s, q, a) => s + g.cc[a] * T[q], 0) / (2 * g.A);
+    return { T: (T[g.n[0]] + T[g.n[1]] + T[g.n[2]]) / 3, q: m.k * Math.hypot(gx, gy) * 1000 }; });
+  const conv = hc ? grads.reduce((s, g) => s + hc * g.A * ((T[g.n[0]] + T[g.n[1]] + T[g.n[2]]) / 3 - Ta), 0) : 0;
+  return { M, T, el, Tmin: Math.min(...T), Tmax: Math.max(...T), Qhot: flow(hotN), Qcold: H.mode === "temp" ? -flow(coldN) : H.mode === "flux" ? num(H.Q) : 0, conv, N }; }
+
+function solveHeatT() {
+  const { H, m, t, hc, Ta, M, N, K, F, T: Tset, fixed, grads } = heatSystem();
+  if (!fixed.size && H.hot !== "none") throw new Error("no nodes on the held edge");
+  if (!(m.cp > 0)) throw new Error("no specific heat for " + S.part.mat);
+  const tEnd = num(H.tEnd), n = Math.round(num(H.steps)), T0 = num(H.T0);
+  if (!(tEnd > 0) || !(n >= 1 && n <= 5000)) throw new Error("run for more than 0 s, in 1 to 5000 steps");
+  const dt = tEnd / n, C = new Float64Array(N);
+  grads.forEach(g => g.n.forEach(i => { C[i] += m.rho * 1e-9 * m.cp * t * g.A / 3; }));
+  const A = K.map((row, i) => { const r = new Map(row); r.set(i, (r.get(i) || 0) + C[i] / dt); return r; });
+  let T = new Float64Array(N).fill(T0); fixed.forEach(i => { T[i] = Tset[i]; });
+  const area = grads.reduce((s, g) => s + g.A, 0), triT = (T, g) => (T[g.n[0]] + T[g.n[1]] + T[g.n[2]]) / 3;
+  const stats = T => ({ mean: grads.reduce((s, g) => s + g.A * triT(T, g), 0) / area, max: Math.max(...T), min: Math.min(...T) });
+  const convOf = T => hc ? grads.reduce((s, g) => s + hc * g.A * (triT(T, g) - Ta), 0) : 0, fedQ = H.mode === "flux" ? num(H.Q) : 0;
+  const energy = T => C.reduce((s, c, i) => s + c * T[i], 0), E0 = energy(T);
+  const hist = [{ t: 0, ...stats(T), qin: 0 }]; let inTot = 0, convTot = 0;
+  for (let s = 1; s <= n; s++) {
+    const rhs = new Float64Array(N); for (let i = 0; i < N; i++) rhs[i] = F[i] + C[i] / dt * T[i];
+    for (let r = 0; r < N; r++) if (!fixed.has(r)) for (const [c, k] of A[r]) if (fixed.has(c)) rhs[r] -= k * T[c];
+    const x = cg(A, rhs, fixed, T), Told = T; T = Float64Array.from(Told); for (let i = 0; i < N; i++) if (!fixed.has(i)) T[i] = x[i];
+    let qin = 0; fixed.forEach(i => { let v = -F[i] + C[i] * (T[i] - Told[i]) / dt; for (const [c, k] of K[i]) v += k * T[c]; qin += v; });
+    inTot += (qin + fedQ) * dt; convTot += convOf(T) * dt; hist.push({ t: s * dt, ...stats(T), qin }); }
+  let steadyMean = null, t90 = null;
+  if (fixed.size || hc) { const Ts = Float64Array.from(Tset), Fr = Float64Array.from(F); for (let r = 0; r < N; r++) if (!fixed.has(r)) for (const [c, k] of K[r]) if (fixed.has(c)) Fr[r] -= k * Ts[c];
+    const xs = cg(K, Fr, fixed); for (let i = 0; i < N; i++) if (!fixed.has(i)) Ts[i] = xs[i]; steadyMean = stats(Ts).mean;
+    const m0 = hist[0].mean, goal = m0 + 0.9 * (steadyMean - m0);
+    if (Math.abs(steadyMean - m0) > 1e-9) for (let s = 1; s < hist.length; s++) { const a = hist[s - 1], b2 = hist[s];
+      if ((b2.mean - goal) * Math.sign(steadyMean - m0) >= 0) { t90 = a.t + (goal - a.mean) / ((b2.mean - a.mean) || 1) * (b2.t - a.t); break; } } }
+  const el = grads.map(g => ({ T: triT(T, g) }));
+  return { M, T, el, hist, dt, n, tEnd, steadyMean, t90, stored: energy(T) - E0, inTot, convTot, N, tau: null }; }
+function chartT(R) {
+  const W = 380, Hh = 170, L = 44, B = 24, lo = Math.min(...R.hist.map(h => h.min)), hi = Math.max(...R.hist.map(h => h.max)), sp = (hi - lo) || 1;
+  const X = tt => L + (W - L - 8) * tt / R.tEnd, Y = v => Hh - B - (Hh - B - 8) * (v - lo) / sp;
+  const line = (key, col, w) => `<polyline fill="none" stroke="${col}" stroke-width="${w}" points="${R.hist.map(h => X(h.t).toFixed(1) + "," + Y(h[key]).toFixed(1)).join(" ")}"><title>${key}</title></polyline>`;
+  return `<svg class="heatT" viewBox="0 0 ${W} ${Hh}" width="${W}" height="${Hh}" role="img" aria-label="temperatures over time">
+    <line x1="${L}" y1="${Hh - B}" x2="${W - 8}" y2="${Hh - B}" stroke="#888"/><line x1="${L}" y1="8" x2="${L}" y2="${Hh - B}" stroke="#888"/>
+    <text x="${L - 4}" y="12" text-anchor="end" font-size="10">${fmt(hi, 1)}</text><text x="${L - 4}" y="${Hh - B}" text-anchor="end" font-size="10">${fmt(lo, 1)}</text>
+    <text x="${L}" y="${Hh - 8}" font-size="10">0 s</text><text x="${W - 8}" y="${Hh - 8}" text-anchor="end" font-size="10">${fmt(R.tEnd, 0)} s</text>
+    ${line("max", "#b23a1e", 1.5)}${line("mean", "#1c5cab", 2)}${line("min", "#5598e7", 1.5)}</svg>
+    <div class="sub"><b style="color:#b23a1e">hottest</b> · <b style="color:#1c5cab">average</b> · <b style="color:#5598e7">coldest</b> (°C)</div>`; }
+function heatTimeCard() { const R = HEATT_LAST, ht = S.heat, m = MATS[S.part.mat];
+  let res = '<p class="sub">Press Run over time.</p>', pic = "";
+  if (R) { const e = R.hist[R.hist.length - 1];
+    res = `<table><tr><td>After ${fmt(R.tEnd, 1)} s: average / coldest / hottest</td><td class="num">${fmt(e.mean, 2)} / ${fmt(e.min, 2)} / ${fmt(e.max, 2)} °C</td></tr>
+    <tr><td>Steady average (where it ends up)</td><td class="num">${R.steadyMean === null ? "none (no edge held, no air: it never settles)" : fmt(R.steadyMean, 2) + " °C"}</td></tr>
+    <tr><td>Time to 90% of the way there</td><td class="num">${R.t90 === null ? (R.steadyMean === null ? "-" : "not within " + fmt(R.tEnd, 0) + " s") : fmt(R.t90, 1) + " s"}</td></tr>
+    <tr><td>Heat stored / in − to the air</td><td class="num">${fmt(R.stored, 2)} / ${fmt(R.inTot - R.convTot, 2)} J</td></tr>
+    <tr><td>Steps</td><td class="num">${R.n} × ${fmt(R.dt, 3)} s, ${R.N} nodes</td></tr></table><button data-act="heatTCsv">⬇ Temperatures over time (.csv)</button>`;
+    pic = chartT(R); }
+  return `<div class="row"><div class="card" style="max-width:420px"><h4>⏱ Heat over time</h4>
+  <div class="row">${F("Start temperature (°C)", "heat.T0")}${F("Run for (s)", "heat.tEnd")}${F("Time steps", "heat.steps")}</div>
+  <p class="sub">Uses the edges and air above. Every point starts at the start temperature; a held edge is at its temperature from time 0. ${esc(S.part.mat)}: specific heat ${m.cp} J/kg·K.</p>
+  <button data-act="heatT" class="pri">▶ Run over time</button><div style="margin-top:8px">${res}</div></div><div class="card">${pic || '<p class="sub">The chart shows here.</p>'}</div></div>`; }
+let MODES_LAST = null, HEAT_LAST = null, HEATT_LAST = null;
+function pageModes() { const R = MODES_LAST, H = HEAT_LAST, mo = S.modal, ht = S.heat, m = MATS[S.part.mat];
+  let mPic = "", mRes = '<p class="sub">Press Find modes.</p>';
+  if (R) { const k = Math.min(R.modes.length - 1, Math.max(0, num(mo.pick))), x = R.modes[k].u, bb = bbox(R.M.pts), um = Math.max(...R.M.pts.map((_, i) => Math.hypot(x[2 * i], x[2 * i + 1]))) || 1, sc = 0.08 * Math.max(bb[2] - bb[0], bb[3] - bb[1]) / um;
+    mPic = partSVG(T => R.M.tris.map(tr => { const mag = tr.reduce((s, n) => s + Math.hypot(x[2 * n], x[2 * n + 1]), 0) / 3 / um, c = RAMP[Math.min(RAMP.length - 1, Math.floor(mag * RAMP.length))];
+      return `<polygon points="${tr.map(n => T([R.M.pts[n][0] + sc * x[2 * n], R.M.pts[n][1] + sc * x[2 * n + 1]]).join(",")).join(" ")}" fill="${c}" stroke="${c}" stroke-width="0.5"/>`; }).join("")).svg;
+    mRes = `<table><tr><th>Mode</th><th>Frequency</th><th>Motion</th><th></th></tr>${R.modes.map((md, i) => `<tr${i === k ? ' style="font-weight:bold"' : ""}><td>${i + 1}</td><td class="num">${fmt(md.f, 1)} Hz</td><td>${md.kind}</td><td><button data-act="modePick" data-arg="${i}">show</button></td></tr>`).join("")}</table>
+    <div class="sub">${R.N} nodes, mass ${fmt(R.mass, 1)} g, ${R.iters} rounds of subspace iteration. Mode ${k + 1} drawn exaggerated; colour = how far each part moves.</div><button data-act="modesCsv">⬇ Frequencies (.csv)</button>`; }
+  let hPic = "", hRes = '<p class="sub">Press Solve heat.</p>';
+  if (H) { const vals = H.el.map(e => ht.show === "q" ? e.q : e.T), lo = Math.min(...vals), hi = Math.max(...vals);
+    hPic = partSVG(T => H.M.tris.map((tr, q) => { const c = RAMP[Math.min(RAMP.length - 1, Math.floor((vals[q] - lo) / ((hi - lo) || 1) * RAMP.length))];
+      return `<polygon points="${tr.map(n => T(H.M.pts[n]).join(",")).join(" ")}" fill="${c}" stroke="${c}" stroke-width="0.5"><title>${fmt(vals[q], 2)}</title></polygon>`; }).join("")).svg
+      + `<div class="legend"><span>${fmt(lo, 1)}</span>${RAMP.map(c => `<i style="background:${c};margin:0"></i>`).join("")}<span>${fmt(hi, 1)} ${ht.show === "q" ? "W/m²" : "°C"}</span></div>`;
+    hRes = `<table><tr><td>Coldest / hottest</td><td class="num">${fmt(H.Tmin, 2)} / ${fmt(H.Tmax, 2)} °C</td></tr><tr><td>Heat in through the ${esc(ht.hot)} edge</td><td class="num">${fmt(H.Qhot, 3)} W</td></tr>
+    <tr><td>${ht.mode === "flux" ? "Heat fed in at the " + esc(ht.cold) + " edge" : ht.mode === "temp" ? "Heat out through the " + esc(ht.cold) + " edge" : "Other edge"}</td><td class="num">${ht.mode === "none" ? "insulated" : fmt(H.Qcold, 3) + " W"}</td></tr>
+    <tr><td>Heat to the air (faces)</td><td class="num">${fmt(H.conv, 3)} W</td></tr><tr><td>Balance (in − out, should be 0)</td><td class="num">${fmt(H.Qhot + (ht.mode === "flux" ? H.Qcold : -H.Qcold) - H.conv, 5)} W</td></tr></table><button data-act="heatCsv">⬇ Node temperatures (.csv)</button>`; }
+  return `<h2>Natural frequencies and heat</h2><p class="lead">Same part and mesh size as the FEA page. Modes: how fast the plate shakes in its own plane when held at the FEA page's fixed edge (${esc(S.fea.fix)}). Heat: steady temperatures in the plate with one edge held. Material: ${esc(S.part.mat)} (k ${m.k} W/m·K, density ${m.rho} kg/m³).</p>
+  <div class="row"><div class="card" style="max-width:420px"><h4>〰 Modes (in-plane)</h4>${F("How many modes (1-12)", "modal.n")}<button data-act="modes" class="pri">▶ Find modes</button><div style="margin-top:8px">${mRes}</div></div><div class="card">${mPic || partSVG().svg}</div></div>
+  <div class="row"><div class="card" style="max-width:420px"><h4>🌡 Heat (steady)</h4><div class="row">${F("Held edge", "heat.hot", { opts: ["left", "right", "bottom", "top", "none"] })}${F("Held at (°C)", "heat.T1")}</div>
+  <div class="row">${F("Other edge", "heat.cold", { opts: ["right", "left", "top", "bottom"] })}${F("It is", "heat.mode", { opts: [["temp", "held at T2"], ["flux", "fed Q watts"], ["none", "insulated"]], r: 1 })}</div>
+  <div class="row">${ht.mode === "temp" ? F("T2 (°C)", "heat.T2") : ht.mode === "flux" ? F("Q (W)", "heat.Q") : ""}</div>
+  <div class="row">${F("Convection h (W/m²K, 0 = none)", "heat.hc")}${F("Air (°C)", "heat.Ta")}${F("Faces cooled", "heat.faces", { opts: [["2", "both"], ["1", "one"]] })}</div>${F("Show", "heat.show", { opts: [["T", "temperature"], ["q", "heat flux"]], r: 1 })}
+  <button data-act="heat" class="pri">▶ Solve heat</button><div style="margin-top:8px">${hRes}</div></div><div class="card">${hPic || partSVG().svg}</div></div>
+  ${heatTimeCard()}
+  <p class="sub">Modes: linear, undamped, in-plane only (plane stress). Real plates also bend out of plane, usually at lower frequencies: check those with a plate or 3D model. Heat: conduction in the plane only, no radiation. Over time: backward Euler steps (stable at any step size; smaller steps follow the true curve more closely).</p>`; }
+Object.assign(ACT, {
+  modes() { const t0 = performance.now(); try { MODES_LAST = solveModes(); S.modal.pick = 0; render(); toast(`${MODES_LAST.modes.length} modes in ${Math.round(performance.now() - t0)} ms`); } catch (e) { toast(e.message); } },
+  modePick(a) { S.modal.pick = +a; render(); },
+  modesCsv() { const R = MODES_LAST; if (R) download(slugp() + "_modes.csv", toCSV([["mode", "frequency_Hz", "motion", "share_along"], ...R.modes.map((m, i) => [i + 1, m.f.toFixed(3), m.kind, m.share.toFixed(3)])]), "text/csv"); },
+  heat() { const t0 = performance.now(); try { HEAT_LAST = solveHeat(); render(); toast(`Heat solved in ${Math.round(performance.now() - t0)} ms`); } catch (e) { toast(e.message); } },
+  heatT() { const t0 = performance.now(); try { HEATT_LAST = solveHeatT(); render(); toast(`${HEATT_LAST.n} time steps in ${Math.round(performance.now() - t0)} ms`); } catch (e) { toast(e.message); } },
+  heatTCsv() { const R = HEATT_LAST; if (R) download(slugp() + "_heat_over_time.csv", toCSV([["time_s", "average_C", "coldest_C", "hottest_C", "held_edges_W"], ...R.hist.map(h => [h.t.toFixed(4), h.mean.toFixed(4), h.min.toFixed(4), h.max.toFixed(4), h.qin.toFixed(5)])]), "text/csv"); },
+  heatCsv() { const H = HEAT_LAST; if (H) download(slugp() + "_heat.csv", toCSV([["node", "x_mm", "y_mm", "T_C"], ...H.M.pts.map((p, i) => [i + 1, p[0].toFixed(3), p[1].toFixed(3), H.T[i].toFixed(4)])]), "text/csv"); },
+});
+
+function selftest() {
+  const keep = S, fail = [], out = {}; S = APP.defaults();
+  try {
+    S.fea.order = "1";
+    S.part.holes = []; S.part.r = 0; S.part.w = 100; S.part.h = 20; S.part.t = 2; S.fea.h = 4; S.fea.fx = 4000; S.fea.fy = 0;
+    let R = solvePlate(); const exp = 4000 / (20 * 2), mid = R.el.filter((e, q) => { const c = R.M.tris[q].reduce((a, n) => a + R.M.pts[n][0], 0) / 3; return c > 35 && c < 65; }), avg = mid.reduce((a, e) => a + e.sx, 0) / mid.length;
+    out.tension = [r2(avg), exp]; if (Math.abs(avg - exp) / exp > 0.03) fail.push("tension sigma " + avg + " vs " + exp);
+    const uexp = 4000 * 100 / (20 * 2 * MATS[S.part.mat].E), utip = Math.max(...R.M.pts.map((p, i) => p[0] > 99 ? R.u[2 * i] : 0)); out.stretch = [utip, uexp]; if (Math.abs(utip - uexp) / uexp > 0.1) fail.push("stretch " + utip + " vs " + uexp);
+    S.part.h = 40; S.part.holes = [{ x: 50, y: 20, d: 8 }]; S.fea.h = 2; S.fea.grade = false; R = solvePlate(); const net = 4000 / ((40 - 8) * 2); out.kt = r2(R.vmax / (4000 / 80)); if (!(R.vmax > net * 1.2)) fail.push("hole peak " + R.vmax);
+    const ktTh = (2 + Math.pow(1 - 8 / 40, 3)) / (1 - 8 / 40); S.fea.h = 4; S.fea.grade = false; const Ru = solvePlate(); S.fea.grade = true; const Rg = solvePlate();
+    const kU = Ru.vmax / 50, kG = Rg.vmax / 50; out.ktGraded = [r2(kU), r2(kG), r2(ktTh), Ru.M.tris.length, Rg.M.tris.length];
+    if (!(Math.abs(kG - ktTh) < Math.abs(kU - ktTh)) || Math.abs(kG - ktTh) / ktTh > 0.1) fail.push("graded Kt " + kG + " (uniform " + kU + ") vs " + ktTh);
+    const q = meshQuality(Rg.M); out.minAngle = r1(q.minAngle); if (q.minAngle < 5) fail.push("graded mesh sliver " + q.minAngle);
+    S.fea.order = "2"; const Rq = solvePlate(); const kQ = Rq.vmax / 50; out.ktQuad = [r2(kQ), r2(kG), r2(ktTh), Rq.nNodes];
+    if (!(Math.abs(kQ - ktTh) < Math.abs(kG - ktTh)) || Math.abs(kQ - ktTh) / ktTh > 0.05) fail.push("6-node Kt " + kQ + " vs " + ktTh + " (3-node " + kG + ")");
+    { const keepH = S.part.holes; S.part.holes = []; S.part.h = 20; S.fea.h = 4; const Rt = solvePlate(); const big = Math.max(...Rt.el.filter((e, q) => { const c = Rt.M.tris[q].reduce((a, n) => a + Rt.M.pts[n][0], 0) / 3; return c > 35 && c < 65; }).map(e => Math.abs(e.sx - 100)));
+      out.tensionQuad = r2(big); if (big > 0.5) fail.push("6-node tension off by " + big + " MPa"); S.part.holes = keepH; S.part.h = 40; }
+    { S.fea.h = 4; S.fea.grade = true; S.fea.order = "2"; S.fea.curved = true; const Rc = solvePlate(), Ac = assemble6(false); S.fea.curved = false; const Rs = solvePlate(), As = assemble6(false); S.fea.curved = true;
+      const kC = Rc.vmax / 50, kS = Rs.vmax / 50, aTrue = 100 * 40 - Math.PI * 16, aC = Ac.els.reduce((s, e) => s + e.A, 0), aS = As.els.reduce((s, e) => s + e.A, 0);
+      const offC = [...Ac.curvedMid].map(q => Math.abs(Math.hypot(Ac.P[q][0] - 50, Ac.P[q][1] - 20) - 4));
+      out.curvedKt = { curved: r2(kC), straight: r2(kS), heywood: r2(ktTh), curvedEls: Rc.nCurved, areaErrCurved: +(aC - aTrue).toExponential(2), areaErrStraight: +(aS - aTrue).toExponential(2) };
+      if (!(Rc.nCurved > 0) || Rs.nCurved) fail.push("curved element count " + Rc.nCurved + "/" + Rs.nCurved);
+      if (!(kC <= kS && Math.abs(kC - kS) / kS < 0.01)) fail.push("curved Kt " + kC + " vs straight " + kS);
+      if (offC.length !== Rc.nCurved || !offC.length) fail.push("curved mid-side nodes " + offC.length + " for " + Rc.nCurved + " curved elements");
+      if (Math.abs(kC - ktTh) / ktTh > 0.02) fail.push("curved Kt " + kC + " more than 2% from " + ktTh);
+      if (!(Math.abs(aC - aTrue) < Math.abs(aS - aTrue) / 50)) fail.push("curved area " + aC + " vs true " + aTrue + " (straight " + aS + ")");
+      if (Math.max(0, ...offC) > 1e-9) fail.push("curved mid-side node off the circle by " + Math.max(...offC)); }
+    S.fea.order = "1";
+    const Cv = convergence(); out.conv = Cv.rows.map(r => r1(r.vmax)); if (Cv.rows.length < 3) fail.push("convergence rows");
+    S = APP.defaults(); const mp = massProps(), v = stlVolume(); out.stl = [r2(v), r2(mp.V)]; if (Math.abs(v - mp.V) / mp.V > 0.03) fail.push("stl volume " + v + " vs " + mp.V);
+    const T = solveTruss(); const ry = T.react.filter(([d]) => d % 2).reduce((a, x) => a + x[1], 0); out.truss = r2(ry); if (Math.abs(ry - 10000) > 1) fail.push("truss reactions " + ry);
+    const f13 = T.forces[2], ang = Math.atan2(1500, 1000), exp13 = -5000 / Math.sin(ang); if (Math.abs(f13 - exp13) > 1) fail.push("truss member 1-3 " + f13 + " vs " + exp13);
+    const d0 = Math.sqrt(4 * 500 / Math.PI), I0 = Math.PI * d0 ** 4 / 64, L13 = Math.hypot(1000, 1500), pc = Math.PI ** 2 * MATS["Steel 1018"].E * I0 / L13 ** 2; out.pcr13 = r1(T.pcr[2]);
+    if (Math.abs(T.pcr[2] - pc) > 1e-6 * pc) fail.push("buckling " + T.pcr[2] + " vs " + pc);
+    const bc = boltCalc({ d: 10, pitch: 1.5, cls: "8.8", pre: 75, K: 0.2, Ft: 0, Fs: 0, n: 1, mu: 0.2, planes: 1, thread: "no" }); out.bolt = [r2(bc.As), r1(bc.Fp), r1(bc.T)];
+    if (Math.abs(bc.As - 57.99) > 0.05 || Math.abs(bc.T - 52.19) > 0.1) fail.push("bolt " + bc.As + " " + bc.T);
+    const wc = weldCalc({ kind: "fillet", leg: 6, len: 100, n: 1, F: 10000, ecc: 0, Exx: 482 }); out.weld = r2(wc.tau); if (Math.abs(wc.tau - 23.57) > 0.02) fail.push("weld " + wc.tau);
+    const wb = weldCalc({ kind: "fillet", leg: 6, len: 100, n: 1, F: 10000, ecc: 50, Exx: 482 }); if (!(wb.tau > wc.tau * 3)) fail.push("weld offset ignored " + wb.tau);
+    if (boltCalc({ d: 10, pitch: 1.5, cls: "8.8", pre: 75, K: 0.2, Ft: 30000, Fs: 0, n: 1, mu: 0.2, planes: 1, thread: "no" }).sepOk) fail.push("separation not caught");
+    { const B = { d: 10, pitch: 1.5, cls: "8.8", pre: 75, K: 0.2, Ft: 5000, Fs: 0, n: 1, mu: 0.2, planes: 1, thread: "no", grip: 20, len: 30, Eb: 207000, mem: "Steel 1018" }, j = jointCalc(B), E = 207000;
+      const Ad = Math.PI * 25, As = Math.PI / 4 * (10 - 0.9382 * 1.5) ** 2, kbS = 1 / (4 / (Ad * E) + 16 / (As * E));
+      const Em = MATS["Steel 1018"].E, tn = Math.tan(Math.PI / 6); let comp = 0; const N = 20000;
+      for (let i = 0; i < N; i++) { const x = (i + 0.5) / N * 10, r = 7.5 + x * tn; comp += (10 / N) / (Em * Math.PI * (r * r - 25)); }
+      const kmNum = 1 / (2 * comp); out.joint = [j.ld, j.lt, Math.round(j.kb), Math.round(kbS), Math.round(j.km), Math.round(kmNum), Math.round(j.kmW), Math.round(j.C * 1e4) / 1e4];
+      if (j.LT !== 26 || j.ld !== 4 || j.lt !== 16) fail.push("joint lengths " + [j.LT, j.ld, j.lt]);
+      if (Math.abs(j.kb - kbS) > 1e-9 * kbS) fail.push("kb " + j.kb + " vs " + kbS);
+      if (Math.abs(j.km - kmNum) / kmNum > 1e-4) fail.push("km closed form " + j.km + " vs integrated " + kmNum);
+      if (Math.abs(j.km - j.kmW) / j.kmW > 0.05) fail.push("km cone " + j.km + " vs Wileman " + j.kmW);
+      if (!(j.C > 0.1 && j.C < 0.5)) fail.push("joint constant " + j.C);
+      if (Math.abs(j.Fb - j.Fm - j.P) > 1e-6 || Math.abs(j.Fb - (j.Fi + j.C * 5000)) > 1e-6) fail.push("joint forces");
+      const jz = jointCalc(Object.assign({}, B, { Ft: j.P0 })); if (Math.abs(jz.Fm) > 1e-6 * j.Fi || !(jz.nSep <= 1 + 1e-9)) fail.push("P0 clamp " + jz.Fm);
+      const Sa = j.nf * j.sa, Sm = j.si + Sa; out.goodman = [Math.round(j.nf * 100) / 100, Math.round((Sa / j.Se + Sm / j.Sut) * 1e6) / 1e6];
+      if (Math.abs(Sa / j.Se + Sm / j.Sut - 1) > 1e-9) fail.push("Goodman point off the line " + out.goodman);
+      const ja = jointCalc(Object.assign({}, B, { mem: "Aluminium 6061-T6" })); if (!(ja.C > j.C)) fail.push("soft parts did not raise C");
+      if (!(jointCalc(Object.assign({}, B, { Ft: 40000 })).nSep < 1)) fail.push("separation not flagged");
+      if (!(jointCalc(Object.assign({}, B, { Ft: 60000 })).nf < 1)) fail.push("fatigue failure not flagged"); }
+    { const b = 80, d = 120, tab = { line: d ** 3 / 12, two_v: d * (3 * b * b + d * d) / 6, two_h: b * (3 * d * d + b * b) / 6, box: (b + d) ** 3 / 6, c: (8 * b ** 3 + 6 * b * d * d + d ** 3) / 12 - b ** 4 / (2 * b + d) };
+      out.wgroup = {};
+      for (const sh of Object.keys(tab)) {
+        const w = weldGroup({ shape: sh, b, d, leg: 6, V: 20000, e: 150, Exx: 482 }); let mx = 0;
+        for (const s of w.segs) for (let i = 0; i <= 4000; i++) { const q = w.at(s[0] + (s[2] - s[0]) * i / 4000, s[1] + (s[3] - s[1]) * i / 4000); mx = Math.max(mx, q.t); }
+        out.wgroup[sh] = [Math.round(w.Ju), Math.round(tab[sh]), r2(w.worst.t), r2(mx)];
+        if (Math.abs(w.Ju - tab[sh]) / tab[sh] > 1e-9) fail.push("weld group Ju " + sh + " " + w.Ju + " vs " + tab[sh]);
+        if (Math.abs(w.worst.t - mx) / mx > 1e-6) fail.push("weld group worst " + sh + " " + w.worst.t + " vs brute " + mx);
+        const w0 = weldGroup({ shape: sh, b, d, leg: 6, V: 20000, e: 0, Exx: 482 }); if (Math.abs(w0.worst.t - 20000 / w0.A) > 1e-9) fail.push("weld group e=0 " + sh); }
+      const wr = weldGroup({ shape: "two_h", b, d, leg: 6, V: 20000, e: 150, Exx: 482 }), wl = weldGroup({ shape: "two_h", b, d, leg: 6, V: 20000, e: -150, Exx: 482 });
+      if (!(wr.worst.x > wr.xc && wl.worst.x < wl.xc)) fail.push("weld group worst point side " + wr.worst.x + " " + wl.worst.x); }
+    S.beam = { L: 1000, P: 1000, w: 1, type: "ss-center", E: 200000, I: 1e6, c: 25 }; if (Math.abs(beamCalc().defl - 1000 * 1e9 / (48 * 2e11)) > 1e-9) fail.push("beam");
+    if (ap(9, 4, 1) !== "H" || ap(2, 1, 1) !== "L" || ap(7, 4, 5) !== "H") fail.push("AP");
+    const g = gcode(); if (!/G83/.test(g.text) || !/G2 /.test(g.text) || !/M30/.test(g.text)) fail.push("gcode content"); out.gLines = g.text.split("\n").length;
+    { S = APP.defaults(); Object.assign(S.part, { outer: "rect", w: 200, h: 20, r: 0, t: 5, mat: "Steel 1018", holes: [] }); Object.assign(S.fea, { h: 4, fix: "left", grade: false });
+      const mt = MATS["Steel 1018"], E = mt.E, rho = mt.rho * 1e-12, L = 200, f1 = 1.87510407 ** 2 / (2 * Math.PI) * Math.sqrt(E * 20 * 20 / 12 / (rho * L ** 4)), fa = Math.sqrt(E / rho) / (4 * L);
+      const Rm = solveModes(4), fs = Rm.modes.map(m => m.f), ax = Rm.modes.find(m => /stretch/.test(m.kind)); out.modal = [r1(fs[0]), r1(f1), ax ? r1(ax.f) : null, r1(fa), Rm.iters, Rm.modes.map(m => r1(m.f))];
+      if (!(fs[0] < f1 * 1.001 && fs[0] > f1 * 0.97) || !/bending/.test(Rm.modes[0].kind)) fail.push("modal f1 " + fs[0] + " vs Euler " + f1);
+      if (!ax || Math.abs(ax.f - fa) / fa > 0.03) fail.push("modal stretch " + (ax && ax.f) + " vs " + fa);
+      if (Math.abs(Rm.mass - 200 * 20 * 5 * mt.rho * 1e-6) > 0.01) fail.push("modal mass " + Rm.mass);
+      MATS["Steel 1018"].rho *= 2; let R2; try { R2 = solveModes(4); } finally { MATS["Steel 1018"].rho /= 2; }
+      const ratio = R2.modes[0].f / fs[0]; out.modalRho2 = Math.round(ratio * 1e5) / 1e5; if (Math.abs(ratio - Math.SQRT1_2) > 1e-4) fail.push("density scaling " + ratio); }
+    { S = APP.defaults(); Object.assign(S.part, { outer: "rect", w: 100, h: 20, r: 0, t: 2, mat: "Aluminium 6061-T6", holes: [] }); Object.assign(S.fea, { h: 4, grade: false });
+      const k = MATS["Aluminium 6061-T6"].k / 1000; let H = solveHeat(); const midT = H.M.pts.map((p, i) => [p, H.T[i]]).filter(([p]) => Math.abs(p[0] - 50) < 1e-6).map(x => x[1]), Qx = k * 2 * 20 * 80 / 100;
+      out.heatLinear = [midT.length, midT.length ? r2(midT[0]) : null, r2(H.Qhot * 1000) / 1000, r2(Qx * 1000) / 1000];
+      if (!midT.length || midT.some(v => Math.abs(v - 60) > 1e-6) || Math.abs(H.Qhot - Qx) > 1e-6 * Qx || Math.abs(H.Qcold - Qx) > 1e-6 * Qx) fail.push("heat linear " + JSON.stringify(out.heatLinear));
+      Object.assign(S.heat, { mode: "flux", T1: 20, Q: 10 }); H = solveHeat(); const Tr = 20 + 10 * 100 / (k * 2 * 20); out.heatFlux = [r2(H.Tmax), r2(Tr), r2(H.Qhot)];
+      if (Math.abs(H.Tmax - Tr) / (Tr - 20) > 0.01 || Math.abs(H.Qhot + 10) > 1e-6) fail.push("heat flux " + JSON.stringify(out.heatFlux));
+      Object.assign(S.part, { h: 10 }); Object.assign(S.fea, { h: 2 }); Object.assign(S.heat, { mode: "none", T1: 100, hc: 25, Ta: 20, faces: 2 }); H = solveHeat();
+      const fin = f => { const mm = Math.sqrt(f * 25e-6 / (k * 2)); return 20 + 80 / Math.cosh(mm * 100); }, tip = Math.min(...H.T);
+      S.heat.faces = 1; const H1 = solveHeat(), tip1 = Math.min(...H1.T); out.heatFin = [r2(tip), r2(fin(2)), r2(tip1), r2(fin(1)), r2(H.Qhot - H.conv)];
+      if (Math.abs(tip - fin(2)) > 0.01 * (fin(2) - 20) || Math.abs(tip1 - fin(1)) > 0.01 * (fin(1) - 20) || Math.abs(H.Qhot - H.conv) > 1e-6 * H.Qhot) fail.push("heat fin " + JSON.stringify(out.heatFin));
+      if (Math.abs(tip1 - fin(2)) < 0.01 * (fin(2) - 20)) fail.push("one-face fin matches the two-face formula (convection factor ignored)"); }
+    { S = APP.defaults(); Object.assign(S.part, { outer: "rect", w: 100, h: 60, r: 0, t: 6, mat: "Aluminium 6061-T6", holes: [] }); Object.assign(S.fea, { h: 10, grade: false });
+      Object.assign(S.heat, { hot: "none", mode: "none", hc: 50, Ta: 20, faces: 2, T0: 100, tEnd: 600, steps: 2400 });
+      const mt = MATS[S.part.mat], tau = mt.rho * mt.cp * 6e-3 / (2 * 50); let R = solveHeatT(); const e = R.hist[R.hist.length - 1];
+      const be = 20 + 80 * Math.pow(1 + 0.25 / tau, -2400), ex = 20 + 80 * Math.exp(-600 / tau);
+      out.heatLumped = [r2(e.mean), r2(be), r2(ex), e.max - e.min, r2(R.t90), r2(tau * Math.log(10))];
+      if (Math.abs(e.mean - be) > 1e-6 * 80 || e.max - e.min > 1e-6 || Math.abs(e.mean - ex) > 0.01 * (ex - 20) || Math.abs(R.t90 - tau * Math.log(10)) > 0.02 * tau * Math.log(10)) fail.push("heat lumped " + JSON.stringify(out.heatLumped));
+      Object.assign(S.part, { h: 20 }); Object.assign(S.fea, { h: 4 }); Object.assign(S.heat, { hot: "left", T1: 100, mode: "none", hc: 0, T0: 20, tEnd: 60, steps: 600 });
+      R = solveHeatT(); const al = mt.k / (mt.rho * mt.cp) * 1e6;
+      const ser = tt => 100 - 80 * Array.from({ length: 80 }, (_, j) => 4 / ((2 * j + 1) * Math.PI) * (j % 2 ? -1 : 1) * Math.exp(-(((2 * j + 1) * Math.PI / 200) ** 2) * al * tt)).reduce((a, c) => a + c, 0);
+      const at = tt => R.hist.find(h => Math.abs(h.t - tt) < 1e-6).min;
+      out.heatSlab = [r2(at(30)), r2(ser(30)), r2(at(60)), r2(ser(60))];
+      if ([30, 60].some(tt => Math.abs(at(tt) - ser(tt)) > 0.01 * 80)) fail.push("heat slab " + JSON.stringify(out.heatSlab));
+      S.heat.steps = 3; R = solveHeatT(); const ok3 = R.hist.every(h => h.min >= 20 - 1e-9 && h.max <= 100 + 1e-9); out.heatBig = ok3;
+      if (!ok3) fail.push("heat over time not bounded with big steps");
+      Object.assign(S.heat, { mode: "temp", T2: 20, hc: 10, tEnd: 3000, steps: 300 }); R = solveHeatT(); const St = solveHeat();
+      const dmax = Math.max(...St.T.map((v, i) => Math.abs(v - R.T[i]))); out.heatLong = [dmax, r2(R.stored), r2(R.inTot - R.convTot), r2(R.steadyMean)];
+      if (dmax > 1e-3 || Math.abs(R.stored - (R.inTot - R.convTot)) > 1e-6 * Math.abs(R.inTot) + 1e-6) fail.push("heat long run " + JSON.stringify(out.heatLong)); }
+    S = APP.defaults();
+    if (!dxf().includes("CIRCLE")) fail.push("dxf");
+  } catch (e) { fail.push("exception " + e.stack); } finally { S = keep; }
+  return { fail, out };
+}
+
+</script>
+<script>
+if (inApp) { tell({ uds: "store-get" }); tell({ uds: "web-hello" }); setTimeout(() => { if (!loaded) { useLocal = true; boot(readLocal()); } }, 1500); }
+else boot(readLocal());
+</script>
+</body>
+</html>

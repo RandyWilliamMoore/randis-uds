@@ -1,0 +1,18 @@
+{
+ "id": "gamesuite1",
+ "name": "Questloom Game Studio",
+ "created": 1795510477.0970683,
+ "section": "Create",
+ "icon": "🎲",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795557365.7334645,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

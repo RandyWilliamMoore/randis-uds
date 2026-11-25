@@ -2,18 +2,18 @@
  "id": "b7a3c0e5f1",
  "name": "Browser",
  "created": 1795501769.538133,
+ "web": true,
+ "icon": "tab-browser",
+ "section": "Tools",
  "origin_chat": null,
  "versions": [
   {
    "n": 1,
    "file": "v001.html",
-   "note": "Browser: websites in a real browser view, its own tabs, back / forward / reload / home, and a chat that takes commands (help)",
+   "note": "Base 2026-11-24: newest version (dev v001). Browser: websites in a real browser view, its own tabs, back / forward / reload / home, and a chat that takes commands (help)",
    "time": 1795501769.538133,
    "uds": "0.1.17"
   }
  ],
- "current": 1,
- "web": true,
- "icon": "tab-browser",
- "section": "Tools"
+ "current": 1
 }

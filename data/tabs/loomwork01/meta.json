@@ -1,0 +1,18 @@
+{
+ "id": "loomwork01",
+ "name": "Loomwork Automations",
+ "created": 1795510734.7621386,
+ "section": "Tools",
+ "icon": "tab-built",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795563037.7273204,
+   "uds": "0.1.17"
+  }
+ ],
+ "current": 1
+}

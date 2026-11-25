@@ -1,0 +1,667 @@
+<!doctype html>
+<!-- Made with Randis UDS by Randy Moore - https://github.com/RandyWilliamMoore/randis-uds - https://ko-fi.com/moorescombinatoricsmatrix -->
+<html lang="en"><head><meta charset="utf-8"><title>Distro Studio</title>
+<style>
+:root { --bg:#f5f8fd; --panel:#ffffff; --line:#d8e1ef; --fg:#1b2436; --mut:#5b6b85; --acc:#2f6fe4; --ok:#119a4c; --bad:#d63a4a; --warn:#b67a00; }
+* { box-sizing: border-box; } body { margin:0; font:14px/1.45 system-ui,Segoe UI,sans-serif; background:var(--bg); color:var(--fg); }
+.attr { font-size:11px; padding:4px 12px; background:#eaf0fb; color:var(--mut); } .attr b { color:#1c3d5a; } .attr a { color:var(--acc); }
+header { padding:10px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; background:linear-gradient(90deg,#1c3d5a,#2f6fe4 60%,#22b8a6); color:#fff; }
+header h1 { margin:0; font-size:18px; } header .sub { color:#e3ecff; font-size:12px; }
+.wrap { display:flex; height:calc(100vh - 78px); } nav { width:210px; border-right:1px solid var(--line); padding:8px; overflow:auto; flex:none; }
+nav .g { font-size:11px; color:var(--mut); letter-spacing:.08em; margin:10px 6px 4px; text-transform:uppercase; }
+nav button { display:block; width:100%; text-align:left; background:none; border:0; color:var(--fg); padding:7px 10px; border-radius:6px; cursor:pointer; font:inherit; }
+nav button:hover { background:#e8eefb; } nav button.on { background:#dce7fd; box-shadow:inset 3px 0 0 var(--acc); }
+main { flex:1; overflow:auto; padding:16px 22px; } h2 { margin:0 0 4px; } .lead { color:var(--mut); margin:0 0 14px; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px; }
+label.f { display:block; margin:6px 0; } label.f > span { display:block; font-size:12px; color:var(--mut); margin-bottom:2px; }
+input, select, textarea { background:#ffffff; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; }
+input[type=text], textarea, select.w { width:100%; } textarea { font-family:Consolas,monospace; font-size:12px; }
+button.b { background:#eef3fd; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 12px; cursor:pointer; font:inherit; margin:2px 4px 2px 0; }
+button.b:hover { border-color:var(--acc); } button.pri { background:var(--acc); border-color:var(--acc); color:#fff; } button.del { color:var(--bad); }
+.ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); } .mut { color:var(--mut); }
+ul.errs { margin:6px 0; padding-left:18px; } code, pre { font-family:Consolas,monospace; font-size:12px; } pre { background:#f3f6fb; border:1px solid var(--line); border-radius:6px; padding:8px; overflow:auto; white-space:pre-wrap; }
+table { border-collapse:collapse; width:100%; } td, th { border-bottom:1px solid var(--line); padding:5px 6px; text-align:left; vertical-align:top; } th { color:var(--mut); font-weight:600; font-size:12px; }
+.pill { display:inline-block; font-size:11px; padding:1px 7px; border-radius:10px; border:1px solid var(--line); color:var(--mut); margin:1px 3px 1px 0; }
+.pill.ok { border-color:var(--ok); color:var(--ok); } .pill.bad { border-color:var(--bad); color:var(--bad); } .pill.warn { border-color:var(--warn); color:var(--warn); }
+.toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#ffffff; box-shadow:0 4px 16px rgba(30,60,120,.18); border:1px solid var(--acc); padding:8px 14px; border-radius:8px; z-index:9; }
+.getapp { background:#fff8e6; border-color:#f0c35a; } .getapp a { color:var(--acc); }
+</style></head><body>
+<div class="attr"><b>Randis UDS™ by Randy Moore.</b> Original: <a href="https://github.com/RandyWilliamMoore/randis-uds" target="_blank">github.com/RandyWilliamMoore/randis-uds</a> · Support: <a href="https://ko-fi.com/moorescombinatoricsmatrix" target="_blank">ko-fi.com/moorescombinatoricsmatrix</a> · Distro Studio</div>
+<header><h1>🖥️ Distro Studio</h1><span class="sub">design your own Linux system, check that every piece fits, save the design and boot files</span><span class="sub" id="store" style="margin-left:auto"></span></header>
+<div class="wrap"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+(function (root) {
+  const NAME = /^[a-z][a-z0-9-]{0,62}$/, USER = /^[a-z_][a-z0-9_-]{0,31}$/, ARGS = /^[A-Za-z0-9_=.,:\/ -]*$/, PATH = /^[A-Za-z0-9_.\/-]+$/, PKG = /^[A-Za-z0-9][A-Za-z0-9+._-]{0,99}$/;
+  const SERVICES = {networking: ["Network at startup", null], sshd: ["Remote login (SSH)", "openssh"], chronyd: ["Keep the clock right", "chrony"],
+    crond: ["Scheduled jobs", null], acpid: ["Power button", null], local: ["Your own startup scripts (/etc/local.d)", null]};
+  const OWNED = ["/etc/passwd", "/etc/shadow", "/etc/group", "/etc/hostname", "/etc/motd", "/etc/apk/world", "/etc/network/interfaces", "/etc/local.d/10-os-studio-users.start"];
+  const FALLBACK_PACKAGES = ["chrony", "doas", "e2fsprogs", "iw", "openssh", "openssl", "sfdisk", "tzdata", "wget", "wpa_supplicant"];
+  function defaultDesign() {
+    return {hostname: "myos", message: "Welcome to my OS.", packages: [], users: [], services: ["networking"],
+      network: {mode: "dhcp", iface: "eth0", address: "", netmask: "255.255.255.0", gateway: "", dns: ""}, boot: {timeout: 1, args: ""}, files: []};
+  }
+  function isIP(v) {
+    v = String(v || "");
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(v)) return v.split(".").every(n => +n <= 255 && String(+n) === n);
+    return /^[0-9a-fA-F:]+$/.test(v) && v.includes(":") && v.split("::").length <= 2 && v.split(":").every(h => h.length <= 4);
+  }
+  function fileError(p) {
+    if (!PATH.test(p || "") || !p.startsWith("/") || p.endsWith("/") || p.split("/").includes("..") || p.includes("//"))
+      return `"${p}": use a full path like /etc/issue, with letters, numbers, . _ - and /.`;
+    if (OWNED.includes(p)) return `${p} comes from the other tabs. Change it there.`;
+    return null;
+  }
+  function check(d, available) {
+    const e = [];
+    if (!NAME.test(d.hostname || "")) e.push("Boot: the OS name is required: lower-case letters, numbers and dashes, starting with a letter.");
+    if ((d.message || "").includes("\x1b")) e.push("Boot: the welcome message can't hold control characters.");
+    for (const n of d.packages || []) {
+      if (available && !available.includes(n)) e.push(`Packages: ${n} isn't on the Alpine image.`);
+      else if (!PKG.test(n)) e.push(`Packages: "${n}" isn't a package name.`);
+    }
+    const seen = new Set();
+    for (const u of d.users || []) {
+      const n = u.name || "";
+      if (!USER.test(n) || n === "root") e.push(`Users: "${n}" can't be a user name: lower-case letters, numbers, _ and -, and not root.`);
+      else if (seen.has(n)) e.push(`Users: ${n} is listed twice.`);
+      seen.add(n);
+    }
+    for (const s of d.services || []) if (!SERVICES[s]) e.push(`Services: ${s} isn't a service this version knows.`);
+    const net = d.network || {};
+    if (!["dhcp", "static", "none"].includes(net.mode)) e.push("Network: pick automatic, fixed address or no network.");
+    if (!NAME.test(net.iface || "eth0") && !/^[a-z0-9]{1,15}$/.test(net.iface || "")) e.push("Network: the network card's name isn't valid.");
+    if (net.mode === "static") {
+      for (const [label, key, req] of [["address", "address", true], ["netmask", "netmask", true], ["gateway", "gateway", false], ["DNS server", "dns", false]]) {
+        const v = net[key] || ""; if (!v && !req) continue;
+        if (!isIP(v)) e.push(`Network: "${v}" isn't a valid ${label}.`);
+      }
+    } else if (net.dns && !isIP(net.dns)) e.push(`Network: "${net.dns}" isn't a valid DNS server.`);
+    const b = d.boot || {};
+    if (!Number.isInteger(b.timeout) || b.timeout < 0 || b.timeout > 60) e.push("Boot: the wait at the boot menu must be 0 to 60 seconds.");
+    if (!ARGS.test(b.args || "")) e.push("Boot: extra kernel settings can only use letters, numbers and = . , : / - _ and spaces.");
+    const paths = new Set();
+    for (const f of d.files || []) {
+      const p = fileError(f.path || "");
+      if (p) e.push("Files: " + p); else if (paths.has(f.path)) e.push(`Files: ${f.path} is listed twice.`);
+      paths.add(f.path);
+    }
+    return e;
+  }
+  function allPackages(d) {
+    const w = new Set(["alpine-base", ...(d.packages || [])]);
+    for (const s of d.services || []) if (SERVICES[s] && SERVICES[s][1]) w.add(SERVICES[s][1]);
+    if ((d.users || []).some(u => u.admin)) w.add("doas");
+    return [...w].sort();
+  }
+  const api = {defaultDesign, check, allPackages, fileError, isIP, SERVICES, FALLBACK_PACKAGES};
+  root.OSCORE = Object.assign(root.OSCORE || {}, api);
+  if (typeof module !== "undefined") module.exports = root.OSCORE;
+})(typeof window !== "undefined" ? window : globalThis);
+
+(function (root) {
+  const LAYERS = [["firmware", "Firmware", "one", true], ["boot", "Bootloader", "one", true], ["kernel", "Kernel", "one", true], ["libc", "C library", "one", true],
+    ["init", "Init (PID 1)", "one", true], ["user", "Userland tools", "one", true], ["dev", "Device manager", "one", false], ["fs", "Root filesystem", "one", true],
+    ["pkg", "Package manager", "one", false], ["net", "Networking", "one", false], ["sec", "Security", "many", false], ["display", "Display", "one", true], ["shell", "Desktop / shell", "one", false]];
+  const B = [
+    ["seabios", "firmware", "SeaBIOS (old-style BIOS)", "LGPL-3", 0.2, ["bios"], [], [], "alpine", "What QEMU starts with."],
+    ["ovmf", "firmware", "OVMF (UEFI)", "BSD-2", 4, ["uefi"], [], [], "alpine", "UEFI firmware for VMs; real PCs have their own."],
+    ["coreboot", "firmware", "coreboot", "GPL-2", 1, ["bios", "uefi"], [], [], "source", "Open firmware that replaces the PC's own; flashing real boards is risky."],
+    ["syslinux", "boot", "SYSLINUX / ISOLINUX", "GPL-2", 0.3, ["loader"], ["bios"], [], "alpine", "Alpine's BIOS boot menu."],
+    ["grub", "boot", "GRUB 2", "GPL-3", 6, ["loader"], [], [], "alpine", "Boots BIOS and UEFI; Alpine's UEFI menu."],
+    ["limine", "boot", "Limine", "BSD-2", 0.5, ["loader"], [], [], "source", "Modern small loader, good for hobby kernels."],
+    ["sdboot", "boot", "systemd-boot", "LGPL-2.1", 0.2, ["loader"], ["uefi"], [], "source", "UEFI only."],
+    ["ownboot", "boot", "Randis boot sector (ours, from scratch)", "ours", 0.0005, ["loader", "ownboot"], ["bios"], [], "ours", "512 bytes written here byte by byte; boots and prints your message. A stage 2 loader and the Randis kernel build on it."],
+    ["linux", "kernel", "Linux 6.18 LTS (virt)", "GPL-2", 30, ["kernel", "linux"], ["loader"], [], "alpine", "Alpine's virt kernel: VMs and most PCs."],
+    ["sel4", "kernel", "seL4 microkernel", "GPL-2/BSD", 1, ["kernel", "micro"], ["loader"], ["linuxonly"], "source", "Formally verified microkernel; needs its own userland."],
+    ["freebsd", "kernel", "FreeBSD kernel", "BSD-2", 40, ["kernel", "bsd"], ["loader"], ["linuxonly"], "source", "Whole BSD system, not mix-and-match with Linux tools."],
+    ["redox", "kernel", "Redox microkernel (Rust)", "MIT", 5, ["kernel", "micro"], ["loader"], ["linuxonly"], "source", "Rust microkernel with its own userland."],
+    ["ownkernel", "kernel", "Randis kernel 0.6 (ours, boots in QEMU)", "ours", 0.01, ["kernel", "ownkernel"], ["loader"], ["linuxonly"], "ours", "Protected mode, interrupts, keyboard with shift + up-arrow recall, preemptive scheduler, multiboot header, page-frame allocator from the E820 map, paging + demand paging; kernel heap, ring 3 + system calls, Randis init + shell; ATA disk driver, the Randis file system RFS1, programs from disk in their own address space; program arguments, a sleep system call, programs in the background + wait; pipes A | B, folders + append. Coming: line editing that survives background output + Ctrl-C, more program slots, IRQ disk reads."],
+    ["musl", "libc", "musl", "MIT", 1, ["libc", "musl"], ["kernel"], [], "alpine", "Small, clean; Alpine's."],
+    ["glibc", "libc", "glibc", "LGPL-2.1", 10, ["libc", "glibc"], ["linux"], [], "source", "Most compatible with desktop Linux software."],
+    ["relibc", "libc", "relibc (Redox)", "MIT", 2, ["libc"], ["micro"], [], "source", "For Redox."],
+    ["nolibc", "libc", "No C library (freestanding)", "—", 0, ["libc"], [], ["linuxonly"], "ours", "For our own kernel: everything built in."],
+    ["openrc", "init", "OpenRC", "BSD-2", 1, ["init", "linuxonly"], ["linux"], [], "alpine", "Alpine's; services as scripts."],
+    ["bbinit", "init", "BusyBox init", "GPL-2", 0, ["init", "linuxonly"], ["linux", "busybox"], [], "source", "Smallest classic init."],
+    ["systemd", "init", "systemd", "LGPL-2.1", 30, ["init", "systemd", "linuxonly"], ["linux", "glibc"], ["musl"], "source", "Big, common on desktops; doesn't support musl."],
+    ["runit", "init", "runit", "BSD-3", 0.2, ["init", "linuxonly"], ["linux"], [], "source", "Tiny supervisor (Void Linux)."],
+    ["owninit", "init", "Randis init (ours)", "ours", 0.05, ["init"], ["kernel"], [], "ours", "Our own PID 1: start services in order, restart them, log."],
+    ["busybox", "user", "BusyBox", "GPL-2", 1, ["user", "busybox", "linuxonly"], ["linux"], [], "alpine", "300+ tools in one file."],
+    ["coreutils", "user", "GNU coreutils + bash", "GPL-3", 20, ["user", "linuxonly"], ["linux"], [], "source", "The usual desktop tools."],
+    ["toybox", "user", "toybox", "0BSD", 1, ["user", "linuxonly"], ["linux"], [], "source", "Android's tools."],
+    ["uutils", "user", "uutils (Rust coreutils)", "MIT", 10, ["user"], ["kernel"], [], "source", "Rust rewrite of coreutils."],
+    ["mdev", "dev", "mdev (BusyBox)", "GPL-2", 0, ["dev"], ["busybox"], [], "alpine", "Alpine's default."],
+    ["eudev", "dev", "eudev", "GPL-2", 2, ["dev"], ["linux"], ["systemd"], "source", "udev without systemd."],
+    ["sdudev", "dev", "systemd-udevd", "LGPL-2.1", 2, ["dev"], ["systemd"], [], "source", "Comes with systemd."],
+    ["liveram", "fs", "Live in RAM (squashfs + tmpfs)", "GPL-2", 0, ["fs"], ["linux"], [], "alpine", "Runs from the disc; changes vanish at power off unless saved (lbu)."],
+    ["ext4", "fs", "ext4 on disk", "GPL-2", 0, ["fs"], ["linux"], [], "source", "Installed to a drive."],
+    ["btrfs", "fs", "btrfs (snapshots)", "GPL-2", 0, ["fs"], ["linux"], [], "source", "Snapshots and rollback."],
+    ["ownfs", "fs", "Randis RAM disk (ours)", "ours", 0, ["fs"], ["kernel"], [], "ours", "Flat file table in memory for our kernel."],
+    ["apk", "pkg", "apk (Alpine)", "GPL-2", 0.5, ["pkg"], ["musl"], [], "alpine", "Fast, simple."],
+    ["pacman", "pkg", "pacman", "GPL-2", 2, ["pkg"], ["linux"], [], "source", "Arch's."],
+    ["apt", "pkg", "apt / dpkg", "GPL-2", 5, ["pkg"], ["glibc"], [], "source", "Debian's; huge software pool."],
+    ["nix", "pkg", "Nix", "LGPL-2.1", 30, ["pkg"], ["linux"], [], "source", "Reproducible, roll-back-able."],
+    ["ifupdown", "net", "ifupdown-ng", "ISC", 0.1, ["net"], ["linux"], [], "alpine", "Alpine's /etc/network/interfaces."],
+    ["nm", "net", "NetworkManager", "GPL-2", 15, ["net"], ["linux"], [], "source", "Wi-Fi menus on desktops."],
+    ["iwd", "net", "iwd (Wi-Fi)", "LGPL-2.1", 2, ["net"], ["linux"], [], "source", "Light Wi-Fi."],
+    ["doas", "sec", "doas (admin rights, asks password)", "ISC", 0.05, ["admin"], ["linux"], ["sudo"], "alpine", "Alpine's small sudo."],
+    ["sudo", "sec", "sudo", "ISC", 3, ["admin"], ["linux"], ["doas"], "source", "The common one."],
+    ["nftables", "sec", "nftables firewall", "GPL-2", 1, ["firewall"], ["linux"], [], "source", "An Alpine package, but not on the offline Alpine image: a download."],
+    ["apparmor", "sec", "AppArmor", "GPL-2", 2, ["mac"], ["linux"], ["selinux"], "source", "Per-program limits."],
+    ["selinux", "sec", "SELinux", "GPL-2", 5, ["mac"], ["linux"], ["apparmor"], "source", "Strict, fine-grained."],
+    ["text", "display", "Text only (screen + serial)", "—", 0, ["display"], [], [], "alpine", "What the Alpine builder makes today."],
+    ["fb", "display", "Framebuffer", "GPL-2", 0, ["display", "fb"], ["kernel"], [], "source", "Pixels without a window system."],
+    ["x11", "display", "X11 (Xorg)", "MIT", 40, ["display", "x11"], ["linux"], [], "source", "Classic window system."],
+    ["wayland", "display", "Wayland", "MIT", 10, ["display", "wayland"], ["linux"], [], "source", "Modern window system."],
+    ["noshell", "shell", "None (login prompt)", "—", 0, ["shell"], [], [], "alpine", ""],
+    ["sway", "shell", "sway (tiling)", "MIT", 20, ["shell"], ["wayland"], [], "source", ""],
+    ["xfce", "shell", "Xfce", "GPL-2", 150, ["shell"], ["x11"], [], "source", ""],
+    ["udsshell", "shell", "Randis UDS as the desktop", "GPLv3+terms", 150, ["shell", "udsshell"], ["wayland|x11"], [], "source", "The UDS app full screen as the whole desktop (cage kiosk on Wayland)."],
+  ].map(([id, layer, name, lic, mb, gives, needs, conf, how, note]) => ({id, layer, name, lic, mb, gives, needs, conf, how, note}));
+  const byId = Object.fromEntries(B.map(b => [b.id, b]));
+  const TAGS = {androidk: "a vendor Android kernel", alpine: "an Alpine base", modemhw: "a board with a modem", androidhw: "an Android phone board", arm64: "an ARM64 phone board", x86: "an x86 device", modem: "a modem", touchui: "a touch shell", android: "Android", bios: "BIOS firmware", uefi: "UEFI firmware", loader: "a bootloader", kernel: "a kernel", linux: "the Linux kernel", micro: "a microkernel", libc: "a C library", wayland: "Wayland", x11: "X11", busybox: "BusyBox", systemd: "systemd", glibc: "glibc", musl: "musl"};
+  const DESK = {LAYERS, BLOCKS: B, byId};
+  function picked(stack, cat) { const by = (cat || DESK).byId; return Object.values(stack || {}).flat().filter(Boolean).map(id => by[id]).filter(Boolean); }
+  function checkStack(stack, cat) {
+    cat = cat || DESK; const tagName = x => (TAGS[x] || (cat.byId[x] || {}).name || x);
+    const P = picked(stack, cat), gives = new Set(P.flatMap(b => [b.id, ...b.gives])), errs = [], warns = [];
+    for (const [lid, label, , req] of cat.LAYERS) { const v = stack[lid]; if (req && (!v || (Array.isArray(v) && !v.length))) errs.push(`${label}: pick one.`); }
+    for (const b of P) {
+      for (const n of b.needs) if (!n.split("|").some(x => gives.has(x))) errs.push(`${b.name} needs ${n.split("|").map(tagName).join(" or ")}.`);
+      for (const c of b.conf) if (gives.has(c)) { const who = P.filter(o => o !== b && (o.id === c || o.gives.includes(c))).map(o => o.name); if (who.length) errs.push(`${b.name} can't go with ${who.join(", ")}.`); }
+    }
+    if (gives.has("ownboot") && !gives.has("ownkernel")) warns.push("The Randis boot sector boots and prints; it can't load Linux yet. Pick ISOLINUX/GRUB for a full Alpine system, or keep it for the from-scratch track.");
+    const mb = P.reduce((a, b) => a + b.mb, 0), lic = [...new Set(P.map(b => b.lic))];
+    if (P.some(b => b.lic === "CDDL")) warns.push("CDDL with GPL: check licences before sharing.");
+    const alpine = P.length && P.every(b => b.how === "alpine") && !errs.length;
+    const steps = P.filter(b => b.how !== "alpine" && b.how !== "built").map(b => b.layer === "board" ? `Get the device: ${b.name} (hardware).` : b.how === "ours" ? `Write ${b.name} from scratch (no outside code).` : `Get and build ${b.name} from source (${b.lic}), a download.`);
+    return {errs: [...new Set(errs)], warns, mb: Math.round(mb * 10) / 10, lic, alpine, steps};
+  }
+  function toAlpine(stack, design) {
+    const P = new Set(picked(stack).map(b => b.id)), d = JSON.parse(JSON.stringify(design));
+    
+    if (!P.has("ifupdown")) d.network = Object.assign({}, d.network, {mode: "none"});
+    else if (d.network.mode === "none") d.network.mode = "dhcp";
+    return d;
+  }
+  function bootSector(msg) {
+    const text = String(msg || "").replace(/\r?\n/g, "\r\n").replace(/[^\x20-\x7e\r\n]/g, "?");
+    const code = [0xFA, 0x31, 0xC0, 0x8E, 0xD8, 0x8E, 0xC0, 0x8E, 0xD0, 0xBC, 0x00, 0x7C, 0xFB,
+      0xBE, 0x28, 0x7C,
+      0xAC, 0x08, 0xC0, 0x74, 0x0F,
+      0x50, 0xB4, 0x0E, 0xBB, 0x07, 0x00, 0xCD, 0x10, 0x58,
+      0xBA, 0xF8, 0x03, 0xEE, 0xEB, 0xEC,
+      0xFA, 0xF4, 0xEB, 0xFC];
+    if (code.length !== 40) throw new Error("boot code size");
+    const room = 510 - 40 - 1; if (text.length > room) throw new Error(`Message too long: ${text.length} of ${room} characters.`);
+    const s = new Uint8Array(512); s.set(code, 0); for (let i = 0; i < text.length; i++) s[40 + i] = text.charCodeAt(i); s[510] = 0x55; s[511] = 0xAA;
+    return s;
+  }
+  function bootISO(sector, volid) {
+    const SZ = 2048, N = 24, img = new Uint8Array(SZ * N), at = n => n * SZ;
+    const str = (o, s, len) => { for (let i = 0; i < len; i++) img[o + i] = i < s.length ? s.charCodeAt(i) : 0x20; };
+    const le32 = (o, v) => { img[o] = v & 255; img[o + 1] = v >>> 8 & 255; img[o + 2] = v >>> 16 & 255; img[o + 3] = v >>> 24 & 255; };
+    const be32 = (o, v) => { img[o + 3] = v & 255; img[o + 2] = v >>> 8 & 255; img[o + 1] = v >>> 16 & 255; img[o] = v >>> 24 & 255; };
+    const both32 = (o, v) => { le32(o, v); be32(o + 4, v); }, both16 = (o, v) => { img[o] = v & 255; img[o + 1] = v >> 8; img[o + 2] = v >> 8; img[o + 3] = v & 255; };
+    const dirrec = (o, extent, len, name) => { img[o] = 34; both32(o + 2, extent); both32(o + 10, len); img[o + 18] = 126; img[o + 19] = 11; img[o + 20] = 23; img[o + 25] = 2; both16(o + 28, 1); img[o + 32] = 1; img[o + 33] = name; };
+    img.set(sector, 0);
+    const p = at(16); img[p] = 1; str(p + 1, "CD001", 5); img[p + 6] = 1; str(p + 8, "RANDIS", 32); str(p + 40, (volid || "RANDIS_BOOT").toUpperCase().replace(/[^A-Z0-9_]/g, "_").slice(0, 32), 32);
+    both32(p + 80, N); both16(p + 120, 1); both16(p + 124, 1); both16(p + 128, SZ); both32(p + 132, 10); le32(p + 140, 22); be32(p + 148, 23);
+    dirrec(p + 156, 21, SZ, 0); str(p + 190, "", 128); str(p + 318, "RANDIS UDS", 128); str(p + 446, "RANDIS UDS DISTRO STUDIO", 128); str(p + 574, "RANDIS UDS", 128);
+    for (const o of [813, 830, 847, 864]) { str(p + o, "0000000000000000", 16); img[p + o + 16] = 0; } img[p + 881] = 1;
+    const br = at(17); img[br] = 0; str(br + 1, "CD001", 5); img[br + 6] = 1; str(br + 7, "EL TORITO SPECIFICATION", 32); for (let i = 7 + 23; i < 39; i++) img[br + i] = 0; le32(br + 0x47, 19);
+    const t = at(18); img[t] = 255; str(t + 1, "CD001", 5); img[t + 6] = 1;
+    const c = at(19); img[c] = 1; img[c + 1] = 0; str(c + 4, "RANDIS UDS", 24); img[c + 30] = 0x55; img[c + 31] = 0xAA;
+    let sum = 0; for (let i = 0; i < 32; i += 2) sum = (sum + (img[c + i] | img[c + i + 1] << 8)) & 0xFFFF; const ck = (0x10000 - sum) & 0xFFFF; img[c + 28] = ck & 255; img[c + 29] = ck >> 8;
+    img[c + 32] = 0x88; img[c + 33] = 0; img[c + 34] = 0; img[c + 35] = 0; img[c + 36] = 0; img[c + 38] = 4; img[c + 39] = 0; le32(c + 40, 20);
+    img.set(sector, at(20));
+    const r = at(21); dirrec(r, 21, SZ, 0); dirrec(r + 34, 21, SZ, 1);
+    for (const [s, f, le] of [[22, le32, 1], [23, be32, 0]]) { const o = at(s); img[o] = 1; f(o + 2, 21); img[o + 6] = le ? 1 : 0; img[o + 7] = le ? 0 : 1; }
+    return img;
+  }
+  const api = {LAYERS, BLOCKS: B, byId, checkStack, toAlpine, bootSector, bootISO, picked};
+  root.OSCORE = Object.assign(root.OSCORE || {}, api);
+  if (typeof module !== "undefined") module.exports = root.OSCORE;
+})(typeof window !== "undefined" ? window : globalThis);
+
+(function (root) {
+  const PROFILE = [
+    "# Randis UDOS 0.1 (Distro Studio, Randis UDS)",
+    "udos() {",
+    "  case \"$1\" in",
+    "    info) . /etc/udos-release; . /etc/os-release; echo \"Randis UDOS $UDOS_VERSION ($UDOS_CODENAME) on $PRETTY_NAME, kernel $(uname -r)\"; free -m | head -2; uptime ;;",
+    "    disks) cat /proc/partitions ;;",
+    "    net) ip -br addr ;;",
+    "    save) doas lbu commit && echo \"Saved your changes to the boot media.\" ;;",
+    "    install) shift; if [ \"$(id -u)\" = 0 ]; then udos-install \"$@\"; else doas udos-install \"$@\"; fi ;;",
+    "    secure) for k in kernel.kptr_restrict kernel.dmesg_restrict net.ipv4.tcp_syncookies net.ipv4.conf.all.rp_filter; do sysctl $k; done ;;",
+    "    *) echo \"udos info | disks | net | secure | save (keep changes) | install [DISK] (put UDOS on a disk) | help\" ;;",
+    "  esac",
+    "}",
+    "echo \"Type 'udos help' for Randis UDOS commands.\"", ""].join("\n");
+  const INSTALL = "#!/bin/sh\n# udos-install: put Randis UDOS on a disk. Randis UDS.\n#\n#   udos-install [DISK]          default \"boot\" install, works with no network:\n#                                GPT disk = a 256 MB UEFI boot partition (FAT32: the UDOS boot files, the ISO's own\n#                                boot loader and your settings) + the rest as an ext4 data partition mounted at /data.\n#                                UDOS starts from the disk with no CD, runs from RAM like the CD, and 'udos save'\n#                                keeps your changes on the disk.\n#   udos-install --sys [DISK]    classic install with Alpine's setup-disk (the OS on ext4). Needs the packages\n#                                linux-virt, mkinitfs and syslinux on the boot media; it checks first and changes nothing\n#                                if they are missing.\n#\n# Safety: refuses a disk under 512 MB, refuses the disk UDOS booted from, shows what is on the disk and only wipes it\n# after you type the disk's name. Exit codes: 0 done, 1 you said no, 2 usage, 3 disk too small, 4 packages missing,\n# 5 a step failed.\nset -u\nMIN_MB=512\nESP_MB=256\nVERSION=$(. /etc/udos-release 2>/dev/null; echo \"${UDOS_VERSION:-?}\")\n\nsay() { printf 'udos-install: %s\\n' \"$*\"; }\ndie() { code=$1; shift; say \"$*\"; exit \"$code\"; }\n\nusage() {\n    sed -n '3,19p' \"$0\" | sed 's/^# \\{0,1\\}//'\n}\n\nmode=boot\ndisk=\"\"\nfor a in \"$@\"; do\n    case \"$a\" in\n        --sys) mode=sys ;;\n        -h|--help|help) usage; exit 0 ;;\n        -*) die 2 \"unknown option $a (try: udos-install --help)\" ;;\n        *) disk=${a#/dev/} ;;\n    esac\ndone\n\n[ \"$(id -u)\" = 0 ] || die 2 \"run it as root: doas udos-install $*\"\n\n# where the UDOS boot files are (the CD, a USB stick, or an installed boot partition)\nmedia=\"\"\nfor m in /media/*; do\n    if [ -f \"$m/.alpine-release\" ] && [ -d \"$m/boot\" ] && [ -d \"$m/apks\" ]; then media=$m; break; fi\ndone\n[ -n \"$media\" ] || die 2 \"can't find the UDOS boot files (no /media/*/.alpine-release)\"\nbootdev=$(awk -v m=\"$media\" '$2 == m { sub(\"/dev/\", \"\", $1); print $1 }' /proc/mounts)\n\nlist_disks() {\n    for d in /sys/block/*; do\n        n=${d##*/}\n        case \"$n\" in loop*|ram*|sr*|zram*|fd*|md*|dm-*) continue ;; esac\n        printf '  %-8s %6s MB%s\\n' \"$n\" $(( $(cat \"$d/size\") / 2048 )) \"$(case \"$bootdev\" in \"$n\"*) echo '  (UDOS booted from this)';; esac)\"\n    done\n}\n\nif [ -z \"$disk\" ]; then\n    say \"say which disk to install on, e.g. udos-install vdb. Disks here:\"\n    list_disks\n    exit 2\nfi\n[ -e \"/sys/block/$disk\" ] || { say \"there is no disk called $disk. Disks here:\"; list_disks; exit 2; }\ncase \"$bootdev\" in \"$disk\"*) die 2 \"$disk holds the UDOS you started from; pick another disk\" ;; esac\n\nmb=$(( $(cat \"/sys/block/$disk/size\") / 2048 ))\n[ \"$mb\" -ge \"$MIN_MB\" ] || die 3 \"$disk is $mb MB; Randis UDOS needs at least $MIN_MB MB. Nothing was changed.\"\n\nif [ \"$mode\" = sys ]; then\n    missing=\"\"\n    for p in linux-virt mkinitfs syslinux; do\n        [ -n \"$(apk search -x \"$p\" 2>/dev/null)\" ] || missing=\"$missing $p\"\n    done\n    [ -z \"$missing\" ] || die 4 \"--sys needs these packages, which are not on this boot media:$missing. Nothing was changed. (The default install, without --sys, works offline.)\"\nfi\n\ncase \"$disk\" in *[0-9]) part=${disk}p ;; *) part=$disk ;; esac\np1=${part}1\np2=${part}2\n\nsay \"Randis UDOS $VERSION install ($mode) onto /dev/$disk, $mb MB. Now on it:\"\ngrep -w \"${disk}[p0-9]*\" /proc/partitions | awk '{ printf \"  %-10s %8d KB\\n\", $4, $3 }'\nblkid 2>/dev/null | grep \"^/dev/$disk\" | sed 's/^/  /'\nsay \"EVERYTHING on /dev/$disk will be erased.\"\nprintf 'Type the disk name (%s) to erase it and install, anything else stops: ' \"$disk\"\nread -r answer\n[ \"$answer\" = \"$disk\" ] || die 1 \"stopped; /dev/$disk was not changed.\"\n\n# let go of anything mounted from this disk\nawk -v d=\"/dev/$disk\" 'index($1, d) == 1 { print $2 }' /proc/mounts | sort -r | while read -r m; do umount \"$m\" || exit 5; done || die 5 \"a partition of $disk is busy\"\n\nif [ \"$mode\" = sys ]; then\n    say \"running setup-disk -m sys /dev/$disk\"\n    ERASE_DISKS=/dev/$disk setup-disk -m sys -s 0 \"/dev/$disk\" || die 5 \"setup-disk failed\"\n    say \"done. Power off, remove the CD/USB stick and start from $disk.\"\n    exit 0\nfi\n\nsay \"1/5 partitioning (GPT: $ESP_MB MB UEFI boot + the rest for data)\"\nprintf 'label: gpt\\nsize=%sMiB, type=U, name=\"UDOS-BOOT\"\\ntype=L, name=\"udos-data\"\\n' \"$ESP_MB\" \\\n    | sfdisk -q --wipe always --wipe-partitions always \"/dev/$disk\" || die 5 \"sfdisk failed\"\ni=0\nwhile [ ! -b \"/dev/$p2\" ] && [ \"$i\" -lt 20 ]; do partx -u \"/dev/$disk\" 2>/dev/null; mdev -s; sleep 1; i=$((i + 1)); done\n[ -b \"/dev/$p1\" ] && [ -b \"/dev/$p2\" ] || die 5 \"the new partitions did not show up\"\n\nsay \"2/5 file systems (FAT32 boot, ext4 data)\"\nmkfs.vfat -F 32 -n UDOS-BOOT \"/dev/$p1\" >/dev/null || die 5 \"mkfs.vfat failed\"\nmkfs.ext4 -q -F -L udos-data \"/dev/$p2\" || die 5 \"mkfs.ext4 failed\"\n\nsay \"3/5 copying the UDOS boot files from $media\"\nmkdir -p \"/media/$p1\" /data\nmount -t vfat \"/dev/$p1\" \"/media/$p1\" || die 5 \"can't mount the boot partition\"\ncp -r \"$media/.\" \"/media/$p1/\" || die 5 \"copy failed (disk full?)\"\nrm -f \"/media/$p1\"/*.apkovl.tar.gz\nprintf 'UDOS_INSTALL_VERSION=%s\\nUDOS_INSTALL_MODE=boot\\nUDOS_INSTALL_DATE=\"%s\"\\nUDOS_INSTALL_DISK=%s\\n' \"$VERSION\" \"$(date)\" \"$disk\" > \"/media/$p1/udos-install.txt\"\n\nsay \"4/5 data partition at /data\"\nmount -t ext4 \"/dev/$p2\" /data || die 5 \"can't mount the data partition\"\nprintf 'Randis UDOS data partition (made %s). Files here stay on the disk.\\n' \"$(date)\" > /data/README-udos.txt\ngrep -q ' /data ' /etc/fstab || echo \"LABEL=udos-data /data ext4 defaults,nofail 0 2\" >> /etc/fstab\n\nsay \"5/5 your settings onto the disk (udos save will keep them there)\"\nif grep -q '^LBU_MEDIA=' /etc/lbu/lbu.conf 2>/dev/null; then\n    sed -i \"s/^LBU_MEDIA=.*/LBU_MEDIA=$p1/\" /etc/lbu/lbu.conf\nelse\n    echo \"LBU_MEDIA=$p1\" >> /etc/lbu/lbu.conf\nfi\necho \"/media/$p1/apks\" > /etc/apk/repositories\nlbu package \"/media/$p1/\" || die 5 \"saving the settings failed\"\nsync\nls \"/media/$p1\"/*.apkovl.tar.gz >/dev/null 2>&1 || die 5 \"the settings file is missing on the disk\"\nsay \"done: /dev/$p1 boot ($(du -sm \"/media/$p1\" | cut -f1) MB used), /dev/$p2 data at /data.\"\nsay \"Power off, remove the CD/USB stick and start the PC from $disk (UEFI). Older BIOS-only PCs need the --sys install.\"\nexit 0\n";
+  const UDOS = {
+    hostname: "randis-udos", message: "Randis UDOS 0.1 - User Defined Operating System.",
+    packages: ["e2fsprogs", "sfdisk", "tzdata", "wget", "iw", "wpa_supplicant"],
+    users: [{name: "admin", admin: true}],
+    services: ["networking", "chronyd", "crond", "acpid", "local"],
+    network: {mode: "dhcp", iface: "eth0", address: "", netmask: "255.255.255.0", gateway: "", dns: ""},
+    boot: {timeout: 2, args: ""},
+    files: [
+      {path: "/etc/udos-release", text: "UDOS_NAME=\"Randis UDOS\"\nUDOS_VERSION=0.1\nUDOS_CODENAME=seed\nUDOS_BASE=\"Alpine Linux 3.24 (musl, OpenRC, BusyBox)\"\nUDOS_AUTHOR=\"Randis UDS\"\n"},
+      {path: "/etc/issue", text: "Randis UDOS 0.1 (User Defined Operating System)\nKernel \\r on \\m (\\l)\n\n"},
+      {path: "/etc/profile.d/udos.sh", text: PROFILE},
+      {path: "/usr/sbin/udos-install", text: INSTALL},
+      {path: "/etc/sysctl.d/90-udos.conf", text: "# Randis UDOS hardening\nkernel.kptr_restrict = 2\nkernel.dmesg_restrict = 1\nnet.ipv4.tcp_syncookies = 1\nnet.ipv4.conf.all.rp_filter = 1\nnet.ipv4.conf.default.rp_filter = 1\nnet.ipv4.conf.all.accept_redirects = 0\nnet.ipv6.conf.all.accept_redirects = 0\nnet.ipv4.conf.all.send_redirects = 0\n"},
+    ],
+  };
+  const WHY = [
+    ["Base: Alpine 3.24 (musl, OpenRC, BusyBox)", "Smallest real, maintained Linux: ~70 MB, boots in seconds, security-minded defaults. Builds offline today."],
+    ["Runs from RAM", "Nothing on the PC changes unless you say 'udos save'; a bad change is gone after a restart."],
+    ["Admin with doas that asks the password", "One small admin tool; no passwordless root."],
+    ["No remote login by default", "sshd stays off: nothing listens on the network until you turn it on."],
+    ["Kernel hardening (sysctl)", "Hides kernel addresses and logs from normal users, SYN-flood and spoofing protection, no ICMP redirects."],
+    ["Clock, scheduled jobs, power button", "chronyd keeps time right (TLS and logs need it), crond, acpid so the VM/PC shuts down cleanly."],
+    ["Wi-Fi + disk tools", "iw + wpa_supplicant for Wi-Fi, e2fsprogs + sfdisk to install to a drive later."],
+    ["The 'udos' command", "info, disks, net, secure, save, install: the system explains itself."],
+    ["'udos install' (offline)", "Puts UDOS on a disk with no network: UEFI boot partition + ext4 /data; asks you to type the disk's name before wiping, refuses disks under 512 MB."],
+  ];
+  const ROADMAP = [
+    ["0.1 seed", "The text system above, boots on BIOS, UEFI and USB, ready for the VM Suite.", "done"],
+    ["0.2 desktop", "Wayland + cage kiosk with Randis UDS full screen as the desktop (needs Alpine packages: download).", "plan"],
+    ["0.3 install", "'udos install': offline UEFI install (FAT32 boot + ext4 /data, settings saved to the disk), boots from the disk with no CD. Coming: the --sys install, btrfs, encryption.", "started"],
+    ["0.4 updates", "Signed UDOS update channel + rollback (btrfs snapshots).", "plan"],
+    ["0.5 apps", "UDS shop apps as UDOS apps; sandboxed per app.", "plan"],
+    ["From-scratch track", "Randis boot sector + stage 2 + kernel 0.6 (protected mode, interrupts, scheduler, paging; heap, ring 3, system calls, shell; disk driver + its own file system + programs from disk in their own address space; program arguments, sleep, background programs; pipes, folders + append). Coming: line editing + Ctrl-C, more program slots, IRQ disk reads, a Build & boot button on the From scratch page.", "started"],
+    ["Mobile", "Randis Mobile UDOS: same base on phones (see Mobile OS).", "started"],
+  ];
+  root.OSCORE = Object.assign(root.OSCORE || {}, {UDOS, UDOS_WHY: WHY, UDOS_ROADMAP: ROADMAP});
+  if (typeof module !== "undefined") module.exports = root.OSCORE;
+})(typeof window !== "undefined" ? window : globalThis);
+
+(function (root) {
+  const LAYERS = [["board", "Device / board", "one", true], ["boot", "Bootloader", "one", true], ["kernel", "Kernel", "one", true], ["base", "Base system", "one", true],
+    ["shell", "Touch shell (UI)", "one", true], ["phone", "Calls, SMS, data", "one", false], ["apps", "App runtimes", "many", true], ["power", "Power + sensors", "many", false],
+    ["sec", "Security", "many", false], ["update", "Updates", "one", false]];
+  const B = [
+    ["qemuarm", "board", "QEMU ARM64 virtual phone", "GPL-2", 0, ["arm64", "vm"], [], [], "plan", "Test every build in a VM first (needs the ARM64 QEMU + firmware: a download)."],
+    ["pine", "board", "Open-hardware Linux phone (PinePhone class)", "open", 0, ["arm64", "modemhw"], [], [], "plan", "Mainline Linux runs; flash from SD card."],
+    ["pixel", "board", "Android phone with unlockable bootloader", "vendor", 0, ["arm64", "modemhw", "androidhw"], [], [], "plan", "Most phones need vendor kernel parts (Halium or Android)."],
+    ["x86tab", "board", "x86 tablet / 2-in-1", "vendor", 0, ["x86"], [], [], "alpine", "Runs the desktop Randis UDOS with a touch shell; buildable path today."],
+    ["uboot", "boot", "U-Boot", "GPL-2", 1, ["loader"], ["arm64"], [], "plan", "Standard for ARM boards."],
+    ["abl", "boot", "Android bootloader (fastboot)", "vendor", 0, ["loader"], ["androidhw"], [], "plan", "Flash boot.img with fastboot."],
+    ["grubm", "boot", "GRUB / UEFI", "GPL-3", 6, ["loader"], ["x86"], [], "alpine", "x86 tablets."],
+    ["mainline", "kernel", "Mainline Linux", "GPL-2", 30, ["kernel", "linux"], ["loader"], [], "plan", "Best long-term; device support varies."],
+    ["vendork", "kernel", "Vendor Android kernel", "GPL-2", 30, ["kernel", "linux", "androidk"], ["androidhw"], [], "plan", "Works on more phones; old, hard to update."],
+    ["linuxx86", "kernel", "Linux 6.18 LTS (Alpine)", "GPL-2", 30, ["kernel", "linux"], ["x86"], [], "alpine", "Same kernel as desktop UDOS."],
+    ["pmos", "base", "postmarketOS-style Alpine (musl, OpenRC)", "GPL/MIT", 60, ["base", "alpine"], ["linux"], [], "plan", "Alpine for phones: same base as Randis UDOS, so the same tools and the udos command."],
+    ["alpinex86", "base", "Alpine (Randis UDOS base)", "GPL/MIT", 60, ["base", "alpine"], ["linux"], [], "alpine", ""],
+    ["aosp", "base", "Android Open Source Project", "Apache-2", 2000, ["base", "android"], ["androidk"], [], "plan", "Android apps natively; huge build (hundreds of GB)."],
+    ["phosh", "shell", "Phosh (GNOME mobile)", "GPL-3", 60, ["touchui"], ["alpine"], [], "plan", ""],
+    ["plasmam", "shell", "Plasma Mobile", "GPL-2", 200, ["touchui"], ["alpine"], [], "plan", ""],
+    ["sxmo", "shell", "SXMO (minimal, gestures)", "MIT", 10, ["touchui"], ["alpine"], [], "plan", "Tiny; for tinkerers."],
+    ["sysui", "shell", "Android System UI", "Apache-2", 0, ["touchui"], ["android"], [], "plan", ""],
+    ["rudsm", "shell", "Randis UDS Mobile (our shell)", "GPLv3+terms", 1, ["touchui", "pwa"], [], [], "built", "The Randis UDS Mobile app full screen as the phone's home screen (cage kiosk + web view). Available now as an app."],
+    ["mm", "phone", "ModemManager + oFono-style stack", "GPL-2", 5, ["calls"], ["linux", "modemhw"], [], "plan", "Calls, SMS, mobile data on Linux phones."],
+    ["ril", "phone", "Android RIL", "Apache-2", 0, ["calls"], ["android"], [], "plan", ""],
+    ["native", "apps", "Native Linux apps (apk)", "various", 0, ["appsrt"], ["alpine"], [], "plan", ""],
+    ["pwa", "apps", "Web apps / Randis UDS tabs (PWA)", "—", 0, ["appsrt"], [], [], "built", "Every Randis UDS tab runs as an app; works offline."],
+    ["waydroid", "apps", "Android apps in a container (Waydroid)", "GPL-3", 800, ["appsrt"], ["linux"], [], "plan", "Runs Android apps on Linux phones."],
+    ["androidrt", "apps", "Android runtime (ART)", "Apache-2", 0, ["appsrt"], ["android"], [], "plan", ""],
+    ["suspend", "power", "Deep sleep + wake on call", "GPL-2", 0, ["sleep"], ["linux"], [], "plan", "The hard part of phone battery life."],
+    ["iio", "power", "Sensors (iio-sensor-proxy): rotate, light", "GPL-3", 1, ["sensors"], ["linux"], [], "plan", ""],
+    ["fde", "sec", "Full-disk encryption", "GPL-2", 1, ["fde"], ["linux"], [], "plan", ""],
+    ["vboot", "sec", "Verified boot", "various", 0, ["vboot"], ["loader"], [], "plan", ""],
+    ["appsandbox", "sec", "Per-app sandbox (bubblewrap)", "LGPL-2", 1, ["sandbox"], ["linux"], [], "plan", ""],
+    ["ab", "update", "A/B partitions with rollback", "—", 0, ["updates"], ["kernel"], [], "plan", "A bad update never bricks the phone."],
+    ["apkup", "update", "apk upgrade (in place)", "GPL-2", 0, ["updates"], ["alpine"], [], "plan", ""],
+  ].map(([id, layer, name, lic, mb, gives, needs, conf, how, note]) => ({id, layer, name, lic, mb, gives, needs, conf, how: how === "plan" ? "source" : how, note}));
+  const MOBILE = {LAYERS, BLOCKS: B, byId: Object.fromEntries(B.map(b => [b.id, b]))};
+  const RMUDOS = {board: "pine", boot: "uboot", kernel: "mainline", base: "pmos", shell: "rudsm", phone: "mm", apps: ["pwa", "native", "waydroid"], power: ["suspend", "iio"], sec: ["fde", "appsandbox", "vboot"], update: "ab"};
+  const RMUDOS_X86 = {board: "x86tab", boot: "grubm", kernel: "linuxx86", base: "alpinex86", shell: "rudsm", apps: ["pwa"], power: [], sec: [], update: null};
+  const PLATFORMS = [
+    ["Android (phones, tablets, Chromebooks)", "Install the web app from Chrome/Edge (works now); store package = Trusted Web Activity / Capacitor wrapper of the same files", "works now as installed web app", "Play Store package: Android SDK + signing key, store account"],
+    ["iPhone / iPad", "Safari › Share › Add to Home Screen (works now); App Store = WKWebView/Capacitor wrapper", "works now as home-screen app", "App Store: a Mac with Xcode + Apple developer account"],
+    ["Windows / Mac / Linux desktops", "Chrome/Edge install button (works now); the full desktop Randis UDS already exists", "works now", "—"],
+    ["Randis Mobile UDOS", "Its home screen is this app (shell 'Randis UDS Mobile')", "app done; OS image = plan", "ARM64 Alpine + QEMU ARM64 downloads"],
+    ["Linux phones (postmarketOS, Mobian…)", "Any browser: install the web app", "works now", "—"],
+    ["Stores: Microsoft Store, F-Droid, Galaxy Store", "Same files packaged (PWABuilder-style, our own packer)", "plan", "Store accounts"],
+  ];
+  root.OSCORE = Object.assign(root.OSCORE || {}, {MOBILE, RMUDOS, RMUDOS_X86, PLATFORMS});
+  if (typeof module !== "undefined") module.exports = root.OSCORE;
+})(typeof window !== "undefined" ? window : globalThis);
+
+(function (root) {
+  const PCI = [
+    ["8086", "100e", "Intel PRO/1000 (e1000) network", "e1000", true, ""], ["8086", "10d3", "Intel 82574L network", "e1000e", true, ""], ["8086", "15b8", "Intel I219 network", "e1000e", true, ""],
+    ["1af4", "1000", "Virtio network (legacy)", "virtio_net", true, ""], ["1af4", "1041", "Virtio network", "virtio_net", true, ""], ["1af4", "1001", "Virtio disk (legacy)", "virtio_blk", true, ""],
+    ["1af4", "1042", "Virtio disk", "virtio_blk", true, ""], ["1af4", "1004", "Virtio SCSI", "virtio_scsi", true, ""], ["1af4", "1005", "Virtio RNG", "virtio_rng", true, ""], ["1af4", "1050", "Virtio GPU", "virtio_gpu", false, ""],
+    ["1234", "1111", "QEMU standard VGA", "bochs (DRM)", false, ""], ["1b36", "0100", "QXL display", "qxl", false, ""], ["1b36", "000d", "QEMU XHCI USB", "xhci_pci", true, ""],
+    ["8086", "7000", "Intel PIIX3 ISA bridge", "(built in)", true, ""], ["8086", "7010", "Intel PIIX3 IDE", "ata_piix", true, ""], ["8086", "7113", "Intel PIIX4 power", "i2c_piix4", true, ""], ["8086", "1237", "Intel 440FX host bridge", "(built in)", true, ""],
+    ["8086", "2922", "Intel ICH9 SATA (AHCI)", "ahci", true, ""], ["8086", "293e", "Intel ICH9 HD Audio", "snd_hda_intel", false, ""], ["8086", "2668", "Intel ICH6 HD Audio", "snd_hda_intel", false, ""],
+    ["10ec", "8168", "Realtek RTL8111 network", "r8169", false, "linux-firmware-rtl_nic"], ["10ec", "8139", "Realtek RTL8139 network", "8139too", true, ""],
+    ["8086", "2723", "Intel Wi-Fi 6 AX200", "iwlwifi", false, "linux-firmware-intel"], ["14c3", "7961", "MediaTek MT7921 Wi-Fi", "mt7921e", false, "linux-firmware-mediatek"],
+    ["10de", "*", "NVIDIA GPU", "nouveau (or NVIDIA's own)", false, "linux-firmware-nvidia"], ["1002", "*", "AMD GPU", "amdgpu", false, "linux-firmware-amdgpu"], ["8086", "46a6", "Intel Iris Xe graphics", "i915", false, "linux-firmware-i915"],
+  ];
+  const CLASS = {"01": "storage", "02": "network", "03": "display", "04": "multimedia", "06": "bridge", "07": "communication", "0c": "serial bus (USB)", "0d": "wireless", "08": "system"};
+  const USB = [["0bda", "*", "Realtek USB device", "rtl8xxxu / r8152", false, "linux-firmware-rtlwifi"], ["8087", "*", "Intel Bluetooth", "btusb", false, "linux-firmware-intel"], ["046d", "*", "Logitech input", "usbhid", true, ""], ["0627", "0001", "QEMU USB tablet", "usbhid", true, ""]];
+  function lookup(table, v, d) { v = v.toLowerCase(); d = d.toLowerCase(); return table.find(r => r[0] === v && r[1] === d) || table.find(r => r[0] === v && r[1] === "*") || null; }
+  function parseHW(text) {
+    const out = [];
+    for (const line of String(text).split(/\r?\n/)) {
+      let m, bus = "pci", v, d, cls = "", drv = "";
+      if ((m = /^0x([0-9a-f]{4})\s+0x([0-9a-f]{4})\s+0x([0-9a-f]{2})[0-9a-f]{4}\s*(\S*)/i.exec(line.trim()))) { [, v, d, cls, drv] = m; }
+      else if ((m = /\[([0-9a-f]{4})\]:?\s.*\[([0-9a-f]{4}):([0-9a-f]{4})\]/i.exec(line))) { cls = m[1].slice(0, 2); v = m[2]; d = m[3]; }
+      else if ((m = /^\S+\s+([0-9a-f]{2})[0-9a-f]{2}:\s+([0-9a-f]{4}):([0-9a-f]{4})/i.exec(line))) { cls = m[1]; v = m[2]; d = m[3]; }
+      else if ((m = /^Bus \d+ Device \d+: ID ([0-9a-f]{4}):([0-9a-f]{4})/i.exec(line))) { bus = "usb"; v = m[1]; d = m[2]; }
+      else continue;
+      const k = lookup(bus === "usb" ? USB : PCI, v, d);
+      out.push({bus, id: v.toLowerCase() + ":" + d.toLowerCase(), cls: CLASS[cls.toLowerCase()] || (cls ? "class " + cls : ""), name: k ? k[2] : "Unknown device", driver: k ? k[3] : "?", virt: k ? k[4] : null, firmware: k ? k[5] : "", loaded: drv || ""});
+    }
+    return out;
+  }
+  const HW_CMD = "for d in /sys/bus/pci/devices/*; do echo $(cat $d/vendor) $(cat $d/device) $(cat $d/class) $(basename \"$(readlink $d/driver)\" 2>/dev/null); done";
+  const C = s => s.replace(/[^a-z0-9_]/gi, "_").toLowerCase().replace(/^([0-9])/, "_$1");
+  const HDR = (name, what) => `// SPDX-License-Identifier: GPL-2.0\n/*\n * ${name}: ${what}\n * Made with Distro Studio (Randis UDS). Build and load it ONLY inside a virtual machine, never on your own PC.\n */\n`;
+  const TPL = {
+    hello: (n) => HDR(n, "the smallest Linux kernel module") + `#include <linux/module.h>\n#include <linux/init.h>\n\nstatic int __init ${n}_init(void)\n{\n\tpr_info("${n}: loaded\\n");\n\treturn 0;\n}\n\nstatic void __exit ${n}_exit(void)\n{\n\tpr_info("${n}: unloaded\\n");\n}\n\nmodule_init(${n}_init);\nmodule_exit(${n}_exit);\nMODULE_LICENSE("GPL");\nMODULE_DESCRIPTION("${n}");\n`,
+    chardev: (n) => HDR(n, "a /dev/" + n + " device you can read and write (misc device)") + `#include <linux/module.h>\n#include <linux/miscdevice.h>\n#include <linux/fs.h>\n#include <linux/uaccess.h>\n#include <linux/mutex.h>\n\n#define BUF 4096\nstatic char buf[BUF];\nstatic size_t len;\nstatic DEFINE_MUTEX(lock);\n\nstatic ssize_t ${n}_read(struct file *f, char __user *u, size_t n, loff_t *off)\n{\n\tssize_t r;\n\tmutex_lock(&lock);\n\tr = simple_read_from_buffer(u, n, off, buf, len);\n\tmutex_unlock(&lock);\n\treturn r;\n}\n\nstatic ssize_t ${n}_write(struct file *f, const char __user *u, size_t n, loff_t *off)\n{\n\tssize_t r;\n\tmutex_lock(&lock);\n\tr = simple_write_to_buffer(buf, BUF, off, u, n);\n\tif (r > 0)\n\t\tlen = *off;\n\tmutex_unlock(&lock);\n\treturn r;\n}\n\nstatic const struct file_operations ${n}_fops = {\n\t.owner = THIS_MODULE,\n\t.read = ${n}_read,\n\t.write = ${n}_write,\n\t.llseek = default_llseek,\n};\n\nstatic struct miscdevice ${n}_dev = {\n\t.minor = MISC_DYNAMIC_MINOR,\n\t.name = "${n}",\n\t.fops = &${n}_fops,\n\t.mode = 0666,\n};\n\nmodule_misc_device(${n}_dev);\nMODULE_LICENSE("GPL");\nMODULE_DESCRIPTION("${n}: a small read/write device");\n`,
+    pci: (n, v, d) => HDR(n, `a PCI driver for ${v}:${d}`) + `#include <linux/module.h>\n#include <linux/pci.h>\n\nstatic const struct pci_device_id ${n}_ids[] = {\n\t{ PCI_DEVICE(0x${v}, 0x${d}) },\n\t{ 0 }\n};\nMODULE_DEVICE_TABLE(pci, ${n}_ids);\n\nstatic int ${n}_probe(struct pci_dev *pdev, const struct pci_device_id *id)\n{\n\tint err = pcim_enable_device(pdev);\n\tif (err)\n\t\treturn err;\n\tpci_set_master(pdev);\n\tdev_info(&pdev->dev, "${n}: found %04x:%04x\\n", pdev->vendor, pdev->device);\n\treturn 0;\n}\n\nstatic void ${n}_remove(struct pci_dev *pdev)\n{\n\tdev_info(&pdev->dev, "${n}: removed\\n");\n}\n\nstatic struct pci_driver ${n}_driver = {\n\t.name = "${n}",\n\t.id_table = ${n}_ids,\n\t.probe = ${n}_probe,\n\t.remove = ${n}_remove,\n};\nmodule_pci_driver(${n}_driver);\nMODULE_LICENSE("GPL");\n`,
+    usb: (n, v, d) => HDR(n, `a USB driver for ${v}:${d}`) + `#include <linux/module.h>\n#include <linux/usb.h>\n\nstatic const struct usb_device_id ${n}_ids[] = {\n\t{ USB_DEVICE(0x${v}, 0x${d}) },\n\t{ }\n};\nMODULE_DEVICE_TABLE(usb, ${n}_ids);\n\nstatic int ${n}_probe(struct usb_interface *intf, const struct usb_device_id *id)\n{\n\tdev_info(&intf->dev, "${n}: plugged in\\n");\n\treturn 0;\n}\n\nstatic void ${n}_disconnect(struct usb_interface *intf)\n{\n\tdev_info(&intf->dev, "${n}: unplugged\\n");\n}\n\nstatic struct usb_driver ${n}_driver = {\n\t.name = "${n}",\n\t.id_table = ${n}_ids,\n\t.probe = ${n}_probe,\n\t.disconnect = ${n}_disconnect,\n};\nmodule_usb_driver(${n}_driver);\nMODULE_LICENSE("GPL");\n`,
+    uio: (n) => `/* ${n}: a USER-SPACE driver (no kernel code at all): talks to a USB device through libusb. Safest kind to test on any PC.\n * Made with Distro Studio (Randis UDS). Build: cc ${n}.c -lusb-1.0 -o ${n} */\n#include <stdio.h>\n#include <libusb-1.0/libusb.h>\n\nint main(void)\n{\n\tlibusb_context *ctx;\n\tlibusb_device **list;\n\tssize_t n, i;\n\tif (libusb_init(&ctx))\n\t\treturn 1;\n\tn = libusb_get_device_list(ctx, &list);\n\tfor (i = 0; i < n; i++) {\n\t\tstruct libusb_device_descriptor d;\n\t\tif (libusb_get_device_descriptor(list[i], &d) == 0)\n\t\t\tprintf("%04x:%04x\\n", d.idVendor, d.idProduct);\n\t}\n\tlibusb_free_device_list(list, 1);\n\tlibusb_exit(ctx);\n\treturn 0;\n}\n`,
+  };
+  const KINDS = {hello: "Hello module (start here)", chardev: "Character device /dev/NAME", pci: "PCI device driver", usb: "USB device driver", uio: "User-space USB driver (no kernel code)"};
+  function makeDriver(kind, name, vid, did) {
+    const n = C(name || "mydriver") || "mydriver", v = (vid || "1234").toLowerCase().replace(/[^0-9a-f]/g, "").padStart(4, "0").slice(-4), d = (did || "5678").toLowerCase().replace(/[^0-9a-f]/g, "").padStart(4, "0").slice(-4);
+    const src = TPL[kind](n, v, d), user = kind === "uio";
+    const files = {[n + ".c"]: src};
+    if (!user) {
+      files["Makefile"] = `obj-m += ${n}.o\nKDIR ?= /lib/modules/$(shell uname -r)/build\nall:\n\t$(MAKE) -C $(KDIR) M=$(PWD) modules\nclean:\n\t$(MAKE) -C $(KDIR) M=$(PWD) clean\n`;
+      files["Kconfig"] = `config ${n.toUpperCase()}\n\ttristate "${KINDS[kind]}: ${n}"\n\thelp\n\t  Made with Distro Studio (Randis UDS).\n`;
+    }
+    files["TEST_IN_VM.txt"] = (user ? `Inside the VM (Randis UDOS):\n  doas apk add build-base libusb-dev     (a download inside the VM)\n  cc ${n}.c -lusb-1.0 -o ${n} && ./${n}\n`
+      : `Only inside the VM (Randis UDOS in the VM Suite), never on this PC:\n  doas apk add build-base linux-virt-dev     (a download inside the VM)\n  make\n  doas insmod ${n}.ko && dmesg | tail\n` + (kind === "chardev" ? `  echo hello > /dev/${n}; cat /dev/${n}\n` : "") + `  doas rmmod ${n}\n`);
+    return {name: n, files};
+  }
+  function lintC(src) {
+    const e = []; let depth = {"{": 0, "(": 0, "[": 0}; const pair = {"}": "{", ")": "(", "]": "["};
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").replace(/"(?:\\.|[^"\\])*"/g, '""').replace(/'(?:\\.|[^'\\])'/g, "''");
+    for (const ch of code) { if (ch in depth) depth[ch]++; else if (ch in pair) { if (--depth[pair[ch]] < 0) { e.push("unbalanced " + ch); depth[pair[ch]] = 0; } } }
+    for (const k in depth) if (depth[k]) e.push("unclosed " + k);
+    if (/#include <linux\//.test(src) && !/MODULE_LICENSE\("GPL"\)/.test(src)) e.push("kernel module without MODULE_LICENSE(\"GPL\")");
+    if (/#include <linux\//.test(src) && !/module_(init|misc_device|pci_driver|usb_driver)\(/.test(src)) e.push("no module entry point");
+    return e;
+  }
+  root.OSCORE = Object.assign(root.OSCORE || {}, {parseHW, HW_CMD, makeDriver, lintC, DRV_KINDS: KINDS, PCI_DB: PCI});
+  if (typeof module !== "undefined") module.exports = root.OSCORE;
+})(typeof window !== "undefined" ? window : globalThis);
+
+(function (root) {
+  const lines = t => { const a = String(t).split("\n"); if (a.length && a[a.length - 1] === "") a.pop(); return a; };
+  function lcsOps(a, b) {
+    const N = a.length, M = b.length, max = N + M, V = new Map([[1, 0]]), trace = [];
+    outer: for (let D = 0; D <= max; D++) {
+      trace.push(new Map(V));
+      for (let k = -D; k <= D; k += 2) {
+        let x = (k === -D || (k !== D && (V.get(k - 1) ?? -1) < (V.get(k + 1) ?? -1))) ? (V.get(k + 1) ?? 0) : (V.get(k - 1) ?? 0) + 1, y = x - k;
+        while (x < N && y < M && a[x] === b[y]) { x++; y++; }
+        V.set(k, x); if (x >= N && y >= M) { trace.push(new Map(V)); break outer; }
+      }
+    }
+    const ops = []; let x = N, y = M;
+    for (let D = trace.length - 2; D >= 0 && (x > 0 || y > 0); D--) {
+      const Vd = trace[D], k = x - y;
+      const pk = (k === -D || (k !== D && (Vd.get(k - 1) ?? -1) < (Vd.get(k + 1) ?? -1))) ? k + 1 : k - 1;
+      const px = Vd.get(pk) ?? 0, py = px - pk;
+      while (x > px && y > py) { ops.push([" ", a[--x]]); y--; }
+      if (D > 0) { if (x === px) ops.push(["+", b[--y]]); else ops.push(["-", a[--x]]); }
+    }
+    while (x > 0 && y > 0) { ops.push([" ", a[--x]]); y--; }
+    while (x > 0) ops.push(["-", a[--x]]); while (y > 0) ops.push(["+", b[--y]]);
+    return ops.reverse();
+  }
+  function diff(oldText, newText, path = "file", ctx = 3) {
+    const a = lines(oldText), b = lines(newText), ops = lcsOps(a, b);
+    if (!ops.some(o => o[0] !== " ")) return "";
+    const hunks = []; let i = 0, ai = 0, bi = 0;
+    const pos = []; for (const o of ops) { pos.push([ai, bi]); if (o[0] !== "+") ai++; if (o[0] !== "-") bi++; }
+    while (i < ops.length) {
+      if (ops[i][0] === " ") { i++; continue; }
+      let s = Math.max(0, i - ctx), e = i;
+      while (e < ops.length) { if (ops[e][0] !== " ") { e++; continue; } let r = e; while (r < ops.length && ops[r][0] === " ") r++; if (r < ops.length && r - e <= 2 * ctx) e = r; else { e = Math.min(ops.length, e + ctx); break; } }
+      const h = ops.slice(s, e), [as, bs] = pos[s], ac = h.filter(o => o[0] !== "+").length, bc = h.filter(o => o[0] !== "-").length;
+      hunks.push(`@@ -${ac ? as + 1 : as},${ac} +${bc ? bs + 1 : bs},${bc} @@\n` + h.map(o => o[0] + o[1]).join("\n"));
+      i = e;
+    }
+    const nl = t => String(t).endsWith("\n") || t === "";
+    let out = `--- a/${path}\n+++ b/${path}\n` + hunks.join("\n") + "\n";
+    if (!nl(oldText) || !nl(newText)) out = out.trimEnd() + "\n";
+    return out;
+  }
+  function apply(text, patch) {
+    const src = lines(text), out = [], errors = []; let at = 0;
+    const H = String(patch).split(/\n(?=@@ )/).filter(h => h.startsWith("@@ ") || /\n@@ /.test(h)).map(h => h.slice(h.indexOf("@@ ")));
+    for (const h of H) {
+      const m = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(h); if (!m) continue;
+      let start = +m[1] - ((m[2] ?? "1") === "0" ? 0 : 1); const body = h.split("\n").slice(1).filter(l => /^[ +\-]/.test(l) || l === "");
+      const want = body.filter(l => l[0] !== "+").map(l => l.slice(1));
+      if (body.length && body[body.length - 1] === "") body.pop();
+      const old = body.filter(l => l[0] === " " || l[0] === "-").map(l => l.slice(1));
+      if (src.slice(start, start + old.length).join("\n") !== old.join("\n")) { errors.push(`hunk at line ${m[1]} doesn't match the text`); continue; }
+      while (at < start) out.push(src[at++]);
+      for (const l of body) { if (l[0] === " ") { out.push(src[at++]); } else if (l[0] === "-") at++; else if (l[0] === "+") out.push(l.slice(1)); }
+      void want;
+    }
+    while (at < src.length) out.push(src[at++]);
+    return {ok: !errors.length, text: out.join("\n") + (out.length ? "\n" : ""), errors};
+  }
+  function formatPatch(p, subject, author, email, body) {
+    return `From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001\nFrom: ${author} <${email}>\nDate: ${new Date().toUTCString().replace("GMT", "+0000")}\nSubject: [PATCH] ${subject}\n\n${body ? body + "\n\n" : ""}Signed-off-by: ${author} <${email}>\n---\n${p}--\nDistro Studio (Randis UDS)\n`;
+  }
+  root.OSCORE = Object.assign(root.OSCORE || {}, {diff, applyPatch: apply, formatPatch, lcsOps});
+  if (typeof module !== "undefined") module.exports = root.OSCORE;
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+const HOST = window.parent !== window; let DESKTOP = false, S = null, loaded = false, fallback = false, PAGE = "home", saveT = null;
+const $ = s => document.querySelector(s), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+function toast(m, ms = 3500) { const t = document.createElement("div"); t.className = "toast"; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
+function download(name, data, type = "application/json") { const b = data instanceof Blob ? data : new Blob([data], {type}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }
+function pickFile(accept, cb) { const i = document.createElement("input"); i.type = "file"; i.accept = accept; i.onchange = () => i.files[0] && cb(i.files[0]); i.click(); }
+function save() { clearTimeout(saveT); saveT = setTimeout(() => { const txt = JSON.stringify(S); $("#store").textContent = "saved " + Math.round(txt.length / 1024) + " KB";
+  if (HOST && !fallback) parent.postMessage({uds: "store-set", data: JSON.parse(txt)}, "*"); else try { localStorage.setItem("distro-studio", txt); } catch (e) {} }, 300); }
+function fresh() { return {alpine: OSCORE.defaultDesign(), scratch: null, mobile: null, drivers: [], patches: [], v: 1}; }
+const PAGES = [];
+function page(id, group, label, render, after) { PAGES.push([id, group, label, render, after || (() => {})]); }
+function navDraw() { let g = "", h = ""; for (const [id, grp, label] of PAGES) { if (grp !== g) { h += `<div class="g">${esc(grp)}</div>`; g = grp; } h += `<button class="${id === PAGE ? "on" : ""}" onclick="go('${id}')">${label}</button>`; } $("#nav").innerHTML = h; }
+function go(p) { PAGE = PAGES.some(x => x[0] === p) ? p : "home"; navDraw(); const P = PAGES.find(x => x[0] === PAGE), m = $("#main"); try { m.innerHTML = P[3](); } catch (e) { console.error(e); m.innerHTML = `<div class="card bad">This page hit a problem: ${esc(e.message)}</div>`; } P[4](); }
+function rerender() { const m = $("#main"), y = m.scrollTop; go(PAGE); m.scrollTop = y; }
+function getApp(what) { return `<div class="card getapp">🖥️ <b>Get the Randis UDS app for this.</b> ${what} <a href="https://github.com/RandyWilliamMoore/randis-uds" target="_blank">Randis UDS</a></div>`; }
+function boot(d) { if (loaded) return; loaded = true; S = Object.assign(fresh(), d && typeof d === "object" ? d : {}); S.alpine = Object.assign(OSCORE.defaultDesign(), S.alpine || {}); go(PAGE); }
+window.addEventListener("message", e => { const d = e.data; if (!d || typeof d !== "object") return; if (d.uds === "store") { DESKTOP = true; if (fallback) { fallback = false; loaded = false; } boot(d.data); } if (d.uds === "store-none" && !loaded) { fallback = true; let s = null; try { s = JSON.parse(localStorage.getItem("distro-studio")); } catch (x) {} boot(s); } if (d.uds === "store-error") toast("Could not save: " + d.note, 6000); });
+</script>
+<script>
+page("home", "Studio", "🏠 Home", () => {
+  const e = OSCORE.check(S.alpine), rows = PAGES.filter(p => p[0] !== "home").map(p => `<tr><td>${p[2]}</td><td class="mut">${esc(p[1])}</td></tr>`).join("");
+  return `<h2>Distro Studio</h2><p class="lead">Design a Linux system the way you want it and check that every piece fits. In the Randis UDS app the design builds into a real bootable disc (ISO) that runs in its <b>VM Suite</b>.</p>
+  <div class="grid"><div class="card"><b>Your Alpine design</b><br><span class="${e.length ? "bad" : "ok"}">${e.length ? e.length + " thing(s) to fix" : "ready to build"}</span><br><span class="mut">${esc(S.alpine.hostname)} · ${OSCORE.allPackages(S.alpine).length} packages · ${(S.alpine.users || []).length} user(s)</span><br><button class="b" onclick="go('alpine')">Open</button></div>
+  <div class="card"><b>How a design becomes a running OS</b><ol style="margin:6px 0 0;padding-left:18px"><li>Design it (Alpine designer)</li><li>⬇ Save the design file</li><li>Build: the Randis UDS app turns it into an ISO</li><li>VM Suite › Your own disc › pick the ISO</li></ol></div></div>
+  <div class="card"><b>What's in the studio</b><table>${rows}</table></div>`;
+});
+function A() { return S.alpine; }
+function setA(path, v) { const ks = path.split("."); let o = S.alpine; while (ks.length > 1) o = o[ks.shift()]; o[ks[0]] = v; save(); }
+page("alpine", "Design", "🏔️ Alpine designer", () => {
+  const d = A(), e = OSCORE.check(d), n = d.network;
+  const svc = Object.entries(OSCORE.SERVICES).map(([k, [lab, pkg]]) => `<label style="display:block"><input type="checkbox" ${d.services.includes(k) ? "checked" : ""} onchange="togSvc('${k}',this.checked)"> ${esc(lab)} <span class="mut">(${k}${pkg ? ", adds " + pkg : ""})</span></label>`).join("");
+  const users = d.users.map((u, i) => `<tr><td><input type="text" value="${esc(u.name)}" onchange="A().users[${i}].name=this.value.trim();save();rerender()"></td><td><label><input type="checkbox" ${u.admin ? "checked" : ""} onchange="A().users[${i}].admin=this.checked;save();rerender()"> admin (doas, asks their password)</label></td><td><button class="b del" onclick="A().users.splice(${i},1);save();rerender()">✕</button></td></tr>`).join("");
+  const files = d.files.map((f, i) => `<div class="card"><input type="text" value="${esc(f.path)}" placeholder="/etc/issue" onchange="A().files[${i}].path=this.value.trim();save();rerender()"><textarea rows="3" onchange="A().files[${i}].text=this.value;save()">${esc(f.text)}</textarea><button class="b del" onclick="A().files.splice(${i},1);save();rerender()">Remove file</button></div>`).join("");
+  return `<h2>🏔️ Alpine designer</h2><p class="lead">A real, small Linux (Alpine 3.24, musl, OpenRC, BusyBox). Same rules as the studio's builder, so what passes here builds.</p>
+  <div class="card">${e.length ? `<b class="bad">Fix these before building:</b><ul class="errs">${e.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<b class="ok">✔ Ready to build.</b> Packages: ${OSCORE.allPackages(d).map(p => `<span class="pill">${esc(p)}</span>`).join("")}`}</div>
+  <div class="grid">
+   <div class="card"><b>Boot</b><label class="f"><span>OS name (hostname)</span><input type="text" value="${esc(d.hostname)}" onchange="setA('hostname',this.value.trim());rerender()"></label>
+    <label class="f"><span>Welcome message (shown after login)</span><input type="text" value="${esc(d.message)}" onchange="setA('message',this.value)"></label>
+    <label class="f"><span>Wait at boot menu (seconds)</span><input type="number" min="0" max="60" value="${d.boot.timeout}" onchange="setA('boot.timeout',parseInt(this.value,10));rerender()"></label>
+    <label class="f"><span>Extra kernel settings</span><input type="text" value="${esc(d.boot.args)}" onchange="setA('boot.args',this.value);rerender()"></label></div>
+   <div class="card"><b>Services</b><div class="mut" style="font-size:12px">Core startup (devfs, mdev, syslog, hostname…) is always on.</div>${svc}</div>
+   <div class="card"><b>Network</b><label class="f"><span>Mode</span><select class="w" onchange="setA('network.mode',this.value);rerender()">${[["dhcp", "Automatic (DHCP)"], ["static", "Fixed address"], ["none", "No network"]].map(([k, l]) => `<option value="${k}" ${n.mode === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+    <label class="f"><span>Network card</span><input type="text" value="${esc(n.iface)}" onchange="setA('network.iface',this.value.trim());rerender()"></label>
+    ${n.mode === "static" ? ["address", "netmask", "gateway"].map(k => `<label class="f"><span>${k}</span><input type="text" value="${esc(n[k])}" onchange="setA('network.${k}',this.value.trim());rerender()"></label>`).join("") : ""}
+    <label class="f"><span>DNS server (optional)</span><input type="text" value="${esc(n.dns)}" onchange="setA('network.dns',this.value.trim());rerender()"></label></div>
+  </div>
+  <div class="card"><b>Packages</b> <span class="mut">(from the Alpine image; common: ${OSCORE.FALLBACK_PACKAGES.join(", ")})</span><input type="text" value="${esc(d.packages.join(", "))}" placeholder="e.g. openssh, e2fsprogs" onchange="setA('packages',this.value.split(/[ ,]+/).map(s=>s.trim()).filter(Boolean));rerender()"></div>
+  <div class="card"><b>Users</b> <span class="mut">root is always there. Passwords are typed at build time and never saved.</span><table>${users}</table><button class="b" onclick="A().users.push({name:'',admin:false});save();rerender()">+ User</button></div>
+  <div class="card"><b>Your own files</b> <span class="mut">put into the OS as-is</span>${files}<button class="b" onclick="A().files.push({path:'/etc/',text:''});save();rerender()">+ File</button></div>
+  <div class="card"><button class="b" onclick="if(confirm('Start a new design? The current one goes.')){S.alpine=OSCORE.defaultDesign();save();rerender()}">New design</button><button class="b" onclick="pickFile('.json',f=>f.text().then(t=>{const j=JSON.parse(t);S.alpine=Object.assign(OSCORE.defaultDesign(),j.alpine||j);save();rerender();toast('Design loaded.')}))">Load a design file</button><button class="b pri" onclick="go('build')">Build & run ›</button></div>`;
+});
+function togSvc(k, on) { const s = new Set(A().services); on ? s.add(k) : s.delete(k); A().services = [...s]; save(); rerender(); }
+page("build", "Design", "🔨 Build & run", () => {
+  const d = A(), e = OSCORE.check(d), file = d.hostname + ".osdesign.json";
+  const pw = ["root", ...d.users.map(u => u.name)].map(n => `--pw ${n}=YOUR_PASSWORD`).join(" ");
+  const iso = `<pre>python build_os.py "${esc(file)}" --boot 240</pre>`;
+  return `<h2>🔨 Build & run</h2><p class="lead">Three steps: save the design, build it into a bootable ISO, run it.</p>
+  ${e.length ? `<div class="card bad">The design has ${e.length} problem(s). <button class="b" onclick="go('alpine')">Fix them</button></div>` : ""}
+  <div class="card"><b>1. Save the design</b><br><button class="b pri" onclick="download('${esc(file)}',JSON.stringify({alpine:A()},null,1))">⬇ ${esc(file)}</button> <span class="mut">(the design file the builder reads)</span></div>
+  ${DESKTOP ? `<div class="card"><b>2. Build the ISO here</b> <span class="mut">(runs on this PC with the Alpine image and QEMU that come with the app; nothing is downloaded; the test boot has no network card)</span>
+   ${["root", ...d.users.map(u => u.name)].map(n => `<div class="row"><label style="min-width:110px">Password for <b>${esc(n)}</b></label><input type="password" class="ospw" data-acct="${esc(n)}" autocomplete="new-password"></div>`).join("")}
+   <div class="mut">Passwords go straight to the builder (hashed into the ISO); they are not saved anywhere.</div>
+   <div class="row"><button class="b pri" ${e.length ? "disabled" : ""} onclick="osBuild(false)">🔨 Build</button><button class="b pri" ${e.length ? "disabled" : ""} onclick="osBuild(true)">🔨 Build + ▶ Boot test</button><button class="b" onclick="osCall('stop').then(osPoll)">■ Stop</button> <span id="osstat" class="mut"></span></div>
+   <div class="row"><label>▶ Boot a built ISO:</label><select id="osiso"></select><button class="b" onclick="osBoot()">▶ Boot</button></div>
+   <pre id="oslog" style="max-height:300px;display:none"></pre>
+   <details><summary class="mut">Or in a terminal</summary><div class="mut">From the app's OS builder:</div>${iso}<div class="mut">--boot 240 also boots it once in QEMU and prints the first screen. With passwords on the line: <code>${esc(pw)}</code></div></details></div>
+  <div class="card"><b>3. Run it</b><br>Open the <b>VM Suite</b> tab › <b>Your own disc</b> › pick <code>${esc(d.hostname)}.iso</code> from the builder's exports. It boots to <code>${esc(d.hostname)} login:</code>. The ISO also works on a USB stick and on UEFI PCs.</div>`
+  : getApp("Building the ISO and booting it in a virtual machine run on your PC inside the Randis UDS app (its OS builder, QEMU and the VM Suite). Here you design and check the system and save the design file to build it there.")}
+  <div class="card"><b>What a build gives you</b> <span class="mut">a bootable ISO of about 70 MB that starts in QEMU to the login prompt; admin users log in and <code>doas</code> asks for their password before giving root.</span></div>`;
+}, () => osFill());
+
+let osSeq = 0, osTimer = null;
+function osCall(op, args) { return new Promise(res => { if (!HOST) return res({error: "Open this tab inside Randis UDS to build here."}); const id = "os" + (++osSeq);
+  const h = e => { if (e.data && e.data.uds === "os" && e.data.id === id) { removeEventListener("message", h); res(e.data.r || {}); } };
+  addEventListener("message", h); parent.postMessage({uds: "os", id, op, args: args || {}}, "*"); setTimeout(() => { removeEventListener("message", h); res({error: "No answer from the app."}); }, 15000); }); }
+async function osFill() { const sel = $("#osiso"); if (!sel || !DESKTOP) return; const r = await osCall("status"); sel.innerHTML = (r.isos || []).map(f => `<option>${esc(f)}</option>`).join("") || "<option value=''>(none built yet)</option>";
+  const want = A().hostname + ".iso"; if ((r.isos || []).includes(want)) sel.value = want; if (r.error) $("#osstat").textContent = r.error; if (r.busy) osPoll(); }
+async function osPoll() { clearTimeout(osTimer); const r = await osCall("job"), st = $("#osstat"), lg = $("#oslog"); if (!st) return;
+  if (r.error) { st.textContent = r.error; return; } if (r.none) return;
+  lg.style.display = ""; lg.textContent = r.log || ""; lg.scrollTop = lg.scrollHeight;
+  if (r.running) { st.textContent = `⏳ ${r.what}: ${r.took} s`; osTimer = setTimeout(osPoll, 1500); }
+  else { const ok = r.rc === 0; st.innerHTML = `<b class="${ok ? "ok" : "bad"}">${ok ? "✔" : "✘"} ${esc(r.what)} ${ok ? "finished" : "failed (code " + r.rc + ")"}</b> in ${r.took} s`; osFill(); } }
+async function osBuild(boot) { const passwords = {}; document.querySelectorAll(".ospw").forEach(i => passwords[i.dataset.acct] = i.value);
+  const r = await osCall("build", {design: A(), passwords, boot, seconds: 240}); document.querySelectorAll(".ospw").forEach(i => i.value = "");
+  if (r.error) { $("#osstat").textContent = r.error; return; } toast("Started: " + r.started); osPoll(); }
+async function osBoot() { const iso = $("#osiso").value; if (!iso) return toast("Build an ISO first.");
+  const r = await osCall("boot", {iso, seconds: 240}); if (r.error) { $("#osstat").textContent = r.error; return; } toast("Started: " + r.started); osPoll(); }
+
+const ALPINE_STACK = {firmware: "seabios", boot: "syslinux", kernel: "linux", libc: "musl", init: "openrc", user: "busybox", dev: "mdev", fs: "liveram", pkg: "apk", net: "ifupdown", sec: ["doas"], display: "text", shell: "noshell"};
+function ST() { if (!S.scratch) S.scratch = {stack: JSON.parse(JSON.stringify(ALPINE_STACK)), msg: "Hello from my own OS.\nBuilt from scratch in Randis UDS."}; return S.scratch; }
+function pickBlock(layer, id, many) { const s = ST().stack; if (many) { const a = new Set(s[layer] || []); a.has(id) ? a.delete(id) : a.add(id); s[layer] = [...a]; } else s[layer] = s[layer] === id ? null : id; save(); rerender(); }
+const HOW = {built: ["built, ready", "ok"], alpine: ["builds now", "ok"], ours: ["ours, from scratch", "warn"], source: ["needs source download", "bad"]};
+page("scratch", "Design", "🧱 From scratch", () => {
+  const st = ST(), r = OSCORE.checkStack(st.stack);
+  const layers = OSCORE.LAYERS.slice().reverse().map(([lid, label, many, req]) => {
+    const opts = OSCORE.BLOCKS.filter(b => b.layer === lid).map(b => { const on = many === "many" ? (st.stack[lid] || []).includes(b.id) : st.stack[lid] === b.id;
+      return `<button class="b" style="${on ? "border-color:var(--acc);background:#dce7fd" : ""};text-align:left" title="${esc(b.note)}" onclick="pickBlock('${lid}','${b.id}',${many === "many"})">${on ? "◉" : "○"} ${esc(b.name)}<br><span class="pill ${HOW[b.how][1]}">${HOW[b.how][0]}</span><span class="pill">${esc(b.lic)}</span><span class="pill">${b.mb} MB</span></button>`; }).join("");
+    return `<tr><th style="width:150px">${esc(label)}${req ? "" : " <span class='mut'>(optional)</span>"}${many === "many" ? "<br><span class='mut'>pick any</span>" : ""}</th><td>${opts}</td></tr>`; }).join("");
+  return `<h2>🧱 From scratch</h2><p class="lead">Pick every building block, from the firmware up to the desktop. The studio checks that the pieces fit, adds up size and licences, and says what can be built today and what's still a plan.</p>
+  <div class="card">${r.errs.length ? `<b class="bad">Doesn't fit yet:</b><ul class="errs">${r.errs.map(e => `<li>${esc(e)}</li>`).join("")}</ul>` : `<b class="ok">✔ The stack fits together.</b>`}
+   ${r.warns.map(w => `<div class="warn">⚠ ${esc(w)}</div>`).join("")}
+   <div class="mut">About ${r.mb} MB · licences: ${r.lic.map(esc).join(", ")}</div>
+   ${r.alpine ? `<div style="margin-top:6px"><b class="ok">Every block builds today with the Alpine builder.</b> <button class="b pri" onclick="S.alpine=OSCORE.toAlpine(ST().stack,S.alpine);save();go('alpine');toast('Sent to the Alpine designer.')">Send to the Alpine designer ›</button></div>`
+     : r.errs.length ? "" : `<div style="margin-top:6px"><b>Build plan for the rest</b><ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol></div>`}
+   <div style="margin-top:6px"><button class="b" onclick="ST().stack=JSON.parse(JSON.stringify(ALPINE_STACK));save();rerender()">Reset to the Alpine stack</button><button class="b" onclick="ST().stack={};save();rerender()">Clear: start from nothing</button></div></div>
+  <div class="card"><table>${layers}</table></div>
+  <div class="card"><b>🔩 Boot sector lab: the very first block, made here byte by byte</b>
+   <p class="mut" style="margin:4px 0">Your own 512-byte x86 boot sector (16-bit real mode, no outside code). It prints your message on the screen and the serial port, then halts. Saved as a bootable disc that also works as a disk image. Run it in QEMU (<code>qemu-system-i386 -cdrom randis_boot.iso</code>) or in the Randis UDS app's VM Suite.</p>
+   <textarea id="bmsg" rows="3" oninput="ST().msg=this.value;save();bootHex()">${esc(st.msg)}</textarea>
+   <div class="row"><button class="b pri" onclick="bootSave()">⬇ randis_boot.iso</button><button class="b" onclick="bootSave(true)">⬇ boot.bin (512 bytes)</button> <span id="bstat" class="mut"></span></div>
+   <pre id="bhex" style="max-height:220px"></pre>
+   <details><summary class="mut">The machine code, line by line</summary><pre>FA            cli                 ; no interrupts while we set up
+31 C0         xor ax, ax
+8E D8 8E C0   mov ds, ax / es, ax  ; segments = 0
+8E D0 BC 00 7C mov ss, ax / sp, 7C00h ; stack just below us
+FB            sti
+BE 28 7C      mov si, 7C28h       ; the message
+AC            print: lodsb        ; next character
+08 C0 74 0F   or al, al / jz done ; 0 = end
+50 B4 0E BB 07 00 CD 10 58   push ax / BIOS teletype (int 10h) / pop ax
+BA F8 03 EE   mov dx, 3F8h / out dx, al ; same character to the serial port
+EB EC         jmp print
+FA F4 EB FC   done: cli / hlt / jmp done
+... message, 0, padding ... 55 AA  (the BIOS boot signature)</pre></details></div>`;
+}, () => bootHex());
+function bootHex() { const h = $("#bhex"), st = $("#bstat"); if (!h) return; try { const s = OSCORE.bootSector(ST().msg); let o = ""; for (let i = 0; i < 512; i += 16) o += i.toString(16).padStart(3, "0") + "  " + [...s.slice(i, i + 16)].map(b => b.toString(16).padStart(2, "0")).join(" ") + "\n"; h.textContent = o; st.textContent = "✔ 512 bytes, ends 55 AA"; st.className = "ok"; } catch (e) { h.textContent = ""; st.textContent = e.message; st.className = "bad"; } }
+function bootSave(raw) { try { const s = OSCORE.bootSector(ST().msg); download(raw ? "boot.bin" : "randis_boot.iso", new Blob([raw ? s : OSCORE.bootISO(s, "randis_boot")], {type: "application/octet-stream"})); } catch (e) { toast(e.message); } }
+
+page("udos", "Randis OS", "⭐ Randis UDOS", () => {
+  const u = OSCORE.UDOS, e = OSCORE.check(u);
+  return `<h2>⭐ Randis UDOS <span class="mut" style="font-size:14px">0.1 "seed" · User Defined Operating System</span></h2>
+  <p class="lead">The best OS this studio can build, made with the studio itself. Load it, change anything, build it.</p>
+  <div class="card"><span class="${e.length ? "bad" : "ok"}">${e.length ? esc(e.join(" ")) : "✔ Passes every check."}</span>
+   <button class="b pri" onclick="if(confirm('Load Randis UDOS into the Alpine designer? Your current design there is replaced.')){S.alpine=JSON.parse(JSON.stringify(OSCORE.UDOS));save();go('alpine')}">Load into the Alpine designer</button>
+   <button class="b" onclick="download('randis_udos.osdesign.json',JSON.stringify({alpine:OSCORE.UDOS},null,1))">⬇ randis_udos.osdesign.json</button></div>
+  <div class="card"><b>Why each choice</b><table>${OSCORE.UDOS_WHY.map(([a, b]) => `<tr><td style="width:280px"><b>${esc(a)}</b></td><td>${esc(b)}</td></tr>`).join("")}</table></div>
+  <div class="card"><b>What it does when booted (QEMU, from the built ISO)</b><div class="mut">boots to <code>randis-udos login:</code> with the UDOS banner · login shows the udos hint · <code>udos info</code> · hardening active (kptr_restrict 2, syncookies, rp_filter) · chronyd, crond, acpid started · no sshd · <code>doas</code> asks the password and gives root.</div>
+   ${DESKTOP ? `<div class="mut">Build it from the app's OS builder, then run it: VM Suite › Your own disc.</div><pre>python build_os.py "randis_udos.osdesign.json" --boot 240</pre></div>` : `</div>` + getApp("Building and booting Randis UDOS runs in the Randis UDS app. Save the design file here and build it there.")}
+  <div class="card"><b>Roadmap</b><table>${OSCORE.UDOS_ROADMAP.map(([v, t, s]) => `<tr><td style="width:150px"><b>${esc(v)}</b></td><td>${esc(t)}</td><td><span class="pill ${s === "done" ? "ok" : s === "started" ? "warn" : ""}">${s}</span></td></tr>`).join("")}</table></div>`;
+});
+
+function MO() { if (!S.mobile) S.mobile = {stack: JSON.parse(JSON.stringify(OSCORE.RMUDOS))}; return S.mobile; }
+function pickM(layer, id, many) { const s = MO().stack; if (many) { const a = new Set(s[layer] || []); a.has(id) ? a.delete(id) : a.add(id); s[layer] = [...a]; } else s[layer] = s[layer] === id ? null : id; save(); rerender(); }
+function stackTable(cat, stack, fn) {
+  return cat.LAYERS.slice().reverse().map(([lid, label, many, req]) => `<tr><th style="width:150px">${esc(label)}${req ? "" : " <span class='mut'>(optional)</span>"}${many === "many" ? "<br><span class='mut'>pick any</span>" : ""}</th><td>${cat.BLOCKS.filter(b => b.layer === lid).map(b => {
+    const on = many === "many" ? (stack[lid] || []).includes(b.id) : stack[lid] === b.id;
+    return `<button class="b" style="${on ? "border-color:var(--acc);background:#dce7fd" : ""};text-align:left" title="${esc(b.note)}" onclick="${fn}('${lid}','${b.id}',${many === "many"})">${on ? "◉" : "○"} ${esc(b.name)}<br><span class="pill ${HOW[b.how][1]}">${HOW[b.how][0]}</span><span class="pill">${esc(b.lic)}</span></button>`; }).join("")}</td></tr>`).join("");
+}
+page("mobile", "Randis OS", "📱 Mobile OS", () => {
+  const st = MO(), r = OSCORE.checkStack(st.stack, OSCORE.MOBILE);
+  return `<h2>📱 Mobile OS Suite</h2><p class="lead">Same idea as the desktop suite, for phones and tablets: pick the blocks from the board up to the touch shell, see what fits and what's left to build. Try apps on the <b>Sim Phone</b>.</p>
+  <div class="card"><b>⭐ Randis Mobile UDOS</b> <span class="mut">the phone sibling of Randis UDOS: same Alpine base (postmarketOS-style), the Randis UDS Mobile app as the home screen, web apps + Linux apps + Android apps, calls/SMS, encryption, A/B updates.</span><br>
+   <button class="b pri" onclick="MO().stack=JSON.parse(JSON.stringify(OSCORE.RMUDOS));save();rerender()">Load Randis Mobile UDOS (phone)</button><button class="b" onclick="MO().stack=JSON.parse(JSON.stringify(OSCORE.RMUDOS_X86));save();rerender()">Load the x86 tablet version (fewest downloads)</button></div>
+  <div class="card">${r.errs.length ? `<b class="bad">Doesn't fit yet:</b><ul class="errs">${r.errs.map(e => `<li>${esc(e)}</li>`).join("")}</ul>` : `<b class="ok">✔ The stack fits together.</b>`}
+   <div class="mut">Licences: ${r.lic.map(esc).join(", ")}</div>${r.errs.length ? "" : `<div><b>Left to build</b><ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join("") || "<li>Nothing: every block exists.</li>"}</ol></div>`}</div>
+  <div class="card"><table>${stackTable(OSCORE.MOBILE, st.stack, "pickM")}</table></div>
+  <div class="card"><b>📲 Randis UDS Mobile app, on every app platform</b><p class="mut" style="margin:4px 0">An installable, offline web app holding Randis UDS app tabs (they run unchanged and keep their saves on the phone). ${DESKTOP ? "The Randis UDS app builds it and serves it to this PC (the Sim Phone tab), or to a phone on the same Wi-Fi when you ask it to (it warns first)." : ""}</p>${DESKTOP ? "" : getApp("Building the mobile app and serving it to your phone runs from the Randis UDS app.")}
+   <table><tr><th>Platform</th><th>How</th><th>State</th><th>Still needs</th></tr>${OSCORE.PLATFORMS.map(p => `<tr><td><b>${esc(p[0])}</b></td><td>${esc(p[1])}</td><td><span class="pill ${/works|done/.test(p[2]) ? "ok" : ""}">${esc(p[2])}</span></td><td class="mut">${esc(p[3])}</td></tr>`).join("")}</table>
+   <div class="mut" style="margin-top:6px">As a phone app: installable (manifest + icons), works offline after the first visit, and app saves stay on the phone.</div></div>`;
+});
+
+function DV() { if (!S.drv) S.drv = {hw: "", kind: "hello", name: "mydriver", vid: "1234", did: "5678"}; return S.drv; }
+page("drivers", "Suites", "🔌 Drivers", () => {
+  const d = DV(), hw = OSCORE.parseHW(d.hw), g = OSCORE.makeDriver(d.kind, d.name, d.vid, d.did), lint = OSCORE.lintC(g.files[g.name + ".c"]);
+  return `<h2>🔌 Drivers suite</h2><p class="lead">Find out what hardware an OS sees and which Linux driver runs it, then start your own driver from a skeleton. <b>Safety:</b> build and load drivers only inside a VM (Randis UDOS in the VM Suite), never on this PC.</p>
+  <div class="card"><b>1. What hardware is there?</b><p class="mut" style="margin:4px 0">Paste <code>lspci -nn</code>, <code>lsusb</code>, or this line's output from inside Randis UDOS (it reads /sys, no tools needed):</p><pre>${esc(OSCORE.HW_CMD)}</pre>
+   <textarea rows="5" placeholder="paste here" oninput="DV().hw=this.value;save()" onchange="rerender()">${esc(d.hw)}</textarea><button class="b" onclick="rerender()">Read it</button>
+   ${hw.length ? `<table><tr><th>ID</th><th>Kind</th><th>Device</th><th>Linux driver</th><th>Running now</th><th>In UDOS's kernel?</th><th>Firmware</th></tr>${hw.map(h => `<tr><td><code>${esc(h.id)}</code></td><td>${esc(h.cls)}</td><td>${esc(h.name)}</td><td><b>${esc(h.driver)}</b></td><td>${esc(h.loaded || "—")}</td><td>${h.virt === null ? "?" : h.virt ? "<span class='ok'>yes</span>" : "<span class='warn'>needs linux-lts</span>"}</td><td class="mut">${esc(h.firmware || "")}</td></tr>`).join("")}</table>` : ""}</div>
+  <div class="card"><b>2. Start a driver</b><div class="grid">
+   <label class="f"><span>Kind</span><select class="w" onchange="DV().kind=this.value;save();rerender()">${Object.entries(OSCORE.DRV_KINDS).map(([k, v]) => `<option value="${k}" ${d.kind === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
+   <label class="f"><span>Name</span><input type="text" value="${esc(d.name)}" onchange="DV().name=this.value;save();rerender()"></label>
+   ${["pci", "usb"].includes(d.kind) ? `<label class="f"><span>Vendor ID (hex)</span><input type="text" value="${esc(d.vid)}" onchange="DV().vid=this.value;save();rerender()"></label><label class="f"><span>Device ID (hex)</span><input type="text" value="${esc(d.did)}" onchange="DV().did=this.value;save();rerender()"></label>` : ""}</div>
+   <div class="${lint.length ? "bad" : "ok"}">${lint.length ? "Check: " + esc(lint.join("; ")) : "✔ Structure check passed (braces, licence, entry point)."}</div>
+   ${Object.entries(g.files).map(([f, t]) => `<details ${f.endsWith(".c") ? "open" : ""}><summary><b>${esc(f)}</b> <button class="b" onclick="event.preventDefault();download('${esc(f)}',${esc(JSON.stringify(t))},'text/plain')">⬇</button></summary><pre>${esc(t)}</pre></details>`).join("")}</div>`;
+});
+function PT() { if (!S.patches) S.patches = {a: "", b: "", path: "etc/issue", subj: "", list: []}; if (!S.patches.list) S.patches.list = []; return S.patches; }
+page("patches", "Suites", "🩹 Patches", () => {
+  const p = PT(), d = OSCORE.diff(p.a, p.b, p.path || "file");
+  const files = S.alpine.files || [];
+  return `<h2>🩹 Patches suite</h2><p class="lead">Make a patch from a change, apply patches to your OS's files, keep a patch series, and export them the way Linux and git projects take them.</p>
+  <div class="card"><b>Make a patch</b><label class="f"><span>File path in the OS</span><input type="text" value="${esc(p.path)}" onchange="PT().path=this.value.trim();save();rerender()"></label>
+   <div class="grid" style="grid-template-columns:1fr 1fr"><label class="f"><span>Before</span><textarea rows="8" onchange="PT().a=this.value;save();rerender()">${esc(p.a)}</textarea></label><label class="f"><span>After</span><textarea rows="8" onchange="PT().b=this.value;save();rerender()">${esc(p.b)}</textarea></label></div>
+   ${files.length ? `<div class="mut">Start from one of your design's files: ${files.map((f, i) => `<button class="b" onclick="PT().path='${esc(f.path.replace(/^\//, ""))}';PT().a=PT().b=S.alpine.files[${i}].text;save();rerender()">${esc(f.path)}</button>`).join("")}</div>` : ""}
+   <pre>${esc(d || "(no change yet)")}</pre>
+   ${d ? `<label class="f"><span>What it does (one line)</span><input type="text" value="${esc(p.subj)}" onchange="PT().subj=this.value;save()"></label><button class="b pri" onclick="PT().list.push({path:PT().path,subj:PT().subj||'Change '+PT().path,diff:OSCORE.diff(PT().a,PT().b,PT().path)});save();rerender()">+ Add to the series</button><button class="b" onclick="download((PT().path||'file').replace(/\\W+/g,'_')+'.patch',OSCORE.diff(PT().a,PT().b,PT().path),'text/x-diff')">⬇ .patch</button>` : ""}</div>
+  <div class="card"><b>Patch series</b> <span class="mut">(${p.list.length}) applied in order to your Alpine design's files</span>
+   <table>${p.list.map((x, i) => `<tr><td>${i + 1}</td><td><b>${esc(x.subj)}</b><br><code>${esc(x.path)}</code></td><td><button class="b" onclick="applyToDesign(${i})">Apply to the design</button><button class="b" onclick="download('${String(i + 1).padStart(4, "0")}-'+PT().list[${i}].subj.replace(/\\W+/g,'-').slice(0,40)+'.patch',OSCORE.formatPatch(PT().list[${i}].diff,PT().list[${i}].subj,'You','you@example.com',''),'text/x-diff')">⬇ git format</button><button class="b del" onclick="PT().list.splice(${i},1);save();rerender()">✕</button></td></tr>`).join("") || "<tr><td class='mut'>None yet.</td></tr>"}</table></div>
+  <div class="card"><b>Apply a patch you got</b><textarea id="inpatch" rows="6" placeholder="paste a unified diff (--- a/… +++ b/… @@ …)"></textarea><button class="b" onclick="applyPasted()">Apply to the design file it names</button><div id="pres" class="mut"></div></div>`;
+});
+function applyToDesign(i) { const x = PT().list[i], f = (S.alpine.files || []).find(f => f.path.replace(/^\//, "") === x.path.replace(/^\//, ""));
+  if (!f) return toast("No design file /" + x.path + " (add it on the Alpine designer first).", 5000); const r = OSCORE.applyPatch(f.text, x.diff);
+  if (!r.ok) return toast("Didn't apply: " + r.errors.join("; "), 6000); f.text = r.text; save(); toast("Applied to /" + x.path); }
+function applyPasted() { const t = $("#inpatch").value, m = /^\+\+\+ (?:b\/)?(\S+)/m.exec(t); if (!m) return $("#pres").textContent = "No +++ line naming the file.";
+  const f = (S.alpine.files || []).find(f => f.path.replace(/^\//, "") === m[1].replace(/^\//, "")); if (!f) return $("#pres").textContent = "No design file /" + m[1];
+  const r = OSCORE.applyPatch(f.text, t); if (!r.ok) return $("#pres").textContent = "Didn't apply: " + r.errors.join("; "); f.text = r.text; save(); $("#pres").textContent = "✔ Applied to /" + m[1]; }
+
+</script>
+<script>
+if (HOST) { parent.postMessage({uds: "store-get"}, "*"); setTimeout(() => { if (!loaded) { fallback = true; let d = null; try { d = JSON.parse(localStorage.getItem("distro-studio")); } catch (e) {} boot(d); } }, 2500); }
+else { let d = null; try { d = JSON.parse(localStorage.getItem("distro-studio")); } catch (e) {} boot(d); }
+</script>
+</body></html>

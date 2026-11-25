@@ -1,0 +1,18 @@
+{
+ "id": "tcg0design",
+ "name": "Trading Card Studio",
+ "created": 1795420464.66402,
+ "icon": "tab-cards",
+ "section": "Create",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1795420464.6652367,
+   "uds": "0.1.15"
+  }
+ ],
+ "current": 1
+}

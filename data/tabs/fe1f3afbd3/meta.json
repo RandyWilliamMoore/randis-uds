@@ -1,0 +1,18 @@
+{
+ "id": "fe1f3afbd3",
+ "name": "System Resource Monitor",
+ "created": 1793163017.203696,
+ "icon": "tab-sysmon",
+ "section": "Tools",
+ "origin_chat": null,
+ "versions": [
+  {
+   "n": 1,
+   "file": "v001.html",
+   "note": "First version",
+   "time": 1793163017.2042108,
+   "uds": "0.1.0"
+  }
+ ],
+ "current": 1
+}

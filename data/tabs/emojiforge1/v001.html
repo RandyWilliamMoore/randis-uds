@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Emoji Forge</title>
+<!-- Randis UDS™ by Randy Moore. Original: https://github.com/RandyWilliamMoore/randis-uds · Support: https://ko-fi.com/moorescombinatoricsmatrix -->
+<style>
+:root{--bg:#0a0e1c;--s1:#121833;--ln:#2a3258;--tx:#eef1ff;--tx2:#aab3d6;--ac:#8b5cff;--ac2:#22d3ee}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px "Segoe UI",system-ui,sans-serif;padding:20px 24px 60px}
+h1{margin:0 0 4px;font:700 26px Bahnschrift,"Segoe UI",sans-serif}h3{margin:18px 0 8px;text-transform:capitalize;color:var(--tx2);font-weight:600}
+.muted{color:var(--tx2)}.small{font-size:12px}.eyebrow{font:600 11px/1 monospace;letter-spacing:.12em;color:var(--ac2);margin-bottom:6px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+input,textarea{background:var(--s1);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:7px 9px;font:inherit}
+textarea{width:100%;font:12px Consolas,monospace;min-height:110px}
+.btn{background:var(--s1);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:7px 12px;cursor:pointer}.btn:hover{border-color:var(--ac2)}
+.btn.pri{background:var(--ac);border-color:var(--ac)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:4px 10px;border-radius:99px;border:1px solid var(--ln);background:none;color:var(--tx2);cursor:pointer;text-transform:capitalize}.chip.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.card{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;background:var(--s1);border:1px solid var(--ln);border-radius:8px;color:var(--tx2);cursor:pointer;font:11px Consolas,monospace}
+.card:hover{border-color:var(--ac2);color:var(--tx)}.card img{width:48px;height:48px}.card i{position:absolute;top:4px;right:7px;font-style:normal;opacity:.45}.card i:hover{opacity:1;color:var(--ac2)}
+.glass{background:var(--s1);border:1px solid var(--ln);border-radius:10px;padding:14px 16px;margin-top:18px}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ac);color:#fff;padding:8px 14px;border-radius:8px;display:none}
+code{background:#1b2244;padding:1px 5px;border-radius:4px}
+</style></head><body data-no-emoji>
+<div class="eyebrow" id="count">RANDIS EMOJI</div>
+<h1>✨ Emoji Forge</h1>
+<p class="muted">Every Randis Emoji, including the custom icon of each app tab. Click one to copy its code (like <code>:brain-bolt:</code>), which shows as the picture anywhere in this app. Click ⬇ on a card for its PNG, for Discord, Slack or any app that takes custom emoji.</p>
+<div class="row"><input id="q" placeholder="Search…" style="flex:1;max-width:320px">
+ <button class="btn" id="allp">⬇ All as PNG (128 px)</button><button class="btn" id="sheet">⬇ Emoji sheet (HTML)</button><button class="btn" id="pack">⬇ Pack (JSON with SVG)</button></div>
+<div class="chips" id="groups"></div>
+<div id="gal"></div>
+<div class="glass"><h3 style="margin-top:0">Make your own</h3>
+ <p class="small muted">Draw on a 64 × 64 grid with SVG shapes. Press Add and it is saved with this tab and shared with every page in the app.</p>
+ <div class="row"><input id="nn" placeholder="name-like-this" style="width:200px"><input id="nt" placeholder="search words" style="flex:1"></div>
+ <textarea id="ni"><circle cx="32" cy="32" r="24" fill="#8b5cff"/><path d="M20 34l8 8 16-18" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/></textarea>
+ <div class="row"><div id="np" style="width:64px;height:64px;border:1px solid var(--ln);border-radius:6px"></div><button class="btn pri" id="nadd">Add emoji</button><span class="small muted" id="nmsg">Tip: open a built-in one, copy its SVG from the pack, then change colours.</span></div>
+</div>
+<div class="glass"><h3 style="margin-top:0">Use it elsewhere</h3><ul class="muted small" style="margin:0;padding-left:18px">
+ <li><b>This app:</b> type <code>:name:</code> in any page.</li>
+ <li><b>Any web page:</b> the drawing code is one file, <code>ui/randis_emoji.js</code>. Add it with a script tag, then call <code>RandisEmoji.observe(document.body)</code>.</li>
+ <li><b>Chat apps:</b> download PNGs and upload them as custom emoji. They show only where you added them; phones only draw the official Unicode emoji.</li></ul></div>
+<div id="toast"></div>
+<script>
+(function () {
+  "use strict";
+  const $ = s => document.querySelector(s), esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const tell = m => { try { window.parent.postMessage(m, "*"); } catch (e) {} };
+  const inApp = window.parent !== window;
+  let mine = [], group = "all", waits = {};
+  const toast = t => { const e = $("#toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toast.h); toast.h = setTimeout(() => e.style.display = "none", 1800); };
+  const blob = u => { const b = atob(u.split(",")[1]), a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; };
+  const save = (name, data, type) => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); };
+  const clean = s => String(s).replace(/<script[\s\S]*?<\/script>|\son\w+="[^"]*"/gi, "");
+  function codelab(op, args) { return new Promise(res => { if (!inApp) return res({ error: "not in the app" }); const id = "ef-" + Math.random().toString(36).slice(2); waits[id] = res; setTimeout(() => { if (waits[id]) { delete waits[id]; res({ error: "no answer from the app" }); } }, 15000); tell({ uds: "codelab", id, op, args }); }); }
+  addEventListener("message", e => { const d = e.data || {};
+    if (d.uds === "codelab" && waits[d.id]) { waits[d.id](d.r || {}); delete waits[d.id]; }
+    if (d.uds === "store") { mine = (d.data && d.data.mine) || []; boot(); } });
+  function boot() {
+    const R = window.RandisEmoji; if (!R) { $("#gal").innerHTML = '<p class="muted">The emoji code didn\'t load. Open this tab inside Randis UDS.</p>'; return; }
+    mine.forEach(e => { try { if (!R.has(e.name)) R.add(e.name, e.tags, e.inner, "mine"); } catch (x) {} });
+    $("#count").textContent = "RANDIS EMOJI · " + R.list.length + " ICONS · SVG";
+    const groups = ["all", ...new Set(R.list.map(e => e.group))];
+    $("#groups").innerHTML = groups.map(g => `<button class="chip${g === group ? " on" : ""}" data-g="${esc(g)}">${esc(g === "tabs" ? "app tabs" : g)}</button>`).join("");
+    draw();
+  }
+  function draw() {
+    const R = window.RandisEmoji, qq = $("#q").value.toLowerCase().trim();
+    const gs = group === "all" ? [...new Set(R.list.map(e => e.group))] : [group];
+    $("#gal").innerHTML = gs.map(g => { const l = R.list.filter(e => e.group === g && (!qq || e.name.includes(qq) || (e.tags || "").includes(qq)));
+      return l.length ? `<h3>${esc(g === "tabs" ? "app tabs" : g)} (${l.length})</h3><div class="grid">${l.map(e => `<button class="card" data-n="${e.name}" title="${esc(e.tags || "")}"><img src="${R.url(e.name)}" alt=""><span>:${e.name}:</span><i data-p="${e.name}" title="Download PNG">⬇</i></button>`).join("")}</div>` : ""; }).join("") || '<p class="muted">Nothing matches.</p>';
+  }
+  $("#groups").onclick = e => { const b = e.target.closest("[data-g]"); if (!b) return; group = b.dataset.g; boot(); };
+  $("#q").oninput = draw;
+  $("#gal").onclick = e => { const c = e.target.closest(".card"); if (!c) return; const R = window.RandisEmoji, n = c.dataset.n;
+    if (e.target.dataset.p) { R.png(n, 128).then(u => save(n + ".png", blob(u), "image/png")); return; }
+    (navigator.clipboard ? navigator.clipboard.writeText(":" + n + ":") : Promise.reject()).then(() => toast("Copied :" + n + ":"), () => toast(":" + n + ":")); };
+  const prev = () => { $("#np").innerHTML = `<svg viewBox="0 0 64 64" width="64" height="64">${clean($("#ni").value)}</svg>`; };
+  $("#ni").oninput = prev; prev();
+  $("#nadd").onclick = async () => { const R = window.RandisEmoji; if (!R) return;
+    const n = $("#nn").value.trim().toLowerCase(), t = $("#nt").value, inner = clean($("#ni").value);
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(n)) return toast("Name: lowercase letters, digits and dashes"); if (R.has(n)) return toast("That name is taken");
+    try { R.add(n, t, inner, "mine"); } catch (e) { return toast(e.message); }
+    mine.push({ name: n, tags: t, inner }); tell({ uds: "store-set", data: { mine } });
+    const r = await codelab("emoji-share", { list: mine }); $("#nmsg").textContent = r.error ? "Saved in this tab (" + r.error + ")" : "Added and shared with every page in the app.";
+    group = "mine"; boot(); };
+  $("#allp").onclick = async () => { const R = window.RandisEmoji; for (const e of R.list) { save(e.name + ".png", blob(await R.png(e.name, 128)), "image/png"); await new Promise(z => setTimeout(z, 120)); } };
+  $("#pack").onclick = () => { const R = window.RandisEmoji; save("randis_emoji_pack.json", JSON.stringify({ name: "Randis Emoji", version: R.version, credit: "Randis UDS™ by Randy Moore · https://github.com/RandyWilliamMoore/randis-uds", emoji: R.list.map(e => ({ ...e, svg: R.svg(e.name) })) }, null, 1), "application/json"); };
+  $("#sheet").onclick = () => { const R = window.RandisEmoji; save("randis_emoji_sheet.html", `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Randis Emoji</title><style>body{background:#0a0e1c;color:#eef1ff;font:14px Segoe UI,sans-serif;padding:24px}div{display:inline-flex;flex-direction:column;align-items:center;width:120px;margin:8px}img{width:64px;height:64px}code{font-size:11px}</style></head><body><h1>Randis Emoji</h1>${R.list.map(e => `<div><img src="${R.url(e.name)}"><code>:${e.name}:</code></div>`).join("")}<p>Randis UDS™ by Randy Moore</p></body></html>`, "text/html"); };
+  addEventListener("load", () => { if (inApp) tell({ uds: "store-get" }); boot(); });
+})();
+</script>
+</body></html>
