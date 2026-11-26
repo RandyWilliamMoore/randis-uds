@@ -5,7 +5,8 @@ RUN apt-get update \
     gir1.2-gtk-3.0 gir1.2-webkit2-4.1 xvfb x11vnc openbox novnc websockify dbus dbus-x11 git ca-certificates \
     fonts-dejavu-core fonts-noto-color-emoji libgl1-mesa-dri \
  && rm -rf /var/lib/apt/lists/* \
- && useradd -m -s /bin/bash uds
+ && useradd -m -s /bin/bash uds \
+ && mkdir /app && chown uds:uds /app
 WORKDIR /app
 COPY --chown=uds:uds . /app
 USER uds
