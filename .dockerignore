@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+*.bak
+*.log
+target
+node_modules
+tests/_test_data
+tests/_built_pages
+tests/_test_projects
+data/snapshots
+data/logs
+data/session.json
+data/app.lock
+data/launch.log

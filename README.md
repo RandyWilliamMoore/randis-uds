@@ -139,6 +139,23 @@ Every tab has a **+ Add a bot** button, and the Bots tab (in the + menu) has one
 
 A built tab stays walled off from the internet. A game in one can still play a friend: the first time it asks, Randis UDS asks you whether to allow online play for that tab, and keeps your answer. One player hosts and gets a private invite code, the other types it in. Every message is sealed with AES-256-GCM, using a key made from the code, before it leaves the app; the app only carries the sealed text through a free public MQTT relay (broker.emqx.io, broker.hivemq.com or test.mosquitto.org) over TLS. The relay can't read what's sent, but it can see that two copies are talking and when. Anyone with the code can join, so send it privately.
 
+## Docker
+
+Each release is also a Docker image. It runs the Linux build inside the container and shows the app's desktop in your browser (noVNC), since Randis UDS is a desktop app, not a web page.
+
+```bash
+docker run -d --name randis-uds --shm-size=512m -p 127.0.0.1:6080:6080 ghcr.io/randywilliammoore/randis-uds:latest
+```
+
+Then open http://localhost:6080/vnc.html and press **Connect**. The first start takes up to a minute.
+
+- `-e VNC_PASSWORD=yourpassword` asks for that password before showing the app. Without it anyone who can reach the port sees the app, so keep the `127.0.0.1:` part unless you set one.
+- `-e SCREEN_WIDTH=1920 -e SCREEN_HEIGHT=1080` changes the desktop size (1600 x 900 to start with).
+- `docker stop randis-uds` and `docker start randis-uds` keep what you made in it. `docker rm` deletes it.
+- Inside the container there's no microphone, sound or GPU, and links to Claude Code or a local model on your own computer aren't set up.
+
+Build it yourself: `docker build -t randis-uds .`
+
 ## Tests
 
 ```powershell
