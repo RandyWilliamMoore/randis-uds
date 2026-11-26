@@ -147,7 +147,7 @@ Each release is also a Docker image. It runs the Linux build inside the containe
 docker run -d --name randis-uds --shm-size=512m -p 127.0.0.1:6080:6080 ghcr.io/randywilliammoore/randis-uds:latest
 ```
 
-Then open http://localhost:6080/vnc.html and press **Connect**. The first start takes up to a minute.
+Then open http://localhost:6080/vnc.html and press **Connect**. The app is up a few seconds after the container starts.
 
 - `-e VNC_PASSWORD=yourpassword` asks for that password before showing the app. Without it anyone who can reach the port sees the app, so keep the `127.0.0.1:` part unless you set one.
 - `-e SCREEN_WIDTH=1920 -e SCREEN_HEIGHT=1080` changes the desktop size (1600 x 900 to start with).
